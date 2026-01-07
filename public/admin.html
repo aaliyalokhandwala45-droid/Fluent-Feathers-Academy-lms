@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Fluent Feathers Academy V2.0</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎓 Admin Dashboard V2.0</h1>
+      <p>Fluent Feathers Academy - Enhanced Professional LMS</p>
+      <button onclick="location.href='index.html'" class="logout-btn">Logout</button>
+    </header>
+
+    <!-- Enhanced Navigation Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" onclick="showTab('students')">👥 Students</button>
+      <button class="tab-btn" onclick="showTab('sessions')">📅 Sessions</button>
+      <button class="tab-btn" onclick="showTab('materials')">📚 Materials</button>
+      <button class="tab-btn" onclick="showTab('events')">🎉 Events</button>
+      <button class="tab-btn" onclick="showTab('timetable')">🗓️ Timetable</button>
+      <button class="tab-btn" onclick="showTab('emails')">📧 Emails</button>
+    </div>
+
+    <!-- ==================== DASHBOARD TAB ==================== -->
+    <div id="dashboardTab" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-value" id="totalStudents">0</div>
+          <div class="stat-label">Total Students</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-value" id="upcomingSessions">0</div>
+          <div class="stat-label">Upcoming Sessions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📚</div>
+          <div class="stat-value" id="todaySessions">0</div>
+          <div class="stat-label">Today's Classes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💰</div>
+          <div class="stat-value" id="totalRevenue">₹0</div>
+          <div class="stat-label">Total Revenue</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🎉</div>
+          <div class="stat-value" id="upcomingEvents">0</div>
+          <div class="stat-label">Upcoming Events</div>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <h2>⚡ Quick Actions</h2>
+        <div class="action-buttons">
+          <button onclick="showTab('students')" class="action-btn">➕ Add Student</button>
+          <button onclick="showTab('sessions')" class="action-btn">📅 Schedule Classes</button>
+          <button onclick="showTab('materials')" class="action-btn">📤 Upload Material</button>
+          <button onclick="showTab('events')" class="action-btn">🎉 Create Event</button>
+          <button onclick="window.open('https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09', '_blank')" class="action-btn">🎥 Join Zoom</button>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="recent-activity">
+        <h2>📋 Recent Activity</h2>
+        <div id="recentActivityList">
+          <p style="text-align: center; color: #7f8c8d; padding: 20px;">Loading recent activity...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== STUDENTS TAB ==================== -->
+    <div id="studentsTab" class="tab-content">
+      <!-- Add Student Form -->
+      <section class="form-section">
+        <h2>➕ Add New Student</h2>
+        <form id="addStudentForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Student Name *</label>
+              <input type="text" id="studentName" required>
+            </div>
+            <div class="form-group">
+              <label>Grade *</label>
+              <input type="text" id="grade" required placeholder="e.g., Grade 5">
+            </div>
+          </div>
+
+          <div class="form-row">
+  <div class="form-group">
+    <label>Parent Name *</label>
+    <input type="text" id="parentName" required>
+  </div>
+  <div class="form-group">
+    <label>Parent Email *</label>
+    <input type="email" id="parentEmail" required>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-group">
+    <label>Primary Contact Number *</label>
+    <input type="tel" id="primaryContact" required placeholder="+91 98765 43210" pattern="[+0-9\s\-()]+">
+  </div>
+  <div class="form-group">
+    <label>Alternate Contact Number</label>
+    <input type="tel" id="alternateContact" placeholder="+91 98765 43210 (Optional)" pattern="[+0-9\s\-()]+">
+  </div>
+</div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Timezone *</label>
+              <select id="timezone" required>
+                <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                <option value="America/New_York">America/New_York (EST)</option>
+                <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+                <option value="Europe/London">Europe/London (GMT)</option>
+                <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Program Name *</label>
+              <input type="text" id="programName" required placeholder="e.g., English Speaking">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Class Type *</label>
+              <select id="classType" required>
+                <option value="">Select...</option>
+                <option value="Private">Private</option>
+                <option value="Group">Group</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Duration *</label>
+              <select id="duration" required>
+                <option value="">Select...</option>
+                <option value="25 mins">25 mins</option>
+                <option value="40 mins">40 mins</option>
+                <option value="60 mins">60 mins</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Currency *</label>
+              <select id="currency" required>
+                <option value="₹">₹ (INR - Indian Rupee)</option>
+                <option value="$">$ (USD - US Dollar)</option>
+                <option value="€">€ (EUR - Euro)</option>
+                <option value="£">£ (GBP - British Pound)</option>
+                <option value="د.إ">د.إ (AED - UAE Dirham)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Per Session Fee *</label>
+              <input type="number" id="perSessionFee" required min="0" step="0.01">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Total Sessions *</label>
+              <input type="number" id="totalSessions" required min="1">
+            </div>
+            <div class="form-group">
+              <label>Total Fees (Auto-calculated)</label>
+              <input type="text" id="totalFees" readonly style="background: #f0f0f0;">
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary">Add Student & Send Welcome Email</button>
+        </form>
+      </section>
+
+      <!-- All Students Table -->
+      <section class="table-section">
+        <h2>📋 All Active Students</h2>
+        <div class="table-filters">
+          <input type="text" id="searchStudents" placeholder="🔍 Search students..." style="padding: 10px; border: 2px solid #ddd; border-radius: 5px; width: 300px;">
+        </div>
+        
+        <table id="studentsTable">
+          <thead>
+            <tr>
+              <th>Student & Grade</th>
+              <th>Program</th>
+              <th>Type</th>
+              <th>Timezone</th>
+              <th>Currency</th>
+              <th>Per Session</th>
+              <th>Sessions (C/R)</th>
+              <th>Payment</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentsTableBody">
+            <tr><td colspan="9" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Student Details Modal -->
+    <div id="studentDetailsModal" class="modal" style="display: none;">
+      <div class="modal-content large-modal">
+        <div class="modal-header">
+          <h2 id="modalStudentName">Student Details</h2>
+          <button onclick="closeStudentModal()" class="btn-close">✕</button>
+        </div>
+
+        <div class="student-details-tabs">
+          <button class="detail-tab-btn active" onclick="showDetailTab('info')">📋 Info</button>
+          <button class="detail-tab-btn" onclick="showDetailTab('payments')">💰 Payments</button>
+          <button class="detail-tab-btn" onclick="showDetailTab('makeup')">🎁 Make-up Classes</button>
+          <button class="detail-tab-btn" onclick="showDetailTab('sessions')">📅 Sessions</button>
+        </div>
+
+        <!-- Info Tab -->
+        <div id="infoDetail" class="detail-tab-content active">
+          <div id="studentInfoContent"></div>
+        </div>
+
+        <!-- Payments Tab -->
+        <div id="paymentsDetail" class="detail-tab-content">
+          <button onclick="showPaymentForm()" class="btn-primary" style="margin-bottom: 20px;">+ Record New Payment</button>
+          
+          <div id="paymentFormSection" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3>Record Payment</h3>
+            <form id="recordPaymentForm">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Amount *</label>
+                  <input type="number" id="paymentAmount" required step="0.01">
+                </div>
+                <div class="form-group">
+                  <label>Payment Method *</label>
+                  <select id="paymentMethod" required>
+                    <option value="Cash">Cash</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Credit/Debit Card</option>
+                    <option value="Check">Check</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Receipt Number</label>
+                  <input type="text" id="receiptNumber" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                  <label>Sessions Covered</label>
+                  <input type="text" id="sessionsCovered" placeholder="e.g., Sessions 1-10">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Notes</label>
+                <textarea id="paymentNotes" rows="2" placeholder="Additional notes..."></textarea>
+              </div>
+              <button type="submit" class="btn-primary">Record Payment</button>
+              <button type="button" onclick="hidePaymentForm()" class="btn-secondary">Cancel</button>
+            </form>
+          </div>
+
+          <table id="paymentHistoryTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Receipt #</th>
+                <th>Sessions</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="paymentHistoryBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Make-up Classes Tab -->
+        <div id="makeupDetail" class="detail-tab-content">
+          <div id="makeupClassesContent"></div>
+        </div>
+
+        <!-- Sessions Tab -->
+        <div id="sessionsDetail" class="detail-tab-content">
+          <div id="studentSessionsContent"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Edit Student Modal -->
+<div id="editStudentModal" class="modal" style="display: none;">
+  <div class="modal-content large-modal">
+    <div class="modal-header">
+      <h2>✏️ Edit Student Details</h2>
+      <button onclick="closeEditModal()" class="btn-close">✕</button>
+    </div>
+
+    <form id="editStudentForm">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Student Name *</label>
+          <input type="text" id="editStudentName" required>
+        </div>
+        <div class="form-group">
+          <label>Grade *</label>
+          <input type="text" id="editGrade" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Parent Name *</label>
+          <input type="text" id="editParentName" required>
+        </div>
+        <div class="form-group">
+          <label>Parent Email *</label>
+          <input type="email" id="editParentEmail" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Primary Contact *</label>
+          <input type="tel" id="editPrimaryContact" required>
+        </div>
+        <div class="form-group">
+          <label>Alternate Contact</label>
+          <input type="tel" id="editAlternateContact">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Timezone *</label>
+          <select id="editTimezone" required>
+            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+            <option value="America/New_York">America/New_York (EST)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+            <option value="Europe/London">Europe/London (GMT)</option>
+            <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+            <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+            <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Program Name *</label>
+          <input type="text" id="editProgramName" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Class Type *</label>
+          <select id="editClassType" required>
+            <option value="Private">Private</option>
+            <option value="Group">Group</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Duration *</label>
+          <select id="editDuration" required>
+            <option value="25 mins">25 mins</option>
+            <option value="40 mins">40 mins</option>
+            <option value="60 mins">60 mins</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Currency *</label>
+          <select id="editCurrency" required>
+            <option value="₹">₹ (INR)</option>
+            <option value="$">$ (USD)</option>
+            <option value="€">€ (EUR)</option>
+            <option value="£">£ (GBP)</option>
+            <option value="د.إ">د.إ (AED)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Per Session Fee *</label>
+          <input type="number" id="editPerSessionFee" required step="0.01">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Total Sessions *</label>
+          <input type="number" id="editTotalSessions" required min="1">
+        </div>
+        <div class="form-group">
+          <label>Total Fees (Auto-calculated)</label>
+          <input type="text" id="editTotalFees" readonly style="background: #f0f0f0;">
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary">💾 Save Changes</button>
+      <button type="button" onclick="closeEditModal()" class="btn-secondary">Cancel</button>
+    </form>
+  </div>
+</div>
+    <!-- ==================== SESSIONS TAB ==================== -->
+    <div id="sessionsTab" class="tab-content">
+      <section class="form-section">
+        <h2>📅 Schedule Classes</h2>
+        <form id="scheduleForm">
+          <div class="form-group">
+            <label>Select Student *</label>
+            <select id="scheduleStudentId" required>
+              <option value="">Select student...</option>
+            </select>
+          </div>
+          
+          <div id="classScheduleList"></div>
+          
+          <div style="margin: 20px 0;">
+            <button type="button" onclick="addScheduleRow()" class="btn-secondary">+ Add Class</button>
+            <button type="button" onclick="addBulkSchedule()" class="btn-secondary">📅 Bulk Schedule (Weekly Pattern)</button>
+          </div>
+          
+          <button type="submit" class="btn-primary">Schedule All Classes & Send Email</button>
+        </form>
+      </section>
+
+      <!-- Bulk Schedule Section -->
+      <div id="bulkScheduleSection" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>📅 Bulk Schedule - Weekly Pattern</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Select Days *</label>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <label><input type="checkbox" value="Monday"> Monday</label>
+              <label><input type="checkbox" value="Tuesday"> Tuesday</label>
+              <label><input type="checkbox" value="Wednesday"> Wednesday</label>
+              <label><input type="checkbox" value="Thursday"> Thursday</label>
+              <label><input type="checkbox" value="Friday"> Friday</label>
+              <label><input type="checkbox" value="Saturday"> Saturday</label>
+              <label><input type="checkbox" value="Sunday"> Sunday</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Time *</label>
+            <input type="time" id="bulkScheduleTime" required>
+          </div>
+          <div class="form-group">
+            <label>Number of Weeks *</label>
+            <input type="number" id="bulkScheduleWeeks" min="1" max="12" value="4">
+          </div>
+          <div class="form-group">
+            <label>Start Date *</label>
+            <input type="date" id="bulkScheduleStartDate" required>
+          </div>
+        </div>
+        <button type="button" onclick="generateBulkSchedule()" class="btn-primary">Generate Schedule</button>
+        <button type="button" onclick="closeBulkSchedule()" class="btn-secondary">Cancel</button>
+      </div>
+
+      <!-- Today's Attendance -->
+      <section class="table-section">
+        <h2>📋 Today's Classes - Quick Attendance</h2>
+        <table id="todaySessionsTable">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Session #</th>
+              <th>Time</th>
+              <th>Program</th>
+              <th>Status</th>
+              <th>Quick Actions</th>
+            </tr>
+          </thead>
+          <tbody id="todaySessionsBody">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- All Sessions -->
+      <section class="table-section">
+        <h2>📅 All Sessions</h2>
+        <div class="form-row" style="margin-bottom: 20px;">
+          <div class="form-group">
+            <label>Filter by Student</label>
+            <select id="filterSessionStudent" onchange="loadAllSessions()">
+              <option value="">All Students</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter by Status</label>
+            <select id="filterSessionStatus" onchange="loadAllSessions()">
+              <option value="">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Completed">Completed</option>
+              <option value="Missed">Missed</option>
+              <option value="Cancelled by Teacher">Cancelled by Teacher</option>
+              <option value="Cancelled by Parent">Cancelled by Parent</option>
+            </select>
+          </div>
+        </div>
+        
+        <table id="allSessionsTable">
+          <thead>
+            <tr>
+              <th>Session #</th>
+              <th>Student</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Attendance</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="allSessionsBody">
+            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- ==================== MATERIALS TAB ==================== -->
+    <div id="materialsTab" class="tab-content">
+      <section class="form-section">
+        <h2>📤 Upload Class Material</h2>
+        <form id="uploadMaterialForm" enctype="multipart/form-data">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Upload Type *</label>
+              <select id="uploadType" required onchange="toggleUploadTarget()">
+                <option value="">Select...</option>
+                <option value="private">Private Student</option>
+                <option value="batch">Batch/Group</option>
+              </select>
+            </div>
+            <div class="form-group" id="privateTargetGroup" style="display: none;">
+              <label>Select Private Student *</label>
+              <select id="privateStudentId">
+                <option value="">Select student...</option>
+              </select>
+            </div>
+            <div class="form-group" id="batchTargetGroup" style="display: none;">
+              <label>Select Batch *</label>
+              <select id="batchSelect">
+                <option value="">Select batch...</option>
+                <option value="Group A">Group A</option>
+                <option value="Group B">Group B</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Session Date *</label>
+              <input type="date" id="materialSessionDate" required>
+            </div>
+            <div class="form-group">
+              <label>Material Type *</label>
+              <select id="materialType" required>
+                <option value="">Select...</option>
+                <option value="PPT">📊 PPT/Presentation</option>
+                <option value="PDF">📄 PDF/Document</option>
+                <option value="Recording">🎥 Class Recording</option>
+                <option value="Homework">📝 Homework Assignment</option>
+                <option value="Notes">📓 Study Notes</option>
+                <option value="Other">📁 Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Upload File *</label>
+            <input type="file" id="materialFile" required>
+            <small>Max 50MB - Supported: PDF, PPT, DOCX, MP4, ZIP, etc.</small>
+          </div>
+
+          <button type="submit" class="btn-primary">📤 Upload Material & Notify Students</button>
+        </form>
+      </section>
+
+      <!-- All Materials -->
+      <section class="table-section">
+        <h2>📚 All Uploaded Materials</h2>
+        <div class="form-row" style="margin-bottom: 20px;">
+          <div class="form-group">
+            <label>Filter by Student</label>
+            <select id="filterMaterialStudent" onchange="loadMaterials()">
+              <option value="">All Students</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter by Type</label>
+            <select id="filterMaterialType" onchange="loadMaterials()">
+              <option value="">All Types</option>
+              <option value="PPT">PPT</option>
+              <option value="PDF">PDF</option>
+              <option value="Recording">Recording</option>
+              <option value="Homework">Homework</option>
+              <option value="Notes">Notes</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <table id="materialsTable">
+  <thead>
+    <tr>
+      <th>Target</th>
+      <th>Date</th>
+      <th>Type</th>
+      <th>File Name</th>
+      <th>Uploaded By</th>
+      <th>Uploaded At</th>
+      <th>Feedback</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="materialsTableBody">
+    <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
+  </tbody>
+</table>
+
+<!-- Feedback Modal -->
+<div id="feedbackModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📝 Give Homework Feedback</h2>
+      <button onclick="closeFeedbackModal()" class="btn-close">✕</button>
+    </div>
+    <form id="feedbackForm">
+      <div class="form-group">
+        <label>Grade *</label>
+        <select id="feedbackGrade" required>
+          <option value="">Select grade...</option>
+          <option value="A+">A+ Excellent</option>
+          <option value="A">A Very Good</option>
+          <option value="B+">B+ Good</option>
+          <option value="B">B Satisfactory</option>
+          <option value="C">C Needs Improvement</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Feedback Comments *</label>
+        <textarea id="feedbackComments" rows="4" required placeholder="Write your feedback here..."></textarea>
+      </div>
+      <button type="submit" class="btn-primary">✅ Submit & Send Email</button>
+      <button type="button" onclick="closeFeedbackModal()" class="btn-secondary">Cancel</button>
+    </form>
+  </section>
+  </div>
+
+    <!-- ==================== EVENTS TAB ==================== -->
+
+    <!-- ==================== EVENTS TAB ==================== -->
+    <div id="eventsTab" class="tab-content">
+      <section class="form-section">
+        <h2>🎉 Create New Event</h2>
+        <form id="createEventForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Event Type *</label>
+              <select id="eventType" required>
+                <option value="">Select...</option>
+                <option value="Workshop">🎓 Workshop</option>
+                <option value="Competition">🏆 Competition</option>
+                <option value="Showcase">🎭 Showcase</option>
+                <option value="Webinar">💻 Webinar</option>
+                <option value="Other">📌 Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Event Name *</label>
+              <input type="text" id="eventName" required placeholder="e.g., Public Speaking Workshop">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Description *</label>
+            <textarea id="eventDescription" rows="3" required placeholder="Describe the event..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Event Date *</label>
+              <input type="date" id="eventDate" required>
+            </div>
+            <div class="form-group">
+              <label>Event Time *</label>
+              <input type="time" id="eventTime" required>
+            </div>
+            <div class="form-group">
+              <label>Duration *</label>
+              <select id="eventDuration" required>
+                <option value="30 minutes">30 minutes</option>
+                <option value="1 hour">1 hour</option>
+                <option value="1.5 hours">1.5 hours</option>
+                <option value="2 hours">2 hours</option>
+                <option value="3 hours">3 hours</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Zoom Link *</label>
+              <input type="url" id="eventZoomLink" required placeholder="https://zoom.us/j/...">
+            </div>
+            <div class="form-group">
+              <label>Max Participants (0 = Unlimited)</label>
+              <input type="number" id="eventMaxParticipants" min="0" value="0">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Registration Deadline</label>
+            <input type="datetime-local" id="eventRegistrationDeadline">
+          </div>
+
+          <button type="submit" class="btn-primary">🎉 Create Event & Send Announcements</button>
+        </form>
+      </section>
+
+      <!-- All Events -->
+      <section class="table-section">
+        <h2>📋 All Events</h2>
+        <table id="eventsTable">
+          <thead>
+            <tr>
+              <th>Event Name</th>
+              <th>Type</th>
+              <th>Date & Time</th>
+              <th>Registered</th>
+              <th>Capacity</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="eventsTableBody">
+            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Event Details Modal -->
+    <div id="eventDetailsModal" class="modal" style="display: none;">
+      <div class="modal-content large-modal">
+        <div class="modal-header">
+          <h2 id="modalEventName">Event Details</h2>
+          <button onclick="closeEventModal()" class="btn-close">✕</button>
+        </div>
+
+        <div id="eventDetailsContent"></div>
+
+        <div id="eventAttendanceSection" style="margin-top: 20px;">
+          <h3>Mark Attendance</h3>
+          <div id="eventRegistrationsList"></div>
+          <button onclick="markEventAttendance()" class="btn-primary">✅ Save Attendance & Generate Certificates</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TIMETABLE TAB ==================== -->
+    <div id="timetableTab" class="tab-content">
+      <section class="form-section">
+        <h2>➕ Add Time Slot</h2>
+        <form id="addSlotForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Day of Week *</label>
+              <select id="dayOfWeek" required>
+                <option value="">Select...</option>
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Time Slot *</label>
+              <input type="text" id="timeSlot" required placeholder="e.g., 4:00 PM - 4:40 PM">
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">Add Slot</button>
+        </form>
+      </section>
+
+      <section class="table-section">
+        <h2>📅 Weekly Timetable</h2>
+        <div id="timetableView" class="timetable-grid"></div>
+      </section>
+    </div>
+
+    <!-- ==================== EMAILS TAB ==================== -->
+    <div id="emailsTab" class="tab-content">
+      <section class="table-section">
+        <h2>📧 Email Log</h2>
+        <p style="color: #7f8c8d; margin-bottom: 20px;">Track all automated emails sent by the system</p>
+        
+        <div class="form-row" style="margin-bottom: 20px;">
+          <div class="form-group">
+            <label>Filter by Type</label>
+            <select id="filterEmailType" onchange="loadEmailLog()">
+              <option value="">All Types</option>
+              <option value="Welcome">Welcome</option>
+              <option value="Schedule">Schedule</option>
+              <option value="24h Reminder">24h Reminder</option>
+              <option value="1h Reminder">1h Reminder</option>
+              <option value="Cancellation">Cancellation</option>
+              <option value="Material Upload">Material Upload</option>
+              <option value="Event Announcement">Event Announcement</option>
+              <option value="Certificate">Certificate</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter by Status</label>
+            <select id="filterEmailStatus" onchange="loadEmailLog()">
+              <option value="">All Status</option>
+              <option value="Sent">Sent</option>
+              <option value="Failed">Failed</option>
+            </select>
+          </div>
+        </div>
+
+        <table id="emailsTable">
+          <thead>
+            <tr>
+              <th>Sent At</th>
+              <th>Recipient</th>
+              <th>Email</th>
+              <th>Type</th>
+              <th>Subject</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="emailsTableBody">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Book Slot Modal -->
+    <div id="bookSlotModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <h2>📝 Book Time Slot</h2>
+        <form id="bookSlotForm">
+          <div class="form-group">
+            <label>Select Student *</label>
+            <select id="bookStudentId" required>
+              <option value="">Select student...</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary">Book Slot</button>
+          <button type="button" onclick="closeBookModal()" class="btn-secondary">Cancel</button>
+        </form>
+      </div>
+    </div></div> <!-- Close container -->
+
+  <script>
+// ==================== COMPLETE JAVASCRIPT FOR ADMIN PANEL ====================
+
+// Global Variables
+let allStudents = [];
+let allEvents = [];
+let currentStudentId = null;
+let currentEventId = null;
+let currentBookingSlotId = null;
+let scheduleCounter = 0;
+
+// ==================== INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🎓 Admin Panel Loading...');
+  
+  loadDashboardStats();
+  loadStudents();
+  loadEvents();
+  setupFormHandlers();
+  
+  document.getElementById('perSessionFee')?.addEventListener('input', calculateTotalFees);
+  document.getElementById('totalSessions')?.addEventListener('input', calculateTotalFees);
+  
+  // Payment Recording Handler
+  document.getElementById('recordPaymentForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const paymentData = {
+      amount: parseFloat(document.getElementById('paymentAmount').value),
+      currency: allStudents.find(s => s.id === currentStudentId)?.currency || '₹',
+      payment_method: document.getElementById('paymentMethod').value,
+      receipt_number: document.getElementById('receiptNumber').value,
+      sessions_covered: document.getElementById('sessionsCovered').value,
+      notes: document.getElementById('paymentNotes').value
+    };
+    
+    try {
+      const response = await fetch(`/api/students/${currentStudentId}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentData)
+      });
+      
+      if (response.ok) {
+        alert('✅ Payment recorded successfully!');
+        document.getElementById('recordPaymentForm').reset();
+        hidePaymentForm();
+        viewStudentDetails(currentStudentId);
+        loadStudents();
+      } else {
+        const result = await response.json();
+        alert('❌ ' + result.error);
+      }
+    } catch (error) {
+      alert('❌ Failed to record payment');
+      console.error(error);
+    }
+  });
+
+  // ==================== EDIT FORM LISTENERS ====================
+  // Add event listeners for edit form
+  document.getElementById('editPerSessionFee')?.addEventListener('input', calculateEditTotalFees);
+  document.getElementById('editTotalSessions')?.addEventListener('input', calculateEditTotalFees);
+  document.getElementById('editCurrency')?.addEventListener('change', calculateEditTotalFees);
+
+  // Handle Edit Form Submission
+  document.getElementById('editStudentForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const updatedData = {
+      name: document.getElementById('editStudentName').value,
+      grade: document.getElementById('editGrade').value,
+      parent_name: document.getElementById('editParentName').value,
+      parent_email: document.getElementById('editParentEmail').value,
+      primary_contact: document.getElementById('editPrimaryContact').value,
+      alternate_contact: document.getElementById('editAlternateContact').value || null,
+      timezone: document.getElementById('editTimezone').value,
+      program_name: document.getElementById('editProgramName').value,
+      class_type: document.getElementById('editClassType').value,
+      duration: document.getElementById('editDuration').value,
+      currency: document.getElementById('editCurrency').value,
+      per_session_fee: parseFloat(document.getElementById('editPerSessionFee').value),
+      total_sessions: parseInt(document.getElementById('editTotalSessions').value)
+    };
+    
+    try {
+      const response = await fetch(`/api/students/${currentEditStudentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert('✅ ' + result.message);
+        closeEditModal();
+        loadStudents();
+        loadDashboardStats();
+      } else {
+        alert('❌ ' + result.error);
+      }
+    } catch (error) {
+      alert('❌ Failed to update student');
+      console.error(error);
+    }
+  });
+  
+  console.log('✅ Admin Panel Loaded!');
+});
+
+// ==================== TAB NAVIGATION ====================
+// ==================== TAB NAVIGATION ====================
+function showTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  
+  document.getElementById(tabName + 'Tab').classList.add('active');
+  event.target.classList.add('active');
+  
+  switch(tabName) {
+    case 'dashboard': 
+      loadDashboardStats(); 
+      break;
+    case 'students': 
+      loadStudents(); 
+      break;
+    case 'sessions': 
+      loadSessionsTab(); 
+      break;
+    case 'materials': 
+      loadMaterialsTab(); 
+      break;
+    case 'events': 
+      loadEvents().then(() => loadEventsTab()); 
+      break;
+    case 'timetable': 
+      loadTimetableTab(); 
+      break;
+    case 'emails': 
+      loadEmailLog(); 
+      break;
+  }
+}
+// ==================== DASHBOARD ====================
+async function loadDashboardStats() {
+  try {
+    const response = await fetch('/api/dashboard/stats');
+    const stats = await response.json();
+    
+    document.getElementById('totalStudents').textContent = stats.totalStudents;
+    document.getElementById('upcomingSessions').textContent = stats.upcomingSessions;
+    document.getElementById('todaySessions').textContent = stats.todaySessions;
+    document.getElementById('totalRevenue').textContent = '₹' + (stats.totalRevenue || 0).toLocaleString();
+    document.getElementById('upcomingEvents').textContent = stats.upcomingEvents || 0;
+  } catch (error) {
+    console.error('Error loading stats:', error);
+  }
+}
+
+// ==================== STUDENTS ====================
+async function loadStudents() {
+  try {
+    const response = await fetch('/api/students');
+    allStudents = await response.json();
+    renderStudentsTable();
+    populateStudentDropdowns();
+  } catch (error) {
+    console.error('Error loading students:', error);
+  }
+}
+
+function renderStudentsTable() {
+  const tbody = document.getElementById('studentsTableBody');
+  
+  if (allStudents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No students yet</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = allStudents.map(s => `
+    <tr>
+      <td><strong>${s.name}</strong><br><small style="color: #7f8c8d;">Grade ${s.grade}</small></td>
+      <td>${s.program_name}<br><small>${s.duration}</small></td>
+      <td><span class="badge-${s.class_type.toLowerCase()}">${s.class_type}</span></td>
+      <td>${s.timezone}</td>
+      <td>${s.currency}</td>
+      <td>${s.currency}${s.per_session_fee}</td>
+      <td><strong style="color: #27ae60;">${s.completed_sessions}</strong> / <strong style="color: #e74c3c;">${s.remaining_sessions}</strong></td>
+      <td>${s.currency}${s.fees_paid}</td>
+      <td>
+        <button onclick="viewStudentDetails(${s.id})" class="btn-view">Details</button>
+        <button onclick="openEditModal(${s.id})" class="btn-edit">Edit</button>
+        <button onclick="deleteStudent(${s.id}, '${s.name}')" class="btn-mini-delete">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+
+function calculateTotalFees() {
+  const perSession = parseFloat(document.getElementById('perSessionFee').value) || 0;
+  const totalSessions = parseInt(document.getElementById('totalSessions').value) || 0;
+  const currency = document.getElementById('currency').value;
+  document.getElementById('totalFees').value = currency + (perSession * totalSessions).toFixed(2);
+}
+
+function populateStudentDropdowns() {
+  const dropdowns = ['scheduleStudentId', 'filterSessionStudent', 'privateStudentId', 'filterMaterialStudent', 'bookStudentId'];
+  
+  dropdowns.forEach(id => {
+    const dropdown = document.getElementById(id);
+    if (dropdown) {
+      const isFilter = id.startsWith('filter');
+      dropdown.innerHTML = isFilter ? '<option value="">All Students</option>' : '<option value="">Select student...</option>';
+      allStudents.forEach(s => {
+        dropdown.innerHTML += `<option value="${s.id}">${s.name} - ${s.program_name}</option>`;
+      });
+    }
+  });
+}
+
+async function deleteStudent(id, name) {
+  if (!confirm(`Delete student "${name}"?`)) return;
+  
+  try {
+    const response = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+    if (response.ok) {
+      alert('✅ Student deleted!');
+      loadStudents();
+      loadDashboardStats();
+    }
+  } catch (error) {
+    alert('❌ Failed to delete student');
+  }
+}
+
+async function viewStudentDetails(studentId) {
+  currentStudentId = studentId;
+  
+  try {
+    const response = await fetch(`/api/students/${studentId}/details`);
+    const data = await response.json();
+    
+    const student = data.student;
+    
+    document.getElementById('modalStudentName').textContent = `${student.name} - Details`;
+    
+    // Fill Info Tab
+    document.getElementById('studentInfoContent').innerHTML = `
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>👤 Personal Information</h3>
+          <p><strong>Name:</strong> ${student.name}</p>
+          <p><strong>Grade:</strong> ${student.grade}</p>
+          <p><strong>Parent:</strong> ${student.parent_name}</p>
+          <p><strong>Email:</strong> ${student.parent_email}</p>
+          <p><strong>Primary Contact:</strong> ${student.primary_contact || '-'}</p>
+  ${student.alternate_contact ? `<p><strong>Alternate Contact:</strong> ${student.alternate_contact}</p>` : ''}
+          <p><strong>Timezone:</strong> ${student.timezone}</p>
+        </div>
+        <div class="info-card">
+          <h3>📚 Program Details</h3>
+          <p><strong>Program:</strong> ${student.program_name}</p>
+          <p><strong>Class Type:</strong> ${student.class_type}</p>
+          <p><strong>Duration:</strong> ${student.duration}</p>
+          <p><strong>Per Session:</strong> ${student.currency}${student.per_session_fee}</p>
+        </div>
+        <div class="info-card">
+          <h3>📊 Progress</h3>
+          <p><strong>Total Sessions:</strong> ${student.total_sessions}</p>
+          <p><strong>Completed:</strong> <span style="color: #27ae60;">${student.completed_sessions}</span></p>
+          <p><strong>Remaining:</strong> <span style="color: #e74c3c;">${student.remaining_sessions}</span></p>
+          <p><strong>Fees Paid:</strong> ${student.currency}${student.fees_paid}</p>
+        </div>
+      </div>
+    `;
+    
+    // Fill Payment History Tab
+    if (data.paymentHistory && data.paymentHistory.length > 0) {
+      document.getElementById('paymentHistoryBody').innerHTML = data.paymentHistory.map(p => `
+        <tr>
+          <td>${p.payment_date}</td>
+          <td>${p.currency}${p.amount}</td>
+          <td>${p.payment_method}</td>
+          <td>${p.receipt_number || '-'}</td>
+          <td>${p.sessions_covered || '-'}</td>
+          <td>${p.notes || '-'}</td>
+        </tr>
+      `).join('');
+    } else {
+      document.getElementById('paymentHistoryBody').innerHTML = '<tr><td colspan="6" style="text-align: center;">No payment history</td></tr>';
+    }
+    
+    // Fill Makeup Classes Tab
+    if (data.makeupClasses && data.makeupClasses.length > 0) {
+      document.getElementById('makeupClassesContent').innerHTML = `
+        <div class="makeup-summary">
+          <h3>🎁 Available Makeup Credits: ${data.makeupClasses.filter(m => m.status === 'Available').length}</h3>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Credit Date</th>
+              <th>Reason</th>
+              <th>Status</th>
+              <th>Used Date</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.makeupClasses.map(m => `
+              <tr>
+                <td>${m.credit_date}</td>
+                <td>${m.reason}</td>
+                <td><span class="status-${m.status.toLowerCase()}">${m.status}</span></td>
+                <td>${m.used_date || '-'}</td>
+                <td>${m.notes || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      document.getElementById('makeupClassesContent').innerHTML = '<p style="text-align: center; padding: 20px;">No makeup classes</p>';
+    }
+    
+    // Fill Sessions Tab
+    const sessionsResponse = await fetch(`/api/sessions/${studentId}`);
+    const sessions = await sessionsResponse.json();
+    
+    if (sessions.length > 0) {
+      document.getElementById('studentSessionsContent').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Session #</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Attendance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sessions.map(s => `
+              <tr>
+                <td>${s.session_number}</td>
+                <td>${s.session_date}</td>
+                <td>${s.session_time}</td>
+                <td><span class="status-${s.status.toLowerCase().replace(/ /g, '-')}">${s.status}</span></td>
+                <td>${s.attendance || s.cancelled_by || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      document.getElementById('studentSessionsContent').innerHTML = '<p style="text-align: center; padding: 20px;">No sessions yet</p>';
+    }
+    
+    document.getElementById('studentDetailsModal').style.display = 'flex';
+    
+  } catch (error) {
+    alert('Failed to load student details');
+    console.error(error);
+  }
+}
+
+function closeStudentModal() {
+  document.getElementById('studentDetailsModal').style.display = 'none';
+}
+
+function showDetailTab(tabName) {
+  document.querySelectorAll('.detail-tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabName + 'Detail').classList.add('active');
+  event.target.classList.add('active');
+}
+
+function showPaymentForm() {
+  document.getElementById('paymentFormSection').style.display = 'block';
+}
+
+function hidePaymentForm() {
+  document.getElementById('paymentFormSection').style.display = 'none';
+}
+
+// ==================== FORM HANDLERS ====================
+function setupFormHandlers() {
+  // Add Student
+  document.getElementById('addStudentForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const studentData = {
+      name: document.getElementById('studentName').value,
+      grade: document.getElementById('grade').value,
+      parent_name: document.getElementById('parentName').value,
+      parent_email: document.getElementById('parentEmail').value,
+       primary_contact: document.getElementById('primaryContact').value,
+  alternate_contact: document.getElementById('alternateContact').value || null,
+      timezone: document.getElementById('timezone').value,
+      program_name: document.getElementById('programName').value,
+      class_type: document.getElementById('classType').value,
+      duration: document.getElementById('duration').value,
+      currency: document.getElementById('currency').value,
+      per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
+      total_sessions: parseInt(document.getElementById('totalSessions').value)
+    };
+    
+    try {
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(studentData)
+      });
+      
+      const result = await response.json();
+      if (response.ok) {
+        alert('✅ ' + result.message);
+        document.getElementById('addStudentForm').reset();
+        loadStudents();
+        loadDashboardStats();
+      } else {
+        alert('❌ ' + result.error);
+      }
+    } catch (error) {
+      alert('❌ Failed to add student');
+    }
+  });
+
+  // Schedule Classes
+  document.getElementById('scheduleForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const studentId = document.getElementById('scheduleStudentId').value;
+    const classes = [];
+    
+    for (let i = 1; i <= scheduleCounter; i++) {
+      const dateInput = document.getElementById(`scheduleDate${i}`);
+      const timeInput = document.getElementById(`scheduleTime${i}`);
+      if (dateInput && timeInput && dateInput.value && timeInput.value) {
+        classes.push({ date: dateInput.value, time: timeInput.value });
+      }
+    }
+    
+    if (classes.length === 0) {
+      alert('Please add at least one class');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/schedule/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId, classes })
+      });
+      
+      if (response.ok) {
+        alert('✅ Classes scheduled successfully!');
+        document.getElementById('scheduleForm').reset();
+        document.getElementById('classScheduleList').innerHTML = '';
+        scheduleCounter = 0;
+        loadAllSessions();
+        loadTodaySessions();
+        loadDashboardStats();
+      }
+    } catch (error) {
+      alert('❌ Failed to schedule classes');
+    }
+  });
+
+  // Upload Material
+  document.getElementById('uploadMaterialForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    const uploadType = document.getElementById('uploadType').value;
+    const targetId = uploadType === 'private' ? 
+      document.getElementById('privateStudentId').value :
+      document.getElementById('batchSelect').value;
+    
+    formData.append('file', document.getElementById('materialFile').files[0]);
+    formData.append('fileType', document.getElementById('materialType').value);
+    formData.append('sessionDate', document.getElementById('materialSessionDate').value);
+    formData.append('uploadType', uploadType);
+    
+    try {
+      const response = await fetch(`/api/upload/material/${targetId}`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (response.ok) {
+        alert('✅ Material uploaded successfully!');
+        document.getElementById('uploadMaterialForm').reset();
+        toggleUploadTarget();
+        loadMaterials();
+      }
+    } catch (error) {
+      alert('❌ Failed to upload material');
+    }
+  });
+
+  // Create Event
+  document.getElementById('createEventForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const eventData = {
+      event_type: document.getElementById('eventType').value,
+      event_name: document.getElementById('eventName').value,
+      event_description: document.getElementById('eventDescription').value,
+      event_date: document.getElementById('eventDate').value,
+      event_time: document.getElementById('eventTime').value,
+      duration: document.getElementById('eventDuration').value,
+      zoom_link: document.getElementById('eventZoomLink').value,
+      max_participants: parseInt(document.getElementById('eventMaxParticipants').value) || 0,
+      registration_deadline: document.getElementById('eventRegistrationDeadline').value
+    };
+    
+    try {
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      });
+      
+      if (response.ok) {
+        alert('✅ Event created successfully!');
+        document.getElementById('createEventForm').reset();
+        loadEvents();
+        loadEventsTab();
+        loadDashboardStats();
+      }
+    } catch (error) {
+      alert('❌ Failed to create event');
+    }
+  });
+
+  // Add Timetable Slot
+  document.getElementById('addSlotForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const slotData = {
+      day_of_week: document.getElementById('dayOfWeek').value,
+      time_slot: document.getElementById('timeSlot').value
+    };
+    
+    try {
+      const response = await fetch('/api/timetable/slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(slotData)
+      });
+      
+      if (response.ok) {
+        alert('✅ Time slot added!');
+        document.getElementById('addSlotForm').reset();
+        loadTimetable();
+      }
+    } catch (error) {
+      alert('❌ Failed to add slot');
+    }
+  });
+}
+
+// ==================== SESSIONS ====================
+function addScheduleRow() {
+  scheduleCounter++;
+  const row = document.createElement('div');
+  row.className = 'schedule-row';
+  row.id = `scheduleRow${scheduleCounter}`;
+  row.innerHTML = `
+    <input type="date" id="scheduleDate${scheduleCounter}" required>
+    <input type="time" id="scheduleTime${scheduleCounter}" required>
+    <button type="button" onclick="removeScheduleRow(${scheduleCounter})" class="btn-delete">✗</button>
+  `;
+  document.getElementById('classScheduleList').appendChild(row);
+}
+
+function removeScheduleRow(rowId) {
+  document.getElementById(`scheduleRow${rowId}`)?.remove();
+}
+
+function addBulkSchedule() {
+  document.getElementById('bulkScheduleSection').style.display = 'block';
+}
+
+function closeBulkSchedule() {
+  document.getElementById('bulkScheduleSection').style.display = 'none';
+}
+
+function generateBulkSchedule() {
+  const checkboxes = document.querySelectorAll('#bulkScheduleSection input[type="checkbox"]:checked');
+  const selectedDays = Array.from(checkboxes).map(cb => cb.value);
+  const time = document.getElementById('bulkScheduleTime').value;
+  const weeks = parseInt(document.getElementById('bulkScheduleWeeks').value);
+  const startDate = new Date(document.getElementById('bulkScheduleStartDate').value);
+  
+  if (selectedDays.length === 0 || !time) {
+    alert('Please select days and time');
+    return;
+  }
+  
+  const dayMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+  const dates = [];
+  
+  for (let week = 0; week < weeks; week++) {
+    selectedDays.forEach(day => {
+      const targetDay = dayMap[day];
+      const currentDay = startDate.getDay();
+      const daysToAdd = (targetDay - currentDay + 7) % 7 + (week * 7);
+      const scheduleDate = new Date(startDate);
+      scheduleDate.setDate(startDate.getDate() + daysToAdd);
+      dates.push(scheduleDate.toISOString().split('T')[0]);
+    });
+  }
+  
+  dates.sort().forEach(date => {
+    addScheduleRow();
+    document.getElementById(`scheduleDate${scheduleCounter}`).value = date;
+    document.getElementById(`scheduleTime${scheduleCounter}`).value = time;
+  });
+  
+  closeBulkSchedule();
+  alert(`✅ Generated ${dates.length} classes!`);
+}
+
+async function loadSessionsTab() {
+  populateStudentDropdowns();
+  await loadTodaySessions();
+  await loadAllSessions();
+}
+
+async function loadTodaySessions() {
+  const today = new Date().toISOString().split('T')[0];
+  const tbody = document.getElementById('todaySessionsBody');
+  
+  try {
+    const promises = allStudents.map(s => fetch(`/api/sessions/${s.id}`).then(r => r.json()));
+    const results = await Promise.all(promises);
+    const allSessions = results.flat();
+    const todaySessions = allSessions.filter(s => s.session_date === today && ['Pending', 'Scheduled'].includes(s.status));
+    
+    if (todaySessions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No classes today</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = todaySessions.map(session => {
+      const student = allStudents.find(s => s.id === session.student_id);
+      return `
+        <tr>
+          <td><strong>${student?.name || 'Unknown'}</strong></td>
+          <td>Session ${session.session_number}</td>
+          <td>${session.session_time}</td>
+          <td>${student?.program_name || '-'}</td>
+          <td><span class="status-${session.status.toLowerCase()}">${session.status}</span></td>
+          <td>
+            <button onclick="quickMarkPresent(${session.student_id})" class="btn-present">✓ Present</button>
+            <button onclick="quickMarkAbsent(${session.student_id})" class="btn-absent">✗ Absent</button>
+            <button onclick="quickCancelClass(${session.student_id})" class="btn-cancel">Cancel</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+async function loadAllSessions() {
+  const filterStudentId = document.getElementById('filterSessionStudent')?.value;
+  const filterStatus = document.getElementById('filterSessionStatus')?.value;
+  const tbody = document.getElementById('allSessionsBody');
+  
+  try {
+    let allSessions = [];
+    
+    if (filterStudentId) {
+      const response = await fetch(`/api/sessions/${filterStudentId}`);
+      allSessions = await response.json();
+    } else {
+      const promises = allStudents.map(s => fetch(`/api/sessions/${s.id}`).then(r => r.json()));
+      const results = await Promise.all(promises);
+      allSessions = results.flat();
+    }
+    
+    if (filterStatus) allSessions = allSessions.filter(s => s.status === filterStatus);
+    
+    if (allSessions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No sessions found</td></tr>';
+      return;
+    }
+    
+    allSessions.sort((a, b) => new Date(b.session_date) - new Date(a.session_date));
+    
+    tbody.innerHTML = allSessions.map(session => {
+      const student = allStudents.find(s => s.id === session.student_id);
+      return `
+        <tr>
+          <td>${session.session_number}</td>
+          <td>${student?.name || 'Unknown'}</td>
+          <td>${session.session_date}</td>
+          <td>${session.session_time}</td>
+          <td><span class="status-${session.status.toLowerCase().replace(/ /g, '-')}">${session.status}</span></td>
+          <td>${session.attendance || session.cancelled_by || '-'}</td>
+          <td>${session.zoom_link ? `<a href="${session.zoom_link}" target="_blank" class="btn-zoom-mini">Join</a>` : ''}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+async function quickMarkPresent(studentId) {
+  if (!confirm('Mark as Present?')) return;
+  try {
+    const response = await fetch(`/api/attendance/present/${studentId}`, { method: 'POST' });
+    if (response.ok) {
+      alert('✅ Marked present!');
+      loadTodaySessions();
+      loadAllSessions();
+      loadStudents();
+      loadDashboardStats();
+    }
+  } catch (error) {
+    alert('❌ Failed');
+  }
+}
+
+async function quickMarkAbsent(studentId) {
+  const reason = prompt('Reason (optional):');
+  try {
+    const response = await fetch(`/api/attendance/absent/${studentId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
+    if (response.ok) {
+      alert('✅ Marked absent!');
+      loadTodaySessions();
+      loadAllSessions();
+      loadStudents();
+    }
+  } catch (error) {
+    alert('❌ Failed');
+  }
+}
+
+async function quickCancelClass(studentId) {
+  const reason = prompt('Reason for cancellation:');
+  if (!reason) return;
+  try {
+    const response = await fetch(`/api/attendance/cancel/${studentId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
+    if (response.ok) {
+      alert('✅ Class cancelled!');
+      loadTodaySessions();
+      loadAllSessions();
+      loadStudents();
+      loadDashboardStats();
+    }
+  } catch (error) {
+    alert('❌ Failed');
+  }
+}
+
+// ==================== MATERIALS ====================
+async function loadMaterialsTab() {
+  populateStudentDropdowns();
+  await loadMaterials();
+}
+
+function toggleUploadTarget() {
+  const uploadType = document.getElementById('uploadType').value;
+  const privateGroup = document.getElementById('privateTargetGroup');
+  const batchGroup = document.getElementById('batchTargetGroup');
+  
+  if (uploadType === 'private') {
+    privateGroup.style.display = 'block';
+    batchGroup.style.display = 'none';
+  } else if (uploadType === 'batch') {
+    privateGroup.style.display = 'none';
+    batchGroup.style.display = 'block';
+  } else {
+    privateGroup.style.display = 'none';
+    batchGroup.style.display = 'none';
+  }
+}
+
+async function loadMaterials() {
+  try {
+    const response = await fetch('/api/materials/all/admin');
+    let materials = await response.json();
+    
+    const filterStudent = document.getElementById('filterMaterialStudent')?.value;
+    const filterType = document.getElementById('filterMaterialType')?.value;
+    
+    if (filterStudent) materials = materials.filter(m => m.student_id == filterStudent);
+    if (filterType) materials = materials.filter(m => m.file_type === filterType);
+    
+    const tbody = document.getElementById('materialsTableBody');
+    
+    if (materials.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No materials yet</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = materials.map(m => {
+      const student = allStudents.find(s => s.id === m.student_id);
+      const target = m.student_id ? (student ? student.name : 'Private') : m.batch_name;
+      
+      // Show feedback column for ALL materials, but highlight parent-uploaded homework
+      let feedbackCell = '';
+      if (m.uploaded_by === 'Parent' && m.file_type === 'Homework') {
+        if (m.feedback_given) {
+          feedbackCell = `<span style="color: #27ae60;">✅ Given</span><br>
+            <button onclick="viewFeedback(${m.id})" class="btn-view" style="margin-top: 5px;">View</button>`;
+        } else {
+          feedbackCell = `<button onclick="giveFeedback(${m.id})" class="btn-primary">📝 Give Feedback</button>`;
+        }
+      } else {
+        feedbackCell = '-';
+      }
+      
+      // Determine correct file path based on uploader
+      const filePath = m.uploaded_by === 'Parent' ? `homework/${m.file_path}` : `materials/${m.file_path}`;
+      
+      return `
+        <tr>
+          <td>${target}</td>
+          <td>${m.session_date}</td>
+          <td><span class="material-badge ${m.uploaded_by === 'Parent' ? 'hw-badge' : ''}">${m.file_type}${m.uploaded_by === 'Parent' ? ' 📤' : ''}</span></td>
+          <td>${m.file_name}</td>
+          <td><strong>${m.uploaded_by}</strong></td>
+          <td>${new Date(m.uploaded_at).toLocaleString()}</td>
+          <td>${feedbackCell}</td>
+          <td>
+            <a href="/uploads/${filePath}" target="_blank" class="btn-download">Download</a>
+            <button onclick="deleteMaterial(${m.id})" class="btn-mini-delete">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+async function deleteMaterial(materialId) {
+  if (!confirm('Delete this material?')) return;
+  try {
+    const response = await fetch(`/api/materials/${materialId}`, { method: 'DELETE' });
+    if (response.ok) {
+      alert('✅ Material deleted!');
+      loadMaterials();
+    }
+  } catch (error) {
+    alert('❌ Failed');
+  }
+}
+
+// ==================== EVENTS ====================
+async function loadEvents() {
+  try {
+    const response = await fetch('/api/events');
+    allEvents = await response.json();
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+async function loadEventsTab() {
+  await loadEvents();
+  const tbody = document.getElementById('eventsTableBody');
+  
+  if (allEvents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No events yet</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = allEvents.map(e => `
+    <tr>
+      <td><strong>${e.event_name}</strong></td>
+      <td>${e.event_type}</td>
+      <td>${e.event_date} at ${e.event_time}</td>
+      <td>${e.registered_count || 0}</td>
+      <td>${e.max_participants > 0 ? `${e.registered_count}/${e.max_participants}` : 'Unlimited'}</td>
+      <td><span class="status-${e.event_status.toLowerCase()}">${e.event_status}</span></td>
+      <td>
+        <button onclick="viewEventDetails(${e.id})" class="btn-view">View</button>
+        ${e.event_status === 'Upcoming' ? `<button onclick="markEventComplete(${e.id})" class="btn-secondary">Complete</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function viewEventDetails(eventId) {
+  currentEventId = eventId;
+  
+  try {
+    const eventResponse = await fetch(`/api/events`);
+    const events = await eventResponse.json();
+    const event = events.find(e => e.id === eventId);
+    
+    const regResponse = await fetch(`/api/events/${eventId}/registrations`);
+    const registrations = await regResponse.json();
+    
+    document.getElementById('modalEventName').textContent = event.event_name;
+    
+    const content = `
+      <div class="event-details-info">
+        <h3>📋 Event Information</h3>
+        <p><strong>Type:</strong> ${event.event_type}</p>
+        <p><strong>Date & Time:</strong> ${event.event_date} at ${event.event_time}</p>
+        <p><strong>Duration:</strong> ${event.duration}</p>
+        <p><strong>Description:</strong> ${event.event_description}</p>
+        <p><strong>Zoom Link:</strong> <a href="${event.zoom_link}" target="_blank">${event.zoom_link}</a></p>
+        <p><strong>Max Participants:</strong> ${event.max_participants > 0 ? event.max_participants : 'Unlimited'}</p>
+        <p><strong>Registered Students:</strong> ${registrations.length}</p>
+        <p><strong>Status:</strong> <span class="status-${event.event_status.toLowerCase()}">${event.event_status}</span></p>
+      </div>
+    `;
+    
+    document.getElementById('eventDetailsContent').innerHTML = content;
+    
+    // ALWAYS show the attendance section
+    const attendanceSection = document.getElementById('eventAttendanceSection');
+    
+    if (registrations.length > 0) {
+      // Show registrations list with checkboxes
+      const registrationsList = registrations.map(r => {
+        const student = allStudents.find(s => s.id === r.student_id);
+        return `
+          <div class="registration-item">
+            <input type="checkbox" id="attendee_${r.student_id}" value="${r.student_id}" 
+              ${r.attendance_status === 'Attended' ? 'checked disabled' : ''}>
+            <label for="attendee_${r.student_id}">
+              <strong>${student?.name || 'Student #' + r.student_id}</strong> - ${r.parent_name}
+              ${r.attendance_status === 'Attended' ? ' <span style="color: #27ae60;">✓ Attended</span>' : ''}
+            </label>
+          </div>
+        `;
+      }).join('');
+      
+      document.getElementById('eventRegistrationsList').innerHTML = registrationsList;
+      attendanceSection.style.display = 'block';
+    } else {
+      // Show message when no registrations
+      document.getElementById('eventRegistrationsList').innerHTML = `
+        <div style="text-align: center; padding: 30px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <h3 style="color: #856404; margin-bottom: 10px;">⚠️ No Registrations Yet</h3>
+          <p style="color: #856404;">No students have registered for this event.</p>
+          <p style="color: #856404; margin-top: 15px;">
+            <strong>Note:</strong> Students need to register before you can mark attendance and generate certificates.
+          </p>
+        </div>
+      `;
+      attendanceSection.style.display = 'block';
+      
+      // Hide the "Mark Attendance" button since there are no registrations
+      const markAttendanceBtn = attendanceSection.querySelector('button');
+      if (markAttendanceBtn) markAttendanceBtn.style.display = 'none';
+    }
+    
+    document.getElementById('eventDetailsModal').style.display = 'flex';
+    
+  } catch (error) {
+    alert('Failed to load event details');
+    console.error(error);
+  }
+}
+function closeEventModal() {
+  document.getElementById('eventDetailsModal').style.display = 'none';
+}
+
+async function markEventComplete(eventId) {
+  if (!confirm('Mark event as complete?')) return;
+  try {
+    const response = await fetch(`/api/events/${eventId}/complete`, { method: 'POST' });
+    if (response.ok) {
+      alert('✅ Event completed!');
+      loadEvents();
+      loadEventsTab();
+    }
+  } catch (error) {
+    alert('❌ Failed');
+  }
+}
+
+async function markEventAttendance() {
+  const checkboxes = document.querySelectorAll('#eventRegistrationsList input[type="checkbox"]:checked:not([disabled])');
+  const attendedStudents = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  
+  if (attendedStudents.length === 0) {
+    alert('Please select at least one attendee');
+    return;
+  }
+  
+  if (!confirm(`Mark ${attendedStudents.length} students as attended and generate certificates?`)) return;
+  
+  try {
+    const response = await fetch(`/api/events/${currentEventId}/attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attendedStudents })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('✅ ' + result.message);
+      closeEventModal();
+      loadEvents();
+      loadEventsTab();
+    } else {
+      alert('❌ ' + result.error);
+    }
+  } catch (error) {
+    alert('❌ Failed to mark attendance');
+    console.error(error);
+  }
+}
+
+// ==================== TIMETABLE ====================
+async function loadTimetableTab() {
+  populateStudentDropdowns();
+  await loadTimetable();
+}
+
+async function loadTimetable() {
+  try {
+    const response = await fetch('/api/timetable/slots');
+    const slots = await response.json();
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const timetableView = document.getElementById('timetableView');
+    
+    let html = '';
+    days.forEach(day => {
+      const daySlots = slots.filter(s => s.day_of_week === day);
+      html += `<div class="day-column"><h3>${day}</h3>`;
+      
+      if (daySlots.length === 0) {
+        html += '<p class="no-slots">No slots</p>';
+      } else {
+        daySlots.forEach(slot => {
+          const statusClass = slot.is_booked ? 'booked' : 'vacant';
+          html += `<div class="time-slot ${statusClass}">
+            <div class="slot-time">${slot.time_slot}</div>
+            ${slot.is_booked ? `
+              <div class="slot-student">${slot.student_name}</div>
+              <div class="slot-program">${slot.program_name}</div>
+              <button onclick="unbookSlot(${slot.id})" class="btn-mini-cancel">Free</button>
+            ` : `
+              <button onclick="openBookModal(${slot.id})" class="btn-mini-book">Book</button>
+            `}
+            <button onclick="deleteSlot(${slot.id})" class="btn-mini-delete">Delete</button>
+          </div>`;
+        });
+      }
+      html += '</div>';
+    });
+    
+    timetableView.innerHTML = html;
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+function openBookModal(slotId) {
+  currentBookingSlotId = slotId;
+  document.getElementById('bookSlotModal').style.display = 'flex';
+}
+
+function closeBookModal() {
+  document.getElementById('bookSlotModal').style.display = 'none';
+}
+
+async function unbookSlot(slotId) {
+  if (!confirm('Free this slot?')) return;
+  try {
+    const response = await fetch(`/api/timetable/unbook/${slotId}`, { method: 'POST' });
+    if (response.ok) {
+      alert('✅ Slot freed!');
+      loadTimetable();
+    }
+  } catch (error) {
+    alert('❌ Failed');
+  }
+}
+
+async function deleteSlot(slotId) {
+  if (!confirm('Delete this slot?')) return;
+  try {
+    const response = await fetch(`/api/timetable/slots/${slotId}`, { method: 'DELETE' });
+    if (response.ok) {
+      alert('✅ Slot deleted!');
+      loadTimetable();
+    }
+  } catch (error) {
+    alert('❌ Failed');
+  }
+}
+
+// ==================== EMAILS ====================
+async function loadEmailsTab() {
+  await loadEmailLog();
+}
+
+async function loadEmailLog() {
+  try {
+    const response = await fetch('/api/emails/log');
+    let emails = await response.json();
+    
+    const filterType = document.getElementById('filterEmailType')?.value;
+    const filterStatus = document.getElementById('filterEmailStatus')?.value;
+    
+    if (filterType) emails = emails.filter(e => e.email_type === filterType);
+    if (filterStatus) emails = emails.filter(e => e.status === filterStatus);
+    
+    const tbody = document.getElementById('emailsTableBody');
+    
+    if (emails.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No emails yet</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = emails.map(email => `
+      <tr>
+        <td>${new Date(email.sent_at).toLocaleString()}</td>
+        <td>${email.recipient_name}</td>
+        <td>${email.recipient_email}</td>
+        <td><span class="email-type-badge">${email.email_type}</span></td>
+        <td>${email.subject}</td>
+        <td><span class="status-${email.status.toLowerCase()}">${email.status}</span></td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+// ==================== SEARCH FUNCTIONALITY ====================
+document.getElementById('searchStudents')?.addEventListener('input', (e) => {
+  const searchTerm = e.target.value.toLowerCase();
+  const filteredStudents = allStudents.filter(s => 
+    s.name.toLowerCase().includes(searchTerm) ||
+    s.parent_name.toLowerCase().includes(searchTerm) ||
+    s.program_name.toLowerCase().includes(searchTerm)
+  );
+  
+  const tbody = document.getElementById('studentsTableBody');
+  
+  if (filteredStudents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No students found</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = filteredStudents.map(s => `
+    <tr>
+      <td><strong>${s.name}</strong><br><small style="color: #7f8c8d;">Grade ${s.grade}</small></td>
+      <td>${s.program_name}<br><small>${s.duration}</small></td>
+      <td><span class="badge-${s.class_type.toLowerCase()}">${s.class_type}</span></td>
+      <td>${s.timezone}</td>
+      <td>${s.currency}</td>
+      <td>${s.currency}${s.per_session_fee}</td>
+      <td><strong style="color: #27ae60;">${s.completed_sessions}</strong> / <strong style="color: #e74c3c;">${s.remaining_sessions}</strong></td>
+      <td>${s.currency}${s.fees_paid}</td>
+      <td>
+        <button onclick="viewStudentDetails(${s.id})" class="btn-view">Details</button>
+        <button onclick="openEditModal(${s.id})" class="btn-edit">Edit</button>
+        <button onclick="deleteStudent(${s.id}, '${s.name}')" class="btn-mini-delete">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+});
+
+// ==================== AUTO-REFRESH ====================
+setInterval(() => {
+  const currentTab = document.querySelector('.tab-content.active');
+  if (currentTab && currentTab.id === 'dashboardTab') {
+    loadDashboardStats();
+  }
+}, 60000);
+
+// ==================== KEYBOARD SHORTCUTS ====================
+document.addEventListener('keydown', (e) => {
+  if (e.altKey && e.key >= '1' && e.key <= '7') {
+    e.preventDefault();
+    const tabs = ['dashboard', 'students', 'sessions', 'materials', 'events', 'timetable', 'emails'];
+    const tabIndex = parseInt(e.key) - 1;
+    if (tabs[tabIndex]) {
+      showTab(tabs[tabIndex]);
+    }
+  }
+});
+
+// ==================== CONSOLE MESSAGES ====================
+console.log('%c🎓 Fluent Feathers Academy LMS V2.0', 'font-size: 20px; font-weight: bold; color: #667eea;');
+console.log('%cAdmin Panel Loaded Successfully! ✅', 'font-size: 14px; color: #27ae60;');
+console.log('%cKeyboard Shortcuts: Alt+1 to Alt+7 for quick tab switching', 'font-size: 11px;');
+console.log('%cFor support: Admin Dashboard Ready', 'font-size: 11px; color: #7f8c8d;');
+
+// Add CSS for homework badge highlight
+const style = document.createElement('style');
+style.textContent = `
+  .hw-badge {
+    background: #e67e22 !important;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+`;
+document.head.appendChild(style);
+// ==================== HOMEWORK FEEDBACK ====================
+let currentFeedbackMaterialId = null;
+
+function giveFeedback(materialId) {
+  currentFeedbackMaterialId = materialId;
+  document.getElementById('feedbackForm').reset();
+  document.getElementById('feedbackModal').style.display = 'flex';
+}
+
+function closeFeedbackModal() {
+  document.getElementById('feedbackModal').style.display = 'none';
+  currentFeedbackMaterialId = null;
+}
+
+function viewFeedback(materialId) {
+  fetch('/api/materials/all/admin')
+    .then(r => r.json())
+    .then(materials => {
+      const material = materials.find(m => m.id === materialId);
+      if (material && material.feedback_comments) {
+        alert(`Grade: ${material.feedback_grade}\n\nComments:\n${material.feedback_comments}`);
+      }
+    });
+}
+
+document.getElementById('feedbackForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const feedbackData = {
+    grade: document.getElementById('feedbackGrade').value,
+    comments: document.getElementById('feedbackComments').value
+  };
+  
+  try {
+    const response = await fetch(`/api/homework/${currentFeedbackMaterialId}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(feedbackData)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('✅ ' + result.message);
+      closeFeedbackModal();
+      loadMaterials();
+    } else {
+      alert('❌ ' + result.error);
+    }
+  } catch (error) {
+    alert('❌ Failed to submit feedback');
+    console.error(error);
+  }
+});
+// ==================== END OF JAVASCRIPT ====================
+// ==================== EDIT STUDENT FUNCTIONS ====================
+let currentEditStudentId = null;
+
+async function openEditModal(studentId) {
+  currentEditStudentId = studentId;
+  
+  try {
+    const response = await fetch(`/api/students/${studentId}/details`);
+    const data = await response.json();
+    const student = data.student;
+    
+    // Populate form fields
+    document.getElementById('editStudentName').value = student.name;
+    document.getElementById('editGrade').value = student.grade;
+    document.getElementById('editParentName').value = student.parent_name;
+    document.getElementById('editParentEmail').value = student.parent_email;
+    document.getElementById('editPrimaryContact').value = student.primary_contact || '';
+    document.getElementById('editAlternateContact').value = student.alternate_contact || '';
+    document.getElementById('editTimezone').value = student.timezone;
+    document.getElementById('editProgramName').value = student.program_name;
+    document.getElementById('editClassType').value = student.class_type;
+    document.getElementById('editDuration').value = student.duration;
+    document.getElementById('editCurrency').value = student.currency;
+    document.getElementById('editPerSessionFee').value = student.per_session_fee;
+    document.getElementById('editTotalSessions').value = student.total_sessions;
+    
+    // Calculate total fees
+    calculateEditTotalFees();
+    
+    // Show modal
+    document.getElementById('editStudentModal').style.display = 'flex';
+    
+  } catch (error) {
+    alert('❌ Failed to load student details');
+    console.error(error);
+  }
+}
+
+function closeEditModal() {
+  document.getElementById('editStudentModal').style.display = 'none';
+  currentEditStudentId = null;
+}
+
+function calculateEditTotalFees() {
+  const perSession = parseFloat(document.getElementById('editPerSessionFee').value) || 0;
+  const totalSessions = parseInt(document.getElementById('editTotalSessions').value) || 0;
+  const currency = document.getElementById('editCurrency').value;
+  document.getElementById('editTotalFees').value = currency + (perSession * totalSessions).toFixed(2);
+}
+
+// ==================== END OF JAVASCRIPT ====================
+  </script>
+</body>
+</html>
