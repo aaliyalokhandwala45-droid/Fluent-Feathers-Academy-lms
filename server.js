@@ -1,16 +1,21 @@
 console.log("🚀 SERVER FILE STARTED");
+
+require('dotenv').config(); // 👈 move this UP
+
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
 const cron = require('node-cron');
-require('dotenv').config();
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY); // 👈 perfect place
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 
 // Middleware
 app.use(express.json());
@@ -273,15 +278,14 @@ function verifyPassword(inputPassword, storedHash) {
   return inputHash === storedHash;
 }
 // Email configuration
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 465,
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
+await sgMail.send({
+  to: parentEmail,
+  from: 'fluentfeathersbyaaliya@gmail.com', // verified sender
+  subject: 'Registration Successful',
+  text: 'Thank you for registering with Fluent Feathers Academy!',
 });
+
+
 
 // Enhanced file upload configuration
 const storage = multer.diskStorage({
