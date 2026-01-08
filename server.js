@@ -16,6 +16,19 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY); // 👈 perfect place
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ==================== EMAIL CONFIGURATION ====================
+const VERIFIED_SENDER_EMAIL = 'fluentfeathersbyaaliya@gmail.com';
+const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
+
+// ==================== TIMEZONE HELPER ====================
+function convertToIST(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+}
 
 // Middleware
 app.use(express.json());
@@ -277,22 +290,223 @@ function verifyPassword(inputPassword, storedHash) {
   const inputHash = Buffer.from(inputPassword).toString('base64');
   return inputHash === storedHash;
 }
+
+// ==================== ENHANCED EMAIL FUNCTION (ANTI-SPAM) ====================
+async function sendEmail(to, subject, html, recipientName, emailType, attachments = []) {
+  try {
+    console.log('📧 Attempting to send email to:', to);
+    console.log('📧 Email type:', emailType);
+    
+    const msg = {
+      to: to,
+      from: {
+        email: VERIFIED_SENDER_EMAIL,
+        name: VERIFIED_SENDER_NAME
+      },
+      subject: subject,
+      html: html,
+      attachments: attachments,
+      
+      // ✅ ANTI-SPAM HEADERS (CRITICAL!)
+      replyTo: VERIFIED_SENDER_EMAIL,
+      
+      // Add tracking settings
+      trackingSettings: {
+        clickTracking: { enable: true },
+        openTracking: { enable: true }
+      },
+      
+      // Add categories for better organization
+      categories: [emailType.replace(/\s+/g, '_')],
+      
+      // Custom headers to avoid spam
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high'
+      }
+    };
+
+    const response = await sgMail.send(msg);
+    
+    console.log('✅ Email sent successfully to:', to);
+    console.log('📧 SendGrid Response Status:', response[0].statusCode);
+
+    // Log to database with IST time
+    db.run(
+      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+       VALUES (?, ?, ?, ?, 'Sent')`,
+      [recipientName, to, emailType, subject],
+      (err) => {
+        if (err) console.error('❌ Failed to log email:', err);
+      }
+    );
+
+    return true;
+    
+  } catch (error) {
+    console.error('❌ SendGrid Email Error:');
+    console.error('Error Code:', error.code);
+    console.error('Error Message:', error.message);
+    
+    if (error.response) {
+      console.error('Response Body:', JSON.stringify(error.response.body, null, 2));
+    }
+
+    // Log failure to database
+    db.run(
+      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+       VALUES (?, ?, ?, ?, 'Failed')`,
+      [recipientName, to, emailType, subject]
+    );
+
+    return false;
+  }
+}
+
+// ==================== ENHANCED EMAIL TEMPLATES WITH PROPER HTML ====================
+function getEmailTemplate(type, data) {
+  const templates = {
+    welcome: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to Fluent Feathers Academy</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 20px 0; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+              <h1 style="color: white; margin: 0; font-size: 28px;">🎓 Fluent Feathers Academy</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 20px;">
+              <table role="presentation" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <tr>
+                  <td style="padding: 40px;">
+                    <h2 style="color: #2c3e50; margin-top: 0;">Welcome to Our Learning Community!</h2>
+                    <p style="font-size: 16px; color: #555; line-height: 1.6;">Dear ${data.parent_name},</p>
+                    <p style="font-size: 16px; color: #555; line-height: 1.6;">We're thrilled to welcome <strong>${data.student_name}</strong> to our ${data.program_name} program!</p>
+                    
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin: 25px 0;">
+                      <h3 style="color: #667eea; margin-top: 0; margin-bottom: 20px;">📋 Enrollment Details</h3>
+                      <table style="width: 100%; border-collapse: collapse;">
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Student:</td>
+                          <td style="padding: 12px 0; color: #495057;">${data.student_name}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Grade:</td>
+                          <td style="padding: 12px 0; color: #495057;">${data.grade}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Program:</td>
+                          <td style="padding: 12px 0; color: #495057;">${data.program_name}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Class Type:</td>
+                          <td style="padding: 12px 0; color: #495057;">${data.class_type}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Duration:</td>
+                          <td style="padding: 12px 0; color: #495057;">${data.duration}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Total Sessions:</td>
+                          <td style="padding: 12px 0; color: #495057;">${data.total_sessions}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Timezone:</td>
+                          <td style="padding: 12px 0; color: #495057;">${data.timezone}</td>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${data.zoom_link}" style="display: inline-block; background: #9b59b6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">🎥 Join Class</a>
+                    </div>
+
+                    <div style="background: #e8f4f8; padding: 20px; border-radius: 8px; border-left: 4px solid #3498db; margin: 25px 0;">
+                      <p style="margin: 0; font-size: 14px; color: #2c3e50;">
+                        <strong>📅 Next Steps:</strong><br>
+                        Your classes will be scheduled soon. You'll receive another email with the complete schedule and class timings in ${data.timezone}.
+                      </p>
+                    </div>
+
+                    <p style="font-size: 14px; color: #7f8c8d; line-height: 1.6;">
+                      Questions or need assistance? Feel free to reach out to us!
+                    </p>
+
+                    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
+                      <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 0;">Best regards,</p>
+                      <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 5px 0;">Fluent Feathers Academy Team</p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; text-align: center; font-size: 12px; color: #999;">
+              <p style="margin: 0;">© 2025 Fluent Feathers Academy. All rights reserved.</p>
+              <p style="margin: 5px 0;">This email was sent to ${data.parent_name}</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+    
+    event_announcement: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px;">
+        <div style="background: white; padding: 30px; border-radius: 8px;">
+          <h2 style="color: #2c3e50; text-align: center;">🎉 New Event: ${data.event_name}</h2>
+          <p>Dear ${data.parent_name},</p>
+          <p>We're excited to announce a new <strong>${data.event_type}</strong> for all our students!</p>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #667eea; margin-bottom: 15px;">📅 Event Details</h3>
+            <p><strong>Event:</strong> ${data.event_name}</p>
+            <p><strong>Date & Time:</strong> ${data.event_date} at ${data.event_time}</p>
+            <p><strong>Duration:</strong> ${data.duration}</p>
+            <p><strong>Type:</strong> ${data.event_type}</p>
+            <p><strong>Platform:</strong> Online via Zoom</p>
+            ${data.max_participants > 0 ? `<p><strong>Limited Seats:</strong> ${data.max_participants} participants</p>` : '<p><strong>Unlimited</strong> participants welcome!</p>'}
+            <p style="margin-top: 15px;">${data.event_description}</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.registration_link}" style="background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">✅ Register ${data.student_name} Now - FREE!</a>
+          </div>
+
+          <p style="color: #e74c3c; font-weight: bold; text-align: center;">Registration Deadline: ${data.deadline}</p>
+        </div>
+      </div>
+    `
+  };
+  
+  return templates[type] || '';
+}
+
 // Email configuration
 app.post('/register', async (req, res) => {
   try {
-    console.log('📧 /register route HIT');        // ✅ 1st log
+    console.log('📧 /register route HIT');
 
     const { email } = req.body;
-    console.log('📧 Email received:', email);     // ✅ 2nd log
+    console.log('📧 Email received:', email);
 
     await sgMail.send({
       to: email,
-      from: 'fluentfeathersbyaaliya@gmail.com',
+      from: VERIFIED_SENDER_EMAIL,
       subject: 'Registration Successful',
       text: 'Welcome!',
     });
 
-    console.log('✅ SendGrid send() called');      // ✅ optional but useful
+    console.log('✅ SendGrid send() called');
 
     res.send('Email sent');
   } catch (err) {
@@ -301,15 +515,45 @@ app.post('/register', async (req, res) => {
   }
 });
 
-
-
-
+// ==================== TEST EMAIL ENDPOINT ====================
+app.post('/api/test-email', async (req, res) => {
+  const { email } = req.body;
+  
+  const testHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8"></head>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+      <h2 style="color: #667eea;">🎉 Test Email from Fluent Feathers Academy</h2>
+      <p>If you received this email, your SendGrid configuration is working correctly!</p>
+      <p><strong>Time sent (IST):</strong> ${convertToIST(new Date().toISOString())}</p>
+      <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="color: #155724; margin: 0;"><strong>✅ Success!</strong> Your email system is configured properly.</p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  const success = await sendEmail(
+    email,
+    '🧪 Test Email - Fluent Feathers Academy',
+    testHTML,
+    'Test Recipient',
+    'Test'
+  );
+  
+  if (success) {
+    res.json({ message: '✅ Test email sent successfully! Check your inbox (and spam folder).' });
+  } else {
+    res.status(500).json({ error: '❌ Failed to send test email. Check server logs for details.' });
+  }
+});
 
 // Enhanced file upload configuration
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadType = req.body.uploadType || 'homework';  // ← CHANGED
-        let dest = 'uploads/homework/';  // ← CHANGED
+        const uploadType = req.body.uploadType || 'homework';
+        let dest = 'uploads/homework/';
         
         switch (uploadType) {
             case 'homework':
@@ -319,7 +563,7 @@ const storage = multer.diskStorage({
                 dest = 'uploads/settings/';
                 break;
             default:
-                dest = 'uploads/homework/';  // ← CHANGED
+                dest = 'uploads/homework/';
         }
     
     cb(null, dest);
@@ -345,6 +589,7 @@ const upload = multer({
     }
   }
 });
+
 // Submit homework feedback (Simple version)
 app.post('/api/homework/:homeworkId/feedback', async (req, res) => {
   const homeworkId = req.params.homeworkId;
@@ -404,111 +649,6 @@ app.post('/api/homework/:homeworkId/feedback', async (req, res) => {
     });
   });
 });
-// Enhanced email function with templates
-async function sendEmail(to, subject, html, recipientName, emailType, attachments = []) {
-  try {
-    await sgMail.send({
-      to,
-      from: {
-        email: 'fluentfeathersbyaaliya@gmail.com', // must match SendGrid verified sender
-        name: 'Fluent Feathers Academy'
-      },
-      subject,
-      html,
-      attachments
-    });
-
-    console.log('✅ Email sent via SendGrid to:', to);
-
-    db.run(
-      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
-       VALUES (?, ?, ?, ?, 'Sent')`,
-      [recipientName, to, emailType, subject]
-    );
-
-    return true;
-  } catch (error) {
-   console.error('❌ SendGrid Email error FULL:', JSON.stringify(error.response?.body || error, null, 2));
-
-    db.run(
-      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
-       VALUES (?, ?, ?, ?, 'Failed')`,
-      [recipientName, to, emailType, subject]
-    );
-
-    return false;
-  }
-}
-
-// Enhanced email templates
-function getEmailTemplate(type, data) {
-  const templates = {
-    welcome: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px;">
-        <div style="background: white; padding: 30px; border-radius: 8px;">
-          <h2 style="color: #2c3e50; text-align: center;">🎓 Welcome to Fluent Feathers Academy!</h2>
-          <p>Dear ${data.parent_name},</p>
-          <p>We're excited to welcome <strong>${data.student_name}</strong> to our ${data.program_name} program!</p>
-          
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #667eea; margin-bottom: 15px;">📋 Enrollment Details</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Student:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.student_name}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Grade:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.grade}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Program:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.program_name}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Class Type:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.class_type}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Duration:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.duration}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Total Sessions:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.total_sessions}</td></tr>
-              <tr><td style="padding: 8px;"><strong>Timezone:</strong></td><td style="padding: 8px;">${data.timezone}</td></tr>
-            </table>
-          </div>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${data.zoom_link}" style="background: #9b59b6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">🎥 Join Class</a>
-          </div>
-
-          <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 30px;">
-            Your classes will be scheduled soon. You'll receive another email with the complete schedule.<br>
-            Questions? WhatsApp us: <a href="https://wa.me/your-number">Click here</a>
-          </p>
-
-          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
-            <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
-          </div>
-        </div>
-      </div>
-    `,
-    
-    event_announcement: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px;">
-        <div style="background: white; padding: 30px; border-radius: 8px;">
-          <h2 style="color: #2c3e50; text-align: center;">🎉 New Event: ${data.event_name}</h2>
-          <p>Dear ${data.parent_name},</p>
-          <p>We're excited to announce a new <strong>${data.event_type}</strong> for all our students!</p>
-          
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #667eea; margin-bottom: 15px;">📅 Event Details</h3>
-            <p><strong>Event:</strong> ${data.event_name}</p>
-            <p><strong>Date & Time:</strong> ${data.event_date} at ${data.event_time}</p>
-            <p><strong>Duration:</strong> ${data.duration}</p>
-            <p><strong>Type:</strong> ${data.event_type}</p>
-            <p><strong>Platform:</strong> Online via Zoom</p>
-            ${data.max_participants > 0 ? `<p><strong>Limited Seats:</strong> ${data.max_participants} participants</p>` : '<p><strong>Unlimited</strong> participants welcome!</p>'}
-            <p style="margin-top: 15px;">${data.event_description}</p>
-          </div>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${data.registration_link}" style="background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">✅ Register ${data.student_name} Now - FREE!</a>
-          </div>
-
-          <p style="color: #e74c3c; font-weight: bold; text-align: center;">Registration Deadline: ${data.deadline}</p>
-        </div>
-      </div>
-    `
-  };
-  
-  return templates[type] || '';
-}
 
 // ========== ENHANCED API ROUTES ==========
 
@@ -550,6 +690,7 @@ app.post('/api/students', async (req, res) => {
 
   const fees_paid = per_session_fee * total_sessions;
   const remaining_sessions = total_sessions;
+
 
   db.run(`INSERT INTO students (
     name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
