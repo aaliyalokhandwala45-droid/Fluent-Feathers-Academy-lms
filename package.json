@@ -17,6 +17,7 @@
   "author": "Fluent Feathers Academy",
   "license": "ISC",
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "archiver": "^7.0.1",
     "dotenv": "^17.2.3",
     "express": "^4.22.1",
