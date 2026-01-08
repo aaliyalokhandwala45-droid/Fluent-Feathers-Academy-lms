@@ -707,7 +707,7 @@ app.post('/api/events', async (req, res) => {
           };
 
           const emailHtml = getEmailTemplate('event_announcement', emailData);
-          sendEmail(student.parent_email, `🎉 New Event: ${event_name} - Register Now!`, emailHtml, student.parent_name, 'Event Announcement');
+          sendEmail(student.parent_email, ` New Event: ${event_name} - Register Now!`, emailHtml, student.parent_name, 'Event Announcement');
         }
       });
 
@@ -715,7 +715,11 @@ app.post('/api/events', async (req, res) => {
     }
   );
 });
-
+// ✅ EMAIL REGISTER REDIRECT ROUTE (ADD THIS HERE)
+app.get('/register-event/:eventId/:studentId', (req, res) => {
+  const { eventId, studentId } = req.params;
+  res.redirect(`/api/events/${eventId}/register/${studentId}`);
+});
 // Get all events
 app.get('/api/events', (req, res) => {
   db.all(`SELECT e.*, 
