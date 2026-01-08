@@ -1509,7 +1509,7 @@ app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, r
           `;
           
           await sendEmail(
-            process.env.EMAIL_USER,
+            'fluentfeathersbyaaliya@gmail.com',
             `Homework Submitted - ${student.name}`,
             homeworkEmail,
             'Teacher',
@@ -1567,17 +1567,6 @@ app.get('/api/emails/log', (req, res) => {
   });
 });
 
-// Get all events
-app.get('/api/events', (req, res) => {
-  db.all(`SELECT e.*, COUNT(er.id) as registered_count
-          FROM events e 
-          LEFT JOIN event_registrations er ON e.id = er.event_id 
-          GROUP BY e.id 
-          ORDER BY e.event_date DESC`, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
 
 // Get event registrations
 app.get('/api/events/:eventId/registrations', (req, res) => {
