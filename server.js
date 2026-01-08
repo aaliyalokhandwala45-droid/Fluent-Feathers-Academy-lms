@@ -407,29 +407,34 @@ app.post('/api/homework/:homeworkId/feedback', async (req, res) => {
 // Enhanced email function with templates
 async function sendEmail(to, subject, html, recipientName, emailType, attachments = []) {
   try {
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: to,
-      subject: subject,
-      html: html,
-      attachments: attachments
-    };
+    await sgMail.send({
+      to,
+      from: {
+        email: 'fluentfeathersbyaaliya@gmail.com', // must match SendGrid verified sender
+        name: 'Fluent Feathers Academy'
+      },
+      subject,
+      html,
+      attachments
+    });
 
-    await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent via SendGrid to:', to);
 
-    // Log email
-    db.run(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status) 
-            VALUES (?, ?, ?, ?, 'Sent')`,
-      [recipientName, to, emailType, subject]);
+    db.run(
+      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+       VALUES (?, ?, ?, ?, 'Sent')`,
+      [recipientName, to, emailType, subject]
+    );
 
     return true;
   } catch (error) {
-    console.error('Email error:', error);
-    
-    // Log failed email
-    db.run(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status) 
-            VALUES (?, ?, ?, ?, 'Failed')`,
-      [recipientName, to, emailType, subject]);
+    console.error('❌ SendGrid Email error:', error.response?.body || error);
+
+    db.run(
+      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+       VALUES (?, ?, ?, ?, 'Failed')`,
+      [recipientName, to, emailType, subject]
+    );
 
     return false;
   }
