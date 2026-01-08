@@ -280,7 +280,10 @@ function verifyPassword(inputPassword, storedHash) {
 // Email configuration
 app.post('/register', async (req, res) => {
   try {
+    console.log('📧 /register route HIT');        // ✅ 1st log
+
     const { email } = req.body;
+    console.log('📧 Email received:', email);     // ✅ 2nd log
 
     await sgMail.send({
       to: email,
@@ -289,12 +292,15 @@ app.post('/register', async (req, res) => {
       text: 'Welcome!',
     });
 
+    console.log('✅ SendGrid send() called');      // ✅ optional but useful
+
     res.send('Email sent');
   } catch (err) {
-    console.error(err);
+    console.error('❌ Email error:', err);
     res.status(500).send('Email failed');
   }
 });
+
 
 
 
