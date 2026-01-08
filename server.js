@@ -859,7 +859,6 @@ app.post('/api/students/:id/payment', (req, res) => {
 
 // ========== EVENT MANAGEMENT ==========
 
-// Create new event
 app.post('/api/events', async (req, res) => {
   const { event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants, registration_deadline } = req.body;
 
@@ -869,53 +868,59 @@ app.post('/api/events', async (req, res) => {
     async function(err) {
       if (err) return res.status(500).json({ error: err.message });
 
-     // Send announcement email to all students
-db.all(`SELECT * FROM students`, async (err, students) => {
-  if (err) {
-    console.error('❌ Failed to fetch students:', err);
-    return res.status(500).json({ error: err.message });
-  }
+      const eventId = this.lastID; // ✅ CRITICAL FIX: Capture this.lastID in a variable
 
-  console.log(`📧 Sending event announcements to ${students.length} students...`);
+      // Send announcement email to all students
+      db.all(`SELECT * FROM students`, async (err, students) => {
+        if (err) {
+          console.error('❌ Failed to fetch students:', err);
+          return; // Don't fail the whole request, just log
+        }
 
-  // Send emails one by one with delay
-  for (const student of students) {
-    try {
-      const emailData = {
-        parent_name: student.parent_name,
-        student_name: student.name,
-        event_name, event_type, event_date, event_time, duration,
-        event_description, max_participants,
-        deadline: registration_deadline,
-        registration_link: `${process.env.BASE_URL}/register-event/${this.lastID}/${student.id}`
-      };
+        console.log(`📧 Sending event announcements to ${students.length} students...`);
 
-      const emailHtml = getEmailTemplate('event_announcement', emailData);
-      
-      // IMPORTANT: Wait for email to send
-      await sendEmail(
-        student.parent_email, 
-        `🎉 New Event: ${event_name} - Register Now!`, 
-        emailHtml, 
-        student.parent_name, 
-        'Event Announcement'
-      );
-      
-      console.log(`✅ Email sent to ${student.parent_name} (${student.parent_email})`);
-      
-      // Wait 1 second before sending next email
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-    } catch (emailError) {
-      console.error(`❌ Failed to send to ${student.parent_name}:`, emailError);
-    }
-  }
-  
-  console.log('✅ Finished sending all event announcements');
-});
+        // Send emails one by one with delay
+        for (const student of students) {
+          try {
+            const emailData = {
+              parent_name: student.parent_name,
+              student_name: student.name,
+              event_name, 
+              event_type, 
+              event_date, 
+              event_time, 
+              duration,
+              event_description, 
+              max_participants,
+              deadline: registration_deadline,
+              registration_link: `${process.env.BASE_URL}/register-event/${eventId}/${student.id}` // ✅ Use captured eventId
+            };
 
+            const emailHtml = getEmailTemplate('event_announcement', emailData);
+            
+            // IMPORTANT: Wait for email to send
+            await sendEmail(
+              student.parent_email, 
+              `🎉 New Event: ${event_name} - Register Now!`, 
+              emailHtml, 
+              student.parent_name, 
+              'Event Announcement'
+            );
+            
+            console.log(`✅ Email sent to ${student.parent_name} (${student.parent_email})`);
+            
+            // Wait 1 second before sending next email
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+          } catch (emailError) {
+            console.error(`❌ Failed to send to ${student.parent_name}:`, emailError);
+          }
+        }
+        
+        console.log('✅ Finished sending all event announcements');
+      });
 
-      res.json({ message: 'Event created and announcements sent!', eventId: this.lastID });
+      res.json({ message: 'Event created and announcements sent!', eventId: eventId });
     }
   );
 });
