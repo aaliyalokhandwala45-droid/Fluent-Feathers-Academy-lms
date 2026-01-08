@@ -2,6 +2,7 @@
   "name": "fluent-feathers-lms",
   "version": "3.0.0",
   "description": "Professional Learning Management System for Fluent Feathers Academy",
+  "type": "commonjs",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
