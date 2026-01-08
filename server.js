@@ -555,7 +555,7 @@ app.post('/api/students', async (req, res) => {
     name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
     class_type, duration, currency, per_session_fee, total_sessions, 
     remaining_sessions, fees_paid
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
      class_type, duration, currency, per_session_fee, total_sessions, 
      remaining_sessions, fees_paid],
