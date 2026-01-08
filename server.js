@@ -278,12 +278,24 @@ function verifyPassword(inputPassword, storedHash) {
   return inputHash === storedHash;
 }
 // Email configuration
-await sgMail.send({
-  to: parentEmail,
-  from: 'fluentfeathersbyaaliya@gmail.com', // verified sender
-  subject: 'Registration Successful',
-  text: 'Thank you for registering with Fluent Feathers Academy!',
+app.post('/register', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    await sgMail.send({
+      to: email,
+      from: 'fluentfeathersbyaaliya@gmail.com',
+      subject: 'Registration Successful',
+      text: 'Welcome!',
+    });
+
+    res.send('Email sent');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Email failed');
+  }
 });
+
 
 
 
