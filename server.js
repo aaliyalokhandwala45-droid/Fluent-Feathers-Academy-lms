@@ -428,7 +428,7 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
 
     return true;
   } catch (error) {
-    console.error('❌ SendGrid Email error:', error.response?.body || error);
+   console.error('❌ SendGrid Email error FULL:', JSON.stringify(error.response?.body || error, null, 2));
 
     db.run(
       `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
@@ -707,7 +707,7 @@ app.post('/api/events', async (req, res) => {
           };
 
           const emailHtml = getEmailTemplate('event_announcement', emailData);
-          await sendEmail(student.parent_email, `🎉 New Event: ${event_name} - Register Now!`, emailHtml, student.parent_name, 'Event Announcement');
+          sendEmail(student.parent_email, `🎉 New Event: ${event_name} - Register Now!`, emailHtml, student.parent_name, 'Event Announcement');
         }
       });
 
