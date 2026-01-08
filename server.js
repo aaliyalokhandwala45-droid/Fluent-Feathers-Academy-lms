@@ -752,7 +752,7 @@ app.post('/api/students', async (req, res) => {
       };
 
       const emailHtml = getEmailTemplate('welcome', emailData);
-      await sendEmail(parent_email, `🎓 Welcome to Fluent Feathers Academy - ${name}`, emailHtml, parent_name, 'Welcome');
+      await sendEmail(parent_email, ` Welcome to Fluent Feathers Academy - ${name}`, emailHtml, parent_name, 'Welcome');
 
       res.json({ 
         message: `Student ${name} added successfully! Welcome email sent to ${parent_email}.`, 
@@ -878,44 +878,51 @@ app.post('/api/events', async (req, res) => {
         }
 
         console.log(`📧 Sending event announcements to ${students.length} students...`);
+// Send emails one by one with delay
+for (const student of students) {
+  try {
+    console.log(`📧 Preparing email for ${student.parent_name} (${student.parent_email})...`);
+    
+    const emailData = {
+      parent_name: student.parent_name,
+      student_name: student.name,
+      event_name, 
+      event_type, 
+      event_date, 
+      event_time, 
+      duration,
+      event_description, 
+      max_participants,
+      deadline: registration_deadline,
+      registration_link: `${process.env.BASE_URL}/register-event/${eventId}/${student.id}`
+    };
 
-        // Send emails one by one with delay
-        for (const student of students) {
-          try {
-            const emailData = {
-              parent_name: student.parent_name,
-              student_name: student.name,
-              event_name, 
-              event_type, 
-              event_date, 
-              event_time, 
-              duration,
-              event_description, 
-              max_participants,
-              deadline: registration_deadline,
-              registration_link: `${process.env.BASE_URL}/register-event/${eventId}/${student.id}` // ✅ Use captured eventId
-            };
-
-            const emailHtml = getEmailTemplate('event_announcement', emailData);
-            
-            // IMPORTANT: Wait for email to send
-            await sendEmail(
-              student.parent_email, 
-              `🎉 New Event: ${event_name} - Register Now!`, 
-              emailHtml, 
-              student.parent_name, 
-              'Event Announcement'
-            );
-            
-            console.log(`✅ Email sent to ${student.parent_name} (${student.parent_email})`);
-            
-            // Wait 1 second before sending next email
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-          } catch (emailError) {
-            console.error(`❌ Failed to send to ${student.parent_name}:`, emailError);
-          }
-        }
+    const emailHtml = getEmailTemplate('event_announcement', emailData);
+    
+    console.log(`📤 Sending to ${student.parent_email}...`);
+    
+    // IMPORTANT: Wait for email to send
+    const emailSent = await sendEmail(
+      student.parent_email, 
+      `New Event: ${event_name} - Register Now`, 
+      emailHtml, 
+      student.parent_name, 
+      'Event Announcement'
+    );
+    
+    if (emailSent) {
+      console.log(`✅ Email successfully sent to ${student.parent_name} (${student.parent_email})`);
+    } else {
+      console.log(`❌ Email FAILED to ${student.parent_name} (${student.parent_email})`);
+    }
+    
+    // Wait 2 seconds before sending next email (increased from 1 second)
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+  } catch (emailError) {
+    console.error(`❌ Exception sending to ${student.parent_name}:`, emailError);
+  }
+}
         
         console.log('✅ Finished sending all event announcements');
       });
@@ -925,59 +932,253 @@ app.post('/api/events', async (req, res) => {
   );
 });
 // ✅ EMAIL REGISTER REDIRECT ROUTE (ADD THIS HERE)
-app.get('/register-event/:eventId/:studentId', (req, res) => {
+// Event Registration via Email Link
+app.get('/register-event/:eventId/:studentId', async (req, res) => {
   const { eventId, studentId } = req.params;
-  res.redirect(`/api/events/${eventId}/register/${studentId}`);
-});
-// Get all events
-app.get('/api/events', (req, res) => {
-  db.all(`SELECT e.*, 
-            COUNT(er.id) as registered_count
-          FROM events e 
-          LEFT JOIN event_registrations er ON e.id = er.event_id 
-          GROUP BY e.id 
-          ORDER BY e.event_date DESC`, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
-
-// Register student for event
-app.post('/api/events/:eventId/register/:studentId', (req, res) => {
-  const { eventId, studentId } = req.params;
-
+  
   // Get student and event info
   db.get(`SELECT * FROM students WHERE id = ?`, [studentId], (err, student) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err || !student) {
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Registration Error</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #e74c3c; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>❌ Student Not Found</h1>
+            <p>Unable to find student information. Please contact the academy.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
 
     db.get(`SELECT * FROM events WHERE id = ?`, [eventId], (err, event) => {
-      if (err) return res.status(500).json({ error: err.message });
+      if (err || !event) {
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Registration Error</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background: #f4f4f4; }
+              .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+              h1 { color: #e74c3c; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>❌ Event Not Found</h1>
+              <p>This event may have been cancelled or removed.</p>
+            </div>
+          </body>
+          </html>
+        `);
+      }
 
       // Check if already registered
       db.get(`SELECT * FROM event_registrations WHERE event_id = ? AND student_id = ?`, [eventId, studentId], (err, existing) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (existing) return res.status(400).json({ error: 'Already registered for this event' });
+        if (existing) {
+          return res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Already Registered</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background: #f4f4f4; }
+                .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #27ae60; }
+                .event-details { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: left; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>✅ Already Registered!</h1>
+                <p>${student.name} is already registered for this event.</p>
+                <div class="event-details">
+                  <h3>${event.event_name}</h3>
+                  <p><strong>Date:</strong> ${event.event_date}</p>
+                  <p><strong>Time:</strong> ${event.event_time}</p>
+                  <p><strong>Type:</strong> ${event.event_type}</p>
+                </div>
+                <p>You will receive the Zoom link before the event starts.</p>
+              </div>
+            </body>
+            </html>
+          `);
+        }
 
-        // Register
+        // Register the student
         db.run(`INSERT INTO event_registrations (event_id, student_id, parent_name, parent_email)
                 VALUES (?, ?, ?, ?)`,
           [eventId, studentId, student.parent_name, student.parent_email],
           async function(err) {
-            if (err) return res.status(500).json({ error: err.message });
+            if (err) {
+              console.error('❌ Registration error:', err);
+              return res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Registration Error</title>
+                  <style>
+                    body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background: #f4f4f4; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                    h1 { color: #e74c3c; }
+                  </style>
+                </head>
+                <body>
+                  <div class="container">
+                    <h1>❌ Registration Failed</h1>
+                    <p>An error occurred. Please try again or contact the academy.</p>
+                  </div>
+                </body>
+                </html>
+              `);
+            }
 
             // Send confirmation email
             const confirmationHtml = `
-              <h2>✅ Registration Confirmed - ${event.event_name}</h2>
-              <p>Dear ${student.parent_name},</p>
-              <p><strong>${student.name}</strong> has been successfully registered for <strong>${event.event_name}</strong>!</p>
-              <p><strong>Date & Time:</strong> ${event.event_date} at ${event.event_time}</p>
-              <p>Zoom link will be sent 1 hour before the event.</p>
-              <p>Best regards,<br>Fluent Feathers Academy</p>
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              </head>
+              <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+                <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 20px 0; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                      <h1 style="color: white; margin: 0; font-size: 24px;">Fluent Feathers Academy</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 40px 20px;">
+                      <table role="presentation" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <tr>
+                          <td style="padding: 40px;">
+                            <h2 style="color: #27ae60; margin-top: 0;">Registration Confirmed!</h2>
+                            <p style="font-size: 16px; color: #555;">Dear ${student.parent_name},</p>
+                            <p style="font-size: 16px; color: #555;"><strong>${student.name}</strong> has been successfully registered for <strong>${event.event_name}</strong>!</p>
+                            
+                            <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin: 25px 0;">
+                              <h3 style="color: #667eea; margin-top: 0;">Event Details</h3>
+                              <p style="margin: 10px 0;"><strong>Date:</strong> ${event.event_date}</p>
+                              <p style="margin: 10px 0;"><strong>Time:</strong> ${event.event_time}</p>
+                              <p style="margin: 10px 0;"><strong>Duration:</strong> ${event.duration}</p>
+                              <p style="margin: 10px 0;"><strong>Type:</strong> ${event.event_type}</p>
+                            </div>
+                            
+                            <div style="background: #d4edda; padding: 20px; border-radius: 8px; border-left: 4px solid #27ae60;">
+                              <p style="margin: 0; color: #155724;">The Zoom link will be sent to you 1 hour before the event starts.</p>
+                            </div>
+                            
+                            <p style="font-size: 14px; color: #7f8c8d; margin-top: 30px;">
+                              Looking forward to seeing ${student.name} at the event!
+                            </p>
+                            
+                            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
+                              <p style="color: #667eea; font-weight: bold; margin: 0;">Best regards,</p>
+                              <p style="color: #667eea; font-weight: bold; margin: 5px 0;">Fluent Feathers Academy Team</p>
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </body>
+              </html>
             `;
 
-            await sendEmail(student.parent_email, `✅ Registration Confirmed - ${event.event_name}`, confirmationHtml, student.parent_name, 'Event Registration');
+            await sendEmail(
+              student.parent_email, 
+              `Registration Confirmed - ${event.event_name}`, 
+              confirmationHtml, 
+              student.parent_name, 
+              'Event Registration'
+            );
 
-            res.json({ message: 'Registration successful! Confirmation email sent.' });
+            // Show success page
+            res.send(`
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Registration Successful</title>
+                <style>
+                  body { 
+                    font-family: Arial, sans-serif; 
+                    padding: 40px; 
+                    text-align: center; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    margin: 0;
+                  }
+                  .container { 
+                    max-width: 600px; 
+                    margin: 0 auto; 
+                    background: white; 
+                    padding: 40px; 
+                    border-radius: 10px; 
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
+                  }
+                  h1 { color: #27ae60; margin-bottom: 20px; }
+                  .checkmark { font-size: 80px; color: #27ae60; margin: 20px 0; }
+                  .event-details { 
+                    background: #f8f9fa; 
+                    padding: 20px; 
+                    border-radius: 8px; 
+                    margin: 20px 0; 
+                    text-align: left; 
+                  }
+                  .event-details p { margin: 10px 0; }
+                  .footer { color: #7f8c8d; font-size: 14px; margin-top: 30px; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <div class="checkmark">✓</div>
+                  <h1>Registration Successful!</h1>
+                  <p style="font-size: 18px; color: #2c3e50;">
+                    <strong>${student.name}</strong> has been registered for:
+                  </p>
+                  <div class="event-details">
+                    <h3 style="color: #667eea; margin-top: 0;">${event.event_name}</h3>
+                    <p><strong>Date:</strong> ${event.event_date}</p>
+                    <p><strong>Time:</strong> ${event.event_time}</p>
+                    <p><strong>Duration:</strong> ${event.duration}</p>
+                    <p><strong>Type:</strong> ${event.event_type}</p>
+                  </div>
+                  <p style="color: #27ae60; font-weight: bold;">
+                    ✉️ A confirmation email has been sent to ${student.parent_email}
+                  </p>
+                  <p style="background: #d4edda; padding: 15px; border-radius: 5px; color: #155724;">
+                    The Zoom link will be sent 1 hour before the event starts.
+                  </p>
+                  <div class="footer">
+                    <p>Thank you for registering!</p>
+                    <p>Fluent Feathers Academy</p>
+                  </div>
+                </div>
+              </body>
+              </html>
+            `);
           }
         );
       });
