@@ -296,36 +296,35 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
   try {
     console.log('📧 Attempting to send email to:', to);
     console.log('📧 Email type:', emailType);
+    console.log('📧 SendGrid API Key exists:', !!process.env.SENDGRID_API_KEY);
+    console.log('📧 Sender email:', VERIFIED_SENDER_EMAIL);
     
-    const msg = {
-      to: to,
-      from: {
-        email: VERIFIED_SENDER_EMAIL,
-        name: VERIFIED_SENDER_NAME
-      },
-      subject: subject,
-      html: html,
-      attachments: attachments,
-      
-      // ✅ ANTI-SPAM HEADERS (CRITICAL!)
-      replyTo: VERIFIED_SENDER_EMAIL,
-      
-      // Add tracking settings
-      trackingSettings: {
-        clickTracking: { enable: true },
-        openTracking: { enable: true }
-      },
-      
-      // Add categories for better organization
-      categories: [emailType.replace(/\s+/g, '_')],
-      
-      // Custom headers to avoid spam
-      headers: {
-        'X-Priority': '1',
-        'X-MSMail-Priority': 'High',
-        'Importance': 'high'
-      }
-    };
+     const msg = {
+  to: to,
+  from: {
+    email: VERIFIED_SENDER_EMAIL,
+    name: VERIFIED_SENDER_NAME
+  },
+  subject: subject,
+  html: html,
+  attachments: attachments,
+  replyTo: VERIFIED_SENDER_EMAIL,
+  
+  // Turn OFF tracking (helps deliverability)
+  trackingSettings: {
+    clickTracking: { enable: false },
+    openTracking: { enable: false }
+  },
+  
+  categories: [emailType.replace(/\s+/g, '_')],
+  
+  // Remove spam-triggering headers
+  mailSettings: {
+    sandboxMode: {
+      enable: false
+    }
+  }
+};
 
     const response = await sgMail.send(msg);
     
@@ -461,31 +460,68 @@ function getEmailTemplate(type, data) {
     `,
     
     event_announcement: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px;">
-        <div style="background: white; padding: 30px; border-radius: 8px;">
-          <h2 style="color: #2c3e50; text-align: center;">🎉 New Event: ${data.event_name}</h2>
-          <p>Dear ${data.parent_name},</p>
-          <p>We're excited to announce a new <strong>${data.event_type}</strong> for all our students!</p>
-          
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #667eea; margin-bottom: 15px;">📅 Event Details</h3>
-            <p><strong>Event:</strong> ${data.event_name}</p>
-            <p><strong>Date & Time:</strong> ${data.event_date} at ${data.event_time}</p>
-            <p><strong>Duration:</strong> ${data.duration}</p>
-            <p><strong>Type:</strong> ${data.event_type}</p>
-            <p><strong>Platform:</strong> Online via Zoom</p>
-            ${data.max_participants > 0 ? `<p><strong>Limited Seats:</strong> ${data.max_participants} participants</p>` : '<p><strong>Unlimited</strong> participants welcome!</p>'}
-            <p style="margin-top: 15px;">${data.event_description}</p>
-          </div>
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 20px 0; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Fluent Feathers Academy</h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 40px 20px;">
+          <table role="presentation" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <tr>
+              <td style="padding: 40px;">
+                <h2 style="color: #2c3e50; margin-top: 0;">New Event: ${data.event_name}</h2>
+                <p style="font-size: 16px; color: #555; line-height: 1.6;">Dear ${data.parent_name},</p>
+                <p style="font-size: 16px; color: #555; line-height: 1.6;">We are excited to announce a new ${data.event_type} for all our students.</p>
+                
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin: 25px 0;">
+                  <h3 style="color: #667eea; margin-top: 0; margin-bottom: 20px;">Event Details</h3>
+                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Event:</strong> ${data.event_name}</p>
+                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Date and Time:</strong> ${data.event_date} at ${data.event_time}</p>
+                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Duration:</strong> ${data.duration}</p>
+                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Type:</strong> ${data.event_type}</p>
+                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Platform:</strong> Online via Zoom</p>
+                  ${data.max_participants > 0 ? `<p style="margin: 10px 0; color: #2c3e50;"><strong>Limited Seats:</strong> ${data.max_participants} participants</p>` : '<p style="margin: 10px 0; color: #2c3e50;">Unlimited participants welcome</p>'}
+                  <p style="margin-top: 15px; color: #2c3e50;">${data.event_description}</p>
+                </div>
 
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${data.registration_link}" style="background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">✅ Register ${data.student_name} Now - FREE!</a>
-          </div>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${data.registration_link}" style="display: inline-block; background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Register ${data.student_name} Now</a>
+                </div>
 
-          <p style="color: #e74c3c; font-weight: bold; text-align: center;">Registration Deadline: ${data.deadline}</p>
-        </div>
-      </div>
-    `
+                <p style="color: #e74c3c; font-weight: bold; text-align: center; margin: 20px 0;">Registration Deadline: ${data.deadline}</p>
+                
+                <p style="font-size: 14px; color: #7f8c8d; line-height: 1.6; margin-top: 30px;">
+                  If you have any questions, please feel free to contact us.
+                </p>
+                
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
+                  <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 0;">Best regards,</p>
+                  <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 5px 0;">Fluent Feathers Academy Team</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 20px; text-align: center; font-size: 12px; color: #999;">
+          <p style="margin: 0;">This email was sent to ${data.parent_name}</p>
+          <p style="margin: 5px 0;">Fluent Feathers Academy</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+  </html>
+`
   };
   
   return templates[type] || '';
@@ -833,16 +869,16 @@ app.post('/api/events', async (req, res) => {
     async function(err) {
       if (err) return res.status(500).json({ error: err.message });
 
-      // Send announcement email to all students
+     // Send announcement email to all students
 db.all(`SELECT * FROM students`, async (err, students) => {
   if (err) {
-    console.error('❌ Failed to fetch students for event announcement:', err);
+    console.error('❌ Failed to fetch students:', err);
     return res.status(500).json({ error: err.message });
   }
 
   console.log(`📧 Sending event announcements to ${students.length} students...`);
 
-  // Send emails sequentially with proper await
+  // Send emails one by one with delay
   for (const student of students) {
     try {
       const emailData = {
@@ -856,7 +892,7 @@ db.all(`SELECT * FROM students`, async (err, students) => {
 
       const emailHtml = getEmailTemplate('event_announcement', emailData);
       
-      // IMPORTANT: Await the email sending
+      // IMPORTANT: Wait for email to send
       await sendEmail(
         student.parent_email, 
         `🎉 New Event: ${event_name} - Register Now!`, 
@@ -865,18 +901,19 @@ db.all(`SELECT * FROM students`, async (err, students) => {
         'Event Announcement'
       );
       
-      console.log(`✅ Event announcement sent to ${student.parent_name}`);
+      console.log(`✅ Email sent to ${student.parent_name} (${student.parent_email})`);
       
-      // Add small delay to avoid rate limiting (100ms between emails)
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait 1 second before sending next email
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
     } catch (emailError) {
-      console.error(`❌ Failed to send event announcement to ${student.parent_name}:`, emailError);
+      console.error(`❌ Failed to send to ${student.parent_name}:`, emailError);
     }
   }
   
-  console.log('✅ Event announcements sent to all students');
+  console.log('✅ Finished sending all event announcements');
 });
+
 
       res.json({ message: 'Event created and announcements sent!', eventId: this.lastID });
     }
