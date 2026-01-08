@@ -2004,16 +2004,26 @@ async function loadEmailLog() {
       return;
     }
     
-    tbody.innerHTML = emails.map(email => `
-      <tr>
-        <td>${new Date(email.sent_at).toLocaleString()}</td>
-        <td>${email.recipient_name}</td>
-        <td>${email.recipient_email}</td>
-        <td><span class="email-type-badge">${email.email_type}</span></td>
-        <td>${email.subject}</td>
-        <td><span class="status-${email.status.toLowerCase()}">${email.status}</span></td>
-      </tr>
-    `).join('');
+   tbody.innerHTML = emails.map(email => `
+  <tr>
+    <td>${email.sent_at_ist || new Date(email.sent_at).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    })}</td>
+    <td>${email.recipient_name}</td>
+    <td>${email.recipient_email}</td>
+    <td><span class="email-type-badge">${email.email_type}</span></td>
+    <td>${email.subject}</td>
+    <td><span class="status-${email.status.toLowerCase()}">${email.status}</span></td>
+  </tr>
+`).join('');
+
   } catch (error) {
     console.error('Error:', error);
   }

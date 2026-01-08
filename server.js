@@ -834,23 +834,49 @@ app.post('/api/events', async (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
 
       // Send announcement email to all students
-      db.all(`SELECT * FROM students`, async (err, students) => {
-        if (err) return res.status(500).json({ error: err.message });
+db.all(`SELECT * FROM students`, async (err, students) => {
+  if (err) {
+    console.error('❌ Failed to fetch students for event announcement:', err);
+    return res.status(500).json({ error: err.message });
+  }
 
-        for (const student of students) {
-          const emailData = {
-            parent_name: student.parent_name,
-            student_name: student.name,
-            event_name, event_type, event_date, event_time, duration,
-            event_description, max_participants,
-            deadline: registration_deadline,
-            registration_link: `${process.env.BASE_URL}/register-event/${this.lastID}/${student.id}`
-          };
+  console.log(`📧 Sending event announcements to ${students.length} students...`);
 
-          const emailHtml = getEmailTemplate('event_announcement', emailData);
-          sendEmail(student.parent_email, ` New Event: ${event_name} - Register Now!`, emailHtml, student.parent_name, 'Event Announcement');
-        }
-      });
+  // Send emails sequentially with proper await
+  for (const student of students) {
+    try {
+      const emailData = {
+        parent_name: student.parent_name,
+        student_name: student.name,
+        event_name, event_type, event_date, event_time, duration,
+        event_description, max_participants,
+        deadline: registration_deadline,
+        registration_link: `${process.env.BASE_URL}/register-event/${this.lastID}/${student.id}`
+      };
+
+      const emailHtml = getEmailTemplate('event_announcement', emailData);
+      
+      // IMPORTANT: Await the email sending
+      await sendEmail(
+        student.parent_email, 
+        `🎉 New Event: ${event_name} - Register Now!`, 
+        emailHtml, 
+        student.parent_name, 
+        'Event Announcement'
+      );
+      
+      console.log(`✅ Event announcement sent to ${student.parent_name}`);
+      
+      // Add small delay to avoid rate limiting (100ms between emails)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (emailError) {
+      console.error(`❌ Failed to send event announcement to ${student.parent_name}:`, emailError);
+    }
+  }
+  
+  console.log('✅ Event announcements sent to all students');
+});
 
       res.json({ message: 'Event created and announcements sent!', eventId: this.lastID });
     }
@@ -1704,11 +1730,19 @@ app.delete('/api/materials/:id', (req, res) => {
   });
 });
 
-// Get email log
+// Get email log with IST conversion
 app.get('/api/emails/log', (req, res) => {
   db.all(`SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 100`, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+    
+    // Convert timestamps to IST
+    const rowsWithIST = rows.map(row => ({
+      ...row,
+      sent_at_ist: convertToIST(row.sent_at),
+      sent_at: row.sent_at // Keep original for reference
+    }));
+    
+    res.json(rowsWithIST);
   });
 });
 
