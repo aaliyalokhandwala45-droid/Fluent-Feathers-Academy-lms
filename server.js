@@ -282,20 +282,20 @@ const transporter = nodemailer.createTransport({
 
 // Enhanced file upload configuration
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadType = req.body.uploadType || 'materials';
-    let dest = 'uploads/';
-    
-    switch (uploadType) {
-      case 'homework':
-        dest = 'uploads/homework/';
-        break;
-      case 'settings':
-        dest = 'uploads/settings/';
-        break;
-      default:
-        dest = 'uploads/materials/';
-    }
+    destination: (req, file, cb) => {
+        const uploadType = req.body.uploadType || 'homework';  // ← CHANGED
+        let dest = 'uploads/homework/';  // ← CHANGED
+        
+        switch (uploadType) {
+            case 'homework':
+                dest = 'uploads/homework/';
+                break;
+            case 'settings':
+                dest = 'uploads/settings/';
+                break;
+            default:
+                dest = 'uploads/homework/';  // ← CHANGED
+        }
     
     cb(null, dest);
   },
