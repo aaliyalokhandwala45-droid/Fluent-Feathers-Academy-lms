@@ -75,7 +75,7 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
     console.error('❌ Brevo Email Error:', error.response?.data || error.message);
     return false;
   }
-
+}
 
 
 
@@ -2113,4 +2113,3 @@ process.on('SIGINT', () => {
     process.exit(0);
   });
 });
-}
