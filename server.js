@@ -17,114 +17,86 @@ const nodemailer = require('nodemailer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== ENHANCED EMAIL CONFIGURATION FOR 2025 ====================
+// ==================== FIXED EMAIL CONFIGURATION FOR 2025 ====================
+
+// ✅ STEP 1: Validate Environment Variables
+if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASS) {
+  console.error('❌ CRITICAL ERROR: Email credentials missing!');
+  console.error('⚠️  Please set these in your .env file:');
+  console.error('   EMAIL_USER=your-email@gmail.com');
+  console.error('   EMAIL_APP_PASS=your-16-char-app-password');
+  process.exit(1);
+}
+
 const VERIFIED_SENDER_EMAIL = process.env.EMAIL_USER;
 const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
 
+// ✅ STEP 2: Simplified Transporter Configuration
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Use STARTTLS
+  service: 'gmail', // Use 'gmail' service instead of manual SMTP
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_APP_PASS
   },
-  // 🔐 Critical 2025 Security Settings
-  requireTLS: true,
-  tls: {
-    rejectUnauthorized: true,
-    minVersion: 'TLSv1.2'
-  },
-  // Rate limiting
+  // Simplified settings
   pool: true,
   maxConnections: 1,
-  maxMessages: 10,
-  rateDelta: 1000,
-  rateLimit: 3
+  rateDelta: 2000, // 2 seconds between emails
+  rateLimit: 1
 });
 
-// Verify transporter on startup
+// ✅ STEP 3: Verify Transporter on Startup
 transporter.verify(function (error, success) {
   if (error) {
     console.error('❌ SMTP Configuration Error:', error);
-    console.error('⚠️  Please check:');
-    console.error('   1. EMAIL_USER is set correctly');
-    console.error('   2. EMAIL_APP_PASS is an App Password (not regular password)');
-    console.error('   3. 2-Step Verification is enabled on Gmail');
-    console.error('   4. App Password is generated from: https://myaccount.google.com/apppasswords');
+    console.error('⚠️  Troubleshooting Steps:');
+    console.error('   1. Enable 2-Step Verification: https://myaccount.google.com/signinoptions/two-step-verification');
+    console.error('   2. Generate App Password: https://myaccount.google.com/apppasswords');
+    console.error('   3. Use the 16-character App Password (remove spaces)');
+    console.error('   4. Current EMAIL_USER:', process.env.EMAIL_USER);
   } else {
-    console.log('✅ SMTP Server is ready to send emails');
-    console.log('📧 Sender Email:', process.env.EMAIL_USER);
+    console.log('✅ SMTP Server Ready');
+    console.log('📧 Sender:', process.env.EMAIL_USER);
   }
 });
 
-// ==================== ENHANCED SEND EMAIL FUNCTION ====================
+// ✅ STEP 4: Simplified Send Email Function
 async function sendEmail(to, subject, html, recipientName, emailType, attachments = []) {
   try {
-    console.log('📧 Preparing email to:', to);
-    console.log('📧 Email type:', emailType);
-    console.log('📧 Sender email:', VERIFIED_SENDER_EMAIL);
+    console.log(`📧 Sending ${emailType} to:`, to);
 
-    // Validate sender email
-    if (!VERIFIED_SENDER_EMAIL || VERIFIED_SENDER_EMAIL === '') {
-      throw new Error('EMAIL_USER not configured in environment variables');
-    }
+    // Create plain text version (simplified)
+    const plainText = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // Create plain text version
-    const plainText = html
-      .replace(/<style[^>]*>.*?<\/style>/gs, '')
-      .replace(/<script[^>]*>.*?<\/script>/gs, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    // Enhanced mail options for 2025
     const mailOptions = {
       from: `"${VERIFIED_SENDER_NAME}" <${VERIFIED_SENDER_EMAIL}>`,
       to: to,
       subject: subject,
       html: html,
       text: plainText,
-      replyTo: VERIFIED_SENDER_EMAIL,
-      
-      headers: {
-        'X-Mailer': 'Fluent Feathers LMS',
-        'X-Priority': '3',
-        'Importance': 'normal',
-        'X-MSMail-Priority': 'Normal',
-        'List-Unsubscribe': `<mailto:${VERIFIED_SENDER_EMAIL}?subject=unsubscribe>`,
-        'Precedence': 'bulk'
-      },
-      
-      messageId: `<${Date.now()}.${emailType}.${recipientName.replace(/\s/g, '')}@${VERIFIED_SENDER_EMAIL.split('@')[1]}>`,
-      
       attachments: attachments
     };
 
-    // Send with retry logic
+    // Send with single retry
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 2;
     let lastError;
 
     while (attempts < maxAttempts) {
       try {
         attempts++;
-        console.log(`📤 Attempt ${attempts}/${maxAttempts} to send email to ${to}`);
+        console.log(`📤 Attempt ${attempts}/${maxAttempts}`);
         
         const info = await transporter.sendMail(mailOptions);
         
-        console.log('✅ Email sent successfully!');
+        console.log('✅ Email sent!');
         console.log('📬 Message ID:', info.messageId);
-        console.log('📊 Response:', info.response);
 
-        // Log success
+        // Log success to database
         db.run(
           `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
            VALUES (?, ?, ?, ?, 'Sent')`,
-          [recipientName, to, emailType, subject],
-          (err) => {
-            if (err) console.error('❌ Failed to log email:', err);
-          }
+          [recipientName, to, emailType, subject]
         );
 
         return true;
@@ -134,9 +106,7 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
         console.error(`❌ Attempt ${attempts} failed:`, sendError.message);
         
         if (attempts < maxAttempts) {
-          const waitTime = Math.pow(2, attempts) * 1000;
-          console.log(`⏳ Waiting ${waitTime/1000}s before retry...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
         }
       }
     }
@@ -144,23 +114,21 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
     throw lastError;
 
   } catch (error) {
-    console.error('❌ Final Email Error:', error);
+    console.error('❌ Email Error:', error.message);
     console.error('Error Code:', error.code);
-    console.error('Error Message:', error.message);
     
-    // Detailed error logging
+    // Enhanced error messages
     if (error.code === 'EAUTH') {
-      console.error('⚠️  AUTHENTICATION FAILED');
-      console.error('   Please verify:');
-      console.error('   1. EMAIL_USER is correct');
-      console.error('   2. EMAIL_APP_PASS is valid App Password');
-      console.error('   3. 2-Step Verification is enabled');
-    } else if (error.code === 'ECONNECTION') {
-      console.error('⚠️  CONNECTION FAILED');
-      console.error('   Check your internet connection and firewall');
+      console.error('⚠️  AUTHENTICATION FAILED - Check these:');
+      console.error('   1. Is 2-Step Verification enabled?');
+      console.error('   2. Did you use App Password (not regular password)?');
+      console.error('   3. Is the App Password correct (16 chars)?');
+    } else if (error.code === 'EENVELOPE') {
+      console.error('⚠️  INVALID EMAIL ADDRESS');
+      console.error('   Recipient email may be incorrect:', to);
     } else if (error.responseCode === 550) {
-      console.error('⚠️  EMAIL REJECTED BY RECIPIENT SERVER');
-      console.error('   The recipient email may not exist or has blocked your domain');
+      console.error('⚠️  EMAIL REJECTED');
+      console.error('   The recipient server rejected this email');
     }
 
     // Log failure
@@ -173,6 +141,182 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
     return false;
   }
 }
+
+// ✅ STEP 5: Simplified Email Templates
+function getEmailTemplate(type, data) {
+  const templates = {
+    welcome: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4;">
+        <div style="max-width:600px;margin:20px auto;background:white;border-radius:8px;overflow:hidden;">
+          <!-- Header -->
+          <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:30px;text-align:center;">
+            <h1 style="color:white;margin:0;font-size:28px;">🎓 Welcome to Fluent Feathers!</h1>
+          </div>
+          
+          <!-- Content -->
+          <div style="padding:30px;">
+            <p style="font-size:16px;color:#333;">Dear ${data.parent_name},</p>
+            <p style="font-size:16px;color:#555;line-height:1.6;">
+              Welcome! We're excited to have <strong>${data.student_name}</strong> join our ${data.program_name} program.
+            </p>
+            
+            <!-- Simple Info Box -->
+            <div style="background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
+              <p style="margin:8px 0;"><strong>Student:</strong> ${data.student_name}</p>
+              <p style="margin:8px 0;"><strong>Program:</strong> ${data.program_name}</p>
+              <p style="margin:8px 0;"><strong>Total Sessions:</strong> ${data.total_sessions}</p>
+              <p style="margin:8px 0;"><strong>Duration:</strong> ${data.duration}</p>
+            </div>
+            
+            <!-- Zoom Link Button -->
+            <div style="text-align:center;margin:30px 0;">
+              <a href="${data.zoom_link}" 
+                 style="display:inline-block;background:#667eea;color:white;padding:15px 40px;
+                        text-decoration:none;border-radius:5px;font-weight:bold;">
+                🎥 Access Classroom
+              </a>
+            </div>
+            
+            <p style="color:#7f8c8d;font-size:14px;margin-top:30px;">
+              You'll receive your class schedule within 24 hours.
+            </p>
+          </div>
+          
+          <!-- Footer -->
+          <div style="background:#f8f9fa;padding:20px;text-align:center;border-top:1px solid #ddd;">
+            <p style="margin:0;color:#667eea;font-weight:bold;">Fluent Feathers Academy</p>
+            <p style="margin:5px 0;color:#7f8c8d;font-size:12px;">© 2025 All rights reserved</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    
+    schedule: `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4;">
+        <div style="max-width:600px;margin:20px auto;background:white;padding:30px;border-radius:8px;">
+          <h2 style="color:#667eea;margin-top:0;">📅 Class Schedule</h2>
+          <p>Dear ${data.parent_name},</p>
+          <p>Your classes have been scheduled:</p>
+          
+          <div style="background:#f8f9fa;padding:20px;border-radius:5px;margin:20px 0;">
+            ${data.schedule_details}
+          </div>
+          
+          <div style="text-align:center;margin:20px 0;">
+            <a href="${data.zoom_link}" 
+               style="display:inline-block;background:#27ae60;color:white;padding:12px 30px;
+                      text-decoration:none;border-radius:5px;">
+              Join Zoom Class
+            </a>
+          </div>
+          
+          <p style="color:#7f8c8d;font-size:14px;">
+            Best regards,<br>Fluent Feathers Academy
+          </p>
+        </div>
+      </body>
+      </html>
+    `,
+    
+    event_announcement: `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4;">
+        <div style="max-width:600px;margin:20px auto;background:white;padding:30px;border-radius:8px;">
+          <h2 style="color:#667eea;margin-top:0;">🎉 ${data.event_name}</h2>
+          <p>Dear ${data.parent_name},</p>
+          <p>We're excited to invite ${data.student_name} to our upcoming event!</p>
+          
+          <div style="background:#f8f9fa;padding:20px;border-radius:5px;margin:20px 0;">
+            <p style="margin:8px 0;"><strong>Event:</strong> ${data.event_name}</p>
+            <p style="margin:8px 0;"><strong>Type:</strong> ${data.event_type}</p>
+            <p style="margin:8px 0;"><strong>Date:</strong> ${data.event_date}</p>
+            <p style="margin:8px 0;"><strong>Time:</strong> ${data.event_time}</p>
+            <p style="margin:8px 0;"><strong>Duration:</strong> ${data.duration}</p>
+          </div>
+          
+          <div style="text-align:center;margin:20px 0;">
+            <a href="${data.registration_link}" 
+               style="display:inline-block;background:#27ae60;color:white;padding:12px 30px;
+                      text-decoration:none;border-radius:5px;">
+              Register Now
+            </a>
+          </div>
+          
+          <p style="color:#7f8c8d;font-size:14px;">
+            Best regards,<br>Fluent Feathers Academy
+          </p>
+        </div>
+      </body>
+      </html>
+    `
+  };
+  
+  return templates[type] || '';
+}
+
+// ✅ STEP 6: Test Email Endpoint (Improved)
+app.post('/api/test-email', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email address required' });
+  }
+  
+  console.log('🧪 Testing email to:', email);
+  
+  const testHTML = `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family:Arial;padding:30px;background:#f4f4f4;">
+      <div style="max-width:500px;margin:0 auto;background:white;padding:30px;border-radius:8px;">
+        <h1 style="color:#27ae60;text-align:center;">✅ Email Test Successful!</h1>
+        <p style="font-size:16px;">If you received this email, your system is working correctly.</p>
+        
+        <div style="background:#d4edda;padding:15px;border-radius:5px;margin:20px 0;">
+          <p style="margin:5px 0;"><strong>Sender:</strong> ${VERIFIED_SENDER_EMAIL}</p>
+          <p style="margin:5px 0;"><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+          <p style="margin:5px 0;"><strong>Status:</strong> ✓ Delivered</p>
+        </div>
+        
+        <p style="color:#7f8c8d;font-size:14px;text-align:center;margin-top:30px;">
+          Fluent Feathers Academy<br>Email System Test
+        </p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  const success = await sendEmail(
+    email,
+    '✅ Test Email - Fluent Feathers Academy',
+    testHTML,
+    'Test Recipient',
+    'Test'
+  );
+  
+  if (success) {
+    res.json({ 
+      success: true,
+      message: '✅ Test email sent! Check your inbox (and spam folder).',
+      sender: VERIFIED_SENDER_EMAIL
+    });
+  } else {
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to send. Check server console for details.'
+    });
+  }
+});
 
 // ==================== TIMEZONE HELPER ====================
 function convertToIST(dateString) {
