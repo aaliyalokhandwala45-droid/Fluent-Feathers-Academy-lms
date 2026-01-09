@@ -18,7 +18,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ==================== EMAIL CONFIGURATION ====================
-const VERIFIED_SENDER_EMAIL = 'fluentfeathersbyaaliya@gmail.com';
+const VERIFIED_SENDER_EMAIL = process.env.EMAIL_USER;
 const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -832,75 +832,86 @@ app.post('/api/students/:id/payment', (req, res) => {
 // ========== EVENT MANAGEMENT ==========
 
 app.post('/api/events', async (req, res) => {
-  const { event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants, registration_deadline } = req.body;
+  const {
+    event_type,
+    event_name,
+    event_description,
+    event_date,
+    event_time,
+    duration,
+    zoom_link,
+    max_participants,
+    registration_deadline
+  } = req.body;
 
-  db.run(`INSERT INTO events (event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants, registration_deadline)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants, registration_deadline],
-    async function(err) {
+  db.run(
+    `INSERT INTO events (event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants, registration_deadline)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      event_type,
+      event_name,
+      event_description,
+      event_date,
+      event_time,
+      duration,
+      zoom_link,
+      max_participants,
+      registration_deadline
+    ],
+    function (err) {
       if (err) return res.status(500).json({ error: err.message });
 
       const eventId = this.lastID;
 
-      // Send announcement email to all students
+      // 🔴 IMPORTANT: FETCH STUDENTS FIRST
       db.all(`SELECT * FROM students`, async (err, students) => {
         if (err) {
           console.error('❌ Failed to fetch students:', err);
-          return;
+          return res.json({ message: 'Event created, but email failed', eventId });
         }
 
-        console.log(`📧 Sending event announcements to ${students.length} students...`);
+        console.log(`📧 Sending event announcements to ${students.length} parents`);
 
         for (const student of students) {
-          try {
-            console.log(`📧 Preparing email for ${student.parent_name} (${student.parent_email})...`);
-            
-            const emailData = {
-              parent_name: student.parent_name,
-              student_name: student.name,
-              event_name, 
-              event_type, 
-              event_date, 
-              event_time, 
-              duration,
-              event_description, 
-              max_participants,
-              deadline: registration_deadline,
-              registration_link: `${process.env.BASE_URL || 'http://localhost:3000'}/register-event/${eventId}/${student.id}`
-            };
+          const emailData = {
+            parent_name: student.parent_name,
+            student_name: student.name,
+            event_name,
+            event_type,
+            event_date,
+            event_time,
+            duration,
+            event_description,
+            max_participants,
+            deadline: registration_deadline,
+            registration_link: `${process.env.BASE_URL}/register-event/${eventId}/${student.id}`
+          };
 
-            const emailHtml = getEmailTemplate('event_announcement', emailData);
-            
-            console.log(`📤 Sending to ${student.parent_email}...`);
-            
-            const emailSent = await sendEmail(
-              student.parent_email, 
-              `New Event: ${event_name} - Register Now`, 
-              emailHtml, 
-              student.parent_name, 
-              'Event Announcement'
-            );
-            
-            if (emailSent) {
-              console.log(`✅ Email successfully sent to ${student.parent_name} (${student.parent_email})`);
-            } else {
-              console.log(`❌ Email FAILED to ${student.parent_name} (${student.parent_email})`);
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-          } catch (emailError) {
-            console.error(`❌ Exception sending to ${student.parent_name}:`, emailError);
-          }
+          const emailHtml = getEmailTemplate('event_announcement', emailData);
+
+          await sendEmail(
+            student.parent_email,
+            `🎉 New Event: ${event_name}`,
+            emailHtml,
+            student.parent_name,
+            'Event Announcement'
+          );
+
+          // ⏱️ small delay to protect Gmail
+          await new Promise(r => setTimeout(r, 1500));
         }
-        
-        console.log('✅ Finished sending all event announcements');
-      });
 
-      res.json({ message: 'Event created and announcements sent!', eventId: eventId });
+        console.log('✅ All event emails processed');
+
+        res.json({
+          message: `Event created and ${students.length} emails sent`,
+          eventId
+        });
+      });
     }
   );
 });
+
 // Get all events with registration counts
 app.get('/api/events', (req, res) => {
   db.all(`SELECT e.*, COUNT(er.id) as registered_count 
