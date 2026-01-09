@@ -338,7 +338,8 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
     return true;
     
   } catch (error) {
-   console.error('❌ Email (SMTP) Error:');
+  console.error('❌ Email (SMTP) Error:', error.message);
+
     
 
     // Log failure
@@ -520,31 +521,7 @@ function getEmailTemplate(type, data) {
   return templates[type] || '';
 }
 
-// Email configuration
-app.post('/register', async (req, res) => {
-  try {
-    console.log('📧 /register route HIT');
 
-    const { email } = req.body;
-    console.log('📧 Email received:', email);
-
-    await transporter.sendMail({
-  from: `"${VERIFIED_SENDER_NAME}" <${VERIFIED_SENDER_EMAIL}>`,
-  to: email,
-  subject: 'Registration Successful',
-  text: 'Welcome!',
-  replyTo: VERIFIED_SENDER_EMAIL
-});
-
-console.log('✅ Email sent via Nodemailer');
-
-res.send('Email sent');
-
-  } catch (err) {
-    console.error('❌ Email error:', err);
-    res.status(500).send('Email failed');
-  }
-});
 
 // ==================== TEST EMAIL ENDPOINT ====================
 app.post('/api/test-email', async (req, res) => {
@@ -556,7 +533,7 @@ app.post('/api/test-email', async (req, res) => {
     <head><meta charset="UTF-8"></head>
     <body style="font-family: Arial, sans-serif; padding: 20px;">
       <h2 style="color: #667eea;">🎉 Test Email from Fluent Feathers Academy</h2>
-      <p>If you received this email, your SendGrid configuration is working correctly!</p>
+      <p>If you received this email, your Gmail SMTP configuration is working correctly!</p>
       <p><strong>Time sent (IST):</strong> ${convertToIST(new Date().toISOString())}</p>
       <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <p style="color: #155724; margin: 0;"><strong>✅ Success!</strong> Your email system is configured properly.</p>
@@ -2084,7 +2061,7 @@ app.listen(PORT, () => {
 ╚════════════════════════════════════════╝
   `);
 });
-// trigger railway deploy
+
 
 // Graceful shutdown
 process.on('SIGINT', () => {
