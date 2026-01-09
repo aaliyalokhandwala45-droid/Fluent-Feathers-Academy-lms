@@ -2,7 +2,7 @@
 console.log("🚀 SERVER FILE STARTED");
 
 require('dotenv').config(); // 👈 move this UP
-
+const axios = require('axios');
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
@@ -10,7 +10,6 @@ const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
 const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 
 
 
@@ -18,7 +17,7 @@ const nodemailer = require('nodemailer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 console.log('🔍 EMAIL_USER:', process.env.EMAIL_USER);
-console.log('🔍 BREVO_SMTP_KEY loaded:', !!process.env.BREVO_SMTP_KEY);
+console.log('🔍 BREVO_API_KEY loaded:', !!process.env.BREVO_API_KEY);
 console.log('🌐 BASE_URL:', process.env.BASE_URL);
 
 if (!process.env.BASE_URL) {
@@ -26,92 +25,57 @@ if (!process.env.BASE_URL) {
   console.error('⚠️  Add BASE_URL in Render Environment Variables');
 }
 
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const VERIFIED_SENDER_EMAIL = process.env.EMAIL_USER || 'fluentfeathersbyaaliya@gmail.com';
+const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
 
-// ==================== BREVO EMAIL CONFIGURATION FOR RENDER ====================
-
-// ✅ Validate Environment Variables
-if (!process.env.BREVO_SMTP_KEY || !process.env.EMAIL_USER) {
-  console.error('❌ Email configuration missing!');
-  console.error('Required: EMAIL_USER=apikey and BREVO_SMTP_KEY');
+if (!BREVO_API_KEY) {
+  console.error('❌ CRITICAL: BREVO_API_KEY is missing!');
+}
+if (!VERIFIED_SENDER_EMAIL) {
+  console.error('❌ CRITICAL: EMAIL_USER (sender email) is missing!');
 }
 
 
-const VERIFIED_SENDER_EMAIL = 'fluentfeathersbyaaliya@gmail.com';
-const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
 
-// ✅ Create Brevo Transporter (Works on Render!)
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.BREVO_SMTP_KEY
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
 
-// ✅ Verify Connection on Startup
-transporter.verify(function (error, success) {
-  if (error) {
-    console.error('❌ Brevo Connection Error:', error.message);
-    console.error('⚠️  Check BREVO_SMTP_KEY in environment');
-  } else {
-    console.log('✅ Brevo Email Service Ready!');
-    console.log('📧 Sender:', VERIFIED_SENDER_EMAIL);
-  }
-});
-
-// ✅ Send Email Function
-async function sendEmail(to, subject, html, recipientName, emailType, attachments = []) {
+async function sendEmail(to, subject, html, recipientName, emailType) {
   try {
     console.log(`📧 [${emailType}] Sending to: ${to}`);
 
-    const plainText = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          name: VERIFIED_SENDER_NAME,
+          email: VERIFIED_SENDER_EMAIL
+        },
+        to: [{ email: to, name: recipientName || to }],
+        subject: subject,
+        htmlContent: html
+      },
+      {
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-    const mailOptions = {
-      from: `"${VERIFIED_SENDER_NAME}" <${VERIFIED_SENDER_EMAIL}>`,
-      to: to,
-      subject: subject,
-      html: html,
-      text: plainText,
-      attachments: attachments
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    
-    console.log('✅ Email sent successfully!');
-    console.log('📬 Message ID:', info.messageId);
+    console.log('✅ Email sent via Brevo API');
 
     db.run(
       `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
        VALUES (?, ?, ?, ?, 'Sent')`,
-      [recipientName, to, emailType, subject],
-      (err) => {
-        if (err) console.error('⚠️  Failed to log email:', err.message);
-      }
+      [recipientName || '', to, emailType, subject]
     );
 
     return true;
-
   } catch (error) {
-    console.error('❌ Email Error:', error.message);
-    
-    if (error.code === 'EAUTH') {
-      console.error('⚠️  AUTHENTICATION FAILED - Check BREVO_SMTP_KEY');
-    }
-
-    db.run(
-      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
-       VALUES (?, ?, ?, ?, ?)`,
-      [recipientName, to, emailType, subject, `Failed: ${error.message}`]
-    );
-
+    console.error('❌ Brevo Email Error:', error.response?.data || error.message);
     return false;
   }
-}
+
 
 
 
