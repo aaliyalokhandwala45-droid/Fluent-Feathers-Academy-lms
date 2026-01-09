@@ -1,3 +1,4 @@
+// force rebuild - smtp switch
 console.log("🚀 SERVER FILE STARTED");
 
 require('dotenv').config(); // 👈 move this UP
@@ -5,13 +6,13 @@ require('dotenv').config(); // 👈 move this UP
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const multer = require('multer');
-const sgMail = require('@sendgrid/mail');
 const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
 const cron = require('node-cron');
+const nodemailer = require('nodemailer');
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY); // 👈 perfect place
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +20,15 @@ const PORT = process.env.PORT || 3000;
 // ==================== EMAIL CONFIGURATION ====================
 const VERIFIED_SENDER_EMAIL = 'fluentfeathersbyaaliya@gmail.com';
 const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_APP_PASS
+  }
+});
 
 // ==================== TIMEZONE HELPER ====================
 function convertToIST(dateString) {
