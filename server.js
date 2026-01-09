@@ -17,18 +17,162 @@ const nodemailer = require('nodemailer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== EMAIL CONFIGURATION ====================
+// ==================== ENHANCED EMAIL CONFIGURATION FOR 2025 ====================
 const VERIFIED_SENDER_EMAIL = process.env.EMAIL_USER;
 const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
+
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false,
+  secure: false, // Use STARTTLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_APP_PASS
+  },
+  // 🔐 Critical 2025 Security Settings
+  requireTLS: true,
+  tls: {
+    rejectUnauthorized: true,
+    minVersion: 'TLSv1.2'
+  },
+  // Rate limiting
+  pool: true,
+  maxConnections: 1,
+  maxMessages: 10,
+  rateDelta: 1000,
+  rateLimit: 3
+});
+
+// Verify transporter on startup
+transporter.verify(function (error, success) {
+  if (error) {
+    console.error('❌ SMTP Configuration Error:', error);
+    console.error('⚠️  Please check:');
+    console.error('   1. EMAIL_USER is set correctly');
+    console.error('   2. EMAIL_APP_PASS is an App Password (not regular password)');
+    console.error('   3. 2-Step Verification is enabled on Gmail');
+    console.error('   4. App Password is generated from: https://myaccount.google.com/apppasswords');
+  } else {
+    console.log('✅ SMTP Server is ready to send emails');
+    console.log('📧 Sender Email:', process.env.EMAIL_USER);
   }
 });
+
+// ==================== ENHANCED SEND EMAIL FUNCTION ====================
+async function sendEmail(to, subject, html, recipientName, emailType, attachments = []) {
+  try {
+    console.log('📧 Preparing email to:', to);
+    console.log('📧 Email type:', emailType);
+    console.log('📧 Sender email:', VERIFIED_SENDER_EMAIL);
+
+    // Validate sender email
+    if (!VERIFIED_SENDER_EMAIL || VERIFIED_SENDER_EMAIL === '') {
+      throw new Error('EMAIL_USER not configured in environment variables');
+    }
+
+    // Create plain text version
+    const plainText = html
+      .replace(/<style[^>]*>.*?<\/style>/gs, '')
+      .replace(/<script[^>]*>.*?<\/script>/gs, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Enhanced mail options for 2025
+    const mailOptions = {
+      from: `"${VERIFIED_SENDER_NAME}" <${VERIFIED_SENDER_EMAIL}>`,
+      to: to,
+      subject: subject,
+      html: html,
+      text: plainText,
+      replyTo: VERIFIED_SENDER_EMAIL,
+      
+      headers: {
+        'X-Mailer': 'Fluent Feathers LMS',
+        'X-Priority': '3',
+        'Importance': 'normal',
+        'X-MSMail-Priority': 'Normal',
+        'List-Unsubscribe': `<mailto:${VERIFIED_SENDER_EMAIL}?subject=unsubscribe>`,
+        'Precedence': 'bulk'
+      },
+      
+      messageId: `<${Date.now()}.${emailType}.${recipientName.replace(/\s/g, '')}@${VERIFIED_SENDER_EMAIL.split('@')[1]}>`,
+      
+      attachments: attachments
+    };
+
+    // Send with retry logic
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError;
+
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        console.log(`📤 Attempt ${attempts}/${maxAttempts} to send email to ${to}`);
+        
+        const info = await transporter.sendMail(mailOptions);
+        
+        console.log('✅ Email sent successfully!');
+        console.log('📬 Message ID:', info.messageId);
+        console.log('📊 Response:', info.response);
+
+        // Log success
+        db.run(
+          `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+           VALUES (?, ?, ?, ?, 'Sent')`,
+          [recipientName, to, emailType, subject],
+          (err) => {
+            if (err) console.error('❌ Failed to log email:', err);
+          }
+        );
+
+        return true;
+
+      } catch (sendError) {
+        lastError = sendError;
+        console.error(`❌ Attempt ${attempts} failed:`, sendError.message);
+        
+        if (attempts < maxAttempts) {
+          const waitTime = Math.pow(2, attempts) * 1000;
+          console.log(`⏳ Waiting ${waitTime/1000}s before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    throw lastError;
+
+  } catch (error) {
+    console.error('❌ Final Email Error:', error);
+    console.error('Error Code:', error.code);
+    console.error('Error Message:', error.message);
+    
+    // Detailed error logging
+    if (error.code === 'EAUTH') {
+      console.error('⚠️  AUTHENTICATION FAILED');
+      console.error('   Please verify:');
+      console.error('   1. EMAIL_USER is correct');
+      console.error('   2. EMAIL_APP_PASS is valid App Password');
+      console.error('   3. 2-Step Verification is enabled');
+    } else if (error.code === 'ECONNECTION') {
+      console.error('⚠️  CONNECTION FAILED');
+      console.error('   Check your internet connection and firewall');
+    } else if (error.responseCode === 550) {
+      console.error('⚠️  EMAIL REJECTED BY RECIPIENT SERVER');
+      console.error('   The recipient email may not exist or has blocked your domain');
+    }
+
+    // Log failure
+    db.run(
+      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+       VALUES (?, ?, ?, ?, ?)`,
+      [recipientName, to, emailType, subject, `Failed: ${error.message}`]
+    );
+
+    return false;
+  }
+}
 
 // ==================== TIMEZONE HELPER ====================
 function convertToIST(dateString) {
@@ -301,57 +445,6 @@ function verifyPassword(inputPassword, storedHash) {
   return inputHash === storedHash;
 }
 
-// ==================== ENHANCED EMAIL FUNCTION (ANTI-SPAM) ====================
-async function sendEmail(to, subject, html, recipientName, emailType, attachments = []) {
-  try {
-    console.log('📧 Attempting to send email to:', to);
-    console.log('📧 Email type:', emailType);
-    console.log('📧 Sender email:', VERIFIED_SENDER_EMAIL);
-    
-  
-
-   await transporter.sendMail({
-  from: `"${VERIFIED_SENDER_NAME}" <${VERIFIED_SENDER_EMAIL}>`,
-  to: to,
-  subject: subject,
-  html: html,
-  text: html.replace(/<[^>]*>/g, ''),
-  attachments: attachments,
-  replyTo: VERIFIED_SENDER_EMAIL,
-  headers: {
-    'X-Priority': '1',
-    'Importance': 'high'
-  }
-});
-
-
-    // Log to database
-    db.run(
-      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
-       VALUES (?, ?, ?, ?, 'Sent')`,
-      [recipientName, to, emailType, subject],
-      (err) => {
-        if (err) console.error('❌ Failed to log email:', err);
-      }
-    );
-
-    return true;
-    
-  } catch (error) {
-  console.error('❌ Email (SMTP) Error:', error.message);
-
-    
-
-    // Log failure
-    db.run(
-      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
-       VALUES (?, ?, ?, ?, 'Failed')`,
-      [recipientName, to, emailType, subject]
-    );
-
-    return false;
-  }
-}
 
 // ==================== ENHANCED EMAIL TEMPLATES WITH PROPER HTML ====================
 function getEmailTemplate(type, data) {
@@ -523,20 +616,49 @@ function getEmailTemplate(type, data) {
 
 
 
-// ==================== TEST EMAIL ENDPOINT ====================
+// ==================== ENHANCED TEST EMAIL ENDPOINT ====================
 app.post('/api/test-email', async (req, res) => {
   const { email } = req.body;
+  
+  console.log('🧪 Starting detailed email test...');
+  console.log('📧 Sender:', process.env.EMAIL_USER);
+  console.log('📬 Recipient:', email);
   
   const testHTML = `
     <!DOCTYPE html>
     <html>
     <head><meta charset="UTF-8"></head>
-    <body style="font-family: Arial, sans-serif; padding: 20px;">
-      <h2 style="color: #667eea;">🎉 Test Email from Fluent Feathers Academy</h2>
-      <p>If you received this email, your Gmail SMTP configuration is working correctly!</p>
-      <p><strong>Time sent (IST):</strong> ${convertToIST(new Date().toISOString())}</p>
-      <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <p style="color: #155724; margin: 0;"><strong>✅ Success!</strong> Your email system is configured properly.</p>
+    <body style="font-family: Arial, sans-serif; padding: 30px; background: #f4f7fa;">
+      <div style="max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <h1 style="color: #667eea; text-align: center;">✅ Email Test Successful!</h1>
+        <p style="font-size: 18px; color: #2c3e50;">Congratulations! Your email system is working correctly.</p>
+        
+        <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <h3 style="color: #155724; margin-top: 0;">Test Details:</h3>
+          <ul style="color: #155724;">
+            <li><strong>Sender:</strong> ${process.env.EMAIL_USER}</li>
+            <li><strong>Time (IST):</strong> ${convertToIST(new Date().toISOString())}</li>
+            <li><strong>TLS Encryption:</strong> ✓ Enabled</li>
+            <li><strong>Authentication:</strong> ✓ App Password</li>
+            <li><strong>Plain Text Version:</strong> ✓ Included</li>
+          </ul>
+        </div>
+        
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <p style="color: #856404; margin: 0;">
+            <strong>⚠️ Important:</strong> If this email landed in your spam folder, mark it as "Not Spam" 
+            and add <strong>${process.env.EMAIL_USER}</strong> to your contacts.
+          </p>
+        </div>
+        
+        <p style="color: #7f8c8d; font-size: 14px; margin-top: 30px; text-align: center;">
+          If you received this email, your Fluent Feathers LMS email system is configured correctly for 2025!
+        </p>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
+          <p style="color: #667eea; font-weight: bold; margin: 0;">Fluent Feathers Academy</p>
+          <p style="color: #7f8c8d; font-size: 12px;">Email System Test</p>
+        </div>
       </div>
     </body>
     </html>
@@ -544,16 +666,28 @@ app.post('/api/test-email', async (req, res) => {
   
   const success = await sendEmail(
     email,
-    '🧪 Test Email - Fluent Feathers Academy',
+    '✅ Test Email - Fluent Feathers Academy [2025 System Check]',
     testHTML,
     'Test Recipient',
     'Test'
   );
   
   if (success) {
-    res.json({ message: '✅ Test email sent successfully! Check your inbox (and spam folder).' });
+    res.json({ 
+      success: true,
+      message: '✅ Test email sent successfully! Check your inbox and spam folder.',
+      details: {
+        sender: process.env.EMAIL_USER,
+        recipient: email,
+        timestamp: new Date().toISOString(),
+        timestampIST: convertToIST(new Date().toISOString())
+      }
+    });
   } else {
-    res.status(500).json({ error: '❌ Failed to send test email. Check server logs for details.' });
+    res.status(500).json({ 
+      success: false,
+      error: '❌ Failed to send test email. Check server console logs for detailed error messages.'
+    });
   }
 });
 
