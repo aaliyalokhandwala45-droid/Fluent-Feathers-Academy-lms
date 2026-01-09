@@ -306,48 +306,24 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
   try {
     console.log('📧 Attempting to send email to:', to);
     console.log('📧 Email type:', emailType);
-    console.log('📧 SendGrid API Key exists:', !!process.env.SENDGRID_API_KEY);
     console.log('📧 Sender email:', VERIFIED_SENDER_EMAIL);
     
-    const msg = {
-      to: to,
-      from: {
-        email: VERIFIED_SENDER_EMAIL,
-        name: VERIFIED_SENDER_NAME
-      },
-      subject: subject,
-      html: html,
-      text: html.replace(/<[^>]*>/g, ''), // Add plain text version
-      attachments: attachments,
-      replyTo: VERIFIED_SENDER_EMAIL,
-      
-      // Anti-spam settings
-      trackingSettings: {
-        clickTracking: { enable: false },
-        openTracking: { enable: false },
-        subscriptionTracking: { enable: false }
-      },
-      
-      categories: [emailType.replace(/\s+/g, '_')],
-      
-      // Important for deliverability
-      mailSettings: {
-        sandboxMode: { enable: false },
-        bypassListManagement: { enable: false }
-      },
-      
-      // Add custom headers to improve deliverability
-      headers: {
-        'X-Priority': '1',
-        'X-MSMail-Priority': 'High',
-        'Importance': 'high'
-      }
-    };
+  
 
-    const response = await sgMail.send(msg);
-    
-    console.log('✅ Email sent successfully to:', to);
-    console.log('📧 SendGrid Response Status:', response[0].statusCode);
+   await transporter.sendMail({
+  from: `"${VERIFIED_SENDER_NAME}" <${VERIFIED_SENDER_EMAIL}>`,
+  to: to,
+  subject: subject,
+  html: html,
+  text: html.replace(/<[^>]*>/g, ''),
+  attachments: attachments,
+  replyTo: VERIFIED_SENDER_EMAIL,
+  headers: {
+    'X-Priority': '1',
+    'Importance': 'high'
+  }
+});
+
 
     // Log to database
     db.run(
@@ -362,13 +338,8 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
     return true;
     
   } catch (error) {
-    console.error('❌ SendGrid Email Error:');
-    console.error('Error Code:', error.code);
-    console.error('Error Message:', error.message);
+   console.error('❌ Email (SMTP) Error:');
     
-    if (error.response) {
-      console.error('Response Body:', JSON.stringify(error.response.body, null, 2));
-    }
 
     // Log failure
     db.run(
@@ -557,16 +528,18 @@ app.post('/register', async (req, res) => {
     const { email } = req.body;
     console.log('📧 Email received:', email);
 
-    await sgMail.send({
-      to: email,
-      from: VERIFIED_SENDER_EMAIL,
-      subject: 'Registration Successful',
-      text: 'Welcome!',
-    });
+    await transporter.sendMail({
+  from: `"${VERIFIED_SENDER_NAME}" <${VERIFIED_SENDER_EMAIL}>`,
+  to: email,
+  subject: 'Registration Successful',
+  text: 'Welcome!',
+  replyTo: VERIFIED_SENDER_EMAIL
+});
 
-    console.log('✅ SendGrid send() called');
+console.log('✅ Email sent via Nodemailer');
 
-    res.send('Email sent');
+res.send('Email sent');
+
   } catch (err) {
     console.error('❌ Email error:', err);
     res.status(500).send('Email failed');
