@@ -923,6 +923,43 @@ app.get('/api/events', (req, res) => {
     res.json(rows);
   });
 });
+// Parent portal event registration
+app.post('/api/events/:eventId/register', (req, res) => {
+  const { eventId } = req.params;
+  const { student_id, parent_email } = req.body;
+
+  db.get(
+    `SELECT * FROM event_registrations WHERE event_id = ? AND student_id = ?`,
+    [eventId, student_id],
+    (err, existing) => {
+      if (existing) {
+        return res.status(400).json({ error: 'Already registered for this event' });
+      }
+
+      db.get(`SELECT * FROM students WHERE id = ?`, [student_id], (err, student) => {
+        if (!student) return res.status(404).json({ error: 'Student not found' });
+
+        db.run(
+          `INSERT INTO event_registrations (event_id, student_id, parent_name, parent_email)
+           VALUES (?, ?, ?, ?)`,
+          [eventId, student_id, student.parent_name, parent_email],
+          async () => {
+            await sendEmail(
+              parent_email,
+              `Event Registration Confirmed`,
+              `<p>${student.name} is registered successfully.</p>`,
+              student.parent_name,
+              'Event Registration'
+            );
+
+            res.json({ message: 'Registered successfully' });
+          }
+        );
+      });
+    }
+  );
+});
+
 // ✅ EMAIL REGISTER REDIRECT ROUTE (ADD THIS HERE)
 // Event Registration via Email Link
 app.get('/register-event/:eventId/:studentId', async (req, res) => {
@@ -1202,6 +1239,12 @@ app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
                     VALUES (?, ?, ?, ?, 'Available', 'Parent cancellation - makeup available')`,
               [student_id, session.id, reason || 'Cancelled by Parent', session_date], (err) => {
                 if (err) return res.status(500).json({ error: err.message });
+          // ✅ Increase remaining sessions count
+db.run(
+  `UPDATE students SET remaining_sessions = remaining_sessions + 1 WHERE id = ?`,
+  [student_id]
+);
+
 
                 // Send cancellation confirmation email
                 const cancelEmail = `
@@ -1833,59 +1876,7 @@ app.post('/api/parent/verify-otp', (req, res) => {
   });
 });
 
-// Parent cancel class
-app.post('/api/parent/cancel/:studentId', async (req, res) => {
-  const studentId = req.params.studentId;
-  const today = new Date().toISOString().split('T')[0];
 
-  // Get student and upcoming session
-  db.get(`SELECT * FROM students WHERE id = ?`, [studentId], (err, student) => {
-    if (err) return res.status(500).json({ error: err.message });
-
-    db.get(`SELECT * FROM sessions WHERE student_id = ? AND session_date >= ? AND status IN ('Pending', 'Scheduled') ORDER BY session_date ASC LIMIT 1`,
-      [studentId, today], async (err, session) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!session) return res.status(404).json({ error: 'No upcoming session found' });
-
-        // Mark session as cancelled
-        db.run(`UPDATE sessions SET status = 'Cancelled by Parent', cancelled_by = 'Parent' WHERE id = ?`, 
-          [session.id], (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-
-            // Update student's remaining sessions
-            db.run(`UPDATE students SET remaining_sessions = remaining_sessions + 1 WHERE id = ?`,
-              [studentId], async (err) => {
-                if (err) return res.status(500).json({ error: err.message });
-
-                // Send cancellation email
-                const cancelEmail = `
-                  <h2>❌ Class Cancelled</h2>
-                  <p>Dear ${student.parent_name},</p>
-                  <p>The following class has been cancelled as requested:</p>
-                  <ul>
-                    <li><strong>Date:</strong> ${session.session_date}</li>
-                    <li><strong>Time:</strong> ${session.session_time}</li>
-                    <li><strong>Session:</strong> ${session.session_number}</li>
-                  </ul>
-                  <p>This session has been added back to your remaining sessions count.</p>
-                  <p>To reschedule, please contact us via WhatsApp or email.</p>
-                  <p>Best regards,<br>Fluent Feathers Academy</p>
-                `;
-
-                await sendEmail(
-                  student.parent_email,
-                  `Class Cancelled - ${session.session_date}`,
-                  cancelEmail,
-                  student.parent_name,
-                  'Parent Cancellation'
-                );
-
-                res.json({ message: 'Class cancelled successfully! Remaining sessions updated and confirmation email sent.' });
-              });
-          });
-      });
-  });
-});
 
 // Upload homework from parent
 app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, res) => {
