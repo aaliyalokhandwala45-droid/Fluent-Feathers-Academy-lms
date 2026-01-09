@@ -299,39 +299,47 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
     console.log('📧 SendGrid API Key exists:', !!process.env.SENDGRID_API_KEY);
     console.log('📧 Sender email:', VERIFIED_SENDER_EMAIL);
     
-     const msg = {
-  to: to,
-  from: {
-    email: VERIFIED_SENDER_EMAIL,
-    name: VERIFIED_SENDER_NAME
-  },
-  subject: subject,
-  html: html,
-  attachments: attachments,
-  replyTo: VERIFIED_SENDER_EMAIL,
-  
-  // Turn OFF tracking (helps deliverability)
-  trackingSettings: {
-    clickTracking: { enable: false },
-    openTracking: { enable: false }
-  },
-  
-  categories: [emailType.replace(/\s+/g, '_')],
-  
-  // Remove spam-triggering headers
-  mailSettings: {
-    sandboxMode: {
-      enable: false
-    }
-  }
-};
+    const msg = {
+      to: to,
+      from: {
+        email: VERIFIED_SENDER_EMAIL,
+        name: VERIFIED_SENDER_NAME
+      },
+      subject: subject,
+      html: html,
+      text: html.replace(/<[^>]*>/g, ''), // Add plain text version
+      attachments: attachments,
+      replyTo: VERIFIED_SENDER_EMAIL,
+      
+      // Anti-spam settings
+      trackingSettings: {
+        clickTracking: { enable: false },
+        openTracking: { enable: false },
+        subscriptionTracking: { enable: false }
+      },
+      
+      categories: [emailType.replace(/\s+/g, '_')],
+      
+      // Important for deliverability
+      mailSettings: {
+        sandboxMode: { enable: false },
+        bypassListManagement: { enable: false }
+      },
+      
+      // Add custom headers to improve deliverability
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high'
+      }
+    };
 
     const response = await sgMail.send(msg);
     
     console.log('✅ Email sent successfully to:', to);
     console.log('📧 SendGrid Response Status:', response[0].statusCode);
 
-    // Log to database with IST time
+    // Log to database
     db.run(
       `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
        VALUES (?, ?, ?, ?, 'Sent')`,
@@ -352,7 +360,7 @@ async function sendEmail(to, subject, html, recipientName, emailType, attachment
       console.error('Response Body:', JSON.stringify(error.response.body, null, 2));
     }
 
-    // Log failure to database
+    // Log failure
     db.run(
       `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
        VALUES (?, ?, ?, ?, 'Failed')`,
@@ -374,74 +382,78 @@ function getEmailTemplate(type, data) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Welcome to Fluent Feathers Academy</title>
       </head>
-      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7fa;">
         <table role="presentation" style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 20px 0; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-              <h1 style="color: white; margin: 0; font-size: 28px;">🎓 Fluent Feathers Academy</h1>
+            <td style="padding: 30px 0; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+              <h1 style="color: white; margin: 0; font-size: 32px; font-weight: 600;">🎓 Fluent Feathers Academy</h1>
+              <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Empowering Young Minds</p>
             </td>
           </tr>
           <tr>
             <td style="padding: 40px 20px;">
-              <table role="presentation" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <table role="presentation" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;">
                 <tr>
-                  <td style="padding: 40px;">
-                    <h2 style="color: #2c3e50; margin-top: 0;">Welcome to Our Learning Community!</h2>
-                    <p style="font-size: 16px; color: #555; line-height: 1.6;">Dear ${data.parent_name},</p>
-                    <p style="font-size: 16px; color: #555; line-height: 1.6;">We're thrilled to welcome <strong>${data.student_name}</strong> to our ${data.program_name} program!</p>
+                  <td style="padding: 50px 40px;">
+                    <h2 style="color: #2c3e50; margin: 0 0 20px 0; font-size: 28px;">Welcome to Our Learning Family!</h2>
+                    <p style="font-size: 17px; color: #555; line-height: 1.7; margin: 0 0 15px 0;">Dear ${data.parent_name},</p>
+                    <p style="font-size: 17px; color: #555; line-height: 1.7; margin: 0 0 30px 0;">We're absolutely delighted to welcome <strong style="color: #667eea;">${data.student_name}</strong> to our ${data.program_name} program! This is the beginning of an exciting learning journey.</p>
                     
-                    <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin: 25px 0;">
-                      <h3 style="color: #667eea; margin-top: 0; margin-bottom: 20px;">📋 Enrollment Details</h3>
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 30px; border-radius: 10px; margin: 30px 0; border-left: 5px solid #667eea;">
+                      <h3 style="color: #667eea; margin: 0 0 25px 0; font-size: 22px;">📋 Enrollment Summary</h3>
                       <table style="width: 100%; border-collapse: collapse;">
                         <tr style="border-bottom: 1px solid #dee2e6;">
-                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Student:</td>
-                          <td style="padding: 12px 0; color: #495057;">${data.student_name}</td>
+                          <td style="padding: 15px 0; font-weight: 600; color: #495057; font-size: 15px;">Student Name:</td>
+                          <td style="padding: 15px 0; color: #495057; text-align: right; font-size: 15px;">${data.student_name}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #dee2e6;">
-                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Grade:</td>
-                          <td style="padding: 12px 0; color: #495057;">${data.grade}</td>
+                          <td style="padding: 15px 0; font-weight: 600; color: #495057; font-size: 15px;">Grade Level:</td>
+                          <td style="padding: 15px 0; color: #495057; text-align: right; font-size: 15px;">${data.grade}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #dee2e6;">
-                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Program:</td>
-                          <td style="padding: 12px 0; color: #495057;">${data.program_name}</td>
+                          <td style="padding: 15px 0; font-weight: 600; color: #495057; font-size: 15px;">Program:</td>
+                          <td style="padding: 15px 0; color: #495057; text-align: right; font-size: 15px;">${data.program_name}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #dee2e6;">
-                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Class Type:</td>
-                          <td style="padding: 12px 0; color: #495057;">${data.class_type}</td>
+                          <td style="padding: 15px 0; font-weight: 600; color: #495057; font-size: 15px;">Class Format:</td>
+                          <td style="padding: 15px 0; color: #495057; text-align: right; font-size: 15px;">${data.class_type}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #dee2e6;">
-                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Duration:</td>
-                          <td style="padding: 12px 0; color: #495057;">${data.duration}</td>
+                          <td style="padding: 15px 0; font-weight: 600; color: #495057; font-size: 15px;">Session Duration:</td>
+                          <td style="padding: 15px 0; color: #495057; text-align: right; font-size: 15px;">${data.duration}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #dee2e6;">
-                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Total Sessions:</td>
-                          <td style="padding: 12px 0; color: #495057;">${data.total_sessions}</td>
+                          <td style="padding: 15px 0; font-weight: 600; color: #495057; font-size: 15px;">Total Sessions:</td>
+                          <td style="padding: 15px 0; color: #495057; text-align: right; font-size: 15px;">${data.total_sessions}</td>
                         </tr>
                         <tr>
-                          <td style="padding: 12px 0; font-weight: bold; color: #495057;">Timezone:</td>
-                          <td style="padding: 12px 0; color: #495057;">${data.timezone}</td>
+                          <td style="padding: 15px 0; font-weight: 600; color: #495057; font-size: 15px;">Your Timezone:</td>
+                          <td style="padding: 15px 0; color: #495057; text-align: right; font-size: 15px;">${data.timezone}</td>
                         </tr>
                       </table>
                     </div>
 
-                    <div style="text-align: center; margin: 30px 0;">
-                      <a href="${data.zoom_link}" style="display: inline-block; background: #9b59b6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">🎥 Join Class</a>
+                    <div style="text-align: center; margin: 40px 0;">
+                      <a href="${data.zoom_link}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 50px; text-decoration: none; border-radius: 30px; font-weight: 600; font-size: 17px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s;">🎥 Access Your Classroom</a>
                     </div>
 
-                    <div style="background: #e8f4f8; padding: 20px; border-radius: 8px; border-left: 4px solid #3498db; margin: 25px 0;">
-                      <p style="margin: 0; font-size: 14px; color: #2c3e50;">
-                        <strong>📅 Next Steps:</strong><br>
-                        Your classes will be scheduled soon. You'll receive another email with the complete schedule and class timings in ${data.timezone}.
-                      </p>
+                    <div style="background: #d1ecf1; padding: 25px; border-radius: 10px; border-left: 5px solid #17a2b8; margin: 30px 0;">
+                      <h4 style="margin: 0 0 15px 0; color: #0c5460; font-size: 18px;">📅 What Happens Next?</h4>
+                      <ul style="margin: 0; padding-left: 20px; color: #0c5460; line-height: 1.8;">
+                        <li>Your detailed class schedule will arrive within 24 hours</li>
+                        <li>You'll receive automatic reminders before each session</li>
+                        <li>Access your parent portal anytime to track progress</li>
+                        <li>Our support team is here whenever you need us</li>
+                      </ul>
                     </div>
 
-                    <p style="font-size: 14px; color: #7f8c8d; line-height: 1.6;">
-                      Questions or need assistance? Feel free to reach out to us!
+                    <p style="font-size: 15px; color: #6c757d; line-height: 1.7; margin: 30px 0 0 0; text-align: center;">
+                      Have questions? Simply reply to this email or contact us anytime. We're here to help!
                     </p>
 
-                    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
-                      <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 0;">Best regards,</p>
-                      <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 5px 0;">Fluent Feathers Academy Team</p>
+                    <div style="text-align: center; margin-top: 40px; padding-top: 30px; border-top: 2px solid #eee;">
+                      <p style="color: #667eea; font-weight: 600; font-size: 17px; margin: 0 0 5px 0;">Warm regards,</p>
+                      <p style="color: #667eea; font-weight: 600; font-size: 17px; margin: 0;">The Fluent Feathers Team</p>
                     </div>
                   </td>
                 </tr>
@@ -449,9 +461,9 @@ function getEmailTemplate(type, data) {
             </td>
           </tr>
           <tr>
-            <td style="padding: 20px; text-align: center; font-size: 12px; color: #999;">
-              <p style="margin: 0;">© 2025 Fluent Feathers Academy. All rights reserved.</p>
-              <p style="margin: 5px 0;">This email was sent to ${data.parent_name}</p>
+            <td style="padding: 30px 20px; text-align: center; font-size: 13px; color: #999;">
+              <p style="margin: 0 0 8px 0;">© 2025 Fluent Feathers Academy. All rights reserved.</p>
+              <p style="margin: 0;">You're receiving this because ${data.student_name} enrolled in our program.</p>
             </td>
           </tr>
         </table>
@@ -460,68 +472,68 @@ function getEmailTemplate(type, data) {
     `,
     
     event_announcement: `
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  </head>
-  <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-    <table role="presentation" style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="padding: 20px 0; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-          <h1 style="color: white; margin: 0; font-size: 24px;">Fluent Feathers Academy</h1>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding: 40px 20px;">
-          <table role="presentation" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <tr>
-              <td style="padding: 40px;">
-                <h2 style="color: #2c3e50; margin-top: 0;">New Event: ${data.event_name}</h2>
-                <p style="font-size: 16px; color: #555; line-height: 1.6;">Dear ${data.parent_name},</p>
-                <p style="font-size: 16px; color: #555; line-height: 1.6;">We are excited to announce a new ${data.event_type} for all our students.</p>
-                
-                <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin: 25px 0;">
-                  <h3 style="color: #667eea; margin-top: 0; margin-bottom: 20px;">Event Details</h3>
-                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Event:</strong> ${data.event_name}</p>
-                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Date and Time:</strong> ${data.event_date} at ${data.event_time}</p>
-                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Duration:</strong> ${data.duration}</p>
-                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Type:</strong> ${data.event_type}</p>
-                  <p style="margin: 10px 0; color: #2c3e50;"><strong>Platform:</strong> Online via Zoom</p>
-                  ${data.max_participants > 0 ? `<p style="margin: 10px 0; color: #2c3e50;"><strong>Limited Seats:</strong> ${data.max_participants} participants</p>` : '<p style="margin: 10px 0; color: #2c3e50;">Unlimited participants welcome</p>'}
-                  <p style="margin-top: 15px; color: #2c3e50;">${data.event_description}</p>
-                </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7fa;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 30px 0; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+              <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">🎉 Special Event Announcement</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 20px;">
+              <table role="presentation" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                <tr>
+                  <td style="padding: 50px 40px;">
+                    <h2 style="color: #2c3e50; margin: 0 0 20px 0; font-size: 26px;">${data.event_name}</h2>
+                    <p style="font-size: 17px; color: #555; line-height: 1.7; margin: 0 0 15px 0;">Dear ${data.parent_name},</p>
+                    <p style="font-size: 17px; color: #555; line-height: 1.7; margin: 0 0 30px 0;">We're excited to invite <strong>${data.student_name}</strong> to participate in our upcoming ${data.event_type}!</p>
+                    
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 30px; border-radius: 10px; margin: 30px 0; border-left: 5px solid #667eea;">
+                      <h3 style="color: #667eea; margin: 0 0 20px 0; font-size: 20px;">📅 Event Details</h3>
+                      <p style="margin: 12px 0; color: #2c3e50; font-size: 16px;"><strong>Event:</strong> ${data.event_name}</p>
+                      <p style="margin: 12px 0; color: #2c3e50; font-size: 16px;"><strong>Date & Time:</strong> ${data.event_date} at ${data.event_time}</p>
+                      <p style="margin: 12px 0; color: #2c3e50; font-size: 16px;"><strong>Duration:</strong> ${data.duration}</p>
+                      <p style="margin: 12px 0; color: #2c3e50; font-size: 16px;"><strong>Format:</strong> ${data.event_type}</p>
+                      <p style="margin: 12px 0; color: #2c3e50; font-size: 16px;"><strong>Platform:</strong> Online via Zoom</p>
+                      ${data.max_participants > 0 ? `<p style="margin: 12px 0; color: #e74c3c; font-weight: 600; font-size: 16px;">⚠️ Limited to ${data.max_participants} participants</p>` : '<p style="margin: 12px 0; color: #27ae60; font-size: 16px;">✓ Open to all students</p>'}
+                      <p style="margin-top: 20px; color: #2c3e50; line-height: 1.7; font-size: 15px;">${data.event_description}</p>
+                    </div>
 
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${data.registration_link}" style="display: inline-block; background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Register ${data.student_name} Now</a>
-                </div>
+                    <div style="text-align: center; margin: 40px 0;">
+                      <a href="${data.registration_link}" style="display: inline-block; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; padding: 18px 50px; text-decoration: none; border-radius: 30px; font-weight: 600; font-size: 17px; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);">📝 Register ${data.student_name} Now</a>
+                    </div>
 
-                <p style="color: #e74c3c; font-weight: bold; text-align: center; margin: 20px 0;">Registration Deadline: ${data.deadline}</p>
-                
-                <p style="font-size: 14px; color: #7f8c8d; line-height: 1.6; margin-top: 30px;">
-                  If you have any questions, please feel free to contact us.
-                </p>
-                
-                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
-                  <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 0;">Best regards,</p>
-                  <p style="color: #667eea; font-weight: bold; font-size: 16px; margin: 5px 0;">Fluent Feathers Academy Team</p>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding: 20px; text-align: center; font-size: 12px; color: #999;">
-          <p style="margin: 0;">This email was sent to ${data.parent_name}</p>
-          <p style="margin: 5px 0;">Fluent Feathers Academy</p>
-        </td>
-      </tr>
-    </table>
-  </body>
-  </html>
-`
+                    <p style="color: #e74c3c; font-weight: 600; text-align: center; margin: 25px 0; font-size: 16px; background: #fee; padding: 15px; border-radius: 8px;">⏰ Registration Deadline: ${data.deadline}</p>
+                    
+                    <p style="font-size: 15px; color: #6c757d; line-height: 1.7; margin-top: 30px; text-align: center;">
+                      Questions? Just reply to this email. We're here to help!
+                    </p>
+                    
+                    <div style="text-align: center; margin-top: 40px; padding-top: 30px; border-top: 2px solid #eee;">
+                      <p style="color: #667eea; font-weight: 600; font-size: 17px; margin: 0 0 5px 0;">Best regards,</p>
+                      <p style="color: #667eea; font-weight: 600; font-size: 17px; margin: 0;">Fluent Feathers Academy Team</p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px 20px; text-align: center; font-size: 13px; color: #999;">
+              <p style="margin: 0 0 8px 0;">© 2025 Fluent Feathers Academy</p>
+              <p style="margin: 0;">Sent to ${data.parent_name}</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
   };
   
   return templates[type] || '';
@@ -868,61 +880,59 @@ app.post('/api/events', async (req, res) => {
     async function(err) {
       if (err) return res.status(500).json({ error: err.message });
 
-      const eventId = this.lastID; // ✅ CRITICAL FIX: Capture this.lastID in a variable
+      const eventId = this.lastID;
 
       // Send announcement email to all students
       db.all(`SELECT * FROM students`, async (err, students) => {
         if (err) {
           console.error('❌ Failed to fetch students:', err);
-          return; // Don't fail the whole request, just log
+          return;
         }
 
         console.log(`📧 Sending event announcements to ${students.length} students...`);
-// Send emails one by one with delay
-for (const student of students) {
-  try {
-    console.log(`📧 Preparing email for ${student.parent_name} (${student.parent_email})...`);
-    
-    const emailData = {
-      parent_name: student.parent_name,
-      student_name: student.name,
-      event_name, 
-      event_type, 
-      event_date, 
-      event_time, 
-      duration,
-      event_description, 
-      max_participants,
-      deadline: registration_deadline,
-      registration_link: `${process.env.BASE_URL}/register-event/${eventId}/${student.id}`
-    };
 
-    const emailHtml = getEmailTemplate('event_announcement', emailData);
-    
-    console.log(`📤 Sending to ${student.parent_email}...`);
-    
-    // IMPORTANT: Wait for email to send
-    const emailSent = await sendEmail(
-      student.parent_email, 
-      `New Event: ${event_name} - Register Now`, 
-      emailHtml, 
-      student.parent_name, 
-      'Event Announcement'
-    );
-    
-    if (emailSent) {
-      console.log(`✅ Email successfully sent to ${student.parent_name} (${student.parent_email})`);
-    } else {
-      console.log(`❌ Email FAILED to ${student.parent_name} (${student.parent_email})`);
-    }
-    
-    // Wait 2 seconds before sending next email (increased from 1 second)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-  } catch (emailError) {
-    console.error(`❌ Exception sending to ${student.parent_name}:`, emailError);
-  }
-}
+        for (const student of students) {
+          try {
+            console.log(`📧 Preparing email for ${student.parent_name} (${student.parent_email})...`);
+            
+            const emailData = {
+              parent_name: student.parent_name,
+              student_name: student.name,
+              event_name, 
+              event_type, 
+              event_date, 
+              event_time, 
+              duration,
+              event_description, 
+              max_participants,
+              deadline: registration_deadline,
+              registration_link: `${process.env.BASE_URL || 'http://localhost:3000'}/register-event/${eventId}/${student.id}`
+            };
+
+            const emailHtml = getEmailTemplate('event_announcement', emailData);
+            
+            console.log(`📤 Sending to ${student.parent_email}...`);
+            
+            const emailSent = await sendEmail(
+              student.parent_email, 
+              `New Event: ${event_name} - Register Now`, 
+              emailHtml, 
+              student.parent_name, 
+              'Event Announcement'
+            );
+            
+            if (emailSent) {
+              console.log(`✅ Email successfully sent to ${student.parent_name} (${student.parent_email})`);
+            } else {
+              console.log(`❌ Email FAILED to ${student.parent_name} (${student.parent_email})`);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+          } catch (emailError) {
+            console.error(`❌ Exception sending to ${student.parent_name}:`, emailError);
+          }
+        }
         
         console.log('✅ Finished sending all event announcements');
       });
@@ -930,6 +940,17 @@ for (const student of students) {
       res.json({ message: 'Event created and announcements sent!', eventId: eventId });
     }
   );
+});
+// Get all events with registration counts
+app.get('/api/events', (req, res) => {
+  db.all(`SELECT e.*, COUNT(er.id) as registered_count 
+          FROM events e 
+          LEFT JOIN event_registrations er ON e.id = er.event_id 
+          GROUP BY e.id 
+          ORDER BY e.event_date DESC`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
 });
 // ✅ EMAIL REGISTER REDIRECT ROUTE (ADD THIS HERE)
 // Event Registration via Email Link
