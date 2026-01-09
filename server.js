@@ -30,17 +30,13 @@ if (!process.env.BASE_URL) {
 // ==================== BREVO EMAIL CONFIGURATION FOR RENDER ====================
 
 // ✅ Validate Environment Variables
-if (!process.env.BREVO_SMTP_KEY) {
-  console.error('❌ CRITICAL: BREVO_SMTP_KEY is missing!');
-  console.error('⚠️  Add it in Render Environment Variables');
+if (!process.env.BREVO_SMTP_KEY || !process.env.EMAIL_USER) {
+  console.error('❌ Email configuration missing!');
+  console.error('Required: EMAIL_USER=apikey and BREVO_SMTP_KEY');
 }
 
-if (!process.env.EMAIL_USER) {
-  console.error('❌ CRITICAL: EMAIL_USER is missing!');
-  console.error('⚠️  Add it in Render Environment Variables');
-}
 
-const VERIFIED_SENDER_EMAIL = process.env.EMAIL_USER || 'fluentfeathersbyaaliya@gmail.com';
+const VERIFIED_SENDER_EMAIL = 'fluentfeathersbyaaliya@gmail.com';
 const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
 
 // ✅ Create Brevo Transporter (Works on Render!)
@@ -65,7 +61,6 @@ transporter.verify(function (error, success) {
   } else {
     console.log('✅ Brevo Email Service Ready!');
     console.log('📧 Sender:', VERIFIED_SENDER_EMAIL);
-    console.log('📊 Daily Limit: 300 emails (FREE)');
   }
 });
 
@@ -585,7 +580,7 @@ app.post('/api/test-email', async (req, res) => {
             <li><strong>Sender:</strong> ${process.env.EMAIL_USER}</li>
             <li><strong>Time (IST):</strong> ${convertToIST(new Date().toISOString())}</li>
             <li><strong>TLS Encryption:</strong> ✓ Enabled</li>
-            <li><strong>Authentication:</strong> ✓ App Password</li>
+            <li><strong>Authentication:</strong> ✓ SMTP API Key</li>
             <li><strong>Plain Text Version:</strong> ✓ Included</li>
           </ul>
         </div>
