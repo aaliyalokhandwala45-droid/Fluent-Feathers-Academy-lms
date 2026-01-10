@@ -171,27 +171,30 @@ directories.forEach(dir => {
 // Initialize database tables with ENHANCED SCHEMA
 async function initializeDatabase() {
   try {
-    // Enhanced Students table with timezone and currency
-    await pool.query(`CREATE TABLE IF NOT EXISTS students (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      grade TEXT NOT NULL,
-      parent_name TEXT NOT NULL,
-      parent_email TEXT NOT NULL,
-      primary_contact TEXT,
-      alternate_contact TEXT,
-      timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
-      program_name TEXT NOT NULL,
-      class_type TEXT NOT NULL,
-      duration TEXT NOT NULL,
-      currency TEXT NOT NULL DEFAULT '₹',
-      per_session_fee DECIMAL(10,2) NOT NULL,
-      total_sessions INTEGER NOT NULL,
-      completed_sessions INTEGER DEFAULT 0,
-      remaining_sessions INTEGER,
-      fees_paid DECIMAL(10,2) NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
+   
+   // ==================== STUDENTS TABLE (MUST BE FIRST) ====================
+await pool.query(`
+CREATE TABLE IF NOT EXISTS students (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  grade TEXT NOT NULL,
+  parent_name TEXT NOT NULL,
+  parent_email TEXT NOT NULL,
+  primary_contact TEXT,
+  alternate_contact TEXT,
+  timezone TEXT DEFAULT 'Asia/Kolkata',
+  program_name TEXT,
+  class_type TEXT,
+  duration TEXT,
+  currency TEXT DEFAULT '₹',
+  per_session_fee DECIMAL(10,2),
+  total_sessions INTEGER DEFAULT 0,
+  completed_sessions INTEGER DEFAULT 0,
+  remaining_sessions INTEGER DEFAULT 0,
+  fees_paid DECIMAL(10,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`);
 
     // Enhanced Sessions table with detailed tracking
     await pool.query(`CREATE TABLE IF NOT EXISTS sessions (
@@ -2460,75 +2463,75 @@ app.post('/api/admin/timezone', async (req, res) => {
 
 // Create a new batch/group
 app.post('/api/batches', async (req, res) => {
-  // ... (copy entire code from Part 1)
+ 
 });
 
 // Get all batches with enrollment counts
 app.get('/api/batches', async (req, res) => {
-  // ... (copy entire code from Part 1)
+  
 });
 
 // Get batch details with enrolled students
 app.get('/api/batches/:id/details', async (req, res) => {
-  // ... (copy entire code from Part 1)
+  
 });
 
 // Update batch details
 app.put('/api/batches/:id', async (req, res) => {
-  // ... (copy entire code from Part 1)
+  
 });
 
 // Delete batch
 app.delete('/api/batches/:id', async (req, res) => {
-  // ... (copy entire code from Part 1)
+ 
 });
 
 // Enroll student in batch
 app.post('/api/batches/:batchId/enroll', async (req, res) => {
-  // ... (copy entire code from Part 1)
+ 
 });
 
 // Remove student from batch
 app.delete('/api/batches/:batchId/students/:studentId', async (req, res) => {
-  // ... (copy entire code from Part 2)
+ 
 });
 
 // Schedule batch sessions
 app.post('/api/batches/:batchId/schedule', async (req, res) => {
-  // ... (copy entire code from Part 2)
+ 
 });
 
 // Get batch sessions with timezone conversion
 app.get('/api/batches/:batchId/sessions', async (req, res) => {
-  // ... (copy entire code from Part 2)
+  
 });
 
 // Mark batch session attendance
 app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
-  // ... (copy entire code from Part 2)
+  
 });
 
 // Get batch session attendance
 app.get('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
-  // ... (copy entire code from Part 2)
+  
 });
 
 // Get student's batches (for parent portal)
 app.get('/api/students/:studentId/batches', async (req, res) => {
-  // ... (copy entire code from Part 2)
+ 
 });
 
 // Get student's batch sessions with timezone conversion (for parent portal)
 app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
-  // ... (copy entire code from Part 2)
+ )
 });
 
 // Upload batch material
 app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (req, res) => {
-  // ... (copy entire code from Part 2)
+ 
 });
 // ==================== ADD THESE BATCH ROUTES TO YOUR SERVER.JS ====================
-// Place these BEFORE app.listen() at the end of server.js
+
 
 // ==================== BATCH MANAGEMENT API ROUTES ====================
 
