@@ -58,16 +58,17 @@
         </div>
       </div>
 
-      <div class="quick-actions">
-        <h2>⚡ Quick Actions</h2>
-        <div class="action-buttons">
-          <button onclick="showTab('students')" class="action-btn">➕ Add Student</button>
-          <button onclick="showTab('sessions')" class="action-btn">📅 Schedule Classes</button>
-          <button onclick="showTab('materials')" class="action-btn">📤 Upload Material</button>
-          <button onclick="showTab('events')" class="action-btn">🎉 Create Event</button>
-          <button onclick="window.open('https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09', '_blank')" class="action-btn">🎥 Join Zoom</button>
-        </div>
-      </div>
+      <button onclick="showTab('students', document.querySelector('.tab-btn:nth-child(2)'))" class="action-btn">
+  👥 Manage Students
+</button>
+
+<button onclick="showTab('sessions')" class="action-btn">📅 Schedule Classes</button>
+<button onclick="showTab('materials')" class="action-btn">📤 Upload Material</button>
+<button onclick="showTab('events')" class="action-btn">🎉 Create Event</button>
+<button onclick="window.open('https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09', '_blank')" class="action-btn">
+  🎥 Join Zoom
+</button>
+
 
       <!-- Recent Activity -->
       <div class="recent-activity">
@@ -1326,7 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==================== TAB NAVIGATION ====================
-function showTab(tabName, btn) {
+window.showTab = function(tabName, btn) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 
@@ -1557,7 +1558,7 @@ function closeStudentModal() {
   document.getElementById('studentDetailsModal').style.display = 'none';
 }
 
-function showDetailTab(tabName, btn) {
+window.showDetailTab = function(tabName, btn) {
   document.querySelectorAll('.detail-tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(tabName + 'Detail').classList.add('active');
@@ -2852,11 +2853,11 @@ async function markBatchAttendance(sessionId) {
   }
 }
 
-function closeBatchAttendanceModal() {
+window.closeBatchAttendanceModal = function() {
   document.getElementById('batchAttendanceModal').style.display = 'none';
 }
 
-function addBatchScheduleRow() {
+window.addBatchScheduleRow = function() {
   batchScheduleCounter++;
   const row = document.createElement('div');
   row.className = 'batch-schedule-row';
@@ -2869,26 +2870,26 @@ function addBatchScheduleRow() {
   document.getElementById('batchClassScheduleList').appendChild(row);
 }
 
-function removeBatchScheduleRow(rowId) {
+window.removeBatchScheduleRow = function(rowId) {
   document.getElementById(`batchScheduleRow${rowId}`)?.remove();
 }
 
-function addBatchBulkSchedule() {
+window.addBatchBulkSchedule = function() {
   addBulkSchedule();
 }
 
-function closeBatchModal() {
+window.closeBatchModal = function() {
   document.getElementById('batchDetailsModal').style.display = 'none';
 }
 
-function showBatchDetailTab(tabName, btn) {
+window.showBatchDetailTab = function(tabName, btn) {
   document.querySelectorAll('.detail-tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(tabName + 'Detail').classList.add('active');
   if (btn) btn.classList.add('active');
 }
 
-function showEnrollStudentForm() {
+window.showEnrollStudentForm = function() {
   const enrollSelect = document.getElementById('enrollStudentSelect');
   enrollSelect.innerHTML = '<option value="">Select student...</option>';
   allStudents.forEach(s => {
@@ -2897,27 +2898,27 @@ function showEnrollStudentForm() {
   document.getElementById('enrollStudentForm').style.display = 'block';
 }
 
-function hideEnrollStudentForm() {
+window.hideEnrollStudentForm = function() {
   document.getElementById('enrollStudentForm').style.display = 'none';
 }
 
-function showBatchScheduleForm() {
+window.showBatchScheduleForm = function() {
   document.getElementById('batchScheduleFormSection').style.display = 'block';
 }
 
-function hideBatchScheduleForm() {
+window.hideBatchScheduleForm = function() {
   document.getElementById('batchScheduleFormSection').style.display = 'none';
 }
 
-function showBatchMaterialUpload() {
+window.showBatchMaterialUpload = function() {
   document.getElementById('batchMaterialUploadForm').style.display = 'block';
 }
 
-function hideBatchMaterialUpload() {
+window.hideBatchMaterialUpload = function() {
   document.getElementById('batchMaterialUploadForm').style.display = 'none';
 }
 
-function openEditBatchModal() {
+window.openEditBatchModal = function() {
   const batch = allBatches.find(b => b.id === currentBatchId);
   
   document.getElementById('editBatchName').value = batch.batch_name;
@@ -3015,16 +3016,16 @@ async function loadTimetable() {
         daySlots.forEach(slot => {
           const statusClass = slot.is_booked ? 'booked' : 'vacant';
           html += `<div class="time-slot ${statusClass}">
-            <div class="slot-time">${slot.time_slot}</div>
-            ${slot.is_booked ? `
-              <div class="slot-student">${slot.student_name}</div>
-              <div class="slot-program">${slot.program_name}</div>
-              <button onclick="unbookSlot(${slot.id})" class="btn-mini-cancel">Free</button>
-            ` : `
-              <button onclick="openBookModal(${slot.id})" class="btn-mini-book">Book</button>
-            `}
-            <button onclick="deleteSlot(${slot.id})" class="btn-mini-delete">Delete</button>
-          </div>`;
+  <div class="slot-time">${slot.time_slot}</div>
+  ${slot.is_booked ? `
+    <div class="slot-student">${slot.student_name}</div>
+    <div class="slot-program">${slot.program_name}</div>
+    <button onclick="unbookSlot(${slot.id})" class="btn-mini-cancel">Free</button>
+  ` : `
+    <button onclick="openBookModal(${slot.id})" class="btn-mini-book">Book</button>
+  `}
+</div>`;
+
         });
       }
       html += '</div>';
@@ -3036,16 +3037,16 @@ async function loadTimetable() {
   }
 }
 
-function openBookModal(slotId) {
+window.openBookModal = function(slotId) {
   currentBookingSlotId = slotId;
   document.getElementById('bookSlotModal').style.display = 'flex';
 }
 
-function closeBookModal() {
+window.closeBookModal = function() {
   document.getElementById('bookSlotModal').style.display = 'none';
 }
 
-async function unbookSlot(slotId) {
+window.unbookSlot = async function(slotId) {
   if (!confirm('Free this slot?')) return;
   try {
     const response = await fetch(`/api/timetable/unbook/${slotId}`, { method: 'POST' });
@@ -3058,7 +3059,7 @@ async function unbookSlot(slotId) {
   }
 }
 
-async function deleteSlot(slotId) {
+window.deleteSlot = async function(slotId) {
   if (!confirm('Delete this slot?')) return;
   try {
     const response = await fetch(`/api/timetable/slots/${slotId}`, { method: 'DELETE' });
@@ -3210,7 +3211,7 @@ document.addEventListener('keydown', (e) => {
     const tabs = ['dashboard', 'students', 'sessions', 'materials', 'events', 'batches', 'timetable', 'emails'];
     const tabIndex = parseInt(e.key) - 1;
     if (tabs[tabIndex]) {
-      showTab(tabs[tabIndex]);
+      window.showTab(tabs[tabIndex]);
     }
   }
 });
