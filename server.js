@@ -320,10 +320,7 @@ CREATE TABLE IF NOT EXISTS students (
       status TEXT NOT NULL,
       sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
-// Enhanced Students table with timezone and currency
-await pool.query(`CREATE TABLE IF NOT EXISTS students (
-  // ... existing students table code remains same ...
-)`);
+
 
 // ... all other existing tables ...
 
@@ -863,7 +860,7 @@ app.post('/api/students', async (req, res) => {
     // Create initial payment record
     await pool.query(
       `INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes)
-       VALUES ($1, $2, $3, $4, 'Initial Payment', $5, 'Enrollment payment')`,
+       VALUES ($1, $2, $3, $4, 'Initial Payment', NULL, $5, 'Enrollment payment')`,
       [studentId, new Date().toISOString().split('T')[0], fees_paid, currency, `Sessions 1-${total_sessions}`]
     );
 
@@ -2445,92 +2442,17 @@ app.delete('/api/students/:id', async (req, res) => {
 });
 // ==================== EXISTING ROUTES END HERE ====================
 
-// ⬇️ ADD ALL BATCH API ROUTES HERE (BEFORE app.listen()) ⬇️
-
-// ==================== ADMIN TIMEZONE SETTINGS ====================
-
-// Get admin timezone
-app.get('/api/admin/timezone', async (req, res) => {
-  // ... (copy entire code from Part 2)
-});
-
-// Update admin timezone
-app.post('/api/admin/timezone', async (req, res) => {
-  // ... (copy entire code from Part 2)
-});
 
 // ==================== BATCH MANAGEMENT API ROUTES ====================
 
-// Create a new batch/group
-app.post('/api/batches', async (req, res) => {
- 
-});
 
-// Get all batches with enrollment counts
-app.get('/api/batches', async (req, res) => {
-  
-});
-
-// Get batch details with enrolled students
-app.get('/api/batches/:id/details', async (req, res) => {
-  
-});
-
-// Update batch details
-app.put('/api/batches/:id', async (req, res) => {
-  
-});
-
-// Delete batch
-app.delete('/api/batches/:id', async (req, res) => {
- 
-});
-
-// Enroll student in batch
-app.post('/api/batches/:batchId/enroll', async (req, res) => {
- 
-});
-
-// Remove student from batch
-app.delete('/api/batches/:batchId/students/:studentId', async (req, res) => {
- 
-});
-
-// Schedule batch sessions
-app.post('/api/batches/:batchId/schedule', async (req, res) => {
- 
-});
-
-// Get batch sessions with timezone conversion
-app.get('/api/batches/:batchId/sessions', async (req, res) => {
-  
-});
-
-// Mark batch session attendance
-app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
-  
-});
-
-// Get batch session attendance
-app.get('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
-  
-});
-
-// Get student's batches (for parent portal)
-app.get('/api/students/:studentId/batches', async (req, res) => {
- 
-});
 
 // Get student's batch sessions with timezone conversion (for parent portal)
 app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
- )
+  res.json([]);
 });
 
-// Upload batch material
-app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (req, res) => {
- 
-});
-// ==================== ADD THESE BATCH ROUTES TO YOUR SERVER.JS ====================
+
 
 
 // ==================== BATCH MANAGEMENT API ROUTES ====================
