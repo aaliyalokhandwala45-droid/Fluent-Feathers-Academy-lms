@@ -104,7 +104,42 @@ function convertToIST(dateString) {
     timeStyle: 'short'
   });
 }
+// Convert time between timezones
+function convertTimeBetweenTimezones(time, date, fromTimezone, toTimezone) {
+  try {
+    // Create a date object with the time in the source timezone
+    const dateTimeString = `${date}T${time}`;
+    const sourceDate = new Date(dateTimeString);
+    
+    // Get the time in the target timezone
+    const targetTime = sourceDate.toLocaleString('en-US', {
+      timeZone: toTimezone,
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    return targetTime;
+  } catch (error) {
+    console.error('Timezone conversion error:', error);
+    return time; // Return original time if conversion fails
+  }
+}
 
+// Format date and time for display in specific timezone
+function formatDateTimeInTimezone(dateTime, timezone) {
+  try {
+    const date = new Date(dateTime);
+    return date.toLocaleString('en-US', {
+      timeZone: timezone,
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+  } catch (error) {
+    console.error('DateTime formatting error:', error);
+    return dateTime;
+  }
+}
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
@@ -282,7 +317,95 @@ async function initializeDatabase() {
       status TEXT NOT NULL,
       sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+// Enhanced Students table with timezone and currency
+await pool.query(`CREATE TABLE IF NOT EXISTS students (
+  // ... existing students table code remains same ...
+)`);
 
+// ... all other existing tables ...
+
+// ⬇️ ADD THESE NEW TABLES AFTER parent_credentials TABLE ⬇️
+
+// NEW: Batches/Groups table
+await pool.query(`CREATE TABLE IF NOT EXISTS batches (
+  id SERIAL PRIMARY KEY,
+  batch_name TEXT UNIQUE NOT NULL,
+  batch_code TEXT UNIQUE NOT NULL,
+  program_name TEXT NOT NULL,
+  grade_level TEXT NOT NULL,
+  class_type TEXT DEFAULT 'Group',
+  duration TEXT NOT NULL,
+  timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+  max_students INTEGER DEFAULT 10,
+  current_students INTEGER DEFAULT 0,
+  per_session_fee DECIMAL(10,2) NOT NULL,
+  currency TEXT NOT NULL DEFAULT '₹',
+  zoom_link TEXT,
+  status TEXT DEFAULT 'Active',
+  start_date DATE,
+  end_date DATE,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)`);
+
+// NEW: Add admin_timezone to store admin's timezone (default IST)
+await pool.query(`CREATE TABLE IF NOT EXISTS admin_settings (
+  id SERIAL PRIMARY KEY,
+  admin_timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)`);
+
+// Insert default admin timezone if not exists
+await pool.query(`
+  INSERT INTO admin_settings (admin_timezone) 
+  SELECT 'Asia/Kolkata' 
+  WHERE NOT EXISTS (SELECT 1 FROM admin_settings LIMIT 1)
+`);
+
+// NEW: Batch Enrollments table (links students to batches)
+await pool.query(`CREATE TABLE IF NOT EXISTS batch_enrollments (
+  id SERIAL PRIMARY KEY,
+  batch_id INTEGER NOT NULL,
+  student_id INTEGER NOT NULL,
+  enrollment_date DATE NOT NULL,
+  status TEXT DEFAULT 'Active',
+  notes TEXT,
+  FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  UNIQUE(batch_id, student_id)
+)`);
+
+// NEW: Batch Sessions table
+await pool.query(`CREATE TABLE IF NOT EXISTS batch_sessions (
+  id SERIAL PRIMARY KEY,
+  batch_id INTEGER NOT NULL,
+  session_number INTEGER NOT NULL,
+  session_date DATE NOT NULL,
+  session_time TIME NOT NULL,
+  status TEXT DEFAULT 'Pending',
+  zoom_link TEXT,
+  teacher_notes TEXT,
+  ppt_file_path TEXT,
+  recording_file_path TEXT,
+  homework_file_path TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
+)`);
+
+// NEW: Batch Attendance table
+await pool.query(`CREATE TABLE IF NOT EXISTS batch_attendance (
+  id SERIAL PRIMARY KEY,
+  batch_session_id INTEGER NOT NULL,
+  student_id INTEGER NOT NULL,
+  attendance TEXT DEFAULT 'Pending',
+  notes TEXT,
+  marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (batch_session_id) REFERENCES batch_sessions(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  UNIQUE(batch_session_id, student_id)
+)`);
+
+console.log('✅ Enhanced database tables with Batch Management initialized');
     // Parent Login Credentials table
     await pool.query(`CREATE TABLE IF NOT EXISTS parent_credentials (
       id SERIAL PRIMARY KEY,
@@ -1633,69 +1756,34 @@ app.post('/api/attendance/cancel/:studentId', async (req, res) => {
 // ========== ENHANCED MATERIAL MANAGEMENT ==========
 
 // Enhanced material upload with session linking
-app.post('/api/upload/material/:targetId', upload.single('file'), async (req, res) => {
+app.post('/api/upload/material/:studentId', upload.single('file'), async (req, res) => {
   const { fileType, sessionDate, uploadType, sessionId } = req.body;
-  const targetId = req.params.targetId;
+  const studentId = req.params.studentId;
 
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  // ❌ Block batch uploads here
+  if (uploadType === 'batch') {
+    return res.status(400).json({
+      error: 'Batch uploads must use batch material route'
+    });
+  }
 
-  const studentId = uploadType === 'private' ? targetId : null;
-  const batchName = uploadType === 'batch' ? targetId : null;
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
 
   try {
-    // Insert into materials table
     await pool.query(
-      `INSERT INTO materials (student_id, batch_name, session_date, file_type, file_name, file_path, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, 'Teacher')`,
-      [studentId, batchName, sessionDate, fileType, req.file.originalname, req.file.filename]
+      `INSERT INTO materials (student_id, session_date, file_type, file_name, file_path, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, 'Teacher')`,
+      [studentId, sessionDate, fileType, req.file.originalname, req.file.filename]
     );
 
-    // If linked to a specific session, update session record
-    if (sessionId && uploadType === 'private') {
-      const column = fileType === 'PPT' ? 'ppt_file_path' : 
-                    fileType === 'Recording' ? 'recording_file_path' :
-                    fileType === 'Homework' ? 'homework_file_path' : null;
-
-      if (column) {
-        await pool.query(
-          `UPDATE sessions SET ${column} = $1 WHERE id = $2`,
-          [req.file.filename, sessionId]
-        );
-      }
-    }
-
-    // Send material notification email to affected students
-    if (uploadType === 'private') {
-      const studentResult = await pool.query(
-        `SELECT * FROM students WHERE id = $1`,
-        [targetId]
-      );
-
-      if (studentResult.rows.length > 0) {
-        const student = studentResult.rows[0];
-        
-        const materialEmail = `
-          <h2>📚 New Material Available - ${student.name}</h2>
-          <p>Dear ${student.parent_name},</p>
-          <p>New study material has been uploaded for ${student.name}:</p>
-          <ul>
-            <li><strong>Type:</strong> ${fileType}</li>
-            <li><strong>File:</strong> ${req.file.originalname}</li>
-            <li><strong>Session Date:</strong> ${sessionDate}</li>
-          </ul>
-          <p>Access the parent portal to download the material.</p>
-          <p>Best regards,<br>Fluent Feathers Academy</p>
-        `;
-        
-        await sendEmail(student.parent_email, `📚 New Material - ${fileType}`, materialEmail, student.parent_name, 'Material Upload');
-      }
-    }
-
-    res.json({ message: 'Material uploaded successfully! Notification sent to students.' });
+    res.json({ message: 'Private material uploaded successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // Grade homework
 app.post('/api/sessions/:sessionId/grade-homework', async (req, res) => {
@@ -2168,9 +2256,22 @@ app.get('/api/materials/all/admin', async (req, res) => {
 app.get('/api/materials/:studentId', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM materials WHERE student_id = $1 OR batch_name IS NOT NULL ORDER BY uploaded_at DESC`,
-      [req.params.studentId]
-    );
+  `
+  SELECT m.*
+  FROM materials m
+  WHERE 
+    m.student_id = $1
+    OR m.batch_name IN (
+      SELECT b.batch_name
+      FROM batches b
+      JOIN batch_enrollments be ON b.id = be.batch_id
+      WHERE be.student_id = $1 AND be.status = 'Active'
+    )
+  ORDER BY m.uploaded_at DESC
+  `,
+  [req.params.studentId]
+);
+
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2339,6 +2440,519 @@ app.delete('/api/students/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ==================== EXISTING ROUTES END HERE ====================
+
+// ⬇️ ADD ALL BATCH API ROUTES HERE (BEFORE app.listen()) ⬇️
+
+// ==================== ADMIN TIMEZONE SETTINGS ====================
+
+// Get admin timezone
+app.get('/api/admin/timezone', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Update admin timezone
+app.post('/api/admin/timezone', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// ==================== BATCH MANAGEMENT API ROUTES ====================
+
+// Create a new batch/group
+app.post('/api/batches', async (req, res) => {
+  // ... (copy entire code from Part 1)
+});
+
+// Get all batches with enrollment counts
+app.get('/api/batches', async (req, res) => {
+  // ... (copy entire code from Part 1)
+});
+
+// Get batch details with enrolled students
+app.get('/api/batches/:id/details', async (req, res) => {
+  // ... (copy entire code from Part 1)
+});
+
+// Update batch details
+app.put('/api/batches/:id', async (req, res) => {
+  // ... (copy entire code from Part 1)
+});
+
+// Delete batch
+app.delete('/api/batches/:id', async (req, res) => {
+  // ... (copy entire code from Part 1)
+});
+
+// Enroll student in batch
+app.post('/api/batches/:batchId/enroll', async (req, res) => {
+  // ... (copy entire code from Part 1)
+});
+
+// Remove student from batch
+app.delete('/api/batches/:batchId/students/:studentId', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Schedule batch sessions
+app.post('/api/batches/:batchId/schedule', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Get batch sessions with timezone conversion
+app.get('/api/batches/:batchId/sessions', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Mark batch session attendance
+app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Get batch session attendance
+app.get('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Get student's batches (for parent portal)
+app.get('/api/students/:studentId/batches', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Get student's batch sessions with timezone conversion (for parent portal)
+app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+
+// Upload batch material
+app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (req, res) => {
+  // ... (copy entire code from Part 2)
+});
+// ==================== ADD THESE BATCH ROUTES TO YOUR SERVER.JS ====================
+// Place these BEFORE app.listen() at the end of server.js
+
+// ==================== BATCH MANAGEMENT API ROUTES ====================
+
+// Create a new batch/group
+app.post('/api/batches', async (req, res) => {
+  const {
+    batch_name, batch_code, program_name, grade_level, duration,
+    timezone, max_students, currency, per_session_fee, zoom_link,
+    start_date, end_date, description
+  } = req.body;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO batches (
+        batch_name, batch_code, program_name, grade_level, duration,
+        timezone, max_students, currency, per_session_fee, zoom_link,
+        start_date, end_date, description, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Active')
+      RETURNING id`,
+      [batch_name, batch_code, program_name, grade_level, duration,
+       timezone, max_students, currency, per_session_fee, zoom_link,
+       start_date, end_date, description]
+    );
+
+    res.json({ 
+      message: 'Batch created successfully!', 
+      batchId: result.rows[0].id 
+    });
+  } catch (err) {
+    if (err.code === '23505') { // Unique constraint violation
+      res.status(400).json({ error: 'Batch code already exists' });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
+// Get all batches with enrollment counts
+app.get('/api/batches', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT b.*, 
+        COUNT(DISTINCT be.student_id) as enrolled_students,
+        (b.max_students - COUNT(DISTINCT be.student_id)) as available_slots
+       FROM batches b
+       LEFT JOIN batch_enrollments be ON b.id = be.batch_id AND be.status = 'Active'
+       GROUP BY b.id
+       ORDER BY b.created_at DESC`
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get batch details with enrolled students and sessions
+app.get('/api/batches/:id/details', async (req, res) => {
+  const batchId = req.params.id;
+  
+  try {
+    // Get batch info
+    const batchResult = await pool.query(
+      `SELECT b.*,
+        COUNT(DISTINCT be.student_id) as current_students
+       FROM batches b
+       LEFT JOIN batch_enrollments be ON b.id = be.batch_id AND be.status = 'Active'
+       WHERE b.id = $1
+       GROUP BY b.id`,
+      [batchId]
+    );
+
+    if (batchResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    const batch = batchResult.rows[0];
+
+    // Get enrollments with student details
+    const enrollmentsResult = await pool.query(
+      `SELECT be.*, s.name, s.grade, s.parent_name, s.parent_email, s.timezone
+       FROM batch_enrollments be
+       JOIN students s ON be.student_id = s.id
+       WHERE be.batch_id = $1
+       ORDER BY be.enrollment_date DESC`,
+      [batchId]
+    );
+
+    // Get sessions
+    const sessionsResult = await pool.query(
+      `SELECT * FROM batch_sessions 
+       WHERE batch_id = $1 
+       ORDER BY session_date ASC, session_time ASC`,
+      [batchId]
+    );
+
+    res.json({
+      batch,
+      enrollments: enrollmentsResult.rows,
+      sessions: sessionsResult.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update batch details
+app.put('/api/batches/:id', async (req, res) => {
+  const batchId = req.params.id;
+  const {
+    batch_name, program_name, grade_level, duration, timezone,
+    max_students, currency, per_session_fee, zoom_link,
+    start_date, end_date, description, status
+  } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE batches SET
+        batch_name = $1, program_name = $2, grade_level = $3,
+        duration = $4, timezone = $5, max_students = $6,
+        currency = $7, per_session_fee = $8, zoom_link = $9,
+        start_date = $10, end_date = $11, description = $12, status = $13
+       WHERE id = $14`,
+      [batch_name, program_name, grade_level, duration, timezone,
+       max_students, currency, per_session_fee, zoom_link,
+       start_date, end_date, description, status, batchId]
+    );
+
+    res.json({ message: 'Batch updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete batch
+app.delete('/api/batches/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM batches WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Batch deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Enroll student in batch
+app.post('/api/batches/:batchId/enroll', async (req, res) => {
+  const { batchId } = req.params;
+  const { student_id, notes } = req.body;
+  const enrollment_date = new Date().toISOString().split('T')[0];
+
+  try {
+    // Check capacity
+    const batchResult = await pool.query(
+      `SELECT b.max_students, COUNT(be.id) as current_count
+       FROM batches b
+       LEFT JOIN batch_enrollments be ON b.id = be.batch_id AND be.status = 'Active'
+       WHERE b.id = $1
+       GROUP BY b.id, b.max_students`,
+      [batchId]
+    );
+
+    if (batchResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    const { max_students, current_count } = batchResult.rows[0];
+    if (parseInt(current_count) >= max_students) {
+      return res.status(400).json({ error: 'Batch is full' });
+    }
+
+    // Enroll student
+    await pool.query(
+      `INSERT INTO batch_enrollments (batch_id, student_id, enrollment_date, notes, status)
+       VALUES ($1, $2, $3, $4, 'Active')`,
+      [batchId, student_id, enrollment_date, notes]
+    );
+
+    // Get student info for email
+    const studentResult = await pool.query(
+      'SELECT * FROM students WHERE id = $1',
+      [student_id]
+    );
+    const student = studentResult.rows[0];
+
+    const batchInfoResult = await pool.query(
+      'SELECT * FROM batches WHERE id = $1',
+      [batchId]
+    );
+    const batch = batchInfoResult.rows[0];
+
+    // Send enrollment email
+    const enrollmentEmail = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #667eea;">🎓 Enrolled in ${batch.batch_name}!</h2>
+        <p>Dear ${student.parent_name},</p>
+        <p>${student.name} has been successfully enrolled in:</p>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Batch:</strong> ${batch.batch_name}</p>
+          <p><strong>Program:</strong> ${batch.program_name}</p>
+          <p><strong>Grade Level:</strong> ${batch.grade_level}</p>
+          <p><strong>Duration:</strong> ${batch.duration}</p>
+          <p><strong>Your Timezone:</strong> ${student.timezone}</p>
+        </div>
+        <p>Class schedules will be shared shortly.</p>
+        <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy</p>
+      </div>
+    `;
+
+    await sendEmail(
+      student.parent_email,
+      `Enrolled in ${batch.batch_name}`,
+      enrollmentEmail,
+      student.parent_name,
+      'Batch Enrollment'
+    );
+
+    res.json({ message: 'Student enrolled successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remove student from batch
+app.delete('/api/batches/:batchId/students/:studentId', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE batch_enrollments SET status = 'Inactive' 
+       WHERE batch_id = $1 AND student_id = $2`,
+      [req.params.batchId, req.params.studentId]
+    );
+    
+    res.json({ message: 'Student removed from batch' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Schedule batch sessions
+app.post('/api/batches/:batchId/schedule', async (req, res) => {
+  const { batchId } = req.params;
+  const { sessions } = req.body;
+
+  try {
+    // Get batch info
+    const batchResult = await pool.query(
+      'SELECT * FROM batches WHERE id = $1',
+      [batchId]
+    );
+    
+    if (batchResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    const batch = batchResult.rows[0];
+
+    // Get current session count
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as count FROM batch_sessions WHERE batch_id = $1',
+      [batchId]
+    );
+
+    let sessionNumber = parseInt(countResult.rows[0].count) + 1;
+
+    // Insert sessions
+    for (const session of sessions) {
+      await pool.query(
+        `INSERT INTO batch_sessions (
+          batch_id, session_number, session_date, session_time, 
+          zoom_link, status
+        ) VALUES ($1, $2, $3, $4, $5, 'Pending')`,
+        [batchId, sessionNumber, session.date, session.time, batch.zoom_link]
+      );
+      sessionNumber++;
+    }
+
+    // Send schedule emails to all enrolled students
+    const enrollmentsResult = await pool.query(
+      `SELECT s.* FROM students s
+       JOIN batch_enrollments be ON s.id = be.student_id
+       WHERE be.batch_id = $1 AND be.status = 'Active'`,
+      [batchId]
+    );
+
+    for (const student of enrollmentsResult.rows) {
+      const scheduleEmail = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #667eea;">📅 ${batch.batch_name} - Class Schedule</h2>
+          <p>Dear ${student.parent_name},</p>
+          <p>${sessions.length} new classes scheduled for ${student.name}:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background: #667eea; color: white;">
+              <th style="padding: 10px; border: 1px solid #ddd;">Session</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Time (${student.timezone})</th>
+            </tr>
+            ${sessions.map((s, i) => `
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${s.date}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${s.time}</td>
+              </tr>
+            `).join('')}
+          </table>
+          <p><a href="${batch.zoom_link}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Join Class</a></p>
+        </div>
+      `;
+
+      await sendEmail(
+        student.parent_email,
+        `${batch.batch_name} - Schedule`,
+        scheduleEmail,
+        student.parent_name,
+        'Batch Schedule'
+      );
+    }
+
+    res.json({ message: `${sessions.length} sessions scheduled and emails sent!` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark batch session attendance
+app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
+  const { sessionId } = req.params;
+  const { attendanceData } = req.body;
+
+  try {
+    for (const record of attendanceData) {
+      await pool.query(
+        `INSERT INTO batch_attendance (batch_session_id, student_id, attendance, notes)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (batch_session_id, student_id) 
+         DO UPDATE SET attendance = $3, notes = $4`,
+        [sessionId, record.student_id, record.attendance, record.notes]
+      );
+
+      // Update student's completed sessions if present
+      if (record.attendance === 'Present') {
+        await pool.query(
+          `UPDATE students SET 
+            completed_sessions = completed_sessions + 1,
+            remaining_sessions = remaining_sessions - 1
+           WHERE id = $1`,
+          [record.student_id]
+        );
+      }
+    }
+
+    // Update session status
+    await pool.query(
+      `UPDATE batch_sessions SET status = 'Completed' WHERE id = $1`,
+      [sessionId]
+    );
+
+    res.json({ message: 'Attendance marked successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Upload batch material
+app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (req, res) => {
+  const { batchId } = req.params;
+  const { fileType, sessionDate } = req.body;
+
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+  try {
+    // Get batch info
+    const batchResult = await pool.query(
+      'SELECT * FROM batches WHERE id = $1',
+      [batchId]
+    );
+
+    if (batchResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    const batch = batchResult.rows[0];
+
+    // Insert material
+    await pool.query(
+      `INSERT INTO materials (batch_name, session_date, file_type, file_name, file_path, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, 'Teacher')`,
+      [batch.batch_name, sessionDate, fileType, req.file.originalname, req.file.filename]
+    );
+
+    // Send emails to all enrolled students
+    const studentsResult = await pool.query(
+      `SELECT s.* FROM students s
+       JOIN batch_enrollments be ON s.id = be.student_id
+       WHERE be.batch_id = $1 AND be.status = 'Active'`,
+      [batchId]
+    );
+
+    for (const student of studentsResult.rows) {
+      const materialEmail = `
+        <h2>📚 New Material - ${batch.batch_name}</h2>
+        <p>Dear ${student.parent_name},</p>
+        <p>New material uploaded:</p>
+        <ul>
+          <li><strong>Type:</strong> ${fileType}</li>
+          <li><strong>File:</strong> ${req.file.originalname}</li>
+          <li><strong>Session:</strong> ${sessionDate}</li>
+        </ul>
+        <p>Access via parent portal.</p>
+      `;
+
+      await sendEmail(
+        student.parent_email,
+        `New Material - ${batch.batch_name}`,
+        materialEmail,
+        student.parent_name,
+        'Batch Material'
+      );
+    }
+
+    res.json({ message: 'Material uploaded and students notified!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// ==================== EXISTING CODE CONTINUES ====================
 
 // Start server
 app.listen(PORT, () => {
