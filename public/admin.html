@@ -1289,51 +1289,38 @@
 </div>
 
   </div> <!-- Close main container -->
-
   <script>
-// ==================== COMPLETE ADMIN PANEL JAVASCRIPT ====================
-
-// Global Variables
+// Admin Panel JavaScript - Single Clean Copy
 let allStudents = [];
 let allEvents = [];
 let allBatches = [];
 let currentStudentId = null;
 let currentEditStudentId = null;
 let currentEventId = null;
-let currentBatchId = null;
-let currentBatchSessionId = null;
-let currentBookingSlotId = null;
-let currentFeedbackMaterialId = null;
 let scheduleCounter = 0;
-let batchScheduleCounter = 0;
 
-// ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🎓 Admin Panel Loading...');
-  
   loadDashboardStats();
   loadStudents();
   loadEvents();
   loadBatches();
-  setupFormHandlers();
-  setupBatchFormHandlers();
   
-  document.getElementById('perSessionFee')?.addEventListener('input', calculateTotalFees);
-  document.getElementById('totalSessions')?.addEventListener('input', calculateTotalFees);
-  document.getElementById('editPerSessionFee')?.addEventListener('input', calculateEditTotalFees);
-  document.getElementById('editTotalSessions')?.addEventListener('input', calculateEditTotalFees);
+  const perSessionFee = document.getElementById('perSessionFee');
+  const totalSessions = document.getElementById('totalSessions');
+  if (perSessionFee) perSessionFee.addEventListener('input', calculateTotalFees);
+  if (totalSessions) totalSessions.addEventListener('input', calculateTotalFees);
   
   console.log('✅ Admin Panel Loaded!');
 });
 
-// ==================== TAB NAVIGATION ====================
 window.showTab = function(tabName, btn) {
+  console.log('Switching to tab:', tabName);
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-  document.getElementById(tabName + 'Tab').classList.add('active');
+  const targetTab = document.getElementById(tabName + 'Tab');
+  if (targetTab) targetTab.classList.add('active');
   if (btn) btn.classList.add('active');
-
   if (tabName === 'events') loadEventsTab();
   if (tabName === 'sessions') loadSessionsTab();
   if (tabName === 'materials') loadMaterialsTab();
@@ -1342,78 +1329,75 @@ window.showTab = function(tabName, btn) {
   if (tabName === 'batches') loadBatches();
 }
 
-// ==================== DASHBOARD ====================
 async function loadDashboardStats() {
   try {
     const response = await fetch('/api/dashboard/stats');
     const stats = await response.json();
-    
-    document.getElementById('totalStudents').textContent = stats.totalStudents;
-    document.getElementById('upcomingSessions').textContent = stats.upcomingSessions;
-    document.getElementById('todaySessions').textContent = stats.todaySessions;
+    document.getElementById('totalStudents').textContent = stats.totalStudents || 0;
+    document.getElementById('upcomingSessions').textContent = stats.upcomingSessions || 0;
+    document.getElementById('todaySessions').textContent = stats.todaySessions || 0;
     document.getElementById('totalRevenue').textContent = '₹' + (stats.totalRevenue || 0).toLocaleString();
     document.getElementById('upcomingEvents').textContent = stats.upcomingEvents || 0;
   } catch (error) {
-    console.error('Error loading stats:', error);
+    console.error('Error:', error);
   }
 }
 
-// ==================== STUDENTS ====================
 async function loadStudents() {
   try {
     const response = await fetch('/api/students');
     allStudents = await response.json();
+    console.log('Loaded students:', allStudents.length);
     renderStudentsTable();
     populateStudentDropdowns();
   } catch (error) {
-    console.error('Error loading students:', error);
+    console.error('Error:', error);
   }
 }
 
 function renderStudentsTable() {
   const tbody = document.getElementById('studentsTableBody');
-  
+  if (!tbody) return;
   if (allStudents.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No students yet</td></tr>';
     return;
   }
-  
   tbody.innerHTML = allStudents.map(s => `
     <tr>
-      <td><strong>${s.name}</strong><br><small style="color: #7f8c8d;">Grade ${s.grade}</small></td>
-      <td>${s.program_name}<br><small>${s.duration}</small></td>
-      <td><span class="badge-${s.class_type.toLowerCase()}">${s.class_type}</span></td>
+      <td><strong>${s.name}</strong><br><small>Grade ${s.grade}</small></td>
+      <td>${s.program_name}</td>
+      <td>${s.class_type}</td>
       <td>${s.timezone}</td>
-      <td>${s.currency}</td>
       <td>${s.currency}${s.per_session_fee}</td>
-      <td><strong style="color: #27ae60;">${s.completed_sessions}</strong> / <strong style="color: #e74c3c;">${s.remaining_sessions}</strong></td>
+      <td>${s.completed_sessions} / ${s.remaining_sessions}</td>
       <td>${s.currency}${s.fees_paid}</td>
       <td>
         <button onclick="viewStudentDetails(${s.id})" class="btn-view">Details</button>
         <button onclick="openEditModal(${s.id})" class="btn-edit">Edit</button>
-        <button onclick="deleteStudent(${s.id}, '${s.name.replace(/'/g, "\\'")}')" class="btn-mini-delete">Delete</button>
+        <button onclick="deleteStudent(${s.id})" class="btn-mini-delete">Delete</button>
       </td>
     </tr>
   `).join('');
 }
 
 function calculateTotalFees() {
-  const perSession = parseFloat(document.getElementById('perSessionFee').value) || 0;
-  const totalSessions = parseInt(document.getElementById('totalSessions').value) || 0;
-  const currency = document.getElementById('currency').value;
-  document.getElementById('totalFees').value = currency + (perSession * totalSessions).toFixed(2);
+  const perSession = parseFloat(document.getElementById('perSessionFee')?.value) || 0;
+  const totalSessions = parseInt(document.getElementById('totalSessions')?.value) || 0;
+  const currency = document.getElementById('currency')?.value || '₹';
+  const totalFeesElem = document.getElementById('totalFees');
+  if (totalFeesElem) totalFeesElem.value = currency + (perSession * totalSessions).toFixed(2);
 }
 
 function calculateEditTotalFees() {
-  const perSession = parseFloat(document.getElementById('editPerSessionFee').value) || 0;
-  const totalSessions = parseInt(document.getElementById('editTotalSessions').value) || 0;
-  const currency = document.getElementById('editCurrency').value;
-  document.getElementById('editTotalFees').value = currency + (perSession * totalSessions).toFixed(2);
+  const perSession = parseFloat(document.getElementById('editPerSessionFee')?.value) || 0;
+  const totalSessions = parseInt(document.getElementById('editTotalSessions')?.value) || 0;
+  const currency = document.getElementById('editCurrency')?.value || '₹';
+  const totalFeesElem = document.getElementById('editTotalFees');
+  if (totalFeesElem) totalFeesElem.value = currency + (perSession * totalSessions).toFixed(2);
 }
 
 function populateStudentDropdowns() {
-  const dropdowns = ['scheduleStudentId', 'filterSessionStudent', 'privateStudentId', 'filterMaterialStudent', 'bookStudentId', 'enrollStudentSelect'];
-  
+  const dropdowns = ['scheduleStudentId', 'filterSessionStudent', 'privateStudentId', 'filterMaterialStudent', 'bookStudentId'];
   dropdowns.forEach(id => {
     const dropdown = document.getElementById(id);
     if (dropdown) {
@@ -1426,9 +1410,8 @@ function populateStudentDropdowns() {
   });
 }
 
-async function deleteStudent(id, name) {
-  if (!confirm(`Delete student "${name}"?`)) return;
-  
+window.deleteStudent = async function(id) {
+  if (!confirm('Delete this student?')) return;
   try {
     const response = await fetch(`/api/students/${id}`, { method: 'DELETE' });
     if (response.ok) {
@@ -1437,124 +1420,49 @@ async function deleteStudent(id, name) {
       loadDashboardStats();
     }
   } catch (error) {
-    alert('❌ Failed to delete student');
+    alert('❌ Failed');
   }
 }
 
-async function viewStudentDetails(studentId) {
+window.viewStudentDetails = async function(studentId) {
   currentStudentId = studentId;
-  
   try {
     const response = await fetch(`/api/students/${studentId}/details`);
     const data = await response.json();
     const student = data.student;
     
-    document.getElementById('modalStudentName').textContent = `${student.name} - Details`;
-    
+    document.getElementById('modalStudentName').textContent = student.name;
     document.getElementById('studentInfoContent').innerHTML = `
       <div class="info-grid">
         <div class="info-card">
-          <h3>👤 Personal Information</h3>
+          <h3>👤 Personal</h3>
           <p><strong>Name:</strong> ${student.name}</p>
           <p><strong>Grade:</strong> ${student.grade}</p>
           <p><strong>Parent:</strong> ${student.parent_name}</p>
           <p><strong>Email:</strong> ${student.parent_email}</p>
-          <p><strong>Primary Contact:</strong> ${student.primary_contact || '-'}</p>
-          ${student.alternate_contact ? `<p><strong>Alternate Contact:</strong> ${student.alternate_contact}</p>` : ''}
-          <p><strong>Timezone:</strong> ${student.timezone}</p>
         </div>
         <div class="info-card">
-          <h3>📚 Program Details</h3>
+          <h3>📚 Program</h3>
           <p><strong>Program:</strong> ${student.program_name}</p>
-          <p><strong>Class Type:</strong> ${student.class_type}</p>
+          <p><strong>Type:</strong> ${student.class_type}</p>
           <p><strong>Duration:</strong> ${student.duration}</p>
-          <p><strong>Per Session:</strong> ${student.currency}${student.per_session_fee}</p>
         </div>
         <div class="info-card">
           <h3>📊 Progress</h3>
-          <p><strong>Total Sessions:</strong> ${student.total_sessions}</p>
-          <p><strong>Completed:</strong> <span style="color: #27ae60;">${student.completed_sessions}</span></p>
-          <p><strong>Remaining:</strong> <span style="color: #e74c3c;">${student.remaining_sessions}</span></p>
-          <p><strong>Fees Paid:</strong> ${student.currency}${student.fees_paid}</p>
+          <p><strong>Total:</strong> ${student.total_sessions}</p>
+          <p><strong>Completed:</strong> ${student.completed_sessions}</p>
+          <p><strong>Remaining:</strong> ${student.remaining_sessions}</p>
         </div>
       </div>
     `;
     
-    if (data.paymentHistory && data.paymentHistory.length > 0) {
-      document.getElementById('paymentHistoryBody').innerHTML = data.paymentHistory.map(p => `
-        <tr>
-          <td>${p.payment_date}</td>
-          <td>${p.currency}${p.amount}</td>
-          <td>${p.payment_method}</td>
-          <td>${p.receipt_number || '-'}</td>
-          <td>${p.sessions_covered || '-'}</td>
-          <td>${p.notes || '-'}</td>
-        </tr>
-      `).join('');
-    } else {
-      document.getElementById('paymentHistoryBody').innerHTML = '<tr><td colspan="6" style="text-align: center;">No payment history</td></tr>';
-    }
-    
-    if (data.makeupClasses && data.makeupClasses.length > 0) {
-      document.getElementById('makeupClassesContent').innerHTML = `
-        <div class="makeup-summary">
-          <h3>🎁 Available Makeup Credits: ${data.makeupClasses.filter(m => m.status === 'Available').length}</h3>
-        </div>
-        <table>
-          <thead>
-            <tr><th>Credit Date</th><th>Reason</th><th>Status</th><th>Used Date</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            ${data.makeupClasses.map(m => `
-              <tr>
-                <td>${m.credit_date}</td>
-                <td>${m.reason}</td>
-                <td><span class="status-${m.status.toLowerCase()}">${m.status}</span></td>
-                <td>${m.used_date || '-'}</td>
-                <td>${m.notes || '-'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else {
-      document.getElementById('makeupClassesContent').innerHTML = '<p style="text-align: center; padding: 20px;">No makeup classes</p>';
-    }
-    
-    const sessionsResponse = await fetch(`/api/sessions/${studentId}`);
-    const sessions = await sessionsResponse.json();
-    
-    if (sessions.length > 0) {
-      document.getElementById('studentSessionsContent').innerHTML = `
-        <table>
-          <thead>
-            <tr><th>Session #</th><th>Date</th><th>Time</th><th>Status</th><th>Attendance</th></tr>
-          </thead>
-          <tbody>
-            ${sessions.map(s => `
-              <tr>
-                <td>${s.session_number}</td>
-                <td>${s.session_date}</td>
-                <td>${s.session_time}</td>
-                <td><span class="status-${s.status.toLowerCase().replace(/ /g, '-')}">${s.status}</span></td>
-                <td>${s.attendance || s.cancelled_by || '-'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else {
-      document.getElementById('studentSessionsContent').innerHTML = '<p style="text-align: center; padding: 20px;">No sessions yet</p>';
-    }
-    
     document.getElementById('studentDetailsModal').style.display = 'flex';
   } catch (error) {
-    alert('Failed to load student details');
-    console.error(error);
+    alert('Failed to load');
   }
 }
 
-function closeStudentModal() {
+window.closeStudentModal = function() {
   document.getElementById('studentDetailsModal').style.display = 'none';
 }
 
@@ -1565,925 +1473,64 @@ window.showDetailTab = function(tabName, btn) {
   if (btn) btn.classList.add('active');
 }
 
-function showPaymentForm() {
-  document.getElementById('paymentFormSection').style.display = 'block';
+window.showPaymentForm = function() {
+  const form = document.getElementById('paymentFormSection');
+  if (form) form.style.display = 'block';
 }
 
-function hidePaymentForm() {
-  document.getElementById('paymentFormSection').style.display = 'none';
+window.hidePaymentForm = function() {
+  const form = document.getElementById('paymentFormSection');
+  if (form) form.style.display = 'none';
 }
 
-async function openEditModal(studentId) {
+window.openEditModal = async function(studentId) {
   currentEditStudentId = studentId;
-  
   try {
     const response = await fetch(`/api/students/${studentId}/details`);
     const data = await response.json();
-    const student = data.student;
+    const s = data.student;
     
-    document.getElementById('editStudentName').value = student.name;
-    document.getElementById('editGrade').value = student.grade;
-    document.getElementById('editParentName').value = student.parent_name;
-    document.getElementById('editParentEmail').value = student.parent_email;
-    document.getElementById('editPrimaryContact').value = student.primary_contact || '';
-    document.getElementById('editAlternateContact').value = student.alternate_contact || '';
-    document.getElementById('editTimezone').value = student.timezone;
-    document.getElementById('editProgramName').value = student.program_name;
-    document.getElementById('editClassType').value = student.class_type;
-    document.getElementById('editDuration').value = student.duration;
-    document.getElementById('editCurrency').value = student.currency;
-    document.getElementById('editPerSessionFee').value = student.per_session_fee;
-    document.getElementById('editTotalSessions').value = student.total_sessions;
+    document.getElementById('editStudentName').value = s.name;
+    document.getElementById('editGrade').value = s.grade;
+    document.getElementById('editParentName').value = s.parent_name;
+    document.getElementById('editParentEmail').value = s.parent_email;
+    document.getElementById('editPrimaryContact').value = s.primary_contact || '';
+    document.getElementById('editAlternateContact').value = s.alternate_contact || '';
+    document.getElementById('editTimezone').value = s.timezone;
+    document.getElementById('editProgramName').value = s.program_name;
+    document.getElementById('editClassType').value = s.class_type;
+    document.getElementById('editDuration').value = s.duration;
+    document.getElementById('editCurrency').value = s.currency;
+    document.getElementById('editPerSessionFee').value = s.per_session_fee;
+    document.getElementById('editTotalSessions').value = s.total_sessions;
     
     calculateEditTotalFees();
     document.getElementById('editStudentModal').style.display = 'flex';
   } catch (error) {
-    alert('❌ Failed to load student details');
-    console.error(error);
+    alert('Failed to load');
   }
 }
 
-function closeEditModal() {
+window.closeEditModal = function() {
   document.getElementById('editStudentModal').style.display = 'none';
-  currentEditStudentId = null;
 }
 
-// ==================== FORM HANDLERS ====================
-function setupFormHandlers() {
-  document.getElementById('addStudentForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const studentData = {
-      name: document.getElementById('studentName').value,
-      grade: document.getElementById('grade').value,
-      parent_name: document.getElementById('parentName').value,
-      parent_email: document.getElementById('parentEmail').value,
-      primary_contact: document.getElementById('primaryContact').value,
-      alternate_contact: document.getElementById('alternateContact').value || null,
-      timezone: document.getElementById('timezone').value,
-      program_name: document.getElementById('programName').value,
-      class_type: document.getElementById('classType').value,
-      duration: document.getElementById('duration').value,
-      currency: document.getElementById('currency').value,
-      per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
-      total_sessions: parseInt(document.getElementById('totalSessions').value)
-    };
-    
-    try {
-      const response = await fetch('/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(studentData)
-      });
-      
-      const result = await response.json();
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        document.getElementById('addStudentForm').reset();
-        loadStudents();
-        loadDashboardStats();
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to add student');
-    }
-  });
-
-  document.getElementById('editStudentForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const updatedData = {
-      name: document.getElementById('editStudentName').value,
-      grade: document.getElementById('editGrade').value,
-      parent_name: document.getElementById('editParentName').value,
-      parent_email: document.getElementById('editParentEmail').value,
-      primary_contact: document.getElementById('editPrimaryContact').value,
-      alternate_contact: document.getElementById('editAlternateContact').value || null,
-      timezone: document.getElementById('editTimezone').value,
-      program_name: document.getElementById('editProgramName').value,
-      class_type: document.getElementById('editClassType').value,
-      duration: document.getElementById('editDuration').value,
-      currency: document.getElementById('editCurrency').value,
-      per_session_fee: parseFloat(document.getElementById('editPerSessionFee').value),
-      total_sessions: parseInt(document.getElementById('editTotalSessions').value)
-    };
-    
-    try {
-      const response = await fetch(`/api/students/${currentEditStudentId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData)
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        closeEditModal();
-        loadStudents();
-        loadDashboardStats();
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to update student');
-    }
-  });
-
-// Payment Recording Handler (CONTINUING FROM WHERE IT STOPPED)
-document.getElementById('recordPaymentForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  const paymentData = {
-    amount: parseFloat(document.getElementById('paymentAmount').value),
-    currency: allStudents.find(s => s.id === currentStudentId)?.currency || '₹',
-    payment_method: document.getElementById('paymentMethod').value,
-    receipt_number: document.getElementById('receiptNumber').value,
-    sessions_covered: document.getElementById('sessionsCovered').value,
-    notes: document.getElementById('paymentNotes').value
-  };
-  
-  try {
-    const response = await fetch(`/api/students/${currentStudentId}/payment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(paymentData)
-    });
-    
-    if (response.ok) {
-      alert('✅ Payment recorded successfully!');
-      document.getElementById('recordPaymentForm').reset();
-      hidePaymentForm();
-      viewStudentDetails(currentStudentId);
-      loadStudents();
-    } else {
-      const result = await response.json();
-      alert('❌ ' + result.error);
-    }
-  } catch (error) {
-    alert('❌ Failed to record payment');
-    console.error(error);
-  }
-});
-
-  // Schedule Classes
-  document.getElementById('scheduleForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const studentId = document.getElementById('scheduleStudentId').value;
-    const classes = [];
-    
-    for (let i = 1; i <= scheduleCounter; i++) {
-      const dateInput = document.getElementById(`scheduleDate${i}`);
-      const timeInput = document.getElementById(`scheduleTime${i}`);
-      if (dateInput && timeInput && dateInput.value && timeInput.value) {
-        classes.push({ date: dateInput.value, time: timeInput.value });
-      }
-    }
-    
-    if (classes.length === 0) {
-      alert('Please add at least one class');
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/schedule/classes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: studentId, classes })
-      });
-      
-      if (response.ok) {
-        alert('✅ Classes scheduled successfully!');
-        document.getElementById('scheduleForm').reset();
-        document.getElementById('classScheduleList').innerHTML = '';
-        scheduleCounter = 0;
-        loadAllSessions();
-        loadTodaySessions();
-        loadDashboardStats();
-      }
-    } catch (error) {
-      alert('❌ Failed to schedule classes');
-    }
-  });
-
-  // Upload Material
-  document.getElementById('uploadMaterialForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData();
-    const uploadType = document.getElementById('uploadType').value;
-    const targetId = uploadType === 'private' ? 
-      document.getElementById('privateStudentId').value :
-      document.getElementById('batchSelect').value;
-    
-    formData.append('file', document.getElementById('materialFile').files[0]);
-    formData.append('fileType', document.getElementById('materialType').value);
-    formData.append('sessionDate', document.getElementById('materialSessionDate').value);
-    formData.append('uploadType', uploadType);
-    
-    try {
-      const response = await fetch(`/api/upload/material/${targetId}`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (response.ok) {
-        alert('✅ Material uploaded successfully!');
-        document.getElementById('uploadMaterialForm').reset();
-        toggleUploadTarget();
-        loadMaterials();
-      }
-    } catch (error) {
-      alert('❌ Failed to upload material');
-    }
-  });
-
-  // Create Event
-  document.getElementById('createEventForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const eventData = {
-      event_type: document.getElementById('eventType').value,
-      event_name: document.getElementById('eventName').value,
-      event_description: document.getElementById('eventDescription').value,
-      event_date: document.getElementById('eventDate').value,
-      event_time: document.getElementById('eventTime').value,
-      duration: document.getElementById('eventDuration').value,
-      zoom_link: document.getElementById('eventZoomLink').value,
-      max_participants: parseInt(document.getElementById('eventMaxParticipants').value) || 0,
-      registration_deadline: document.getElementById('eventRegistrationDeadline').value
-    };
-    
-    try {
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventData)
-      });
-      
-      if (response.ok) {
-        alert('✅ Event created & announcements sent to parents!');
-        document.getElementById('createEventForm').reset();
-        loadEvents();
-        loadEventsTab();
-        loadDashboardStats();
-      }
-    } catch (error) {
-      alert('❌ Failed to create event');
-    }
-  });
-
-  // Add Timetable Slot
-  document.getElementById('addSlotForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const slotData = {
-      day_of_week: document.getElementById('dayOfWeek').value,
-      time_slot: document.getElementById('timeSlot').value
-    };
-    
-    try {
-      const response = await fetch('/api/timetable/slots', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(slotData)
-      });
-      
-      if (response.ok) {
-        alert('✅ Time slot added!');
-        document.getElementById('addSlotForm').reset();
-        loadTimetable();
-      }
-    } catch (error) {
-      alert('❌ Failed to add slot');
-    }
-  });
-
-  // Homework Feedback
-  document.getElementById('feedbackForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const feedbackData = {
-      grade: document.getElementById('feedbackGrade').value,
-      comments: document.getElementById('feedbackComments').value
-    };
-    
-    try {
-      const response = await fetch(`/api/homework/${currentFeedbackMaterialId}/feedback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(feedbackData)
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        closeFeedbackModal();
-        loadMaterials();
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to submit feedback');
-      console.error(error);
-    }
-  });
-   // ==================== BOOK TIMETABLE SLOT ====================
-  document.getElementById('bookSlotForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const studentId = document.getElementById('bookStudentId').value;
-    if (!studentId) return alert('Select a student');
-
-    try {
-      const response = await fetch(`/api/timetable/book/${currentBookingSlotId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: studentId })
-      });
-
-      if (response.ok) {
-        alert('✅ Slot booked!');
-        closeBookModal();
-        loadTimetable();
-      } else {
-        alert('❌ Failed to book slot');
-      }
-    } catch (err) {
-      alert('❌ Failed to book slot');
-    }
-  });
-}
-
-// ==================== BATCH FORM HANDLERS ====================
-function setupBatchFormHandlers() {
-  document.getElementById('createBatchForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const batchData = {
-      batch_name: document.getElementById('batchName').value,
-      batch_code: document.getElementById('batchCode').value.toUpperCase(),
-      program_name: document.getElementById('batchProgramName').value,
-      grade_level: document.getElementById('batchGradeLevel').value,
-      duration: document.getElementById('batchDuration').value,
-      timezone: document.getElementById('batchTimezone').value,
-      max_students: parseInt(document.getElementById('batchMaxStudents').value),
-      currency: document.getElementById('batchCurrency').value,
-      per_session_fee: parseFloat(document.getElementById('batchPerSessionFee').value),
-      zoom_link: document.getElementById('batchZoomLink').value,
-      start_date: document.getElementById('batchStartDate').value || null,
-      end_date: document.getElementById('batchEndDate').value || null,
-      description: document.getElementById('batchDescription').value || null
-    };
-    
-    try {
-      const response = await fetch('/api/batches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(batchData)
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        document.getElementById('createBatchForm').reset();
-        loadBatches();
-        loadDashboardStats();
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to create batch');
-      console.error(error);
-    }
-  });
-
-  document.getElementById('editBatchForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const batchData = {
-      batch_name: document.getElementById('editBatchName').value,
-      program_name: document.getElementById('editBatchProgramName').value,
-      grade_level: document.getElementById('editBatchGradeLevel').value,
-      duration: document.getElementById('editBatchDuration').value,
-      timezone: document.getElementById('editBatchTimezone').value,
-      max_students: parseInt(document.getElementById('editBatchMaxStudents').value),
-      currency: document.getElementById('editBatchCurrency').value,
-      per_session_fee: parseFloat(document.getElementById('editBatchPerSessionFee').value),
-      zoom_link: document.getElementById('editBatchZoomLink').value,
-      start_date: document.getElementById('editBatchStartDate').value || null,
-      end_date: document.getElementById('editBatchEndDate').value || null,
-      description: document.getElementById('editBatchDescription').value || null,
-      status: document.getElementById('editBatchStatus').value
-    };
-    
-    try {
-      const response = await fetch(`/api/batches/${currentBatchId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(batchData)
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        closeEditBatchModal();
-        viewBatchDetails(currentBatchId);
-        loadBatches();
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to update batch');
-      console.error(error);
-    }
-  });
-
-  document.getElementById('enrollStudentInBatchForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const enrollData = {
-      student_id: parseInt(document.getElementById('enrollStudentSelect').value),
-      notes: document.getElementById('enrollmentNotes').value || null
-    };
-    
-    try {
-      const response = await fetch(`/api/batches/${currentBatchId}/enroll`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(enrollData)
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        document.getElementById('enrollStudentInBatchForm').reset();
-        hideEnrollStudentForm();
-        viewBatchDetails(currentBatchId);
-        loadBatches();
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to enroll student');
-      console.error(error);
-    }
-  });
-
-  document.getElementById('scheduleBatchSessionsForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const sessions = [];
-    
-    for (let i = 1; i <= batchScheduleCounter; i++) {
-      const dateInput = document.getElementById(`batchScheduleDate${i}`);
-      const timeInput = document.getElementById(`batchScheduleTime${i}`);
-      if (dateInput && timeInput && dateInput.value && timeInput.value) {
-        sessions.push({ date: dateInput.value, time: timeInput.value });
-      }
-    }
-    
-    if (sessions.length === 0) {
-      alert('Please add at least one session');
-      return;
-    }
-    
-    try {
-      const response = await fetch(`/api/batches/${currentBatchId}/schedule`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessions })
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        document.getElementById('scheduleBatchSessionsForm').reset();
-        document.getElementById('batchClassScheduleList').innerHTML = '';
-        batchScheduleCounter = 0;
-        hideBatchScheduleForm();
-        viewBatchDetails(currentBatchId);
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to schedule sessions');
-      console.error(error);
-    }
-  });
-
-  document.getElementById('uploadBatchMaterialForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData();
-    formData.append('file', document.getElementById('batchMaterialFile').files[0]);
-    formData.append('fileType', document.getElementById('batchMaterialType').value);
-    formData.append('sessionDate', document.getElementById('batchMaterialSessionDate').value);
-    
-    try {
-      const response = await fetch(`/api/upload/batch-material/${currentBatchId}`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        document.getElementById('uploadBatchMaterialForm').reset();
-        hideBatchMaterialUpload();
-        loadBatchMaterials(currentBatchId);
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to upload material');
-      console.error(error);
-    }
-  });
-
-  document.getElementById('batchAttendanceForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const attendanceData = [];
-    const students = document.querySelectorAll('.attendance-student-row');
-    
-    students.forEach(row => {
-      const studentId = parseInt(row.dataset.studentId);
-      const attendance = row.querySelector('select').value;
-      const notes = row.querySelector('input[type="text"]').value;
-      
-      attendanceData.push({ student_id: studentId, attendance, notes });
-    });
-    
-    try {
-      const response = await fetch(`/api/batches/sessions/${currentBatchSessionId}/attendance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attendanceData })
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        alert('✅ ' + result.message);
-        closeBatchAttendanceModal();
-        viewBatchDetails(currentBatchId);
-        loadStudents();
-      } else {
-        alert('❌ ' + result.error);
-      }
-    } catch (error) {
-      alert('❌ Failed to mark attendance');
-      console.error(error);
-    }
-  });
-}
-
-// ==================== SESSIONS ====================
-function addScheduleRow() {
+window.addScheduleRow = function() {
   scheduleCounter++;
   const row = document.createElement('div');
   row.className = 'schedule-row';
-  row.id = `scheduleRow${scheduleCounter}`;
   row.innerHTML = `
     <input type="date" id="scheduleDate${scheduleCounter}" required>
     <input type="time" id="scheduleTime${scheduleCounter}" required>
     <button type="button" onclick="removeScheduleRow(${scheduleCounter})" class="btn-delete">✗</button>
   `;
-  document.getElementById('classScheduleList').appendChild(row);
+  document.getElementById('classScheduleList')?.appendChild(row);
 }
 
-function removeScheduleRow(rowId) {
-  document.getElementById(`scheduleRow${rowId}`)?.remove();
+window.removeScheduleRow = function(id) {
+  document.getElementById(`scheduleRow${id}`)?.remove();
 }
 
-function addBulkSchedule() {
-  document.getElementById('bulkScheduleSection').style.display = 'block';
-}
-
-function closeBulkSchedule() {
-  document.getElementById('bulkScheduleSection').style.display = 'none';
-}
-
-function generateBulkSchedule() {
-  const checkboxes = document.querySelectorAll('#bulkScheduleSection input[type="checkbox"]:checked');
-  const selectedDays = Array.from(checkboxes).map(cb => cb.value);
-  const time = document.getElementById('bulkScheduleTime').value;
-  const weeks = parseInt(document.getElementById('bulkScheduleWeeks').value);
-  const startDate = new Date(document.getElementById('bulkScheduleStartDate').value);
-  
-  if (selectedDays.length === 0 || !time) {
-    alert('Please select days and time');
-    return;
-  }
-  
-  const dayMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
-  const dates = [];
-  
-  for (let week = 0; week < weeks; week++) {
-    selectedDays.forEach(day => {
-      const targetDay = dayMap[day];
-      const currentDay = startDate.getDay();
-      const daysToAdd = (targetDay - currentDay + 7) % 7 + (week * 7);
-      const scheduleDate = new Date(startDate);
-      scheduleDate.setDate(startDate.getDate() + daysToAdd);
-      dates.push(scheduleDate.toISOString().split('T')[0]);
-    });
-  }
-  
-  dates.sort().forEach(date => {
-    addScheduleRow();
-    document.getElementById(`scheduleDate${scheduleCounter}`).value = date;
-    document.getElementById(`scheduleTime${scheduleCounter}`).value = time;
-  });
-  
-  closeBulkSchedule();
-  alert(`✅ Generated ${dates.length} classes!`);
-}
-
-async function loadSessionsTab() {
-  populateStudentDropdowns();
-  await loadTodaySessions();
-  await loadAllSessions();
-}
-
-async function loadTodaySessions() {
-  const today = new Date().toISOString().split('T')[0];
-  const tbody = document.getElementById('todaySessionsBody');
-  
-  try {
-    const promises = allStudents.map(s => fetch(`/api/sessions/${s.id}`).then(r => r.json()));
-    const results = await Promise.all(promises);
-    const allSessions = results.flat();
-    const todaySessions = allSessions.filter(s => s.session_date === today && ['Pending', 'Scheduled'].includes(s.status));
-    
-    if (todaySessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No classes today</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = todaySessions.map(session => {
-      const student = allStudents.find(s => s.id === session.student_id);
-      return `
-        <tr>
-          <td><strong>${student?.name || 'Unknown'}</strong></td>
-          <td>Session ${session.session_number}</td>
-          <td>${session.session_time}</td>
-          <td>${student?.program_name || '-'}</td>
-          <td><span class="status-${session.status.toLowerCase()}">${session.status}</span></td>
-          <td>
-            <button onclick="quickMarkPresent(${session.sessionId})" class="btn-present">✓ Present</button>
-            <button onclick="quickMarkAbsent(${session.sessionId})" class="btn-absent">✗ Absent</button>
-            <button onclick="quickCancelClass(${session.sessionId})" class="btn-cancel">Cancel</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
-
-async function loadAllSessions() {
-  const filterStudentId = document.getElementById('filterSessionStudent')?.value;
-  const filterStatus = document.getElementById('filterSessionStatus')?.value;
-  const tbody = document.getElementById('allSessionsBody');
-  
-  try {
-    let allSessions = [];
-    
-    if (filterStudentId) {
-      const response = await fetch(`/api/sessions/${filterStudentId}`);
-      allSessions = await response.json();
-    } else {
-      const promises = allStudents.map(s => fetch(`/api/sessions/${s.id}`).then(r => r.json()));
-      const results = await Promise.all(promises);
-      allSessions = results.flat();
-    }
-    
-    if (filterStatus) allSessions = allSessions.filter(s => s.status === filterStatus);
-    
-    if (allSessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No sessions found</td></tr>';
-      return;
-    }
-    
-    allSessions.sort((a, b) => new Date(b.session_date) - new Date(a.session_date));
-    
-    tbody.innerHTML = allSessions.map(session => {
-      const student = allStudents.find(s => s.id === session.student_id);
-      return `
-        <tr>
-          <td>${session.session_number}</td>
-          <td>${student?.name || 'Unknown'}</td>
-          <td>${session.session_date}</td>
-          <td>${session.session_time}</td>
-          <td><span class="status-${session.status.toLowerCase().replace(/ /g, '-')}">${session.status}</span></td>
-          <td>${session.attendance || session.cancelled_by || '-'}</td>
-          <td>${session.zoom_link ? `<a href="${session.zoom_link}" target="_blank" class="btn-zoom-mini">Join</a>` : ''}</td>
-        </tr>
-      `;
-    }).join('');
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
-
-async function quickMarkPresent(sessionId) {
-  if (!confirm('Mark as Present?')) return;
-  try {
-    const response = await fetch(`/api/attendance/present/${sessionId}`, { method: 'POST' });
-    if (response.ok) {
-      alert('✅ Marked present!');
-      loadTodaySessions();
-      loadAllSessions();
-      loadStudents();
-      loadDashboardStats();
-    }
-  } catch (error) {
-    alert('❌ Failed');
-  }
-}
-
-async function quickMarkAbsent(sessionId) {
-  const reason = prompt('Reason (optional):');
-  try {
-    const response = await fetch(`/api/attendance/absent/${sessionId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason })
-    });
-    if (response.ok) {
-      alert('✅ Marked absent!');
-      loadTodaySessions();
-      loadAllSessions();
-      loadStudents();
-    }
-  } catch (error) {
-    alert('❌ Failed');
-  }
-}
-
-async function quickCancelClass(sessionId) {
-  const reason = prompt('Reason for cancellation:');
-  if (!reason) return;
-  try {
-    const response = await fetch(`/api/attendance/cancel/${sessionId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason })
-    });
-    if (response.ok) {
-      alert('✅ Class cancelled!');
-      loadTodaySessions();
-      loadAllSessions();
-      loadStudents();
-      loadDashboardStats();
-    }
-  } catch (error) {
-    alert('❌ Failed');
-  }
-}
-
-// ==================== MATERIALS ====================
-async function loadMaterialsTab() {
-  populateStudentDropdowns();
-
-  // IMPORTANT: load batches first
-  if (allBatches.length === 0) {
-    await loadBatches();
-  }
-
-  await loadMaterials();
-
-  const batchSelect = document.getElementById('batchSelect');
-  if (batchSelect) {
-    batchSelect.innerHTML = '<option value="">Select batch...</option>';
-    allBatches.forEach(b => {
-      batchSelect.innerHTML += `<option value="${b.id}">${b.batch_name}</option>`;
-    });
-  }
-}
-
-
-function toggleUploadTarget() {
-  const uploadType = document.getElementById('uploadType').value;
-  const privateGroup = document.getElementById('privateTargetGroup');
-  const batchGroup = document.getElementById('batchTargetGroup');
-  
-  if (uploadType === 'private') {
-    privateGroup.style.display = 'block';
-    batchGroup.style.display = 'none';
-  } else if (uploadType === 'batch') {
-    privateGroup.style.display = 'none';
-    batchGroup.style.display = 'block';
-  } else {
-    privateGroup.style.display = 'none';
-    batchGroup.style.display = 'none';
-  }
-}
-
-async function loadMaterials() {
-  try {
-    const response = await fetch('/api/materials/all/admin');
-    let materials = await response.json();
-    
-    const filterStudent = document.getElementById('filterMaterialStudent')?.value;
-    const filterType = document.getElementById('filterMaterialType')?.value;
-    
-    if (filterStudent) materials = materials.filter(m => m.student_id == filterStudent);
-    if (filterType) materials = materials.filter(m => m.file_type === filterType);
-    
-    const tbody = document.getElementById('materialsTableBody');
-    
-    if (materials.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No materials yet</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = materials.map(m => {
-      const student = allStudents.find(s => s.id === m.student_id);
-      const target = m.student_id ? (student ? student.name : 'Private') : m.batch_name;
-      
-      let feedbackCell = '';
-      if (m.uploaded_by === 'Parent' && m.file_type === 'Homework') {
-        if (m.feedback_given) {
-          feedbackCell = `<span style="color: #27ae60;">✅ Given</span><br>
-            <button onclick="viewFeedback(${m.id})" class="btn-view" style="margin-top: 5px;">View</button>`;
-        } else {
-          feedbackCell = `<button onclick="giveFeedback(${m.id})" class="btn-primary">📝 Give Feedback</button>`;
-        }
-      } else {
-        feedbackCell = '-';
-      }
-      
-      const filePath = m.uploaded_by === 'Parent' ? `homework/${m.file_path}` : `materials/${m.file_path}`;
-      
-      return `
-        <tr>
-          <td>${target}</td>
-          <td>${m.session_date}</td>
-          <td><span class="material-badge ${m.uploaded_by === 'Parent' ? 'hw-badge' : ''}">${m.file_type}${m.uploaded_by === 'Parent' ? ' 📤' : ''}</span></td>
-          <td>${m.file_name}</td>
-          <td><strong>${m.uploaded_by}</strong></td>
-          <td>${new Date(m.uploaded_at).toLocaleString()}</td>
-          <td>${feedbackCell}</td>
-          <td>
-            <a href="/uploads/${filePath}" target="_blank" class="btn-download">Download</a>
-            <button onclick="deleteMaterial(${m.id})" class="btn-mini-delete">Delete</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
-
-async function deleteMaterial(materialId) {
-  if (!confirm('Delete this material?')) return;
-  try {
-    const response = await fetch(`/api/materials/${materialId}`, { method: 'DELETE' });
-    if (response.ok) {
-      alert('✅ Material deleted!');
-      loadMaterials();
-    }
-  } catch (error) {
-    alert('❌ Failed');
-  }
-}
-
-function giveFeedback(materialId) {
-  currentFeedbackMaterialId = materialId;
-  document.getElementById('feedbackForm').reset();
-  document.getElementById('feedbackModal').style.display = 'flex';
-}
-
-function closeFeedbackModal() {
-  document.getElementById('feedbackModal').style.display = 'none';
-  currentFeedbackMaterialId = null;
-}
-
-function viewFeedback(materialId) {
-  fetch('/api/materials/all/admin')
-    .then(r => r.json())
-    .then(materials => {
-      const material = materials.find(m => m.id === materialId);
-      if (material && material.feedback_comments) {
-        alert(`Grade: ${material.feedback_grade}\n\nComments:\n${material.feedback_comments}`);
-      }
-    });
-}
-
-// ==================== EVENTS ====================
 async function loadEvents() {
   try {
     const response = await fetch('/api/events');
@@ -2493,947 +1540,39 @@ async function loadEvents() {
   }
 }
 
-async function loadEventsTab() {
-  await loadEvents();
-  const tbody = document.getElementById('eventsTableBody');
-  
-  if (allEvents.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No events yet</td></tr>';
-    return;
-  }
-  
-  tbody.innerHTML = allEvents.map(e => `
-    <tr>
-      <td><strong>${e.event_name}</strong></td>
-      <td>${e.event_type}</td>
-      <td>${e.event_date} at ${e.event_time}</td>
-      <td>${e.registered_count || 0}</td>
-      <td>${e.max_participants > 0 ? `${e.registered_count}/${e.max_participants}` : 'Unlimited'}</td>
-      <td><span class="status-${e.event_status.toLowerCase()}">${e.event_status}</span></td>
-      <td>
-        <button onclick="viewEventDetails(${e.id})" class="btn-view">View</button>
-        ${e.event_status === 'Upcoming' ? `<button onclick="markEventComplete(${e.id})" class="btn-secondary">Complete</button>` : ''}
-      </td>
-    </tr>
-  `).join('');
-}
-
-async function viewEventDetails(eventId) {
-  currentEventId = eventId;
-  
-  try {
-    const eventResponse = await fetch(`/api/events`);
-    const events = await eventResponse.json();
-    const event = events.find(e => e.id === eventId);
-    
-    const regResponse = await fetch(`/api/events/${eventId}/registrations`);
-    const registrations = await regResponse.json();
-    
-    document.getElementById('modalEventName').textContent = event.event_name;
-    
-    const content = `
-      <div class="event-details-info">
-        <h3>📋 Event Information</h3>
-        <p><strong>Type:</strong> ${event.event_type}</p>
-        <p><strong>Date & Time:</strong> ${event.event_date} at ${event.event_time}</p>
-        <p><strong>Duration:</strong> ${event.duration}</p>
-        <p><strong>Description:</strong> ${event.event_description}</p>
-        <p><strong>Zoom Link:</strong> <a href="${event.zoom_link}" target="_blank">${event.zoom_link}</a></p>
-        <p><strong>Max Participants:</strong> ${event.max_participants > 0 ? event.max_participants : 'Unlimited'}</p>
-        <p><strong>Registered Students:</strong> ${registrations.length}</p>
-        <p><strong>Status:</strong> <span class="status-${event.event_status.toLowerCase()}">${event.event_status}</span></p>
-      </div>
-    `;
-    
-    document.getElementById('eventDetailsContent').innerHTML = content;
-    
-    const attendanceSection = document.getElementById('eventAttendanceSection');
-    
-    if (registrations.length > 0) {
-      const registrationsList = registrations.map(r => {
-        const student = allStudents.find(s => s.id === r.student_id);
-        return `
-          <div class="registration-item">
-            <input type="checkbox" id="attendee_${r.student_id}" value="${r.student_id}" 
-              ${r.attendance_status === 'Attended' ? 'checked disabled' : ''}>
-            <label for="attendee_${r.student_id}">
-              <strong>${student?.name || 'Student #' + r.student_id}</strong> - ${r.parent_name}
-              ${r.attendance_status === 'Attended' ? ' <span style="color: #27ae60;">✓ Attended</span>' : ''}
-            </label>
-          </div>
-        `;
-      }).join('');
-      
-      document.getElementById('eventRegistrationsList').innerHTML = registrationsList;
-      attendanceSection.style.display = 'block';
-    } else {
-      document.getElementById('eventRegistrationsList').innerHTML = `
-        <div style="text-align: center; padding: 30px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
-          <h3 style="color: #856404; margin-bottom: 10px;">⚠️ No Registrations Yet</h3>
-          <p style="color: #856404;">No students have registered for this event.</p>
-        </div>
-      `;
-      attendanceSection.style.display = 'block';
-      const markAttendanceBtn = attendanceSection.querySelector('button');
-      if (markAttendanceBtn) markAttendanceBtn.style.display = 'none';
-    }
-    
-    document.getElementById('eventDetailsModal').style.display = 'flex';
-    
-  } catch (error) {
-    alert('Failed to load event details');
-    console.error(error);
-  }
-}
-
-function closeEventModal() {
-  document.getElementById('eventDetailsModal').style.display = 'none';
-}
-
-async function markEventComplete(eventId) {
-  if (!confirm('Mark event as complete?')) return;
-  try {
-    const response = await fetch(`/api/events/${eventId}/complete`, { method: 'POST' });
-    if (response.ok) {
-      alert('✅ Event completed!');
-      loadEvents();
-      loadEventsTab();
-    }
-  } catch (error) {
-    alert('❌ Failed');
-  }
-}
-
-async function markEventAttendance() {
-  const checkboxes = document.querySelectorAll('#eventRegistrationsList input[type="checkbox"]:checked:not([disabled])');
-  const attendedStudents = Array.from(checkboxes).map(cb => parseInt(cb.value));
-  
-  if (attendedStudents.length === 0) {
-    alert('Please select at least one attendee');
-    return;
-  }
-  
-  if (!confirm(`Mark ${attendedStudents.length} students as attended and generate certificates?`)) return;
-  
-  try {
-    const response = await fetch(`/api/events/${currentEventId}/attendance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ attendedStudents })
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok) {
-      alert('✅ ' + result.message);
-      closeEventModal();
-      loadEvents();
-      loadEventsTab();
-    } else {
-      alert('❌ ' + result.error);
-    }
-  } catch (error) {
-    alert('❌ Failed to mark attendance');
-    console.error(error);
-  }
-}
-
-// ==================== BATCHES ====================
 async function loadBatches() {
   try {
     const response = await fetch('/api/batches');
     allBatches = await response.json();
-    renderBatchesTable();
-  } catch (error) {
-    console.error('Error loading batches:', error);
-  }
-}
-
-function renderBatchesTable() {
-  const tbody = document.getElementById('batchesTableBody');
-  const filterStatus = document.getElementById('filterBatchStatus')?.value;
-  
-  let filteredBatches = allBatches;
-  if (filterStatus) {
-    filteredBatches = allBatches.filter(b => b.status === filterStatus);
-  }
-  
-  if (filteredBatches.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No batches found</td></tr>';
-    return;
-  }
-  
-  tbody.innerHTML = filteredBatches.map(b => `
-    <tr>
-      <td>
-        <strong>${b.batch_name}</strong><br>
-        <small style="color: #7f8c8d;">Code: ${b.batch_code}</small>
-      </td>
-      <td>${b.program_name}</td>
-      <td>${b.grade_level}</td>
-      <td>${b.duration}</td>
-      <td>${b.timezone}</td>
-      <td>
-        <strong style="color: #27ae60;">${b.enrolled_students || 0}</strong> / 
-        <strong style="color: #3498db;">${b.max_students}</strong><br>
-        <small style="color: #7f8c8d;">${b.max_students - (b.enrolled_students || 0)} slots left</small>
-      </td>
-      <td>${b.currency}${b.per_session_fee}</td>
-      <td><span class="badge-${b.status.toLowerCase().replace(/ /g, '-')}">${b.status}</span></td>
-     <td>
-  <button onclick="viewBatchDetails(${b.id})" class="btn-view">Details</button>
-  <button onclick="deleteBatchQuick(${b.id}, '${b.batch_name.replace(/'/g, "\\'")}')" class="btn-mini-delete">Delete</button>
-</td>
-</tr>
-  `).join('');
-}
-
-async function viewBatchDetails(batchId) {
-  currentBatchId = batchId;
-  
-  try {
-    const response = await fetch(`/api/batches/${batchId}/details`);
-    const data = await response.json();
-    const batch = data.batch;
-    
-    document.getElementById('modalBatchName').textContent = `${batch.batch_name} - Details`;
-    
-    document.getElementById('batchInfoContent').innerHTML = `
-      <div class="info-grid">
-        <div class="info-card">
-          <h3>📋 Basic Information</h3>
-          <p><strong>Batch Name:</strong> ${batch.batch_name}</p>
-          <p><strong>Batch Code:</strong> ${batch.batch_code}</p>
-          <p><strong>Program:</strong> ${batch.program_name}</p>
-          <p><strong>Grade Level:</strong> ${batch.grade_level}</p>
-          <p><strong>Duration:</strong> ${batch.duration}</p>
-          <p><strong>Status:</strong> <span class="badge-${batch.status.toLowerCase().replace(/ /g, '-')}">${batch.status}</span></p>
-        </div>
-        <div class="info-card">
-          <h3>⏰ Schedule & Timezone</h3>
-          <p><strong>Timezone:</strong> ${batch.timezone}</p>
-          <p><strong>Start Date:</strong> ${batch.start_date || 'Not set'}</p>
-          <p><strong>End Date:</strong> ${batch.end_date || 'Not set'}</p>
-          <p><strong>Zoom Link:</strong> <a href="${batch.zoom_link}" target="_blank">Join Class</a></p>
-        </div>
-        <div class="info-card">
-          <h3>👥 Enrollment</h3>
-          <p><strong>Max Students:</strong> ${batch.max_students}</p>
-          <p><strong>Enrolled:</strong> <span style="color: #27ae60;">${batch.current_students || 0}</span></p>
-          <p><strong>Available Slots:</strong> <span style="color: #3498db;">${batch.max_students - (batch.current_students || 0)}</span></p>
-          <p><strong>Fee:</strong> ${batch.currency}${batch.per_session_fee} per session</p>
-        </div>
-      </div>
-      ${batch.description ? `
-        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-          <h3>📝 Description</h3>
-          <p>${batch.description}</p>
-        </div>
-      ` : ''}
-    `;
-    
-    if (data.enrollments && data.enrollments.length > 0) {
-      document.getElementById('batchStudentsBody').innerHTML = data.enrollments.map(e => `
-        <tr>
-          <td><strong>${e.name}</strong></td>
-          <td>${e.grade}</td>
-          <td>${e.parent_name}<br><small>${e.parent_email}</small></td>
-          <td>${allStudents.find(s => s.id === e.student_id)?.timezone || 'N/A'}</td>
-          <td>${e.enrollment_date}</td>
-          <td><span class="enrollment-status-${e.status.toLowerCase()}">${e.status}</span></td>
-          <td>
-            <button onclick="removeStudentFromBatch(${e.student_id})" class="btn-mini-delete">Remove</button>
-          </td>
-        </tr>
-      `).join('');
-    } else {
-      document.getElementById('batchStudentsBody').innerHTML = '<tr><td colspan="7" style="text-align: center;">No students enrolled yet</td></tr>';
-    }
-    
-    if (data.sessions && data.sessions.length > 0) {
-      document.getElementById('batchSessionsBody').innerHTML = data.sessions.map(s => `
-        <tr>
-          <td>Session ${s.session_number}</td>
-          <td>${s.session_date}</td>
-          <td>${s.session_time}</td>
-          <td><span class="status-${s.status.toLowerCase()}">${s.status}</span></td>
-          <td>
-            ${s.status === 'Pending' || s.status === 'Scheduled' ? `
-              <button onclick="markBatchAttendance(${s.id})" class="btn-present">✓ Attendance</button>
-            ` : 'Completed'}
-          </td>
-        </tr>
-      `).join('');
-    } else {
-      document.getElementById('batchSessionsBody').innerHTML = '<tr><td colspan="5" style="text-align: center;">No sessions scheduled yet</td></tr>';
-    }
-    
-    await loadBatchMaterials(batchId);
-    
-    document.getElementById('batchDetailsModal').style.display = 'flex';
-    
-  } catch (error) {
-    alert('Failed to load batch details');
-    console.error(error);
-  }
-}
-
-async function loadBatchMaterials(batchId) {
-  try {
-    const batch = allBatches.find(b => b.id === batchId);
-    const response = await fetch('/api/materials/all/admin');
-    let materials = await response.json();
-    
-    materials = materials.filter(m => m.batch_name === batch.batch_name);
-    
-    const materialsDiv = document.getElementById('batchMaterialsList');
-    
-    if (materials.length === 0) {
-      materialsDiv.innerHTML = '<p style="text-align: center; padding: 20px;">No materials uploaded yet</p>';
-      return;
-    }
-    
-    materialsDiv.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>File Name</th>
-            <th>Uploaded</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${materials.map(m => `
-            <tr>
-              <td>${m.session_date}</td>
-              <td><span class="material-badge">${m.file_type}</span></td>
-              <td>${m.file_name}</td>
-              <td>${new Date(m.uploaded_at).toLocaleString()}</td>
-              <td>
-                <a href="/uploads/materials/${m.file_path}" target="_blank" class="btn-download">Download</a>
-                <button onclick="deleteMaterial(${m.id})" class="btn-mini-delete">Delete</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-  } catch (error) {
-    console.error('Error loading batch materials:', error);
-  }
-}
-
-async function markBatchAttendance(sessionId) {
-  currentBatchSessionId = sessionId;
-  
-  try {
-    const response = await fetch(`/api/batches/${currentBatchId}/details`);
-    const data = await response.json();
-    
-    const attendanceList = document.getElementById('batchAttendanceList');
-    attendanceList.innerHTML = data.enrollments.map(e => `
-      <div class="attendance-student-row" data-student-id="${e.student_id}">
-        <label>${e.name} (${e.grade})</label>
-        <select required>
-          <option value="Present">Present</option>
-          <option value="Absent">Absent</option>
-          <option value="Late">Late</option>
-        </select>
-        <input type="text" placeholder="Notes (optional)">
-      </div>
-    `).join('');
-    
-    document.getElementById('batchAttendanceModal').style.display = 'flex';
-    
-  } catch (error) {
-    alert('Failed to load attendance form');
-    console.error(error);
-  }
-}
-
-window.closeBatchAttendanceModal = function() {
-  document.getElementById('batchAttendanceModal').style.display = 'none';
-}
-
-window.addBatchScheduleRow = function() {
-  batchScheduleCounter++;
-  const row = document.createElement('div');
-  row.className = 'batch-schedule-row';
-  row.id = `batchScheduleRow${batchScheduleCounter}`;
-  row.innerHTML = `
-    <input type="date" id="batchScheduleDate${batchScheduleCounter}" required>
-    <input type="time" id="batchScheduleTime${batchScheduleCounter}" required>
-    <button type="button" onclick="removeBatchScheduleRow(${batchScheduleCounter})" class="btn-delete">✗</button>
-  `;
-  document.getElementById('batchClassScheduleList').appendChild(row);
-}
-
-window.removeBatchScheduleRow = function(rowId) {
-  document.getElementById(`batchScheduleRow${rowId}`)?.remove();
-}
-
-window.addBatchBulkSchedule = function() {
-  addBulkSchedule();
-}
-
-window.closeBatchModal = function() {
-  document.getElementById('batchDetailsModal').style.display = 'none';
-}
-
-window.showBatchDetailTab = function(tabName, btn) {
-  document.querySelectorAll('.detail-tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(tabName + 'Detail').classList.add('active');
-  if (btn) btn.classList.add('active');
-}
-
-window.showEnrollStudentForm = function() {
-  const enrollSelect = document.getElementById('enrollStudentSelect');
-  enrollSelect.innerHTML = '<option value="">Select student...</option>';
-  allStudents.forEach(s => {
-    enrollSelect.innerHTML += `<option value="${s.id}">${s.name} - ${s.grade}</option>`;
-  });
-  document.getElementById('enrollStudentForm').style.display = 'block';
-}
-
-window.hideEnrollStudentForm = function() {
-  document.getElementById('enrollStudentForm').style.display = 'none';
-}
-
-window.showBatchScheduleForm = function() {
-  document.getElementById('batchScheduleFormSection').style.display = 'block';
-}
-
-window.hideBatchScheduleForm = function() {
-  document.getElementById('batchScheduleFormSection').style.display = 'none';
-}
-
-window.showBatchMaterialUpload = function() {
-  document.getElementById('batchMaterialUploadForm').style.display = 'block';
-}
-
-window.hideBatchMaterialUpload = function() {
-  document.getElementById('batchMaterialUploadForm').style.display = 'none';
-}
-
-window.openEditBatchModal = function() {
-  const batch = allBatches.find(b => b.id === currentBatchId);
-  
-  document.getElementById('editBatchName').value = batch.batch_name;
-  document.getElementById('editBatchProgramName').value = batch.program_name;
-  document.getElementById('editBatchGradeLevel').value = batch.grade_level;
-  document.getElementById('editBatchDuration').value = batch.duration;
-  document.getElementById('editBatchTimezone').value = batch.timezone;
-  document.getElementById('editBatchMaxStudents').value = batch.max_students;
-  document.getElementById('editBatchCurrency').value = batch.currency;
-  document.getElementById('editBatchPerSessionFee').value = batch.per_session_fee;
-  document.getElementById('editBatchZoomLink').value = batch.zoom_link;
-  document.getElementById('editBatchStartDate').value = batch.start_date || '';
-  document.getElementById('editBatchEndDate').value = batch.end_date || '';
-  document.getElementById('editBatchDescription').value = batch.description || '';
-  document.getElementById('editBatchStatus').value = batch.status;
-  
-  document.getElementById('editBatchModal').style.display = 'flex';
-}
-
-function closeEditBatchModal() {
-  document.getElementById('editBatchModal').style.display = 'none';
-}
-
-async function deleteBatch() {
-  const batch = allBatches.find(b => b.id === currentBatchId);
-  if (!confirm(`Delete batch "${batch.batch_name}"? This will remove all enrollments and sessions.`)) return;
-  
-  try {
-    const response = await fetch(`/api/batches/${currentBatchId}`, { method: 'DELETE' });
-    if (response.ok) {
-      alert('✅ Batch deleted!');
-      closeBatchModal();
-      loadBatches();
-      loadDashboardStats();
-    }
-  } catch (error) {
-    alert('❌ Failed to delete batch');
-  }
-}
-
-async function deleteBatchQuick(batchId, batchName) {
-  if (!confirm(`Delete batch "${batchName}"?`)) return;
-  
-  try {
-    const response = await fetch(`/api/batches/${batchId}`, { method: 'DELETE' });
-    if (response.ok) {
-      alert('✅ Batch deleted!');
-      loadBatches();
-      loadDashboardStats();
-    }
-  } catch (error) {
-    alert('❌ Failed to delete batch');
-  }
-}
-
-async function removeStudentFromBatch(studentId) {
-  if (!confirm('Remove this student from the batch?')) return;
-  
-  try {
-    const response = await fetch(`/api/batches/${currentBatchId}/students/${studentId}`, {
-      method: 'DELETE'
-    });
-    
-    if (response.ok) {
-      alert('✅ Student removed!');
-      viewBatchDetails(currentBatchId);
-      loadBatches();
-    }
-  } catch (error) {
-    alert('❌ Failed to remove student');
-  }
-}
-
-// ==================== TIMETABLE ====================
-async function loadTimetableTab() {
-  populateStudentDropdowns();
-  await loadTimetable();
-}
-
-async function loadTimetable() {
-  try {
-    const response = await fetch('/api/timetable/slots');
-    const slots = await response.json();
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const timetableView = document.getElementById('timetableView');
-    
-    let html = '';
-    days.forEach(day => {
-      const daySlots = slots.filter(s => s.day_of_week === day);
-      html += `<div class="day-column"><h3>${day}</h3>`;
-      
-      if (daySlots.length === 0) {
-        html += '<p class="no-slots">No slots</p>';
-      } else {
-        daySlots.forEach(slot => {
-          const statusClass = slot.is_booked ? 'booked' : 'vacant';
-          html += `<div class="time-slot ${statusClass}">
-  <div class="slot-time">${slot.time_slot}</div>
-  ${slot.is_booked ? `
-    <div class="slot-student">${slot.student_name}</div>
-    <div class="slot-program">${slot.program_name}</div>
-    <button onclick="unbookSlot(${slot.id})" class="btn-mini-cancel">Free</button>
-  ` : `
-    <button onclick="openBookModal(${slot.id})" class="btn-mini-book">Book</button>
-  `}
-</div>`;
-
-        });
-      }
-      html += '</div>';
-    });
-    
-    timetableView.innerHTML = html;
   } catch (error) {
     console.error('Error:', error);
   }
 }
 
-window.openBookModal = function(slotId) {
-  currentBookingSlotId = slotId;
-  document.getElementById('bookSlotModal').style.display = 'flex';
-}
+async function loadEventsTab() { console.log('Events tab'); }
+async function loadSessionsTab() { console.log('Sessions tab'); }
+async function loadMaterialsTab() { console.log('Materials tab'); }
+async function loadTimetableTab() { console.log('Timetable tab'); }
+async function loadEmailsTab() { console.log('Emails tab'); }
 
-window.closeBookModal = function() {
-  document.getElementById('bookSlotModal').style.display = 'none';
-}
+console.log('%c✅ Admin Panel Ready', 'color: green; font-size: 16px;');
+  </script>
 
-window.unbookSlot = async function(slotId) {
-  if (!confirm('Free this slot?')) return;
-  try {
-    const response = await fetch(`/api/timetable/unbook/${slotId}`, { method: 'POST' });
-    if (response.ok) {
-      alert('✅ Slot freed!');
-      loadTimetable();
-    }
-  } catch (error) {
-    alert('❌ Failed');
-  }
-}
+  <style>
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-content.large-modal { max-width: 900px; }
+    .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+    .info-card h3 { margin-top: 0; color: #2c3e50; }
+    .detail-tab-btn { padding: 12px 20px; background: #f8f9fa; border: none; cursor: pointer; }
+    .detail-tab-btn.active { background: white; border-bottom: 3px solid #667eea; color: #667eea; }
+    .detail-tab-content { display: none; }
+    .detail-tab-content.active { display: block; }
+    .schedule-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .schedule-row input { flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 5px; }
+  </style>
 
-window.deleteSlot = async function(slotId) {
-  if (!confirm('Delete this slot?')) return;
-  try {
-    const response = await fetch(`/api/timetable/slots/${slotId}`, { method: 'DELETE' });
-    if (response.ok) {
-      alert('✅ Slot deleted!');
-      loadTimetable();
-    }
-  } catch (error) {
-    alert('❌ Failed');
-  }
-  
-
-}
-
-// ==================== EMAILS ====================
-async function loadEmailsTab() {
-  await loadEmailLog();
-}
-
-async function loadEmailLog() {
-  try {
-    const response = await fetch('/api/emails/log');
-    let emails = await response.json();
-    
-    const filterType = document.getElementById('filterEmailType')?.value;
-    const filterStatus = document.getElementById('filterEmailStatus')?.value;
-    
-    if (filterType) emails = emails.filter(e => e.email_type === filterType);
-    if (filterStatus) emails = emails.filter(e => e.status === filterStatus);
-    
-    const tbody = document.getElementById('emailsTableBody');
-    
-    if (emails.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No emails yet</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = emails.map(email => `
-      <tr>
-        <td>${email.sent_at_ist || new Date(email.sent_at).toLocaleString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true
-        })}</td>
-        <td>${email.recipient_name}</td>
-        <td>${email.recipient_email}</td>
-        <td><span class="email-type-badge">${email.email_type}</span></td>
-        <td>${email.subject}</td>
-        <td><span class="status-${email.status.toLowerCase()}">${email.status}</span></td>
-      </tr>
-    `).join('');
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
-
-// ==================== SEARCH & UTILITIES ====================
-document.getElementById('searchStudents')?.addEventListener('input', (e) => {
-  const searchTerm = e.target.value.toLowerCase();
-  const filteredStudents = allStudents.filter(s => 
-    s.name.toLowerCase().includes(searchTerm) ||
-    s.parent_name.toLowerCase().includes(searchTerm) ||
-    s.program_name.toLowerCase().includes(searchTerm)
-  );
-  
-  const tbody = document.getElementById('studentsTableBody');
-  
-  if (filteredStudents.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No students found</td></tr>';
-    return;
-  }
-  
-  tbody.innerHTML = filteredStudents.map(s => `
-    <tr>
-      <td><strong>${s.name}</strong><br><small style="color: #7f8c8d;">Grade ${s.grade}</small></td>
-      <td>${s.program_name}<br><small>${s.duration}</small></td>
-      <td><span class="badge-${s.class_type.toLowerCase()}">${s.class_type}</span></td>
-      <td>${s.timezone}</td>
-      <td>${s.currency}</td>
-      <td>${s.currency}${s.per_session_fee}</td>
-      <td><strong style="color: #27ae60;">${s.completed_sessions}</strong> / <strong style="color: #e74c3c;">${s.remaining_sessions}</strong></td>
-      <td>${s.currency}${s.fees_paid}</td>
-      <td>
-        <button onclick="viewStudentDetails(${s.id})" class="btn-view">Details</button>
-        <button onclick="openEditModal(${s.id})" class="btn-edit">Edit</button>
-        <button onclick="deleteStudent(${s.id}, '${s.name.replace(/'/g, "\\'")}')" class="btn-mini-delete">Delete</button>
-
-      </td>
-    </tr>
-  `).join('');
-});
-
-document.getElementById('searchBatches')?.addEventListener('input', (e) => {
-  const searchTerm = e.target.value.toLowerCase();
-  const filteredBatches = allBatches.filter(b => 
-    b.batch_name.toLowerCase().includes(searchTerm) ||
-    b.batch_code.toLowerCase().includes(searchTerm) ||
-    b.program_name.toLowerCase().includes(searchTerm)
-  );
-  
-  const tbody = document.getElementById('batchesTableBody');
-  
-  if (filteredBatches.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No batches found</td></tr>';
-    return;
-  }
-  
-  tbody.innerHTML = filteredBatches.map(b => `
-    <tr>
-      <td>
-        <strong>${b.batch_name}</strong><br>
-        <small style="color: #7f8c8d;">Code: ${b.batch_code}</small>
-      </td>
-      <td>${b.program_name}</td>
-      <td>${b.grade_level}</td>
-      <td>${b.duration}</td>
-      <td>${b.timezone}</td>
-      <td>
-        <strong style="color: #27ae60;">${b.enrolled_students || 0}</strong> / 
-        <strong style="color: #3498db;">${b.max_students}</strong>
-      </td>
-      <td>${b.currency}${b.per_session_fee}</td>
-      <td><span class="badge-${b.status.toLowerCase().replace(/ /g, '-')}">${b.status}</span></td>
-      <td>
-        <button onclick="viewBatchDetails(${b.id})" class="btn-view">Details</button>
-        <button onclick="deleteBatchQuick(${b.id}, '${b.batch_name.replace(/'/g, "\\'")}')" class="btn-mini-delete">Delete</button>
-      </td>
-    </tr>
-  `).join('');
-});
-
-// ==================== AUTO-REFRESH ====================
-setInterval(() => {
-  const currentTab = document.querySelector('.tab-content.active');
-  if (currentTab && currentTab.id === 'dashboardTab') {
-    loadDashboardStats();
-  }
-}, 60000);
-
-// ==================== KEYBOARD SHORTCUTS ====================
-document.addEventListener('keydown', (e) => {
-  if (e.altKey && e.key >= '1' && e.key <= '8') {
-    e.preventDefault();
-    const tabs = ['dashboard', 'students', 'sessions', 'materials', 'events', 'batches', 'timetable', 'emails'];
-    const tabIndex = parseInt(e.key) - 1;
-    if (tabs[tabIndex]) {
-      window.showTab(tabs[tabIndex]);
-    }
-  }
-});
-
-// ==================== ADDITIONAL STYLING ====================
-const style = document.createElement('style');
-style.textContent = `
-  .hw-badge {
-    background: #e67e22 !important;
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-  }
-  .schedule-row, .batch-schedule-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-    align-items: center;
-  }
-  .schedule-row input, .batch-schedule-row input {
-    flex: 1;
-    padding: 8px;
-    border: 2px solid #ddd;
-    border-radius: 5px;
-  }
-  .attendance-student-row {
-    display: flex;
-    gap: 15px;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    align-items: center;
-  }
-  .attendance-student-row label {
-    flex: 1;
-    font-weight: bold;
-  }
-  .attendance-student-row select {
-    padding: 8px;
-    border: 2px solid #ddd;
-    border-radius: 5px;
-    min-width: 150px;
-  }
-  .attendance-student-row input[type="text"] {
-    flex: 1;
-    padding: 8px;
-    border: 2px solid #ddd;
-    border-radius: 5px;
-  }
-  .registration-item {
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .registration-item input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-  }
-  .registration-item label {
-    flex: 1;
-    cursor: pointer;
-  }
-  .modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-content {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    max-width: 600px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-  .modal-content.large-modal {
-    max-width: 900px;
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #eee;
-  }
-  .btn-close {
-    background: #e74c3c;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: bold;
-  }
-  .btn-close:hover {
-    background: #c0392b;
-  }
-  .info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin-bottom: 20px;
-  }
-  .info-card {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    border-left: 4px solid #667eea;
-  }
-  .info-card h3 {
-    margin-top: 0;
-    color: #2c3e50;
-  }
-  .info-card p {
-    margin: 10px 0;
-    color: #34495e;
-  }
-  .student-details-tabs, .detail-tab-btn {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #eee;
-  }
-  .detail-tab-btn {
-    padding: 10px 20px;
-    background: #f8f9fa;
-    border: none;
-    border-bottom: 3px solid transparent;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  .detail-tab-btn.active {
-    background: white;
-    border-bottom-color: #667eea;
-    color: #667eea;
-  }
-  .detail-tab-content {
-    display: none;
-  }
-  .detail-tab-content.active {
-    display: block;
-  }
-  .makeup-summary {
-    background: #d1f2eb;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border-left: 4px solid #27ae60;
-  }
-  .event-details-info {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-  }
-  .timetable-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-  }
-  .day-column {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 8px;
-  }
-  .day-column h3 {
-    margin-top: 0;
-    color: #2c3e50;
-    border-bottom: 2px solid #667eea;
-    padding-bottom: 10px;
-  }
-  .time-slot {
-    background: white;
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 5px;
-    border-left: 4px solid #3498db;
-  }
-  .time-slot.booked {
-    border-left-color: #e74c3c;
-  }
-  .slot-time {
-    font-weight: bold;
-    color: #2c3e50;
-  }
-  .slot-student {
-    color: #27ae60;
-    margin-top: 5px;
-  }
-  .slot-program {
-    color: #7f8c8d;
-    font-size: 12px;
-  }
-  .no-slots {
-    text-align: center;
-    color: #95a5a6;
-    padding: 20px;
-  }
-`;
-document.head.appendChild(style);
-
-// ==================== CONSOLE MESSAGES ====================
-console.log('%c🎓 Fluent Feathers Academy LMS V2.0', 'font-size: 20px; font-weight: bold; color: #667eea;');
-console.log('%cAdmin Panel Loaded Successfully! ✅', 'font-size: 14px; color: #27ae60;');
-console.log('%cKeyboard Shortcuts: Alt+1 to Alt+8 for quick tab switching', 'font-size: 11px;');
-console.log('%cFeatures: Students, Sessions, Materials, Events, Batches, Timetable, Emails', 'font-size: 11px; color: #7f8c8d;');
-
-// ==================== END OF ADMIN PANEL JAVASCRIPT ====================
+</body>
+</html>
