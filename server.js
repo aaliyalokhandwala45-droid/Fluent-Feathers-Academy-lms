@@ -1914,6 +1914,18 @@ app.get('/api/sessions/:studentId', async (req, res) => {
   }
 });
 
+app.get('/api/students/:id/sessions', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM sessions WHERE student_id = $1 ORDER BY session_date ASC`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get upcoming sessions
 app.get('/api/sessions/upcoming/:studentId', async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
@@ -2191,6 +2203,55 @@ app.post('/api/parent/verify-otp', async (req, res) => {
   }
 });
 
+
+// Admin direct access to parent portal (bypasses password)
+app.post('/api/admin/access-parent-portal', async (req, res) => {
+  const { parent_email, admin_key } = req.body;
+  
+  // Simple admin verification (you can enhance this with proper admin auth)
+  // For now, using a secret key - CHANGE THIS IN PRODUCTION
+  const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'fluent-feathers-admin-2025';
+  
+  if (admin_key !== ADMIN_SECRET_KEY) {
+    return res.status(403).json({ error: 'Unauthorized admin access attempt' });
+  }
+  
+  try {
+    // Verify student exists with this email
+    const studentResult = await pool.query(
+      `SELECT * FROM students WHERE parent_email = $1 LIMIT 1`,
+      [parent_email]
+    );
+    
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No student found with this email' });
+    }
+    
+    const student = studentResult.rows[0];
+    
+    // Log admin access for security audit
+    console.log(`🔐 ADMIN ACCESS: Parent portal accessed for ${parent_email} at ${new Date().toISOString()}`);
+    
+    // Optional: Log to database for audit trail
+    await pool.query(
+      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+       VALUES ($1, $2, 'Admin Portal Access', 'Admin accessed parent portal', 'Logged')`,
+      ['Admin', parent_email]
+    );
+    
+    res.json({ 
+      success: true,
+      message: 'Access granted',
+      student: student,
+      accessType: 'admin'
+    });
+  } catch (err) {
+    console.error('Admin portal access error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Upload homework from parent
 app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, res) => {
   const { sessionDate } = req.body;
@@ -2251,6 +2312,18 @@ app.get('/api/materials/all/admin', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get('/api/materials/all', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM materials ORDER BY uploaded_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Get materials for student
 app.get('/api/materials/:studentId', async (req, res) => {
@@ -2391,7 +2464,8 @@ app.post('/api/timetable/slots', async (req, res) => {
 });
 
 app.post('/api/timetable/book/:slotId', async (req, res) => {
-  const { student_id, student_name, program_name, duration } = req.body;
+  const { student_id, student_name = '', program_name = '', duration = '' } = req.body;
+
   
   try {
     await pool.query(
@@ -2444,6 +2518,20 @@ app.delete('/api/students/:id', async (req, res) => {
 
 
 // ==================== BATCH MANAGEMENT API ROUTES ====================
+app.get('/api/batches/:id/students', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT s.*
+       FROM students s
+       JOIN batch_enrollments be ON s.id = be.student_id
+       WHERE be.batch_id = $1 AND be.status = 'Active'`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 
