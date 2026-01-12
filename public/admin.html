@@ -1310,6 +1310,7 @@ let currentStudentId = null;
 let currentEditStudentId = null;
 let currentEventId = null;
 let scheduleCounter = 0;
+let currentBatchId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🎓 Admin Panel Loading...');
@@ -1322,6 +1323,106 @@ document.addEventListener('DOMContentLoaded', () => {
   const totalSessions = document.getElementById('totalSessions');
   if (perSessionFee) perSessionFee.addEventListener('input', calculateTotalFees);
   if (totalSessions) totalSessions.addEventListener('input', calculateTotalFees);
+  
+  // Add Student Form Handler
+  const addStudentForm = document.getElementById('addStudentForm');
+  if (addStudentForm) {
+    addStudentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const studentData = {
+        name: document.getElementById('studentName').value,
+        grade: document.getElementById('grade').value,
+        parent_name: document.getElementById('parentName').value,
+        parent_email: document.getElementById('parentEmail').value,
+        primary_contact: document.getElementById('primaryContact').value,
+        alternate_contact: document.getElementById('alternateContact').value || null,
+        timezone: document.getElementById('timezone').value,
+        program_name: document.getElementById('programName').value,
+        class_type: document.getElementById('classType').value,
+        duration: document.getElementById('duration').value,
+        currency: document.getElementById('currency').value,
+        per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
+        total_sessions: parseInt(document.getElementById('totalSessions').value)
+      };
+      
+      try {
+        const response = await fetch('/api/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(studentData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          alert('✅ Student added successfully!');
+          addStudentForm.reset();
+          await loadStudents();
+          loadDashboardStats();
+        } else {
+          alert('❌ ' + (result.error || 'Failed to add student'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Failed to add student');
+      }
+    });
+  }
+  
+  // Edit Student Form Handler
+  const editStudentForm = document.getElementById('editStudentForm');
+  if (editStudentForm) {
+    editStudentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const studentData = {
+        name: document.getElementById('editStudentName').value,
+        grade: document.getElementById('editGrade').value,
+        parent_name: document.getElementById('editParentName').value,
+        parent_email: document.getElementById('editParentEmail').value,
+        primary_contact: document.getElementById('editPrimaryContact').value,
+        alternate_contact: document.getElementById('editAlternateContact').value || null,
+        timezone: document.getElementById('editTimezone').value,
+        program_name: document.getElementById('editProgramName').value,
+        class_type: document.getElementById('editClassType').value,
+        duration: document.getElementById('editDuration').value,
+        currency: document.getElementById('editCurrency').value,
+        per_session_fee: parseFloat(document.getElementById('editPerSessionFee').value),
+        total_sessions: parseInt(document.getElementById('editTotalSessions').value)
+      };
+      
+      try {
+        const response = await fetch(`/api/students/${currentEditStudentId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(studentData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          alert('✅ Student updated successfully!');
+          closeEditModal();
+          await loadStudents();
+          loadDashboardStats();
+        } else {
+          alert('❌ ' + (result.error || 'Failed to update student'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Failed to update student');
+      }
+    });
+  }
+  
+  // Add auto-calculation for edit form too
+  const editPerSessionFee = document.getElementById('editPerSessionFee');
+  const editTotalSessions = document.getElementById('editTotalSessions');
+  const editCurrency = document.getElementById('editCurrency');
+  if (editPerSessionFee) editPerSessionFee.addEventListener('input', calculateEditTotalFees);
+  if (editTotalSessions) editTotalSessions.addEventListener('input', calculateEditTotalFees);
+  if (editCurrency) editCurrency.addEventListener('change', calculateEditTotalFees);
   
   console.log('✅ Admin Panel Loaded!');
 });
@@ -1381,7 +1482,7 @@ function renderStudentsTable() {
       <td>${s.class_type}</td>
       <td>${s.timezone}</td>
       <td>${s.currency}${s.per_session_fee}</td>
-      <td>${s.completed_sessions} / ${s.remaining_sessions}</td>
+     <td>${s.completed_sessions || 0} / ${s.total_sessions || 0}</td> 
       <td>${s.currency}${s.fees_paid}</td>
       <td>
         <button onclick="viewStudentDetails(${s.id})" class="btn-view">Details</button>
@@ -1987,20 +2088,11 @@ window.deleteBatchMaterial = async function(materialId) {
 };
 
 // Update showBatchDetailTab function
-window.showBatchDetailTab = function(tabName, btn) {
-  document.querySelectorAll('.detail-tab-content').forEach(function(t) { t.classList.remove('active'); });
-  document.querySelectorAll('.detail-tab-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.getElementById(tabName + 'Detail').classList.add('active');
-  if (btn) btn.classList.add('active');
-  
-  if (tabName === 'batchMaterials' && currentBatchId) {
-    loadBatchMaterials(currentBatchId);
-  }
-};
+
 
 console.log('✅ Batch management functions loaded successfully!');
 // ==================== COMPLETE BATCH DETAIL FUNCTIONS ====================
-let currentBatchId = null;
+currentBatchId = null; // REMOVED 'let' - already declared above
 
 window.viewBatchDetails = async function(batchId) {
   currentBatchId = batchId;
@@ -2104,16 +2196,23 @@ function loadBatchStudentsTab(students) {
 window.showEnrollStudentForm = function() {
   document.getElementById('enrollStudentForm').style.display = 'block';
   
-  // Populate student dropdown - only Group class type students
+  // Populate student dropdown with ALL students
   const select = document.getElementById('enrollStudentSelect');
   select.innerHTML = '<option value="">Select student...</option>';
   
+  console.log('Total students available:', allStudents.length); // Debug
+  
+  if (allStudents.length === 0) {
+    select.innerHTML += '<option value="" disabled>No students found - Add students first</option>';
+    return;
+  }
+  
   allStudents.forEach(s => {
-    if (s.class_type === 'Group') {
-      select.innerHTML += `<option value="${s.id}">${s.name} - ${s.grade}</option>`;
-    }
+    select.innerHTML += `<option value="${s.id}">${s.name} - ${s.grade} (${s.class_type})</option>`;
+    console.log('Added student to dropdown:', s.name); // Debug
   });
 }
+
 
 window.hideEnrollStudentForm = function() {
   document.getElementById('enrollStudentForm').style.display = 'none';
