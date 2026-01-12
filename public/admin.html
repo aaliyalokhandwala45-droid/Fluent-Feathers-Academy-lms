@@ -1325,50 +1325,65 @@ document.addEventListener('DOMContentLoaded', () => {
   if (totalSessions) totalSessions.addEventListener('input', calculateTotalFees);
   
   // Add Student Form Handler
-  const addStudentForm = document.getElementById('addStudentForm');
-  if (addStudentForm) {
-    addStudentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+ // Add Student Form Handler
+const addStudentForm = document.getElementById('addStudentForm');
+if (addStudentForm) {
+  addStudentForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Show loading state
+    const submitBtn = addStudentForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Adding Student...';
+    
+    const studentData = {
+      name: document.getElementById('studentName').value,
+      grade: document.getElementById('grade').value,
+      parent_name: document.getElementById('parentName').value,
+      parent_email: document.getElementById('parentEmail').value,
+      primary_contact: document.getElementById('primaryContact').value,
+      alternate_contact: document.getElementById('alternateContact').value || null,
+      timezone: document.getElementById('timezone').value,
+      program_name: document.getElementById('programName').value,
+      class_type: document.getElementById('classType').value,
+      duration: document.getElementById('duration').value,
+      currency: document.getElementById('currency').value,
+      per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
+      total_sessions: parseInt(document.getElementById('totalSessions').value)
+    };
+    
+    console.log('📤 Submitting student data:', studentData);
+    
+    try {
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(studentData)
+      });
       
-      const studentData = {
-        name: document.getElementById('studentName').value,
-        grade: document.getElementById('grade').value,
-        parent_name: document.getElementById('parentName').value,
-        parent_email: document.getElementById('parentEmail').value,
-        primary_contact: document.getElementById('primaryContact').value,
-        alternate_contact: document.getElementById('alternateContact').value || null,
-        timezone: document.getElementById('timezone').value,
-        program_name: document.getElementById('programName').value,
-        class_type: document.getElementById('classType').value,
-        duration: document.getElementById('duration').value,
-        currency: document.getElementById('currency').value,
-        per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
-        total_sessions: parseInt(document.getElementById('totalSessions').value)
-      };
+      const result = await response.json();
+      console.log('📥 Server response:', result);
       
-      try {
-        const response = await fetch('/api/students', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(studentData)
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-          alert('✅ Student added successfully!');
-          addStudentForm.reset();
-          await loadStudents();
-          loadDashboardStats();
-        } else {
-          alert('❌ ' + (result.error || 'Failed to add student'));
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('❌ Failed to add student');
+      if (response.ok && result.success) {
+        alert('✅ ' + result.message);
+        addStudentForm.reset();
+        await loadStudents();
+        loadDashboardStats();
+      } else {
+        alert('❌ ' + (result.error || 'Failed to add student. Check console for details.'));
+        console.error('Server error:', result);
       }
-    });
-  }
+    } catch (error) {
+      console.error('❌ Network error:', error);
+      alert('❌ Failed to add student. Network error. Check console for details.');
+    } finally {
+      // Restore button
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+    }
+  });
+}
   
   // Edit Student Form Handler
   const editStudentForm = document.getElementById('editStudentForm');

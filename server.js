@@ -840,49 +840,75 @@ app.post('/api/students', async (req, res) => {
     class_type, duration, currency, per_session_fee, total_sessions 
   } = req.body;
 
-  const fees_paid = per_session_fee * total_sessions;
+  // Initialize payment values
+  const fees_paid = 0; // Start with 0, will be updated when payments are recorded
   const remaining_sessions = total_sessions;
+  const completed_sessions = 0;
 
   try {
+    console.log('📝 Creating student:', { name, parent_email, timezone, program_name });
+    
     const result = await pool.query(
       `INSERT INTO students (
         name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
         class_type, duration, currency, per_session_fee, total_sessions, 
-        remaining_sessions, fees_paid
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+        completed_sessions, remaining_sessions, fees_paid
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
       [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
        class_type, duration, currency, per_session_fee, total_sessions, 
-       remaining_sessions, fees_paid]
+       completed_sessions, remaining_sessions, fees_paid]
     );
 
     const studentId = result.rows[0].id;
+    console.log('✅ Student created with ID:', studentId);
 
-    // Create initial payment record
-    await pool.query(
-      `INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes)
-       VALUES ($1, $2, $3, $4, 'Initial Payment', NULL, $5, 'Enrollment payment')`,
-      [studentId, new Date().toISOString().split('T')[0], fees_paid, currency, `Sessions 1-${total_sessions}`]
-    );
+    // DON'T create initial payment record - let admin record payments manually
+    // This was causing confusion about payment status
 
-    // Send enhanced welcome email
+    // Send welcome email
     const emailData = {
-      parent_name, student_name: name, grade, program_name, class_type, 
-      duration, total_sessions, timezone,
+      parent_name, 
+      student_name: name, 
+      grade, 
+      program_name, 
+      class_type, 
+      duration, 
+      total_sessions, 
+      timezone,
       zoom_link: 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
     };
 
     const emailHtml = getEmailTemplate('welcome', emailData);
-    await sendEmail(parent_email, `Welcome to Fluent Feathers Academy - ${name}`, emailHtml, parent_name, 'Welcome');
+    const emailSent = await sendEmail(
+      parent_email, 
+      `Welcome to Fluent Feathers Academy - ${name}`, 
+      emailHtml, 
+      parent_name, 
+      'Welcome'
+    );
+
+    if (emailSent) {
+      console.log('✅ Welcome email sent to:', parent_email);
+    } else {
+      console.log('⚠️ Email failed but student created');
+    }
 
     res.json({ 
-      message: `Student ${name} added successfully! Welcome email sent to ${parent_email}.`, 
+      success: true,
+      message: `Student ${name} added successfully!${emailSent ? ' Welcome email sent to ' + parent_email : ' (Email sending failed but student was created)'}`, 
       studentId 
     });
+    
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ Error creating student:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to add student: ' + err.message 
+    });
   }
 });
 
+    
 // Update student (Edit student endpoint)
 app.put('/api/students/:id', async (req, res) => {
   const studentId = req.params.id;
@@ -989,10 +1015,15 @@ app.post('/api/students/:id/payment', async (req, res) => {
   const payment_date = new Date().toISOString().split('T')[0];
 
   try {
+    console.log('💰 Recording payment for student:', studentId);
+    
     await pool.query(
-      `INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, receipt_number, sessions_covered, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [studentId, payment_date, amount, currency, payment_method, receipt_number, sessions_covered, notes]
+      `INSERT INTO payment_history (
+        student_id, payment_date, amount, currency, payment_method, 
+        receipt_number, sessions_covered, notes, payment_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Paid')`,
+      [studentId, payment_date, amount, currency, payment_method, 
+       receipt_number, sessions_covered, notes]
     );
 
     // Update student's fees_paid
@@ -1001,11 +1032,15 @@ app.post('/api/students/:id/payment', async (req, res) => {
       [amount, studentId]
     );
     
-    res.json({ message: 'Payment recorded successfully!' });
+    console.log('✅ Payment recorded successfully');
+    res.json({ success: true, message: 'Payment recorded successfully!' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ Payment error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
+
+  
 
 // ========== EVENT MANAGEMENT ==========
 
