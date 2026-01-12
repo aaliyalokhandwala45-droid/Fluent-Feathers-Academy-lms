@@ -1999,6 +1999,343 @@ window.showBatchDetailTab = function(tabName, btn) {
 };
 
 console.log('✅ Batch management functions loaded successfully!');
+// ==================== COMPLETE BATCH DETAIL FUNCTIONS ====================
+let currentBatchId = null;
+
+window.viewBatchDetails = async function(batchId) {
+  currentBatchId = batchId;
+  
+  try {
+    const response = await fetch(`/api/batches/${batchId}/details`);
+    const data = await response.json();
+    const batch = data.batch;
+    
+    document.getElementById('modalBatchName').textContent = batch.batch_name;
+    
+    // Load Batch Info Tab
+    document.getElementById('batchInfoContent').innerHTML = `
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>📋 Basic Info</h3>
+          <p><strong>Batch Name:</strong> ${batch.batch_name}</p>
+          <p><strong>Batch Code:</strong> ${batch.batch_code}</p>
+          <p><strong>Program:</strong> ${batch.program_name}</p>
+          <p><strong>Grade Level:</strong> ${batch.grade_level}</p>
+          <p><strong>Status:</strong> <span style="background: ${batch.status === 'Active' ? '#27ae60' : '#95a5a6'}; color: white; padding: 5px 10px; border-radius: 5px;">${batch.status}</span></p>
+        </div>
+        <div class="info-card">
+          <h3>⏰ Schedule & Fees</h3>
+          <p><strong>Duration:</strong> ${batch.duration}</p>
+          <p><strong>Timezone:</strong> ${batch.timezone}</p>
+          <p><strong>Zoom Link:</strong> <a href="${batch.zoom_link}" target="_blank" style="color: #3498db;">Join Class</a></p>
+          <p><strong>Fee per Session:</strong> ${batch.currency}${batch.per_session_fee}</p>
+        </div>
+        <div class="info-card">
+          <h3>👥 Enrollment</h3>
+          <p><strong>Max Students:</strong> ${batch.max_students}</p>
+          <p><strong>Enrolled:</strong> ${batch.enrolled_students || 0}</p>
+          <p><strong>Available Slots:</strong> ${batch.max_students - (batch.enrolled_students || 0)}</p>
+          <p><strong>Start Date:</strong> ${batch.start_date || 'Not set'}</p>
+          <p><strong>End Date:</strong> ${batch.end_date || 'Not set'}</p>
+        </div>
+      </div>
+      ${batch.description ? `<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;"><strong>Description:</strong><br>${batch.description}</div>` : ''}
+    `;
+    
+    // Load batch students
+    loadBatchStudentsTab(data.students || []);
+    
+    // Load batch sessions
+    loadBatchSessionsTab(data.sessions || []);
+    
+    // Load batch materials (will load when Materials tab is clicked)
+    
+    document.getElementById('batchDetailsModal').style.display = 'flex';
+  } catch (error) {
+    console.error('Error loading batch details:', error);
+    alert('❌ Failed to load batch details');
+  }
+}
+
+window.closeBatchModal = function() {
+  document.getElementById('batchDetailsModal').style.display = 'none';
+  currentBatchId = null;
+}
+
+// Helper function for status colors
+function getStatusColor(status) {
+  const colors = {
+    'Completed': '#27ae60',
+    'Scheduled': '#3498db',
+    'Pending': '#f39c12',
+    'Missed': '#e74c3c',
+    'Cancelled by Teacher': '#95a5a6',
+    'Cancelled by Parent': '#95a5a6'
+  };
+  return colors[status] || '#95a5a6';
+}
+
+// ==================== BATCH STUDENTS TAB ====================
+function loadBatchStudentsTab(students) {
+  const tbody = document.getElementById('batchStudentsBody');
+  if (!tbody) return;
+  
+  if (students.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #7f8c8d;">No students enrolled yet</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = students.map(s => `
+    <tr>
+      <td>${s.name}</td>
+      <td>${s.grade}</td>
+      <td>${s.parent_name}</td>
+      <td>${s.timezone}</td>
+      <td>${new Date(s.enrollment_date).toLocaleDateString()}</td>
+      <td><span style="padding: 5px 10px; border-radius: 5px; background: #27ae60; color: white;">Active</span></td>
+      <td>
+        <button onclick="viewStudentDetails(${s.student_id})" class="btn-view">View</button>
+        <button onclick="removeStudentFromBatch(${s.student_id})" class="btn-mini-delete">Remove</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+window.showEnrollStudentForm = function() {
+  document.getElementById('enrollStudentForm').style.display = 'block';
+  
+  // Populate student dropdown - only Group class type students
+  const select = document.getElementById('enrollStudentSelect');
+  select.innerHTML = '<option value="">Select student...</option>';
+  
+  allStudents.forEach(s => {
+    if (s.class_type === 'Group') {
+      select.innerHTML += `<option value="${s.id}">${s.name} - ${s.grade}</option>`;
+    }
+  });
+}
+
+window.hideEnrollStudentForm = function() {
+  document.getElementById('enrollStudentForm').style.display = 'none';
+  document.getElementById('enrollStudentInBatchForm').reset();
+}
+
+// Handle enroll student form
+const enrollStudentInBatchForm = document.getElementById('enrollStudentInBatchForm');
+if (enrollStudentInBatchForm) {
+  enrollStudentInBatchForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const enrollData = {
+      student_id: document.getElementById('enrollStudentSelect').value,
+      notes: document.getElementById('enrollmentNotes').value || null
+    };
+    
+    try {
+      const response = await fetch(`/api/batches/${currentBatchId}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enrollData)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert('✅ ' + result.message);
+        hideEnrollStudentForm();
+        viewBatchDetails(currentBatchId);
+        loadBatches();
+      } else {
+        alert('❌ ' + result.error);
+      }
+    } catch (error) {
+      alert('❌ Failed to enroll student');
+      console.error(error);
+    }
+  });
+}
+
+window.removeStudentFromBatch = async function(studentId) {
+  if (!confirm('Remove this student from the batch?')) return;
+  
+  try {
+    const response = await fetch(`/api/batches/${currentBatchId}/remove-student/${studentId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('✅ ' + result.message);
+      viewBatchDetails(currentBatchId);
+      loadBatches();
+    } else {
+      alert('❌ ' + result.error);
+    }
+  } catch (error) {
+    alert('❌ Failed to remove student');
+  }
+}
+
+// ==================== BATCH SCHEDULE TAB ====================
+function loadBatchSessionsTab(sessions) {
+  const tbody = document.getElementById('batchSessionsBody');
+  if (!tbody) return;
+  
+  if (sessions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #7f8c8d;">No sessions scheduled yet</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = sessions.map(s => `
+    <tr>
+      <td>Session ${s.session_number}</td>
+      <td>${new Date(s.date).toLocaleDateString()}</td>
+      <td>${s.time}</td>
+      <td><span style="padding: 5px 10px; border-radius: 5px; background: ${getStatusColor(s.status)}; color: white;">${s.status}</span></td>
+      <td>
+        ${s.status === 'Scheduled' || s.status === 'Pending' ? `
+          <button onclick="alert('Attendance feature coming soon!')" class="btn-view">Attendance</button>
+          <button onclick="cancelBatchSession(${s.id})" class="btn-mini-delete">Cancel</button>
+        ` : '-'}
+      </td>
+    </tr>
+  `).join('');
+}
+
+window.cancelBatchSession = async function(sessionId) {
+  const reason = prompt('Enter cancellation reason:');
+  if (!reason) return;
+  
+  try {
+    const response = await fetch(`/api/batch-sessions/${sessionId}/cancel`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('✅ ' + result.message);
+      viewBatchDetails(currentBatchId);
+    } else {
+      alert('❌ ' + result.error);
+    }
+  } catch (error) {
+    alert('❌ Failed to cancel session');
+  }
+}
+
+// ==================== BATCH MATERIALS TAB ====================
+async function loadBatchMaterialsTab() {
+  try {
+    const response = await fetch(`/api/batches/${currentBatchId}/materials`);
+    const materials = await response.json();
+    
+    const container = document.getElementById('batchMaterialsList');
+    if (!container) return;
+    
+    if (materials.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No materials uploaded yet</p>';
+      return;
+    }
+    
+    container.innerHTML = `
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f8f9fa;">
+            <th style="padding: 12px; text-align: left;">Date</th>
+            <th style="padding: 12px; text-align: left;">Type</th>
+            <th style="padding: 12px; text-align: left;">File Name</th>
+            <th style="padding: 12px; text-align: left;">Uploaded</th>
+            <th style="padding: 12px; text-align: left;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${materials.map(m => `
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 12px;">${new Date(m.session_date).toLocaleDateString()}</td>
+              <td style="padding: 12px;">${m.file_type}</td>
+              <td style="padding: 12px;">${m.file_name}</td>
+              <td style="padding: 12px;">${new Date(m.uploaded_at).toLocaleDateString()}</td>
+              <td style="padding: 12px;">
+                <a href="/uploads/homework/${m.file_path}" download class="btn-view" style="margin-right: 5px;">Download</a>
+                <button onclick="deleteBatchMaterial(${m.id})" class="btn-mini-delete">Delete</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (error) {
+    console.error('Error loading materials:', error);
+    document.getElementById('batchMaterialsList').innerHTML = '<p style="color: red; text-align: center;">Failed to load materials</p>';
+  }
+}
+
+window.deleteBatchMaterial = async function(materialId) {
+  if (!confirm('Delete this material?')) return;
+  
+  try {
+    const response = await fetch(`/api/materials/${materialId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      alert('✅ Material deleted');
+      loadBatchMaterialsTab();
+    } else {
+      alert('❌ Failed to delete');
+    }
+  } catch (error) {
+    alert('❌ Error deleting material');
+    console.error(error);
+  }
+}
+
+// Update the existing showBatchDetailTab function
+window.showBatchDetailTab = function(tabName, btn) {
+  document.querySelectorAll('.detail-tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabName + 'Detail').classList.add('active');
+  if (btn) btn.classList.add('active');
+  
+  // Load materials when Materials tab is clicked
+  if (tabName === 'batchMaterials' && currentBatchId) {
+    loadBatchMaterials(currentBatchId);
+  }
+}
+
+// ==================== BATCH DELETE ====================
+window.deleteBatch = async function(batchId) {
+  const id = batchId || currentBatchId;
+  if (!confirm('⚠️ Delete this batch?\n\nThis will remove all enrolled students and scheduled sessions!\n\nThis cannot be undone!')) return;
+  
+  try {
+    const response = await fetch(`/api/batches/${id}`, { 
+      method: 'DELETE' 
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('✅ ' + result.message);
+      if (document.getElementById('batchDetailsModal').style.display === 'flex') {
+        closeBatchModal();
+      }
+      loadBatches();
+      loadDashboardStats();
+    } else {
+      alert('❌ ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('❌ Failed to delete batch');
+  }
+}
+
+console.log('✅✅✅ BATCH DETAILS FUNCTIONS LOADED! ✅✅✅');
   </script>
 
   <style>
