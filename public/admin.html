@@ -1677,6 +1677,207 @@ if (createBatchForm) {
 } else {
   console.error('❌ createBatchForm not found in DOM!');
 }
+// ==================== BATCH STUDENT ENROLLMENT ====================
+
+let currentBatchId = null;
+
+// View batch details
+window.viewBatchDetails = async function(batchId) {
+  currentBatchId = batchId;
+  
+  try {
+    const response = await fetch(`/api/batches/${batchId}/details`);
+    const data = await response.json();
+    const batch = data.batch;
+    
+    document.getElementById('modalBatchName').textContent = batch.batch_name;
+    
+    // Info tab content
+    document.getElementById('batchInfoContent').innerHTML = `
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>📋 Basic Info</h3>
+          <p><strong>Batch Name:</strong> ${batch.batch_name}</p>
+          <p><strong>Batch Code:</strong> ${batch.batch_code}</p>
+          <p><strong>Program:</strong> ${batch.program_name}</p>
+          <p><strong>Grade Level:</strong> ${batch.grade_level}</p>
+        </div>
+        <div class="info-card">
+          <h3>⏰ Schedule Info</h3>
+          <p><strong>Duration:</strong> ${batch.duration}</p>
+          <p><strong>Timezone:</strong> ${batch.timezone}</p>
+          <p><strong>Status:</strong> ${batch.status}</p>
+        </div>
+        <div class="info-card">
+          <h3>👥 Enrollment</h3>
+          <p><strong>Current Students:</strong> ${batch.current_students || 0}</p>
+          <p><strong>Max Students:</strong> ${batch.max_students}</p>
+          <p><strong>Available Slots:</strong> ${batch.max_students - (batch.current_students || 0)}</p>
+        </div>
+        <div class="info-card">
+          <h3>💰 Fees</h3>
+          <p><strong>Per Session:</strong> ${batch.currency}${batch.per_session_fee}</p>
+          <p><strong>Zoom Link:</strong> <a href="${batch.zoom_link}" target="_blank">Join Class</a></p>
+        </div>
+      </div>
+    `;
+    
+    // Load students for this batch
+    loadBatchStudents(batchId, data.enrollments);
+    
+    document.getElementById('batchDetailsModal').style.display = 'flex';
+    showBatchDetailTab('batchInfo', document.querySelector('.detail-tab-btn'));
+    
+  } catch (error) {
+    alert('Failed to load batch details');
+    console.error(error);
+  }
+}
+
+// Close batch modal
+window.closeBatchModal = function() {
+  document.getElementById('batchDetailsModal').style.display = 'none';
+  currentBatchId = null;
+}
+
+// Show batch detail tabs
+window.showBatchDetailTab = function(tabName, btn) {
+  document.querySelectorAll('.detail-tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabName + 'Detail').classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// Load students enrolled in batch
+function loadBatchStudents(batchId, enrollments) {
+  const tbody = document.getElementById('batchStudentsBody');
+  
+  if (!enrollments || enrollments.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No students enrolled yet</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = enrollments.map(e => `
+    <tr>
+      <td><strong>${e.name}</strong></td>
+      <td>${e.grade}</td>
+      <td>${e.parent_name}<br><small>${e.parent_email}</small></td>
+      <td>${e.timezone}</td>
+      <td>${e.enrollment_date}</td>
+      <td>
+        <span style="background: ${e.status === 'Active' ? '#27ae60' : '#95a5a6'}; 
+                     color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px;">
+          ${e.status}
+        </span>
+      </td>
+      <td>
+        <button onclick="removeStudentFromBatch(${batchId}, ${e.student_id})" class="btn-mini-delete">Remove</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Show enrollment form
+window.showEnrollStudentForm = function() {
+  document.getElementById('enrollStudentForm').style.display = 'block';
+  
+  // Populate student dropdown with students NOT in this batch
+  const select = document.getElementById('enrollStudentSelect');
+  select.innerHTML = '<option value="">Select student...</option>';
+  
+  allStudents.forEach(student => {
+    select.innerHTML += `<option value="${student.id}">${student.name} - ${student.program_name}</option>`;
+  });
+}
+
+// Hide enrollment form
+window.hideEnrollStudentForm = function() {
+  document.getElementById('enrollStudentForm').style.display = 'none';
+}
+
+// Enroll student in batch
+const enrollForm = document.getElementById('enrollStudentInBatchForm');
+if (enrollForm) {
+  enrollForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const studentId = document.getElementById('enrollStudentSelect').value;
+    const notes = document.getElementById('enrollmentNotes').value;
+    
+    if (!studentId) {
+      alert('Please select a student');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/batches/${currentBatchId}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId, notes })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert('✅ ' + result.message);
+        hideEnrollStudentForm();
+        enrollForm.reset();
+        // Reload batch details
+        viewBatchDetails(currentBatchId);
+        loadBatches(); // Refresh batch list
+      } else {
+        alert('❌ ' + result.error);
+      }
+    } catch (error) {
+      alert('Failed to enroll student');
+      console.error(error);
+    }
+  });
+}
+
+// Remove student from batch
+window.removeStudentFromBatch = async function(batchId, studentId) {
+  if (!confirm('Remove this student from the batch?')) return;
+  
+  try {
+    const response = await fetch(`/api/batches/${batchId}/students/${studentId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      alert('✅ Student removed from batch');
+      viewBatchDetails(batchId); // Reload
+      loadBatches(); // Refresh list
+    } else {
+      alert('❌ Failed to remove student');
+    }
+  } catch (error) {
+    alert('Failed to remove student');
+    console.error(error);
+  }
+}
+
+// Delete entire batch
+window.deleteBatch = async function(batchId) {
+  if (!confirm('Delete this entire batch? This cannot be undone!')) return;
+  
+  try {
+    const response = await fetch(`/api/batches/${batchId || currentBatchId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      alert('✅ Batch deleted');
+      if (currentBatchId) closeBatchModal();
+      loadBatches();
+    } else {
+      alert('❌ Failed to delete batch');
+    }
+  } catch (error) {
+    alert('Failed to delete batch');
+    console.error(error);
+  }
+}
 // ==================== SWITCH TO LEARNER VIEW ====================
 window.switchToLearnerView = async function() {
   if (!currentStudentId) {
@@ -1706,7 +1907,9 @@ window.switchToLearnerView = async function() {
     alert('❌ Failed to switch to learner view');
   }
 }
+
 console.log('%c✅ Admin Panel Ready', 'color: green; font-size: 16px;');
+
   </script>
 
   <style>
