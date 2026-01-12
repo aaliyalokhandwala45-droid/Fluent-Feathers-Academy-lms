@@ -1960,6 +1960,24 @@ app.get('/api/students/:id', async (req, res) => {
   }
 });
 
+// Get student by parent email (for admin switch to learner)
+app.get('/api/students/by-email/:email', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM students WHERE parent_email = $1 LIMIT 1`,
+      [req.params.email]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No student found with this email' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Check if parent email exists and has password
 app.post('/api/parent/check-email', async (req, res) => {
   const { email } = req.body;

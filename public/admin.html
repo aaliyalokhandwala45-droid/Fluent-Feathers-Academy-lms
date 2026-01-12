@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - Fluent Feathers Academy V2.0</title>
+  <title>Admin Dashboard - Fluent Feathers Academy By Aaliya</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
     <header>
       <div>
-        <h1>🎓 Admin Dashboard V2.0</h1>
-        <p>Fluent Feathers Academy - Enhanced Professional LMS</p>
+        <h1>🎓 Admin Dashboard </h1>
+        <p>Fluent Feathers Academy By Aaliya - Professional LMS</p>
       </div>
       <button onclick="location.href='index.html'" class="logout-btn">Logout</button>
     </header>
@@ -236,8 +236,20 @@
 
         <!-- Info Tab -->
         <div id="infoDetail" class="detail-tab-content active">
-          <div id="studentInfoContent"></div>
-        </div>
+  <div id="studentInfoContent"></div>
+  
+  <!-- ✅ ADD THIS NEW SECTION -->
+  <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px;">
+    <h3 style="color: white; margin: 0 0 10px 0;">👤 View as Parent</h3>
+    <p style="color: white; margin: 0 0 15px 0; opacity: 0.9;">
+      View this student's parent portal to see what parents see
+    </p>
+    <button onclick="switchToLearnerView()" class="btn-primary" 
+            style="background: white; color: #667eea; font-weight: bold;">
+      🔄 Switch to Learner View
+    </button>
+  </div>
+</div>
 
         <!-- Payments Tab -->
         <div id="paymentsDetail" class="detail-tab-content">
@@ -1554,7 +1566,35 @@ async function loadSessionsTab() { console.log('Sessions tab'); }
 async function loadMaterialsTab() { console.log('Materials tab'); }
 async function loadTimetableTab() { console.log('Timetable tab'); }
 async function loadEmailsTab() { console.log('Emails tab'); }
-
+// ==================== SWITCH TO LEARNER VIEW ====================
+window.switchToLearnerView = async function() {
+  if (!currentStudentId) {
+    alert('❌ No student selected');
+    return;
+  }
+  
+  try {
+    // Get fresh student data
+    const response = await fetch(`/api/students/${currentStudentId}/details`);
+    const data = await response.json();
+    const student = data.student;
+    
+    // Store in session storage for parent portal
+    sessionStorage.setItem('adminAccessStudent', JSON.stringify(student));
+    sessionStorage.setItem('adminAccessMode', 'true');
+    sessionStorage.setItem('adminAccessEmail', student.parent_email);
+    
+    // Open parent portal in new tab
+    window.open('parent.html', '_blank');
+    
+    // Show confirmation
+    alert(`✅ Opening parent portal for ${student.name}\n\nYou'll see exactly what ${student.parent_name} sees.`);
+    
+  } catch (error) {
+    console.error('Error switching to learner view:', error);
+    alert('❌ Failed to switch to learner view');
+  }
+}
 console.log('%c✅ Admin Panel Ready', 'color: green; font-size: 16px;');
   </script>
 
