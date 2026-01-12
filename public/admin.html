@@ -1556,9 +1556,69 @@ async function loadBatches() {
   try {
     const response = await fetch('/api/batches');
     allBatches = await response.json();
+    console.log('Loaded batches:', allBatches); // Debug log
+    renderBatchesTable();
+    populateBatchDropdowns();
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error loading batches:', error);
+    document.getElementById('batchesTableBody').innerHTML = 
+      '<tr><td colspan="9" style="text-align: center; color: red;">Failed to load batches</td></tr>';
   }
+}
+
+function renderBatchesTable() {
+  const tbody = document.getElementById('batchesTableBody');
+  if (!tbody) {
+    console.error('batchesTableBody element not found!');
+    return;
+  }
+  
+  if (!allBatches || allBatches.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No batches yet. Create one above!</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = allBatches.map(batch => `
+    <tr>
+      <td>
+        <strong>${batch.batch_name}</strong><br>
+        <small style="color: #7f8c8d;">Code: ${batch.batch_code}</small>
+      </td>
+      <td>${batch.program_name}</td>
+      <td>${batch.grade_level}</td>
+      <td>${batch.duration}</td>
+      <td>${batch.timezone}</td>
+      <td>
+        <strong>${batch.enrolled_students || 0}</strong> / ${batch.max_students}
+        <br><small>${batch.available_slots || batch.max_students} slots left</small>
+      </td>
+      <td>${batch.currency}${batch.per_session_fee}</td>
+      <td>
+        <span style="background: ${batch.status === 'Active' ? '#27ae60' : '#95a5a6'}; 
+                     color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px;">
+          ${batch.status}
+        </span>
+      </td>
+      <td>
+        <button onclick="viewBatchDetails(${batch.id})" class="btn-view">Details</button>
+        <button onclick="openEditBatchModal(${batch.id})" class="btn-edit">Edit</button>
+        <button onclick="deleteBatch(${batch.id})" class="btn-mini-delete">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function populateBatchDropdowns() {
+  const dropdowns = ['batchSelect'];
+  dropdowns.forEach(id => {
+    const dropdown = document.getElementById(id);
+    if (dropdown) {
+      dropdown.innerHTML = '<option value="">Select batch...</option>';
+      allBatches.forEach(batch => {
+        dropdown.innerHTML += `<option value="${batch.id}">${batch.batch_name} (${batch.batch_code})</option>`;
+      });
+    }
+  });
 }
 
 async function loadEventsTab() { console.log('Events tab'); }
@@ -1566,6 +1626,57 @@ async function loadSessionsTab() { console.log('Sessions tab'); }
 async function loadMaterialsTab() { console.log('Materials tab'); }
 async function loadTimetableTab() { console.log('Timetable tab'); }
 async function loadEmailsTab() { console.log('Emails tab'); }
+
+// ==================== BATCH FORM HANDLER ====================
+const createBatchForm = document.getElementById('createBatchForm');
+if (createBatchForm) {
+  createBatchForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const batchData = {
+      batch_name: document.getElementById('batchName').value,
+      batch_code: document.getElementById('batchCode').value.toUpperCase(),
+      program_name: document.getElementById('batchProgramName').value,
+      grade_level: document.getElementById('batchGradeLevel').value,
+      duration: document.getElementById('batchDuration').value,
+      timezone: document.getElementById('batchTimezone').value,
+      max_students: parseInt(document.getElementById('batchMaxStudents').value),
+      currency: document.getElementById('batchCurrency').value,
+      per_session_fee: parseFloat(document.getElementById('batchPerSessionFee').value),
+      zoom_link: document.getElementById('batchZoomLink').value,
+      start_date: document.getElementById('batchStartDate').value || null,
+      end_date: document.getElementById('batchEndDate').value || null,
+      description: document.getElementById('batchDescription').value || null
+    };
+    
+    console.log('Creating batch:', batchData); // Debug log
+    
+    try {
+      const response = await fetch('/api/batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batchData)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert('✅ ' + result.message);
+        createBatchForm.reset();
+        await loadBatches(); // Reload batches
+        console.log('Batch created successfully!');
+      } else {
+        alert('❌ ' + (result.error || 'Failed to create batch'));
+        console.error('Error:', result);
+      }
+    } catch (error) {
+      console.error('Error creating batch:', error);
+      alert('❌ Failed to create batch. Check console for details.');
+    }
+  });
+} else {
+  console.error('❌ createBatchForm not found in DOM!');
+}
 // ==================== SWITCH TO LEARNER VIEW ====================
 window.switchToLearnerView = async function() {
   if (!currentStudentId) {
