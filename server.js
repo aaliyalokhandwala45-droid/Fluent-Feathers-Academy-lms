@@ -1612,44 +1612,71 @@ app.post('/api/schedule/classes', async (req, res) => {
     }
 
     // Enhanced schedule email with timezone conversion
-    const scheduleHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #667eea;">📅 Class Schedule for ${student.name}</h2>
-        <p>Dear ${student.parent_name},</p>
-        <p>We've scheduled <strong>${classes.length} classes</strong> for ${student.name}:</p>
-        
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <tr style="background: #667eea; color: white;">
-            <th style="padding: 12px; border: 1px solid #ddd;">Session #</th>
-            <th style="padding: 12px; border: 1px solid #ddd;">Date</th>
-            <th style="padding: 12px; border: 1px solid #ddd;">Time (${student.timezone})</th>
-          </tr>
-          ${classes.map((cls, index) => `
-            <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : 'white'};">
-              <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + index + 1}</td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${cls.date}</td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${cls.time}</td>
-            </tr>
-          `).join('')}
-        </table>
-        
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="color: #667eea;">📱 Important Links</h3>
-          <p><strong>Zoom Class Link:</strong> <a href="${ZOOM_LINK}" style="color: #9b59b6;">Join Class</a></p>
-          <p><strong>Parent Portal:</strong> <a href="${process.env.BASE_URL || 'http://localhost:3000'}/parent.html">Access Portal</a></p>
-          <p><strong>WhatsApp Support:</strong> <a href="https://wa.me/your-number">Quick Chat</a></p>
-        </div>
-        
-        <p style="color: #7f8c8d; font-size: 0.9em;">
-          You'll receive reminders 24 hours and 1 hour before each class.<br>
-          Use the parent portal to cancel classes, upload homework, and track progress.
-        </p>
-        
-        <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
-      </div>
-    `;
+const scheduleEmailRows = classes.map((cls, index) => {
+  // Create date object in IST (your admin timezone)
+  const sessionDateTime = new Date(`${cls.date}T${cls.time}`);
+  
+  // Convert to student's timezone
+  const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
+    timeZone: student.timezone,
+    hour12: true,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  const studentDate = sessionDateTime.toLocaleDateString('en-US', {
+    timeZone: student.timezone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  
+  return `
+    <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : 'white'};">
+      <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + index + 1}</td>
+      <td style="padding: 10px; border: 1px solid #ddd;">${studentDate}</td>
+      <td style="padding: 10px; border: 1px solid #ddd;">${studentTime}</td>
+    </tr>
+  `;
+}).join('');
 
-    await sendEmail(student.parent_email, `📅 Class Schedule for ${student.name}`, scheduleHtml, student.parent_name, 'Schedule');
+const scheduleHtml = `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #667eea;">📅 Class Schedule for ${student.name}</h2>
+    <p>Dear ${student.parent_name},</p>
+    <p>We've scheduled <strong>${classes.length} classes</strong> for ${student.name}:</p>
+    
+    <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
+      <p style="margin: 0; color: #0c5460;">
+        <strong>ℹ️ Timezone Info:</strong> All times shown are in YOUR timezone (${student.timezone})
+      </p>
+    </div>
+    
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <tr style="background: #667eea; color: white;">
+        <th style="padding: 12px; border: 1px solid #ddd;">Session #</th>
+        <th style="padding: 12px; border: 1px solid #ddd;">Date</th>
+        <th style="padding: 12px; border: 1px solid #ddd;">Time (${student.timezone})</th>
+      </tr>
+      ${scheduleEmailRows}
+    </table>
+    
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+      <h3 style="color: #667eea;">📱 Important Links</h3>
+      <p><strong>Zoom Class Link:</strong> <a href="${ZOOM_LINK}" style="color: #9b59b6;">Join Class</a></p>
+      <p><strong>Parent Portal:</strong> <a href="${process.env.BASE_URL || 'http://localhost:3000'}/parent.html">Access Portal</a></p>
+    </div>
+    
+    <p style="color: #7f8c8d; font-size: 0.9em;">
+      You'll receive reminders 24 hours and 1 hour before each class.<br>
+      Use the parent portal to cancel classes, upload homework, and track progress.
+    </p>
+    
+    <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
+  </div>
+`;
+
+await sendEmail(student.parent_email, `📅 Class Schedule for ${student.name}`, scheduleHtml, student.parent_name, 'Schedule');
 
     res.json({ message: `${classes.length} classes scheduled successfully! Email sent to ${student.parent_email}.` });
   } catch (err) {
@@ -1952,7 +1979,54 @@ cron.schedule('0 * * * *', async () => {
     console.error('1h reminder error:', err);
   }
 });
+// Delete a specific session
+app.delete('/api/sessions/:sessionId', async (req, res) => {
+  const sessionId = req.params.sessionId;
+  
+  try {
+    // Check if session exists
+    const checkResult = await pool.query(
+      'SELECT * FROM sessions WHERE id = $1',
+      [sessionId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    const session = checkResult.rows[0];
+    
+    // Don't allow deleting completed sessions
+    if (session.status === 'Completed') {
+      return res.status(400).json({ 
+        error: 'Cannot delete completed sessions. They are part of student records.' 
+      });
+    }
+    
+    // Delete the session
+    await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId]);
+    
+    res.json({ 
+      success: true, 
+      message: 'Session deleted successfully' 
+    });
+  } catch (err) {
+    console.error('Delete session error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
+// Delete batch session
+app.delete('/api/batches/sessions/:sessionId', async (req, res) => {
+  const sessionId = req.params.sessionId;
+  
+  try {
+    await pool.query('DELETE FROM batch_sessions WHERE id = $1', [sessionId]);
+    res.json({ success: true, message: 'Batch session deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Get sessions for a student
 app.get('/api/sessions/:studentId', async (req, res) => {
   try {

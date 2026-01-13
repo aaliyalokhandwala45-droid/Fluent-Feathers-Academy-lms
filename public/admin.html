@@ -613,17 +613,16 @@
         </div>
         
         <table id="allSessionsTable">
-          <thead>
-            <tr>
-              <th>Session #</th>
-              <th>Student</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Status</th>
-              <th>Attendance</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+  <thead>
+    <tr>
+      <th>Session #</th>
+      <th>Date</th>
+      <th>Time</th>
+      <th>Status</th>
+      <th>Attendance</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
           <tbody id="allSessionsBody">
             <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
           </tbody>
@@ -2031,40 +2030,89 @@ async function loadSessionsTab() {
 }
 
 async function loadAllSessions() {
-  // Needs implementation or specific endpoint to get ALL sessions across students.
-  // Server has /api/sessions/:studentId.
-  // For now, let's just render a message or fetch one student if filter is selected.
-  const filterStudent = document.getElementById('filterSessionStudent').value;
+  const filterStudent = document.getElementById('filterSessionStudent')?.value;
+  const filterStatus = document.getElementById('filterSessionStatus')?.value;
   const tbody = document.getElementById('allSessionsBody');
   
+  if(!tbody) return;
+  
   if(!filterStudent) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Select a student to view sessions</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Select a student to view sessions</td></tr>';
     return;
   }
   
   try {
     const res = await fetch(`/api/sessions/${filterStudent}`);
-    const sessions = await res.json();
+    const allSessions = await res.json();
+    
+    // Apply status filter
+    let sessions = allSessions;
+    if(filterStatus) {
+      sessions = allSessions.filter(s => s.status === filterStatus);
+    }
     
     if(sessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">No sessions found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">No sessions found</td></tr>';
       return;
     }
 
-    tbody.innerHTML = sessions.map(s => `
-      <tr>
-        <td>${s.session_number}</td>
-        <td>${allStudents.find(st=>st.id===s.student_id)?.name || 'Unknown'}</td>
-        <td>${s.session_date}</td>
-        <td>${s.session_time}</td>
-        <td>${s.status}</td>
-        <td>${s.attendance || '-'}</td>
-        <td>
-           ${s.status === 'Pending' ? `<button onclick="cancelSession(${s.id})" class="btn-mini-delete">Cancel</button>` : ''}
-        </td>
-      </tr>
-    `).join('');
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red">Error loading</td></tr>'; }
+    // Get student for timezone
+    const student = allStudents.find(st => st.id == filterStudent);
+    
+    tbody.innerHTML = sessions.map(s => {
+      // Convert to student's timezone
+      const sessionDateTime = new Date(`${s.session_date}T${s.session_time}`);
+      const formattedTime = sessionDateTime.toLocaleTimeString('en-US', {
+        timeZone: student?.timezone || 'Asia/Kolkata',
+        hour12: true,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      return `
+        <tr>
+          <td>${s.session_number}</td>
+          <td>${s.session_date}</td>
+          <td>${formattedTime} <small style="color:#718096;">(${student?.timezone || 'IST'})</small></td>
+          <td><span style="color:${s.status==='Completed'?'green':s.status==='Cancelled by Teacher'||s.status==='Cancelled by Parent'?'red':'orange'}">${s.status}</span></td>
+          <td>${s.attendance || '-'}</td>
+          <td>
+             ${s.status === 'Pending' || s.status === 'Scheduled' ? 
+               `<button onclick="deleteSession(${s.id}, '${s.session_date}')" class="btn-mini-delete">Delete</button>` 
+               : 
+               '<span style="color:#7f8c8d;">-</span>'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch(e) { 
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red">Error loading sessions</td></tr>'; 
+  }
+}
+
+// NEW: Delete Session Function
+window.deleteSession = async function(sessionId, sessionDate) {
+  if(!confirm(`Delete session on ${sessionDate}?\n\nThis cannot be undone.`)) return;
+  
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await res.json();
+    
+    if(res.ok) {
+      alert('✅ ' + result.message);
+      loadAllSessions(); // Refresh table
+      loadDashboardStats(); // Update dashboard
+    } else {
+      alert('❌ ' + (result.error || 'Failed to delete'));
+    }
+  } catch(err) {
+    console.error('Delete error:', err);
+    alert('❌ Network error');
+  }
 }
 
 async function loadMaterialsTab() {
