@@ -2037,7 +2037,7 @@ async function loadAllSessions() {
   if(!tbody) return;
   
   if(!filterStudent) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Select a student to view sessions</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Select a student to view sessions</td></tr>';
     return;
   }
   
@@ -2052,7 +2052,7 @@ async function loadAllSessions() {
     }
     
     if(sessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">No sessions found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No sessions found</td></tr>';
       return;
     }
 
@@ -2060,20 +2060,14 @@ async function loadAllSessions() {
     const student = allStudents.find(st => st.id == filterStudent);
     
     tbody.innerHTML = sessions.map(s => {
-      // Convert to student's timezone
-      const sessionDateTime = new Date(`${s.session_date}T${s.session_time}`);
-      const formattedTime = sessionDateTime.toLocaleTimeString('en-US', {
-        timeZone: student?.timezone || 'Asia/Kolkata',
-        hour12: true,
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      // Just display the stored time directly - it's already in the admin's timezone (IST)
+      const displayTime = s.session_time.substring(0, 5); // HH:MM format
       
       return `
         <tr>
           <td>${s.session_number}</td>
           <td>${s.session_date}</td>
-          <td>${formattedTime} <small style="color:#718096;">(${student?.timezone || 'IST'})</small></td>
+          <td>${displayTime}</td>
           <td><span style="color:${s.status==='Completed'?'green':s.status==='Cancelled by Teacher'||s.status==='Cancelled by Parent'?'red':'orange'}">${s.status}</span></td>
           <td>${s.attendance || '-'}</td>
           <td>
@@ -2087,7 +2081,7 @@ async function loadAllSessions() {
     }).join('');
   } catch(e) { 
     console.error(e);
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red">Error loading sessions</td></tr>'; 
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red">Error loading sessions</td></tr>'; 
   }
 }
 
