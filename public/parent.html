@@ -652,6 +652,7 @@
     // ==================== DATA LOADERS ====================
     
     // 1. Upcoming Sessions (TIMEZONE FIXED)
+// 1. Upcoming Sessions (TIMEZONE FIXED)
 async function loadUpcomingSessions() {
   try {
     const res = await fetch(`/api/sessions/${currentStudent.id}`);
@@ -666,85 +667,119 @@ async function loadUpcomingSessions() {
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No upcoming classes</td></tr>';
     } else {
       tbody.innerHTML = upcoming.map(s => {
-        // Convert IST time to student's timezone
-        // Create date in IST first
-        const istDateTime = new Date(`${s.session_date}T${s.session_time}+05:30`);
-        
-        const formattedTime = istDateTime.toLocaleTimeString('en-US', {
-          timeZone: currentStudent.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        
-        const formattedDate = istDateTime.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        });
-
-        return `
-          <tr>
-            <td><strong>#${s.session_number}</strong></td>
-            <td>${formattedDate}</td>
-            <td>${formattedTime} <small style="color:#718096;">(${currentStudent.timezone.split('/')[1]})</small></td>
-            <td>${currentStudent.duration}</td>
-            <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
-          </tr>
-        `;
-      }).join('');
-    }
-  } catch(e) { console.error(e); }
-}
-
-    // 2. Past Sessions (FIXED: TIMEZONE & TABLE)
-    async function loadPastSessions() {
-      try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
-        const allSessions = await res.json();
-        const past = allSessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
-        
-        const tbody = document.getElementById('pastSessionsBody');
-        
-        if(past.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = past.map(s => {
-          // FIX: TIMEZONE CONVERSION
-          // Create a date object combining date and time
-          const istDateTime = new Date(`${s.session_date}T${s.session_time}+05:30`);
+        try {
+          // FIX: Parse session_time correctly (HH:MM:SS format from database)
+          const [hours, minutes] = s.session_time.split(':');
           
-          // Format using STUDENT's timezone
-          const formattedTime = istDateTime.toLocaleTimeString('en-US', {
-            timeZone: currentStudent.timezone, // KEY FIX
-            hour12: false,
+          // Create date in UTC, treating the stored time as IST
+          const sessionDate = new Date(s.session_date);
+          sessionDate.setUTCHours(parseInt(hours) - 5, parseInt(minutes) - 30, 0, 0); // Subtract IST offset to get UTC
+          
+          const formattedTime = sessionDate.toLocaleTimeString('en-US', {
+            timeZone: currentStudent.timezone,
+            hour12: true,
             hour: '2-digit',
             minute: '2-digit'
           });
           
-          const formattedDate = istDateTime.toLocaleDateString('en-US', {
+          const formattedDate = sessionDate.toLocaleDateString('en-US', {
             timeZone: currentStudent.timezone,
-            month: 'short', day: 'numeric', year: 'numeric'
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
           });
 
           return `
             <tr>
               <td><strong>#${s.session_number}</strong></td>
               <td>${formattedDate}</td>
-              <td>${formattedTime}</td>
-              <td><span class="status-${s.status.toLowerCase()}">${s.attendance || s.status}</span></td>
-              <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
-              <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
-              <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
-              <td><small>${s.teacher_notes || s.homework_comments || '-'}</small></td>
+              <td>${formattedTime} <small style="color:#718096;">(${currentStudent.timezone.split('/')[1]})</small></td>
+              <td>${currentStudent.duration}</td>
+              <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
             </tr>
           `;
-        }).join('');
-      } catch(e) { console.error(e); }
+        } catch (err) {
+          console.error('Date parsing error:', err, s);
+          return `
+            <tr>
+              <td><strong>#${s.session_number}</strong></td>
+              <td>${s.session_date}</td>
+              <td>${s.session_time}</td>
+              <td>${currentStudent.duration}</td>
+              <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
+            </tr>
+          `;
+        }
+      }).join('');
     }
+  } catch(e) { console.error(e); }
+}
+
+   // 2. Past Sessions (FIXED: TIMEZONE & TABLE)
+async function loadPastSessions() {
+  try {
+    const res = await fetch(`/api/sessions/${currentStudent.id}`);
+    const allSessions = await res.json();
+    const past = allSessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
+    
+    const tbody = document.getElementById('pastSessionsBody');
+    
+    if(past.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = past.map(s => {
+      try {
+        // FIX: Parse session_time correctly
+        const [hours, minutes] = s.session_time.split(':');
+        
+        // Create date in UTC, treating stored time as IST
+        const sessionDate = new Date(s.session_date);
+        sessionDate.setUTCHours(parseInt(hours) - 5, parseInt(minutes) - 30, 0, 0);
+        
+        const formattedTime = sessionDate.toLocaleTimeString('en-US', {
+          timeZone: currentStudent.timezone,
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        const formattedDate = sessionDate.toLocaleDateString('en-US', {
+          timeZone: currentStudent.timezone,
+          month: 'short', day: 'numeric', year: 'numeric'
+        });
+
+        return `
+          <tr>
+            <td><strong>#${s.session_number}</strong></td>
+            <td>${formattedDate}</td>
+            <td>${formattedTime}</td>
+            <td><span class="status-${s.status.toLowerCase()}">${s.attendance || s.status}</span></td>
+            <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
+            <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
+            <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
+            <td><small>${s.teacher_notes || s.homework_comments || '-'}</small></td>
+          </tr>
+        `;
+      } catch (err) {
+        console.error('Date parsing error:', err, s);
+        return `
+          <tr>
+            <td><strong>#${s.session_number}</strong></td>
+            <td>${s.session_date}</td>
+            <td>${s.session_time}</td>
+            <td><span class="status-${s.status.toLowerCase()}">${s.attendance || s.status}</span></td>
+            <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
+            <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
+            <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
+            <td><small>${s.teacher_notes || s.homework_comments || '-'}</small></td>
+          </tr>
+        `;
+      }
+    }).join('');
+  } catch(e) { console.error(e); }
+}
 
     // 3. Materials
     async function loadMaterials() {
@@ -826,9 +861,8 @@ async function loadUpcomingSessions() {
         `).join('');
       } catch(e) { console.error(e); }
     }
-
-    // 6. Cancel Dropdown Logic
-    async function loadUpcomingClassesDropdown() {
+// 6. Cancel Dropdown Logic
+async function loadUpcomingClassesDropdown() {
   try {
     const res = await fetch(`/api/sessions/${currentStudent.id}`);
     const all = await res.json();
@@ -843,25 +877,35 @@ async function loadUpcomingSessions() {
       select.disabled = false;
       select.innerHTML = '<option value="">-- Select Class --</option>' + 
       upcoming.map(s => {
-        // Convert to student's timezone
-        const istDateTime = new Date(`${s.session_date}T${s.session_time}`);
-        const formattedTime = istDateTime.toLocaleTimeString('en-US', {
-          timeZone: currentStudent.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        const formattedDate = istDateTime.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          month: 'short',
-          day: 'numeric'
-        });
-        
-        return `<option value="${s.session_date}|${s.session_time}">Session #${s.session_number} - ${formattedDate} at ${formattedTime}</option>`;
+        try {
+          // Parse time correctly
+          const [hours, minutes] = s.session_time.split(':');
+          const sessionDate = new Date(s.session_date);
+          sessionDate.setUTCHours(parseInt(hours) - 5, parseInt(minutes) - 30, 0, 0);
+          
+          const formattedTime = sessionDate.toLocaleTimeString('en-US', {
+            timeZone: currentStudent.timezone,
+            hour12: true,
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          const formattedDate = sessionDate.toLocaleDateString('en-US', {
+            timeZone: currentStudent.timezone,
+            month: 'short',
+            day: 'numeric'
+          });
+          
+          return `<option value="${s.session_date}|${s.session_time}">Session #${s.session_number} - ${formattedDate} at ${formattedTime}</option>`;
+        } catch (err) {
+          console.error('Dropdown date error:', err);
+          return `<option value="${s.session_date}|${s.session_time}">Session #${s.session_number} - ${s.session_date} at ${s.session_time}</option>`;
+        }
       }).join('');
     }
   } catch(e) { console.error(e); }
 }
+    
+ 
     // ==================== HELPERS ====================
     window.choosePasswordLogin = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('passwordForm').style.display='block'; };
     window.chooseOTPLogin = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('otpForm').style.display='block'; document.getElementById('otpSendSection').style.display='block'; document.getElementById('otpVerifySection').style.display='none'; };
