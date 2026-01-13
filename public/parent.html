@@ -16,14 +16,14 @@
     header p { margin: 5px 0 0 0; color: #718096; font-size: 0.9rem; }
     
     /* Forms */
-    .form-section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 500px; margin: 0 auto; text-align: center; }
+    .form-section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; text-align: center; }
     .form-group { margin-bottom: 20px; text-align: left; }
-    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
     .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; box-sizing: border-box; transition: border-color 0.2s; }
     .form-group input:focus { border-color: #4299e1; outline: none; }
     
     /* Buttons */
-    .btn-primary { background: #4299e1; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1rem; cursor: pointer; width: 100%; font-weight: 600; transition: background 0.2s; }
+    .btn-primary { background: #4299e1; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; transition: background 0.2s; }
     .btn-primary:hover { background: #3182ce; }
     .btn-secondary { background: #718096; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
     .btn-cancel-large { background: #e53e3e; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
@@ -38,10 +38,10 @@
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
     .info-item strong { display: block; color: #718096; font-size: 0.85rem; margin-bottom: 4px; }
     .info-item span { font-size: 1.1rem; font-weight: 600; color: #2d3748; }
-
+    
     /* Tabs */
     .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-    .tab-btn { padding: 10px 20px; background: white; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+    .tab-btn { padding: 12px 20px; background: white; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
     .tab-btn.active { background: #4299e1; color: white; border-color: #4299e1; font-weight: bold; }
     .tab-btn:hover:not(.active) { background: #f7fafc; }
     .tab-content { display: none; animation: fadeIn 0.3s; }
@@ -49,8 +49,8 @@
 
     /* Tables */
     .table-section { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
-    table { width: 100%; border-collapse: collapse; min-width: 600px; }
-    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
     th { background: #f7fafc; color: #4a5568; font-weight: 600; }
     tr:last-child td { border-bottom: none; }
     
@@ -68,9 +68,15 @@
     /* Status Badges */
     .status-present { color: #38a169; font-weight: bold; }
     .status-completed { color: #4299e1; background: #ebf8ff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; }
-    .status-cancelled, .status-missed { color: #e53e3e; }
+    .status-cancelled, .status-missed { color: #e74c3c; }
+    
+    /* Modal */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; animation: popIn 0.3s; }
+    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 600px; position: relative; }
+    .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
     
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes popIn { from {transform: scale(0.8); opacity:0;} to {transform: scale(1); opacity:1;} }
   </style>
 </head>
 <body>
@@ -129,11 +135,11 @@
       <!-- Step 3b: OTP -->
       <form id="otpForm" style="display: none; text-align: left;">
         <div id="otpSendSection">
-          <p style="color: #38a169; margin-bottom: 20px; background: #f0fff4; padding: 15px; border-radius: 8px;">
+          <p style="color: #38a169; margin-bottom: 20px; background: #f0fff4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #38a169;">
             ✅ We'll send a 6-digit One-Time Password (OTP) to your registered email.
           </p>
           <button type="button" onclick="sendOTP()" class="btn-primary" style="background: #38a169;">📧 Send OTP</button>
-          <button type="button" onclick="backToMethod()" class="btn-secondary" style="width: 100%; margin-top: 10px;">Cancel</button>
+          <button type="button" onclick="backToMethod()" class="btn-secondary">Cancel</button>
         </div>
 
         <div id="otpVerifySection" style="display: none;">
@@ -167,12 +173,47 @@
           <input type="password" id="confirmPassword" required placeholder="Re-enter password" minlength="6">
         </div>
         <button type="submit" class="btn-primary">Set Password & Login</button>
+        <button type="button" onclick="backToEmail()" class="btn-secondary">Cancel</button>
       </form>
     </section>
 
     <!-- DASHBOARD SECTION -->
     <section id="dashboardSection" style="display: none;">
       
+      <!-- FEEDBACK POP-UP MODAL (NEW) -->
+      <div id="feedbackModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+          <div class="modal-header">
+            <h2 style="color: #2b6cb0; margin: 0;">📝 Give Homework Feedback</h2>
+            <button onclick="closeFeedbackModal()" class="btn-close" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold;">✕</button>
+          </div>
+          <form id="feedbackSubmitForm">
+            <input type="hidden" id="feedbackSessionId">
+            
+            <div class="form-group">
+              <label>Grade (1-5 Stars)</label>
+              <select id="feedbackRating" required style="font-size: 1.2rem; padding: 10px; background: white; border-radius: 5px;">
+                <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
+                <option value="4">⭐⭐⭐ (Very Good)</option>
+                <option value="3">⭐⭐ (Good)</option>
+                <option value="2">⭐ (Fair)</option>
+                <option value="1">⭐ (Poor)</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Comments (Optional)</label>
+              <textarea id="feedbackComment" rows="4" placeholder="What did you like or how can we improve?" style="background: #f8f9fa; border-radius: 5px;"></textarea>
+            </div>
+            
+            <div style="text-align: center; margin: 20px 0;">
+              <button type="submit" class="btn-primary">Submit Feedback</button>
+              <button type="button" onclick="closeFeedbackModal()" class="btn-secondary" style="margin-top:10px;">Skip for now</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Student Info Card -->
       <div class="info-card">
         <h2 style="margin: 0 0 20px 0; color: #2b6cb0;">👤 Student Information</h2>
@@ -185,7 +226,7 @@
           <div class="info-item"><strong>Timezone:</strong><span id="displayTimezone">-</span></div>
           <div class="info-item"><strong>Total Sessions:</strong><span id="displayTotalSessions">-</span></div>
           <div class="info-item"><strong>Completed:</strong><span id="displayCompletedSessions" style="color: #38a169; font-size: 1.4em;">-</span></div>
-          <div class="info-item"><strong>Remaining:</strong><span id="displayRemainingSessions" style="color: #e53e3e; font-size: 1.4em;">-</span></div>
+          <div class="info-item"><strong>Remaining:</strong><span id="displayRemainingSessions" style="color: #e74c3c; font-size: 1.4em;">-</span></div>
           <div class="info-item"><strong>Fees Paid:</strong><span id="displayFeesPaid">-</span></div>
         </div>
       </div>
@@ -232,8 +273,18 @@
         <div class="table-section">
           <h2>📅 Schedule</h2>
           <table id="upcomingSessionsTable">
-            <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Duration</th><th>Action</th></tr></thead>
-            <tbody id="upcomingSessionsBody"><tr><td colspan="5" style="text-align:center;">Loading...</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Session #</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Duration</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="upcomingSessionsBody">
+              <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -241,10 +292,23 @@
       <!-- PAST TAB -->
       <div id="pastTab" class="tab-content">
         <div class="table-section">
-          <h2>📚 Completed Classes</h2>
+          <h2>📚 Completed Classes (Detailed)</h2>
           <table id="pastSessionsTable">
-            <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Status</th></tr></thead>
-            <tbody id="pastSessionsBody"><tr><td colspan="4" style="text-align:center;">Loading...</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Topic (Session #)</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Attendance</th>
+                <th>PPT</th>
+                <th>Recording</th>
+                <th>HW</th>
+                <th>Feedback</th>
+              </tr>
+            </thead>
+            <tbody id="pastSessionsBody">
+              <tr><td colspan="9" style="text-align:center;">Loading...</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -253,7 +317,7 @@
       <div id="materialsTab" class="tab-content">
         <div class="table-section" style="background: transparent; box-shadow: none;">
           <h2 style="margin-bottom: 15px;">📁 Class Materials</h2>
-          <p style="color: #718096;">Download notes, recordings, and resources.</p>
+          <p style="color: #718096; margin-bottom: 20px;">Download notes, recordings, and resources.</p>
           <div id="materialsGrid" class="materials-grid">
             <p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 40px;">Loading materials...</p>
           </div>
@@ -265,8 +329,17 @@
         <div class="table-section">
           <h2>🎉 Upcoming Events</h2>
           <table id="eventsTable">
-            <thead><tr><th>Event</th><th>Date</th><th>Time</th><th>Action</th></tr></thead>
-            <tbody id="parentEventsBody"><tr><td colspan="4" style="text-align:center;">Loading events...</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="parentEventsBody">
+              <tr><td colspan="4" style="text-align:center;">Loading events...</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -293,8 +366,18 @@
         <div class="table-section">
           <h2>📤 Submission History</h2>
           <table id="submittedHomeworkTable">
-            <thead><tr><th>Date</th><th>File</th><th>Uploaded</th><th>Status</th><th>Feedback</th></tr></thead>
-            <tbody id="submittedHomeworkBody"><tr><td colspan="5" style="text-align:center;">No submissions yet</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>File</th>
+                <th>Uploaded</th>
+                <th>Status</th>
+                <th>Feedback</th>
+              </tr>
+            </thead>
+            <tbody id="submittedHomeworkBody">
+              <tr><td colspan="5" style="text-align:center;">No submissions yet</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -302,14 +385,11 @@
   </div>
 
   <script>
-    const ZOOM_LINK = 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
     let currentStudent = null;
     let currentEmail = '';
-    let hasExistingPassword = false;
 
-    // ==================== INITIALIZATION ====================
     document.addEventListener('DOMContentLoaded', () => {
-      // 1. Check for Admin Access Mode
+      // 1. CHECK FOR ADMIN ACCESS MODE (FIXES LEARNER VIEW)
       const adminAccessStudent = sessionStorage.getItem('adminAccessStudent');
       const adminAccessMode = sessionStorage.getItem('adminAccessMode');
       const adminAccessEmail = sessionStorage.getItem('adminAccessEmail');
@@ -338,7 +418,7 @@
         currentEmail = adminAccessEmail;
         showDashboard();
       } else {
-        // Normal Login
+        // Normal Login Flow
         setupEventHandlers();
       }
     });
@@ -350,7 +430,7 @@
       sessionStorage.removeItem('adminAccessEmail');
       
       const msg = document.createElement('div');
-      msg.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:10001; text-align:center;';
+      msg.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1); z-index:10001; text-align:center;';
       msg.innerHTML = '<h3>Exiting...</h3><p>Returning to Admin Panel</p>';
       document.body.appendChild(msg);
       
@@ -382,9 +462,9 @@
               document.getElementById('setupPasswordForm').style.display = 'block';
             }
           } else {
-            alert('❌ ' + result.error);
+            alert('❌ ' + (result.error || 'No student found'));
           }
-        } catch(err) { alert('Network Error'); }
+        } catch (err) { alert('Network Error'); }
       });
 
       document.getElementById('setupPasswordForm').addEventListener('submit', async (e) => {
@@ -402,11 +482,11 @@
             body: JSON.stringify({ email: currentEmail, password: p1 })
           });
           const result = await res.json();
-          if(res.ok) {
+          if (res.ok) {
             currentStudent = result.student;
             showDashboard();
-          } else { alert('❌ ' + result.error); }
-        } catch(err) { alert('Error'); }
+          } else { alert('❌ ' + (result.error || 'Failed')); }
+        } catch (err) { alert('Error'); }
       });
 
       document.getElementById('passwordForm').addEventListener('submit', async (e) => {
@@ -414,17 +494,30 @@
         const password = document.getElementById('loginPassword').value;
         
         try {
-          const res = await fetch('/api/parent/login-password', {
+          const credResult = await fetch('/api/parent/login-password', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ email: currentEmail, password })
           });
-          const result = await res.json();
-          if(res.ok) {
-            currentStudent = result.student;
+          const cred = await credResult.json();
+          
+          if (!cred.password) return alert('Password not set. Please use OTP login.');
+          if (!verifyPassword(password, cred.password)) return alert('Incorrect password');
+          
+          const studentResult = await fetch(`/api/students/by-email/${currentEmail}`);
+          const student = await studentResult.json();
+          
+          await fetch('/api/parent/last-login', { // Backend might not support this, ignoring error
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email: currentEmail })
+          }).catch(e=>{});
+
+          if (student.ok) {
+            currentStudent = student;
             showDashboard();
-          } else { alert('❌ ' + result.error); }
-        } catch(err) { alert('Error'); }
+          } else { alert('❌ Incorrect password'); }
+        } catch (err) { alert('Error'); }
       });
 
       document.getElementById('otpForm').addEventListener('submit', async (e) => {
@@ -432,17 +525,30 @@
         const otp = document.getElementById('otpCode').value;
         
         try {
-          const res = await fetch('/api/parent/verify-otp', {
+          const credResult = await fetch('/api/parent/verify-otp', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ email: currentEmail, otp })
           });
-          const result = await res.json();
-          if(res.ok) {
-            currentStudent = result.student;
-            showDashboard();
-          } else { alert('❌ ' + result.error); }
-        } catch(err) { alert('Error'); }
+          const cred = await credResult.json();
+          
+          if (cred.otp_attempts >= 5) return alert('Too many failed attempts');
+          
+          const now = new Date();
+          const expiry = new Date(cred.otp_expiry);
+          if (now > expiry) return alert('OTP expired');
+          
+          if (cred.otp !== otp) {
+            await fetch(`/api/parent/increment-attempt`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentEmail }) });
+            return alert('Incorrect OTP. Please try again.');
+          }
+          
+          // OTP verified
+          const studentResult = await fetch(`/api/students/by-email/${currentEmail}`);
+          const student = await studentResult.json();
+          
+          res.json({ message: 'Login successful', student: student });
+        } catch(err) { res.status(500).json({ error: err.message }); }
       });
 
       document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
@@ -459,12 +565,12 @@
             method: 'POST',
             body: formData
           });
-          if(res.ok) {
+          if (res.ok) {
             alert('✅ Homework Uploaded!');
             document.getElementById('uploadHomeworkForm').reset();
             loadSubmittedHomework();
           } else { alert('❌ Upload Failed'); }
-        } catch(err) { alert('Error'); }
+        } catch (err) { alert('Error'); }
       });
 
       document.getElementById('cancelUpcomingForm').addEventListener('submit', async (e) => {
@@ -481,7 +587,12 @@
           const res = await fetch('/api/parent/cancel-upcoming-class', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: { student_id: currentStudent.id, session_date: date, session_time: time, reason }
+            body: JSON.stringify({ 
+              student_id: currentStudent.id, 
+              session_date: date, 
+              session_time: time, 
+              reason 
+            })
           });
           const result = await res.json();
           if(res.ok) {
@@ -490,8 +601,8 @@
             loadStudentDetails(); // Refresh counters
             loadUpcomingSessions(); // Refresh list
             loadUpcomingClassesDropdown(); // Refresh dropdown
-          } else { alert('❌ ' + result.error); }
-        } catch(err) { alert('Error'); }
+          } else { alert('❌ ' + (result.error || 'Failed')); }
+        } catch (err) { alert('❌ Error'); }
       });
     }
 
@@ -507,7 +618,7 @@
       document.getElementById('displayProgram').textContent = currentStudent.program_name;
       document.getElementById('displayClassType').textContent = currentStudent.class_type;
       document.getElementById('displayDuration').textContent = currentStudent.duration;
-      document.getElementById('displayTimezone').textContent = currentStudent.timezone;
+      document.getElementById('displayTimezone').textContent = currentStudent.timezone; // Shows NY time if set to NY
       document.getElementById('displayTotalSessions').textContent = currentStudent.total_sessions;
       document.getElementById('displayCompletedSessions').textContent = currentStudent.completed_sessions;
       document.getElementById('displayRemainingSessions').textContent = currentStudent.remaining_sessions;
@@ -520,6 +631,9 @@
       loadSubmittedHomework();
       loadParentEvents();
       loadUpcomingClassesDropdown();
+      
+      // NEW: Check for Feedback Pop-up
+      checkPendingFeedback();
     }
 
     async function loadStudentDetails() {
@@ -536,9 +650,12 @@
     // ==================== TABS LOGIC ====================
     window.showTab = function(tabName, btn) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(tabName + 'Tab').classList.add('active');
-      if(btn) btn.classList.add('active');
+      if (btn) btn.classList.add('active');
+      
+      if (tabName === 'events') loadParentEvents();
+      if (tabName === 'sessions') { loadUpcomingSessions(); loadPastSessions(); }
     };
 
     // ==================== DATA LOADERS ====================
@@ -549,7 +666,7 @@
         const res = await fetch(`/api/sessions/${currentStudent.id}`);
         const allSessions = await res.json();
         
-        // Filter Client Side because Server doesn't have specific endpoint
+        // Filter Client Side (for safety)
         const today = new Date().toISOString().split('T')[0];
         const upcoming = allSessions.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
         
@@ -570,27 +687,51 @@
       } catch(e) { console.error(e); }
     }
 
-    // 2. Past Sessions
+    // 2. Past Sessions (FIXED: TIMEZONE & TABLE)
     async function loadPastSessions() {
       try {
         const res = await fetch(`/api/sessions/${currentStudent.id}`);
         const allSessions = await res.json();
-        
         const past = allSessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
         
         const tbody = document.getElementById('pastSessionsBody');
+        
         if(past.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
-        } else {
-          tbody.innerHTML = past.map(s => `
-            <tr>
-              <td>#${s.session_number}</td>
-              <td>${s.session_date}</td>
-              <td>${s.session_time}</td>
-              <td><span class="status-${s.status.toLowerCase()}">${s.status}</span></td>
-            </tr>
-          `).join('');
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
+          return;
         }
+
+        tbody.innerHTML = past.map(s => {
+          // FIX: TIMEZONE CONVERSION
+          // Create a date object combining date and time
+          const sessionDateTime = new Date(`${s.session_date}T${s.session_time}`);
+          
+          // Format using STUDENT's timezone
+          const formattedTime = sessionDateTime.toLocaleTimeString('en-US', {
+            timeZone: currentStudent.timezone, // KEY FIX
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          
+          const formattedDate = sessionDateTime.toLocaleDateString('en-US', {
+            timeZone: currentStudent.timezone,
+            month: 'short', day: 'numeric', year: 'numeric'
+          });
+
+          return `
+            <tr>
+              <td><strong>#${s.session_number}</strong></td>
+              <td>${formattedDate}</td>
+              <td>${formattedTime}</td>
+              <td><span class="status-${s.status.toLowerCase()}">${s.attendance || s.status}</span></td>
+              <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
+              <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
+              <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
+              <td><small>${s.teacher_notes || s.homework_comments || '-'}</small></td>
+            </tr>
+          `;
+        }).join('');
       } catch(e) { console.error(e); }
     }
 
@@ -605,7 +746,7 @@
         const grid = document.getElementById('materialsGrid');
         
         if(teacherMats.length === 0) {
-          grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#718096;">No materials uploaded yet.</p>';
+          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color:#718096;">No materials uploaded yet.</p>';
           return;
         }
 
@@ -633,7 +774,6 @@
       try {
         const res = await fetch('/api/events');
         const events = await res.json();
-        
         const tbody = document.getElementById('parentEventsBody');
         if(events.length === 0) {
           tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No events available</td></tr>';
@@ -642,7 +782,7 @@
 
         tbody.innerHTML = events.map(ev => `
           <tr>
-            <td><strong>${ev.event_name}</strong><br><small style="color:#718096">${ev.event_type}</small></td>
+            <td><strong>${ev.event_name}</strong><br><small style="color:#718096;">${ev.event_type}</small></td>
             <td>${ev.event_date}</td>
             <td>${ev.event_time}</td>
             <td><button onclick="registerForEvent(${ev.id})" class="btn-primary" style="padding: 8px 15px; font-size:0.9rem;">Register</button></td>
@@ -651,28 +791,11 @@
       } catch(e) { console.error(e); }
     }
 
-    async function registerForEvent(id) {
-      if(!confirm("Register for this event?")) return;
-      try {
-        const res = await fetch(`/api/events/${id}/register`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: { student_id: currentStudent.id, parent_email: currentEmail }
-        });
-        const result = await res.json();
-        if(res.ok) {
-          alert('✅ Registered! Check email for confirmation.');
-          loadParentEvents();
-        } else { alert('❌ ' + result.error); }
-      } catch(e) { alert('Error'); }
-    }
-
     // 5. Homework
     async function loadSubmittedHomework() {
       try {
         const res = await fetch(`/api/materials/${currentStudent.id}`);
         const allMats = await res.json();
-        
         const hw = allMats.filter(m => m.uploaded_by === 'Parent');
         const tbody = document.getElementById('submittedHomeworkBody');
         
@@ -700,8 +823,8 @@
         const all = await res.json();
         const today = new Date().toISOString().split('T')[0];
         const upcoming = all.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
-        
         const select = document.getElementById('cancelClassSelect');
+        
         if(upcoming.length === 0) {
           select.innerHTML = '<option value="">No upcoming classes</option>';
           select.disabled = true;
@@ -715,31 +838,69 @@
 
     // ==================== HELPERS ====================
     window.choosePasswordLogin = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('passwordForm').style.display='block'; };
-    window.chooseOTPLogin = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('otpForm').style.display='block'; document.getElementById('otpSendSection').style.display='block'; };
+    window.chooseOTPLogin = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('otpForm').style.display='block'; document.getElementById('otpSendSection').style.display='block'; document.getElementById('otpVerifySection').style.display='none'; };
     window.backToEmail = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('passwordForm').style.display='none'; document.getElementById('otpForm').style.display='none'; document.getElementById('emailForm').style.display='block'; };
-    window.backToMethod = () => { document.getElementById('passwordForm').style.display='none'; document.getElementById('otpForm').style.display='none'; document.getElementById('loginMethodSection').style.display='block'; };
-    
+    window.backToMethod = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('passwordForm').style.display='none'; document.getElementById('otpForm').style.display='none'; };
+
     window.sendOTP = async () => {
       try {
         const res = await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentEmail }) });
-        if(res.ok) {
+        const result = await res.json();
+        if (res.ok) {
           document.getElementById('otpSendSection').style.display='none';
           document.getElementById('otpVerifySection').style.display='block';
           document.getElementById('otpSentEmail').textContent = currentEmail;
         } else { alert('Failed'); }
-      } catch(e) { alert('Error'); }
+      } catch (err) { alert('Error'); }
     };
     
-    window.resendOTP = () => sendOTP();
-    window.forgotPassword = () => { alert("Please use the 'Send OTP' option to reset your password."); };
-
+    window.resendOTP = () => sendOTP(); // Reuse logic
+    
+    window.forgotPassword = () => { alert("Please use 'Send OTP' option to reset your password."); }
+    
     window.logout = () => {
       if(!confirm("Logout?")) return;
       sessionStorage.clear();
       location.reload();
     }
 
-    console.log('👨‍👩‍👧 Parent Portal Ready');
+    // ==================== FEEDBACK FEATURE ====================
+    async function checkPendingFeedback() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/pending-feedback`);
+        const pending = await res.json();
+        
+        if(pending.length > 0) {
+          const session = pending[0];
+          document.getElementById('feedbackSessionInfo').textContent = `Rate Session #${session.session_number} (${session.session_date})`;
+          document.getElementById('feedbackSessionId').value = session.id;
+          document.getElementById('feedbackModal').style.display = 'flex'; // Show Pop-up
+        }
+      } catch(e) { console.error("Feedback check error", e); }
+    }
+
+    window.closeFeedbackModal = function() {
+      document.getElementById('feedbackModal').style.display = 'none';
+    }
+
+    document.getElementById('feedbackSubmitForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const sessionId = document.getElementById('feedbackSessionId').value;
+      const rating = document.getElementById('feedbackRating').value;
+      const comment = document.getElementById('feedbackComment').value;
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/feedback`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ rating, comment })
+        });
+        if(res.ok) {
+          alert('Thank you for your feedback!');
+          closeFeedbackModal();
+        } else { alert('Failed to submit feedback'); }
+      } catch(err) { alert('Error'); }
+    });
   </script>
 </body>
 </html>

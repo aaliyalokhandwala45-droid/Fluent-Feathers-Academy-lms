@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS students (
 );
 `);
 
-    // Enhanced Sessions table with detailed tracking
+    // Enhanced Sessions table with detailed tracking AND FEEDBACK COLUMNS
     await pool.query(`CREATE TABLE IF NOT EXISTS sessions (
       id SERIAL PRIMARY KEY,
       student_id INTEGER NOT NULL,
@@ -214,9 +214,24 @@ CREATE TABLE IF NOT EXISTS students (
       homework_file_path TEXT,
       homework_grade TEXT,
       homework_comments TEXT,
+      feedback_requested BOOLEAN DEFAULT FALSE,
+      student_rating INTEGER,
+      student_feedback TEXT,
+      student_feedback_date TIMESTAMP,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
     )`);
+
+    // NEW: Try to add feedback columns if table already exists
+    try {
+      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS feedback_requested BOOLEAN DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS student_rating INTEGER`);
+      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS student_feedback TEXT`);
+      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS student_feedback_date TIMESTAMP`);
+      console.log("✅ Database Columns Updated for Feedback System");
+    } catch (e) {
+      // Ignore if already exists
+    }
 
     // Materials table
     await pool.query(`CREATE TABLE IF NOT EXISTS materials (
@@ -438,7 +453,9 @@ function hashPassword(password) {
 function verifyPassword(inputPassword, storedHash) {
   const inputHash = Buffer.from(inputPassword).toString('base64');
   return inputHash === storedHash;
-}// ==================== ENHANCED EMAIL TEMPLATES WITH PROPER HTML ====================
+}
+
+// ==================== ENHANCED EMAIL TEMPLATES WITH PROPER HTML ====================
 function getEmailTemplate(type, data) {
   const templates = {
     welcome: `
@@ -573,7 +590,7 @@ function getEmailTemplate(type, data) {
                     </div>
 
                     <div style="text-align: center; margin: 40px 0;">
-                      <a href="${data.registration_link}" style="display: inline-block; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; padding: 18px 50px; text-decoration: none; border-radius: 30px; font-weight: 600; font-size: 17px; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);">📝 Register ${data.student_name} Now</a>
+                      <a href="${data.registration_link}" style="display: inline-block; background: #27ae60 0%, #229954 100%; color: white; padding: 18px 50px; text-decoration: none; border-radius: 30px; font-weight: 600; font-size: 17px; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);">📝 Register ${data.student_name} Now</a>
                     </div>
 
                     <p style="color: #e74c3c; font-weight: 600; text-align: center; margin: 25px 0; font-size: 16px; background: #fee; padding: 15px; border-radius: 8px;">⏰ Registration Deadline: ${data.deadline}</p>
@@ -796,7 +813,9 @@ app.post('/api/homework/:homeworkId/feedback', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});// ========== ENHANCED API ROUTES ==========
+});
+
+// ========== ENHANCED API ROUTES ==========
 
 // Dashboard stats with enhanced metrics
 app.get('/api/dashboard/stats', async (req, res) => {
@@ -1040,8 +1059,6 @@ app.post('/api/students/:id/payment', async (req, res) => {
   }
 });
 
-  
-
 // ========== EVENT MANAGEMENT ==========
 
 app.post('/api/events', async (req, res) => {
@@ -1260,7 +1277,7 @@ app.get('/register-event/:eventId/:studentId', async (req, res) => {
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Already Registered</title>
+          <title>Registration Error</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background: #f4f4f4; }
             .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -1444,7 +1461,9 @@ app.get('/register-event/:eventId/:studentId', async (req, res) => {
       </html>
     `);
   }
-});// Parent cancel specific upcoming class
+});
+
+// Parent cancel specific upcoming class
 app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
   const { student_id, session_date, session_time, reason } = req.body;
 
@@ -1499,7 +1518,7 @@ app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
         <p>Dear ${student.parent_name},</p>
         <p>Your cancellation request has been processed:</p>
         
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 5px solid #e74c3c;">
           <p><strong>Student:</strong> ${student.name}</p>
           <p><strong>Date:</strong> ${session_date}</p>
           <p><strong>Time:</strong> ${session_time}</p>
@@ -1632,19 +1651,18 @@ app.post('/api/schedule/classes', async (req, res) => {
 
     await sendEmail(student.parent_email, `📅 Class Schedule for ${student.name}`, scheduleHtml, student.parent_name, 'Schedule');
 
-    res.json({ message: `${classes.length} classes scheduled successfully! Email sent to ${student.parent_name}.` });
+    res.json({ message: `${classes.length} classes scheduled successfully! Email sent to ${student.parent_email}.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Enhanced attendance marking with makeup class credits
+// Enhanced attendance marking with makeup class credits AND FEEDBACK REQUEST
 app.post('/api/attendance/present/:studentId', async (req, res) => {
   const studentId = req.params.studentId;
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    // Get today's session
     const sessionResult = await pool.query(
       `SELECT * FROM sessions WHERE student_id = $1 AND session_date = $2 AND status IN ('Pending', 'Scheduled') LIMIT 1`,
       [studentId, today]
@@ -1656,9 +1674,9 @@ app.post('/api/attendance/present/:studentId', async (req, res) => {
 
     const session = sessionResult.rows[0];
 
-    // Mark session as completed
+    // Mark session as completed AND REQUEST FEEDBACK
     await pool.query(
-      `UPDATE sessions SET status = 'Completed', attendance = 'Present' WHERE id = $1`,
+      `UPDATE sessions SET status = 'Completed', attendance = 'Present', feedback_requested = TRUE WHERE id = $1`,
       [session.id]
     );
 
@@ -1818,7 +1836,6 @@ app.post('/api/upload/material/:studentId', upload.single('file'), async (req, r
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // Grade homework
 app.post('/api/sessions/:sessionId/grade-homework', async (req, res) => {
@@ -2507,7 +2524,6 @@ app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
 
 
 
-
 // ==================== BATCH MANAGEMENT API ROUTES ====================
 
 // Create a new batch/group
@@ -2711,7 +2727,7 @@ app.post('/api/batches/:batchId/enroll', async (req, res) => {
           <p><strong>Your Timezone:</strong> ${student.timezone}</p>
         </div>
         <p>Class schedules will be shared shortly.</p>
-        <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy</p>
+        <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
       </div>
     `;
 
@@ -2810,7 +2826,7 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
               </tr>
             `).join('')}
           </table>
-          <p><a href="${batch.zoom_link}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Join Class</a></p>
+          <p><a href="${batch.zoom_link}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Join Class</a></p>
         </div>
       `;
 
@@ -2932,10 +2948,64 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
 });
 // ==================== EXISTING CODE CONTINUES ====================
 
+// ==================== NEW FEEDBACK API ROUTES ====================
+
+// 1. Get pending feedback for a student
+app.get('/api/students/:studentId/pending-feedback', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, session_number, session_date, session_time 
+       FROM sessions 
+       WHERE student_id = $1 
+       AND feedback_requested = TRUE 
+       AND student_rating IS NULL 
+       ORDER BY session_date DESC LIMIT 1`,
+      [req.params.studentId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. Submit feedback
+app.post('/api/sessions/:sessionId/feedback', async (req, res) => {
+  const { rating, comment } = req.body;
+  try {
+    await pool.query(
+      `UPDATE sessions SET 
+        student_rating = $1, 
+        student_feedback = $2, 
+        student_feedback_date = CURRENT_TIMESTAMP 
+       WHERE id = $3`,
+      [rating, comment, req.params.sessionId]
+    );
+    res.json({ success: true, message: 'Feedback submitted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Admin view for ratings
+app.get('/api/admin/ratings', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT s.*, st.name as student_name, st.program_name 
+       FROM sessions s 
+       JOIN students st ON s.student_id = st.id 
+       WHERE s.student_rating IS NOT NULL 
+       ORDER BY s.student_feedback_date DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`
-╔════════════════════════════════════════╗
+╔══════════════════════════════════════╗
 ║  🎓 FLUENT FEATHERS ACADEMY LMS V2.0  ║
 ║  ✅ Server running on port ${PORT}       ║
 ║  📡 http://localhost:${PORT}              ║
@@ -2943,7 +3013,7 @@ app.listen(PORT, () => {
 ║  📧 Email Automation Running           ║
 ║  🤖 Reminder System Active             ║
 ║  🐘 PostgreSQL Database Connected      ║
-╚════════════════════════════════════════╝
+╚══════════════════════════════════════╝
   `);
 });
 
