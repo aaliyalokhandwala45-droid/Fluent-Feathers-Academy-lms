@@ -2221,7 +2221,101 @@ window.addBatchScheduleRow = function() {
   div.innerHTML = `<input type="date" required><input type="time" required><button type="button" onclick="this.parentElement.remove()" class="btn-delete">X</button>`;
   document.getElementById('batchClassScheduleList').appendChild(div);
 }
-window.addBatchBulkSchedule = function() { alert("Bulk for batches: Same logic as private applies."); }
+window.addBatchBulkSchedule = function() {
+  // Show bulk schedule UI for batches
+  const bulkUI = document.createElement('div');
+  bulkUI.id = 'batchBulkScheduleUI';
+  bulkUI.style.cssText = 'background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0;';
+  bulkUI.innerHTML = `
+    <h3>📅 Bulk Schedule - Weekly Pattern</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Select Days *</label>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <label><input type="checkbox" name="batchBulkDay" value="1"> Monday</label>
+          <label><input type="checkbox" name="batchBulkDay" value="2"> Tuesday</label>
+          <label><input type="checkbox" name="batchBulkDay" value="3"> Wednesday</label>
+          <label><input type="checkbox" name="batchBulkDay" value="4"> Thursday</label>
+          <label><input type="checkbox" name="batchBulkDay" value="5"> Friday</label>
+          <label><input type="checkbox" name="batchBulkDay" value="6"> Saturday</label>
+          <label><input type="checkbox" name="batchBulkDay" value="0"> Sunday</label>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Time *</label>
+        <input type="time" id="batchBulkScheduleTime" required>
+      </div>
+      <div class="form-group">
+        <label>Number of Weeks *</label>
+        <input type="number" id="batchBulkScheduleWeeks" min="1" max="12" value="4">
+      </div>
+      <div class="form-group">
+        <label>Start Date *</label>
+        <input type="date" id="batchBulkScheduleStartDate" required>
+      </div>
+    </div>
+    <button type="button" onclick="generateBatchBulkSchedule()" class="btn-primary">Generate Schedule</button>
+    <button type="button" onclick="closeBatchBulkSchedule()" class="btn-secondary">Cancel</button>
+  `;
+  
+  // Insert before submit buttons
+  const formSection = document.getElementById('batchScheduleFormSection');
+  const existingBulk = document.getElementById('batchBulkScheduleUI');
+  if(existingBulk) existingBulk.remove();
+  
+  formSection.appendChild(bulkUI);
+}
+
+window.closeBatchBulkSchedule = function() {
+  const bulkUI = document.getElementById('batchBulkScheduleUI');
+  if(bulkUI) bulkUI.remove();
+}
+
+window.generateBatchBulkSchedule = function() {
+  const startDateStr = document.getElementById('batchBulkScheduleStartDate').value;
+  const time = document.getElementById('batchBulkScheduleTime').value;
+  const weeks = parseInt(document.getElementById('batchBulkScheduleWeeks').value);
+  const checkedBoxes = document.querySelectorAll('input[name="batchBulkDay"]:checked');
+  
+  if(!startDateStr || !time || weeks < 1 || checkedBoxes.length === 0) {
+    return alert('Please fill all bulk schedule fields');
+  }
+
+  const startDate = new Date(startDateStr);
+  const selectedDays = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+  
+  // Clear existing rows
+  document.getElementById('batchClassScheduleList').innerHTML = '';
+  
+  // Generate sessions
+  for(let w=0; w<weeks; w++) {
+    selectedDays.forEach(day => {
+      const currentDate = new Date(startDate);
+      const dayOfWeek = currentDate.getDay();
+      
+      let diff = day - dayOfWeek;
+      if (diff < 0) diff += 7;
+      
+      currentDate.setDate(startDate.getDate() + (w * 7) + diff);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      // Add Row
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      row.innerHTML = `
+        <input type="date" value="${dateStr}" readonly style="background:#e9ecef">
+        <input type="time" value="${time}">
+        <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
+      `;
+      document.getElementById('batchClassScheduleList').appendChild(row);
+    });
+  }
+  
+  closeBatchBulkSchedule();
+  alert(`✅ Generated ${selectedDays.length * weeks} sessions`);
+}
 
 window.showBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'block'; }
 window.hideBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'none'; }

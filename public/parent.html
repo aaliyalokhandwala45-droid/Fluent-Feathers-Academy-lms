@@ -490,67 +490,58 @@
       });
 
       document.getElementById('passwordForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const password = document.getElementById('loginPassword').value;
-        
-        try {
-          const credResult = await fetch('/api/parent/login-password', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: currentEmail, password })
-          });
-          const cred = await credResult.json();
-          
-          if (!cred.password) return alert('Password not set. Please use OTP login.');
-          if (!verifyPassword(password, cred.password)) return alert('Incorrect password');
-          
-          const studentResult = await fetch(`/api/students/by-email/${currentEmail}`);
-          const student = await studentResult.json();
-          
-          await fetch('/api/parent/last-login', { // Backend might not support this, ignoring error
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: currentEmail })
-          }).catch(e=>{});
-
-          if (student.ok) {
-            currentStudent = student;
-            showDashboard();
-          } else { alert('❌ Incorrect password'); }
-        } catch (err) { alert('Error'); }
-      });
+  e.preventDefault();
+  const password = document.getElementById('loginPassword').value;
+  
+  try {
+    const res = await fetch('/api/parent/login-password', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ email: currentEmail, password })
+    });
+    
+    const result = await res.json();
+    
+    if (res.ok && result.student) {
+      currentStudent = result.student;
+      showDashboard();
+    } else {
+      alert('❌ ' + (result.error || 'Login failed'));
+    }
+  } catch (err) { 
+    console.error('Login error:', err);
+    alert('❌ Network error');
+  }
+});
 
       document.getElementById('otpForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const otp = document.getElementById('otpCode').value;
-        
-        try {
-          const credResult = await fetch('/api/parent/verify-otp', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: currentEmail, otp })
-          });
-          const cred = await credResult.json();
-          
-          if (cred.otp_attempts >= 5) return alert('Too many failed attempts');
-          
-          const now = new Date();
-          const expiry = new Date(cred.otp_expiry);
-          if (now > expiry) return alert('OTP expired');
-          
-          if (cred.otp !== otp) {
-            await fetch(`/api/parent/increment-attempt`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentEmail }) });
-            return alert('Incorrect OTP. Please try again.');
-          }
-          
-          // OTP verified
-          const studentResult = await fetch(`/api/students/by-email/${currentEmail}`);
-          const student = await studentResult.json();
-          
-          res.json({ message: 'Login successful', student: student });
-        } catch(err) { res.status(500).json({ error: err.message }); }
-      });
-
+  e.preventDefault();
+  const otp = document.getElementById('otpCode').value;
+  
+  if(!otp || otp.length !== 6) {
+    return alert('Please enter a valid 6-digit OTP');
+  }
+  
+  try {
+    const res = await fetch('/api/parent/verify-otp', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ email: currentEmail, otp })
+    });
+    
+    const result = await res.json();
+    
+    if (res.ok && result.student) {
+      currentStudent = result.student;
+      showDashboard();
+    } else {
+      alert('❌ ' + (result.error || 'Invalid OTP'));
+    }
+  } catch(err) { 
+    console.error('OTP error:', err);
+    alert('❌ Network error');
+  }
+});
       document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData();
@@ -660,32 +651,51 @@
 
     // ==================== DATA LOADERS ====================
     
-    // 1. Upcoming Sessions
-    async function loadUpcomingSessions() {
-      try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
-        const allSessions = await res.json();
+    // 1. Upcoming Sessions (TIMEZONE FIXED)
+async function loadUpcomingSessions() {
+  try {
+    const res = await fetch(`/api/sessions/${currentStudent.id}`);
+    const allSessions = await res.json();
+    
+    // Filter Client Side (for safety)
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = allSessions.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
+    
+    const tbody = document.getElementById('upcomingSessionsBody');
+    if(upcoming.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No upcoming classes</td></tr>';
+    } else {
+      tbody.innerHTML = upcoming.map(s => {
+        // 🔧 FIX: Convert time to student's timezone
+        const sessionDateTime = new Date(`${s.session_date}T${s.session_time}`);
         
-        // Filter Client Side (for safety)
-        const today = new Date().toISOString().split('T')[0];
-        const upcoming = allSessions.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
+        const formattedTime = sessionDateTime.toLocaleTimeString('en-US', {
+          timeZone: currentStudent.timezone,
+          hour12: true, // 12-hour format for readability
+          hour: '2-digit',
+          minute: '2-digit'
+        });
         
-        const tbody = document.getElementById('upcomingSessionsBody');
-        if(upcoming.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No upcoming classes</td></tr>';
-        } else {
-          tbody.innerHTML = upcoming.map(s => `
-            <tr>
-              <td><strong>#${s.session_number}</strong></td>
-              <td>${s.session_date}</td>
-              <td>${s.session_time}</td>
-              <td>${currentStudent.duration}</td>
-              <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
-            </tr>
-          `).join('');
-        }
-      } catch(e) { console.error(e); }
+        const formattedDate = sessionDateTime.toLocaleDateString('en-US', {
+          timeZone: currentStudent.timezone,
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+
+        return `
+          <tr>
+            <td><strong>#${s.session_number}</strong></td>
+            <td>${formattedDate}</td>
+            <td>${formattedTime} <small style="color:#718096;">(${currentStudent.timezone.split('/')[1]})</small></td>
+            <td>${currentStudent.duration}</td>
+            <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
+          </tr>
+        `;
+      }).join('');
     }
+  } catch(e) { console.error(e); }
+}
 
     // 2. Past Sessions (FIXED: TIMEZONE & TABLE)
     async function loadPastSessions() {
@@ -818,24 +828,39 @@
 
     // 6. Cancel Dropdown Logic
     async function loadUpcomingClassesDropdown() {
-      try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
-        const all = await res.json();
-        const today = new Date().toISOString().split('T')[0];
-        const upcoming = all.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
-        const select = document.getElementById('cancelClassSelect');
+  try {
+    const res = await fetch(`/api/sessions/${currentStudent.id}`);
+    const all = await res.json();
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = all.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
+    const select = document.getElementById('cancelClassSelect');
+    
+    if(upcoming.length === 0) {
+      select.innerHTML = '<option value="">No upcoming classes</option>';
+      select.disabled = true;
+    } else {
+      select.disabled = false;
+      select.innerHTML = '<option value="">-- Select Class --</option>' + 
+      upcoming.map(s => {
+        // Convert to student's timezone
+        const sessionDateTime = new Date(`${s.session_date}T${s.session_time}`);
+        const formattedTime = sessionDateTime.toLocaleTimeString('en-US', {
+          timeZone: currentStudent.timezone,
+          hour12: true,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        const formattedDate = sessionDateTime.toLocaleDateString('en-US', {
+          timeZone: currentStudent.timezone,
+          month: 'short',
+          day: 'numeric'
+        });
         
-        if(upcoming.length === 0) {
-          select.innerHTML = '<option value="">No upcoming classes</option>';
-          select.disabled = true;
-        } else {
-          select.disabled = false;
-          select.innerHTML = '<option value="">-- Select Class --</option>' + 
-          upcoming.map(s => `<option value="${s.session_date}|${s.session_time}">Session #${s.session_number} - ${s.session_date} at ${s.session_time}</option>`).join('');
-        }
-      } catch(e) { console.error(e); }
+        return `<option value="${s.session_date}|${s.session_time}">Session #${s.session_number} - ${formattedDate} at ${formattedTime}</option>`;
+      }).join('');
     }
-
+  } catch(e) { console.error(e); }
+}
     // ==================== HELPERS ====================
     window.choosePasswordLogin = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('passwordForm').style.display='block'; };
     window.chooseOTPLogin = () => { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('otpForm').style.display='block'; document.getElementById('otpSendSection').style.display='block'; document.getElementById('otpVerifySection').style.display='none'; };
