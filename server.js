@@ -2989,17 +2989,16 @@ app.post('/api/batches/:batchId/enroll', async (req, res) => {
   }
 });
 
-// Schedule batch sessions (FIXED - Proper timezone handling)
+// ==================== BATCH SESSION SCHEDULING (FIXED) ====================
 app.post('/api/batches/:batchId/schedule', async (req, res) => {
   const { batchId } = req.params;
   const { sessions } = req.body;
 
   try {
+    console.log('📅 Scheduling batch sessions:', { batchId, sessionCount: sessions.length });
+
     // Get batch info
-    const batchResult = await pool.query(
-      'SELECT * FROM batches WHERE id = $1',
-      [batchId]
-    );
+    const batchResult = await pool.query('SELECT * FROM batches WHERE id = $1', [batchId]);
     
     if (batchResult.rows.length === 0) {
       return res.status(404).json({ error: 'Batch not found' });
@@ -3015,8 +3014,10 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
 
     let sessionNumber = parseInt(countResult.rows[0].count) + 1;
 
-    // Insert sessions - store times AS-IS (admin's timezone - usually IST)
+    // Insert sessions - CRITICAL: Store times AS-IS (admin's IST timezone)
     for (const session of sessions) {
+      console.log(`  → Inserting session ${sessionNumber}: ${session.date} ${session.time}`);
+      
       await pool.query(
         `INSERT INTO batch_sessions (
           batch_id, session_number, session_date, session_time, 
@@ -3027,97 +3028,121 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
       sessionNumber++;
     }
 
-    // After inserting sessions in the database, send emails:
-for (const student of enrollmentsResult.rows) {
-  // Convert each session time to student's timezone for email
-  const scheduleRows = sessions.map((s, i) => {
-    // CRITICAL FIX: Treat stored time as IST (your admin timezone)
-    // Create date in IST explicitly
-    const dateTimeString = `${s.date}T${s.time}+05:30`; // Force IST
-    const sessionDateTime = new Date(dateTimeString);
-    
-    // Now convert to student's timezone
-    const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
-      timeZone: student.timezone,
-      hour12: true,
-      hour: '2-digit',
-      minute: '2-digit'
+    console.log('✅ Sessions inserted into database');
+
+    // Get enrolled students
+    const enrollmentsResult = await pool.query(
+      `SELECT s.* FROM students s
+       JOIN batch_enrollments be ON s.id = be.student_id
+       WHERE be.batch_id = $1 AND be.status = 'Active'`,
+      [batchId]
+    );
+
+    console.log(`📧 Sending emails to ${enrollmentsResult.rows.length} students`);
+
+    // Send emails to all enrolled students
+    for (const student of enrollmentsResult.rows) {
+      console.log(`  → Email for ${student.name} (${student.timezone})`);
+      
+      // Build schedule table with PROPER timezone conversion
+      const scheduleRows = sessions.map((s, i) => {
+        // CRITICAL FIX: Explicitly mark the stored time as IST
+        const istDateTime = `${s.date}T${s.time}+05:30`; // Force IST interpretation
+        const sessionDateTime = new Date(istDateTime);
+        
+        // Convert to student's timezone
+        const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
+          timeZone: student.timezone,
+          hour12: true,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        const studentDate = sessionDateTime.toLocaleDateString('en-US', {
+          timeZone: student.timezone,
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
+        const dayOfWeek = sessionDateTime.toLocaleDateString('en-US', {
+          timeZone: student.timezone,
+          weekday: 'short'
+        });
+        
+        return `
+          <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
+            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${sessionNumber - sessions.length + i}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${dayOfWeek}, ${studentDate}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;"><strong>${studentTime}</strong></td>
+          </tr>
+        `;
+      }).join('');
+
+      const scheduleEmail = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #667eea;">📅 ${batch.batch_name} - Class Schedule</h2>
+          <p>Dear ${student.parent_name},</p>
+          <p>${sessions.length} new classes scheduled for ${student.name}:</p>
+          
+          <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
+            <p style="margin: 0; color: #0c5460;">
+              <strong>🌍 Important Timezone Information:</strong><br>
+              All times below are shown in <strong>YOUR timezone (${student.timezone})</strong>.<br>
+              <small>Classes are scheduled in India Standard Time (IST) but automatically converted to your local time.</small>
+            </p>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background: #667eea; color: white;">
+              <th style="padding: 10px; border: 1px solid #ddd;">Session</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Time (${student.timezone.split('/').pop()})</th>
+            </tr>
+            ${scheduleRows}
+          </table>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #667eea; margin-top: 0;">📱 Class Details</h3>
+            <p><strong>Batch:</strong> ${batch.batch_name}</p>
+            <p><strong>Program:</strong> ${batch.program_name}</p>
+            <p><strong>Duration:</strong> ${batch.duration}</p>
+            <p><strong>Zoom Link:</strong> <a href="${batch.zoom_link}" style="color: #667eea;">Join Class</a></p>
+          </div>
+          
+          <p style="color: #7f8c8d; font-size: 0.9em;">
+            You'll receive reminders 24 hours and 1 hour before each class.<br>
+            Use the parent portal to manage your schedule and track progress.
+          </p>
+          
+          <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
+        </div>
+      `;
+
+      await sendEmail(
+        student.parent_email,
+        `${batch.batch_name} - Schedule`,
+        scheduleEmail,
+        student.parent_name,
+        'Batch Schedule'
+      );
+      
+      // Small delay to avoid rate limits
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    console.log('✅ All emails sent successfully');
+    res.json({ 
+      success: true,
+      message: `${sessions.length} sessions scheduled and ${enrollmentsResult.rows.length} emails sent!` 
     });
     
-    const studentDate = sessionDateTime.toLocaleDateString('en-US', {
-      timeZone: student.timezone,
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-    
-    // Also get day of week
-    const dayOfWeek = sessionDateTime.toLocaleDateString('en-US', {
-      timeZone: student.timezone,
-      weekday: 'short'
-    });
-    
-    return `
-      <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
-        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
-        <td style="padding: 10px; border: 1px solid #ddd;">${dayOfWeek}, ${studentDate}</td>
-        <td style="padding: 10px; border: 1px solid #ddd;"><strong>${studentTime}</strong></td>
-      </tr>
-    `;
-  }).join('');
-
-  const scheduleEmail = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #667eea;">📅 ${batch.batch_name} - Class Schedule</h2>
-      <p>Dear ${student.parent_name},</p>
-      <p>${sessions.length} new classes scheduled for ${student.name}:</p>
-      
-      <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
-        <p style="margin: 0; color: #0c5460;">
-          <strong>🌍 Important Timezone Information:</strong><br>
-          All times below are shown in <strong>YOUR timezone (${student.timezone})</strong>.<br>
-          <small>Classes are scheduled in India Standard Time (IST) but automatically converted to your local time.</small>
-        </p>
-      </div>
-      
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <tr style="background: #667eea; color: white;">
-          <th style="padding: 10px; border: 1px solid #ddd;">Session</th>
-          <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
-          <th style="padding: 10px; border: 1px solid #ddd;">Time (${student.timezone.split('/').pop()})</th>
-        </tr>
-        ${scheduleRows}
-      </table>
-      
-      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: #667eea; margin-top: 0;">📱 Class Details</h3>
-        <p><strong>Batch:</strong> ${batch.batch_name}</p>
-        <p><strong>Program:</strong> ${batch.program_name}</p>
-        <p><strong>Duration:</strong> ${batch.duration}</p>
-        <p><strong>Zoom Link:</strong> <a href="${batch.zoom_link}" style="color: #667eea;">Join Class</a></p>
-      </div>
-      
-      <p style="color: #7f8c8d; font-size: 0.9em;">
-        You'll receive reminders 24 hours and 1 hour before each class.<br>
-        Use the parent portal to manage your schedule and track progress.
-      </p>
-      
-      <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
-    </div>
-  `;
-
-  await sendEmail(
-    student.parent_email,
-    `${batch.batch_name} - Schedule`,
-    scheduleEmail,
-    student.parent_name,
-    'Batch Schedule'
-  );
-}
-
-    res.json({ message: `${sessions.length} sessions scheduled and emails sent!` });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ Batch scheduling error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: err.message 
+    });
   }
 });
 
@@ -3237,12 +3262,14 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
     res.status(500).json({ error: err.message });
   }
 });
-// ==================== BATCH SESSIONS FOR PARENT PORTAL (FIXED TIMEZONE & RESOURCES) ====================
 
-// Get student's batch sessions for parent portal
+
+// ==================== PARENT PORTAL: GET BATCH SESSIONS (FIXED) ====================
 app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
   try {
     const studentId = req.params.studentId;
+    
+    console.log('🔍 Loading batch sessions for student:', studentId);
     
     // Get all batches this student is enrolled in
     const enrollments = await pool.query(
@@ -3252,12 +3279,14 @@ app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
     );
     
     if (enrollments.rows.length === 0) {
+      console.log('  → No batch enrollments found');
       return res.json([]);
     }
     
     const batchIds = enrollments.rows.map(e => e.batch_id);
+    console.log('  → Enrolled in batches:', batchIds);
     
-    // Get all sessions for these batches INCLUDING ATTENDANCE AND RESOURCES
+    // Get all sessions for these batches with attendance and resources
     const sessions = await pool.query(`
       SELECT bs.*, 
              b.batch_name, 
@@ -3274,13 +3303,14 @@ app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
       ORDER BY bs.session_date ASC, bs.session_time ASC
     `, [batchIds, studentId]);
     
+    console.log(`  ✅ Found ${sessions.rows.length} batch sessions`);
     res.json(sessions.rows);
+    
   } catch (err) {
-    console.error("Batch Sessions Error:", err);
+    console.error("❌ Batch Sessions Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 // ==================== EXISTING CODE CONTINUES ====================
 
 // ==================== NEW FEEDBACK API ROUTES ====================
