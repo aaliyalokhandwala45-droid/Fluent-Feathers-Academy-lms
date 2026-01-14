@@ -612,7 +612,7 @@
 
     // ==================== DATA LOADERS ====================
     
-    // 1. Upcoming Sessions (INCLUDING BATCHES + FIXED TIMEZONE)
+        // 1. Upcoming Sessions (FIXED TIMEZONE FOR GLOBAL STUDENTS)
     async function loadUpcomingSessions() {
       try {
         // Get BOTH private and batch sessions
@@ -639,38 +639,20 @@
         } else {
           tbody.innerHTML = allSessions.map(s => {
             try {
-              // FIX: Determine source timezone for conversion
-              let sourceTimezone = 'Asia/Kolkata'; // Default to IST for Private
-              let displayTime = s.session_time;
+              // --- CRITICAL FIX: FORCE IST SOURCE ---
+              // Appending '+05:30' tells the browser that the DB time (e.g., 14:00) is India Time.
+              const isoString = s.session_date + 'T' + s.session_time + '+05:30';
+              const sessionDate = new Date(isoString);
+              
+              // Convert to student's timezone (e.g., Asia/Dubai, Europe/Berlin)
+              const displayTime = sessionDate.toLocaleTimeString('en-US', {
+                timeZone: currentStudent.timezone,
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit'
+              });
 
-              if (s.type === 'Batch' && s.batch_timezone) {
-                sourceTimezone = s.batch_timezone;
-                // For Batch: The API stores time as the batch's timezone (e.g., 10:00 AM IST)
-                // Create date object using that stored time
-                const sessionDate = new Date(s.session_date + 'T' + s.session_time);
-                
-                // Convert to student's personal timezone
-                displayTime = sessionDate.toLocaleTimeString('en-US', {
-                  timeZone: currentStudent.timezone,
-                  hour12: true,
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              } else {
-                // For Private: API stores time as IST (10:00).
-                // Create date object in IST
-                const sessionDate = new Date(s.session_date + 'T' + s.session_time);
-                
-                // Convert to student's timezone
-                displayTime = sessionDate.toLocaleTimeString('en-US', {
-                  timeZone: currentStudent.timezone,
-                  hour12: true,
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              }
-
-              const formattedDate = new Date(s.session_date).toLocaleDateString('en-US', {
+              const formattedDate = sessionDate.toLocaleDateString('en-US', {
                 timeZone: currentStudent.timezone,
                 month: 'short', day: 'numeric', year: 'numeric'
               });
@@ -698,8 +680,8 @@
         if(tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Failed to load sessions</td></tr>';
       }
     }
-
-    // 2. Past Sessions (INCLUDING BATCHES + FIXED ATTENDANCE & RESOURCES)
+   
+    // 2. Past Sessions (FIXED TIMEZONE)
     async function loadPastSessions() {
       try {
         // Get both private and batch sessions
@@ -722,27 +704,19 @@
         } else {
           tbody.innerHTML = allSessions.map(s => {
             try {
-              let displayTime = s.session_time;
-              
-              if (s.type === 'Batch' && s.batch_timezone) {
-                const sessionDate = new Date(s.session_date + 'T' + s.session_time);
-                displayTime = sessionDate.toLocaleTimeString('en-US', {
-                  timeZone: currentStudent.timezone,
-                  hour12: false,
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              } else {
-                const sessionDate = new Date(s.session_date + 'T' + s.session_time);
-                displayTime = sessionDate.toLocaleTimeString('en-US', {
-                  timeZone: currentStudent.timezone,
-                  hour12: false,
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              }
+              // --- CRITICAL FIX: FORCE IST SOURCE ---
+              const isoString = s.session_date + 'T' + s.session_time + '+05:30';
+              const sessionDate = new Date(isoString);
+            
+              // Convert to student's timezone
+              const displayTime = sessionDate.toLocaleTimeString('en-US', {
+                timeZone: currentStudent.timezone,
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+              });
 
-              const formattedDate = new Date(s.session_date).toLocaleDateString('en-US', {
+              const formattedDate = sessionDate.toLocaleDateString('en-US', {
                 timeZone: currentStudent.timezone,
                 month: 'short', day: 'numeric', year: 'numeric'
               });
@@ -882,7 +856,7 @@
       } catch(e) { console.error(e); }
     }
 
-    // 6. Cancel Dropdown (PRIVATE ONLY)
+        // 6. Cancel Dropdown (FIXED TIMEZONE)
     async function loadUpcomingClassesDropdown() {
       try {
         // Only load PRIVATE sessions for cancellation
@@ -901,8 +875,10 @@
           select.innerHTML = '<option value="">-- Select Class to Cancel --</option>' + 
           upcoming.map(s => {
             try {
-              // FIX: Timezone conversion for dropdown
-              const sessionDate = new Date(s.session_date + 'T' + s.session_time);
+              // --- CRITICAL FIX: FORCE IST SOURCE ---
+              const isoString = s.session_date + 'T' + s.session_time + '+05:30';
+              const sessionDate = new Date(isoString);
+              
               const displayTime = sessionDate.toLocaleTimeString('en-US', {
                 timeZone: currentStudent.timezone,
                 hour12: true,

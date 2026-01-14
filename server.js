@@ -1947,13 +1947,27 @@ cron.schedule('0 9 * * *', async () => {
     );
 
     for (const session of result.rows) {
+            // Calculate time in student's timezone
+      const dbTime = session.session_date + 'T' + session.session_time + '+05:30'; // Force IST
+      const sessionDateObj = new Date(dbTime);
+      const localTime = sessionDateObj.toLocaleTimeString('en-US', {
+        timeZone: session.timezone,
+        hour12: true,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const localDate = sessionDateObj.toLocaleDateString('en-US', {
+        timeZone: session.timezone,
+        month: 'short', day: 'numeric', year: 'numeric'
+      });
+
       const reminderEmail = `
-        <h2>📅 Class Reminder - Tomorrow at ${session.session_time}</h2>
+        <h2>📅 Class Reminder - Tomorrow at ${localTime}</h2>
         <p>Dear ${session.parent_name},</p>
         <p>Reminder: <strong>${session.student_name}</strong> has a class tomorrow!</p>
         <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-          <p><strong>Date:</strong> ${session.session_date}</p>
-          <p><strong>Time:</strong> ${session.session_time} (${session.timezone})</p>
+          <p><strong>Date:</strong> ${localDate}</p>
+          <p><strong>Time:</strong> ${localTime} (${session.timezone})</p>
           <p><strong>Session:</strong> ${session.session_number}</p>
         </div>
         <div style="text-align: center; margin: 20px 0;">
@@ -1986,11 +2000,21 @@ cron.schedule('0 * * * *', async () => {
     );
 
     for (const session of result.rows) {
+            // Calculate time in student's timezone
+      const dbTime = session.session_date + 'T' + session.session_time + '+05:30'; // Force IST
+      const sessionDateObj = new Date(dbTime);
+      const localTime = sessionDateObj.toLocaleTimeString('en-US', {
+        timeZone: session.timezone,
+        hour12: true,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
       const urgentEmail = `
         <div style="background: #e74c3c; color: white; text-align: center; padding: 20px; border-radius: 10px;">
           <h2>🔴 CLASS STARTING IN 1 HOUR!</h2>
           <h3>${session.student_name} - Session ${session.session_number}</h3>
-          <p style="font-size: 1.2em;">Starting at ${session.session_time}</p>
+          <p style="font-size: 1.2em;">Starting at ${localTime} (${session.timezone})</p>
           <a href="${session.zoom_link}" style="background: white; color: #e74c3c; padding: 20px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 20px;">🎥 JOIN NOW</a>
         </div>
       `;
@@ -2656,15 +2680,6 @@ app.delete('/api/students/:id', async (req, res) => {
 });
 // ==================== EXISTING ROUTES END HERE ====================
 
-
-// ==================== BATCH MANAGEMENT API ROUTES ====================
-
-
-
-// Get student's batch sessions with timezone conversion (for parent portal)
-app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
-  res.json([]);
-});
 
 
 
