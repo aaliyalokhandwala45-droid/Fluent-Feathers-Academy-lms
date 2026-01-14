@@ -38,15 +38,8 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ Database connection error:', err);
-  } else {
-    console.log('✅ Connected to PostgreSQL database');
-    release();
     initializeDatabase();
-  }
-});
+
 
 // Helper function to convert ? to $1, $2, etc.
 function convertQuery(sql, params) {
@@ -95,7 +88,7 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
   }
 }
 
-// ==================== TIMEZONE HELPER ====================
+// ==================== FIXED TIMEZONE HELPERS ====================
 function convertToIST(dateString) {
   const date = new Date(dateString);
   return date.toLocaleString('en-IN', {
@@ -104,14 +97,82 @@ function convertToIST(dateString) {
     timeStyle: 'short'
   });
 }
+
+// Convert any timezone time to UTC for storage
+function convertToUTC(dateString, timeString, sourceTimezone) {
+  try {
+    // Combine date and time
+    const dateTimeStr = `${dateString}T${timeString}:00`;
+    
+    // Create a date object
+    const date = new Date(dateTimeStr);
+    
+    // Get the timestamp as if it's in the source timezone
+    const sourceTimeStr = date.toLocaleString('en-US', {
+      timeZone: sourceTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    // Parse back to create proper UTC date
+    const [datePart, timePart] = sourceTimeStr.split(', ');
+    const [month, day, year] = datePart.split('/');
+    const [hour, minute] = timePart.split(':');
+    
+    // Create date in source timezone
+    const localDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
+    
+    // Get UTC offset for source timezone
+    const utcOffset = new Date(localDate.toLocaleString('en-US', { timeZone: 'UTC' })).getTime() - 
+                      new Date(localDate.toLocaleString('en-US', { timeZone: sourceTimezone })).getTime();
+    
+    // Apply offset to get true UTC
+    const utcDate = new Date(localDate.getTime() + utcOffset);
+    
+    return utcDate.toISOString();
+  } catch (error) {
+    console.error('UTC conversion error:', error);
+    return null;
+  }
+}
+
+// Convert UTC time from DB to any timezone for display
+function convertFromUTC(utcDateTime, targetTimezone) {
+  try {
+    const date = new Date(utcDateTime);
+    
+    const dateStr = date.toLocaleDateString('en-US', {
+      timeZone: targetTimezone,
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+    
+    const timeStr = date.toLocaleTimeString('en-US', {
+      timeZone: targetTimezone,
+      hour12: true,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    return { date: dateStr, time: timeStr };
+  } catch (error) {
+    console.error('Display conversion error:', error);
+    return { date: '', time: '' };
+  }
+}
+
 // Convert time between timezones
 function convertTimeBetweenTimezones(time, date, fromTimezone, toTimezone) {
   try {
-    // Create a date object with the time in the source timezone
     const dateTimeString = `${date}T${time}`;
     const sourceDate = new Date(dateTimeString);
     
-    // Get the time in the target timezone
     const targetTime = sourceDate.toLocaleString('en-US', {
       timeZone: toTimezone,
       hour12: false,
@@ -122,7 +183,7 @@ function convertTimeBetweenTimezones(time, date, fromTimezone, toTimezone) {
     return targetTime;
   } catch (error) {
     console.error('Timezone conversion error:', error);
-    return time; // Return original time if conversion fails
+    return time;
   }
 }
 
@@ -195,7 +256,14 @@ CREATE TABLE IF NOT EXISTS students (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `);
-
+// Ensure batch_sessions has all required columns
+try {
+  await pool.query(`ALTER TABLE batch_sessions ADD COLUMN IF NOT EXISTS session_date DATE NOT NULL DEFAULT CURRENT_DATE`);
+  await pool.query(`ALTER TABLE batch_sessions ADD COLUMN IF NOT EXISTS session_time TIME NOT NULL DEFAULT '00:00:00'`);
+  console.log("✅ Batch sessions columns verified");
+} catch (e) {
+  console.error("⚠️ Batch session column check failed:", e.message);
+}
     // Enhanced Sessions table with detailed tracking AND FEEDBACK COLUMNS
     await pool.query(`CREATE TABLE IF NOT EXISTS sessions (
       id SERIAL PRIMARY KEY,
@@ -222,15 +290,13 @@ CREATE TABLE IF NOT EXISTS students (
       FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
     )`);
 
-    // NEW: Try to add feedback columns if table already exists
+    // ADD UTC COLUMNS FOR TIMEZONE SUPPORT
     try {
-      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS feedback_requested BOOLEAN DEFAULT FALSE`);
-      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS student_rating INTEGER`);
-      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS student_feedback TEXT`);
-      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS student_feedback_date TIMESTAMP`);
-      console.log("✅ Database Columns Updated for Feedback System");
+      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS session_datetime_utc TIMESTAMP`);
+      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS admin_timezone TEXT DEFAULT 'Asia/Kolkata'`);
+      console.log("✅ UTC columns added to sessions table");
     } catch (e) {
-      // Ignore if already exists
+      console.error("⚠️ Error adding UTC columns to sessions:", e.message);
     }
 
     // Materials table
@@ -406,7 +472,14 @@ await pool.query(`CREATE TABLE IF NOT EXISTS batch_sessions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
 )`);
-
+// ADD UTC COLUMNS FOR BATCH SESSIONS
+try {
+  await pool.query(`ALTER TABLE batch_sessions ADD COLUMN IF NOT EXISTS session_datetime_utc TIMESTAMP`);
+  await pool.query(`ALTER TABLE batch_sessions ADD COLUMN IF NOT EXISTS batch_timezone TEXT DEFAULT 'Asia/Kolkata'`);
+  console.log("✅ UTC columns added to batch_sessions table");
+} catch (e) {
+  console.error("⚠️ Error adding UTC columns to batch_sessions:", e.message);
+}
 // NEW: Batch Attendance table
 await pool.query(`CREATE TABLE IF NOT EXISTS batch_attendance (
   id SERIAL PRIMARY KEY,
@@ -763,43 +836,7 @@ app.post('/api/homework/:homeworkId/feedback', async (req, res) => {
       [homework.student_id]
     );
     
-    if (studentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-    
-    const student = studentResult.rows[0];
-    
-    // Update materials with feedback
-    await pool.query(
-      `UPDATE materials SET 
-        feedback_grade = $1,
-        feedback_comments = $2,
-        feedback_given = 1,
-        feedback_date = CURRENT_TIMESTAMP
-        WHERE id = $3`,
-      [grade, comments, homeworkId]
-    );
-    
-    // Send email to parent
-    const feedbackEmail = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #667eea;">📝 Homework Feedback Received!</h2>
-        <p>Dear ${student.parent_name},</p>
-        <p>Your child's homework has been reviewed.</p>
-        
-        <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #27ae60;">
-          <h3 style="color: #27ae60; margin-top: 0;">Homework Details</h3>
-          <p><strong>Student:</strong> ${student.name}</p>
-          <p><strong>Session Date:</strong> ${homework.session_date}</p>
-          <p><strong>Grade:</strong> <span style="font-size: 1.5em; color: #27ae60;">${grade}</span></p>
-          <p><strong>Teacher Comments:</strong></p>
-          <p style="background: white; padding: 15px; border-radius: 5px;">${comments}</p>
-        </div>
-        
-        <p>You can view this feedback in your parent portal.</p>
-        <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy</p>
-      </div>
-    `;
+   
     
     await sendEmail(
       student.parent_email,
@@ -1576,10 +1613,11 @@ app.post('/api/events/:eventId/attendance', async (req, res) => {
 
 // ========== ENHANCED SESSION MANAGEMENT ==========
 
-// Enhanced session creation with detailed tracking
+// Enhanced session creation with UTC storage
 app.post('/api/schedule/classes', async (req, res) => {
   const { student_id, classes } = req.body;
   const ZOOM_LINK = 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+  const ADMIN_TIMEZONE = 'Asia/Kolkata'; // YOUR timezone
 
   try {
     // Get student info
@@ -1587,6 +1625,101 @@ app.post('/api/schedule/classes', async (req, res) => {
       `SELECT * FROM students WHERE id = $1`,
       [student_id]
     );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Get current session count
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as count FROM sessions WHERE student_id = $1`,
+      [student_id]
+    );
+
+    let sessionNumber = parseInt(countResult.rows[0].count) + 1;
+
+    // Insert all sessions WITH UTC CONVERSION
+    for (const cls of classes) {
+      // Convert admin's time to UTC
+      const utcDateTime = convertToUTC(cls.date, cls.time, ADMIN_TIMEZONE);
+      
+      if (!utcDateTime) {
+        console.error('❌ Failed to convert to UTC:', cls);
+        continue; // Skip this session
+      }
+
+      await pool.query(
+        `INSERT INTO sessions (
+          student_id, session_number, session_date, session_time, 
+          session_datetime_utc, admin_timezone, zoom_link, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending')`,
+        [student_id, sessionNumber, cls.date, cls.time, utcDateTime, ADMIN_TIMEZONE, ZOOM_LINK]
+      );
+      sessionNumber++;
+    }
+
+    // Enhanced schedule email with timezone conversion
+    const scheduleEmailRows = classes.map((cls, index) => {
+      const utcDateTime = convertToUTC(cls.date, cls.time, ADMIN_TIMEZONE);
+      if (!utcDateTime) return ''; // Skip if conversion failed
+      
+      const { date: studentDate, time: studentTime } = convertFromUTC(utcDateTime, student.timezone);
+      
+      return `
+        <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : 'white'};">
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + index + 1}</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">${studentDate}</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">${studentTime}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const scheduleHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #667eea;">📅 Class Schedule for ${student.name}</h2>
+        <p>Dear ${student.parent_name},</p>
+        <p>We've scheduled <strong>${classes.length} classes</strong> for ${student.name}:</p>
+        
+        <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
+          <p style="margin: 0; color: #0c5460;">
+            <strong>ℹ️ Timezone Info:</strong> All times shown are in YOUR timezone (${student.timezone})
+          </p>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background: #667eea; color: white;">
+            <th style="padding: 12px; border: 1px solid #ddd;">Session #</th>
+            <th style="padding: 12px; border: 1px solid #ddd;">Date</th>
+            <th style="padding: 12px; border: 1px solid #ddd;">Time (${student.timezone})</th>
+          </tr>
+          ${scheduleEmailRows}
+        </table>
+        
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="color: #667eea;">📱 Important Links</h3>
+          <p><strong>Zoom Class Link:</strong> <a href="${ZOOM_LINK}" style="color: #9b59b6;">Join Class</a></p>
+          <p><strong>Parent Portal:</strong> <a href="${process.env.BASE_URL || 'http://localhost:3000'}/parent.html">Access Portal</a></p>
+        </div>
+        
+        <p style="color: #7f8c8d; font-size: 0.9em;">
+          You'll receive reminders 24 hours and 1 hour before each class.<br>
+          Use the parent portal to cancel classes, upload homework, and track progress.
+        </p>
+        
+        <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
+      </div>
+    `;
+
+    await sendEmail(student.parent_email, `📅 Class Schedule for ${student.name}`, scheduleHtml, student.parent_name, 'Schedule');
+
+    res.json({ message: `${classes.length} classes scheduled successfully! Email sent to ${student.parent_email}.` });
+  } catch (err) {
+    console.error('❌ Schedule error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
     if (studentResult.rows.length === 0) {
       return res.status(404).json({ error: 'Student not found' });
@@ -1676,13 +1809,7 @@ const scheduleHtml = `
   </div>
 `;
 
-await sendEmail(student.parent_email, `📅 Class Schedule for ${student.name}`, scheduleHtml, student.parent_name, 'Schedule');
 
-    res.json({ message: `${classes.length} classes scheduled successfully! Email sent to ${student.parent_email}.` });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Enhanced attendance marking with makeup class credits AND FEEDBACK REQUEST
 app.post('/api/attendance/present/:studentId', async (req, res) => {
@@ -2016,14 +2143,39 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
   }
 });
 
-// Delete batch session
+// Delete batch session (ENHANCED with validation)
 app.delete('/api/batches/sessions/:sessionId', async (req, res) => {
   const sessionId = req.params.sessionId;
   
   try {
+    // Check if session exists
+    const checkResult = await pool.query(
+      'SELECT * FROM batch_sessions WHERE id = $1',
+      [sessionId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    const session = checkResult.rows[0];
+    
+    // Don't allow deleting completed sessions
+    if (session.status === 'Completed') {
+      return res.status(400).json({ 
+        error: 'Cannot delete completed sessions. They are part of student records.' 
+      });
+    }
+    
+    // Delete the session
     await pool.query('DELETE FROM batch_sessions WHERE id = $1', [sessionId]);
-    res.json({ success: true, message: 'Batch session deleted successfully' });
+    
+    res.json({ 
+      success: true, 
+      message: 'Batch session deleted successfully' 
+    });
   } catch (err) {
+    console.error('Delete batch session error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -2499,6 +2651,29 @@ app.post('/api/events/:eventId/complete', async (req, res) => {
   }
 });
 
+// Delete event
+app.delete('/api/events/:id', async (req, res) => {
+  try {
+    // Check if event exists
+    const checkResult = await pool.query(
+      'SELECT * FROM events WHERE id = $1',
+      [req.params.id]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    // Delete event (CASCADE will delete registrations)
+    await pool.query('DELETE FROM events WHERE id = $1', [req.params.id]);
+    
+    res.json({ success: true, message: 'Event deleted successfully' });
+  } catch (err) {
+    console.error('Delete event error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Timetable endpoints
 app.get('/api/timetable/slots', async (req, res) => {
   try {
@@ -2585,17 +2760,6 @@ app.delete('/api/students/:id', async (req, res) => {
   }
 });
 // ==================== EXISTING ROUTES END HERE ====================
-
-
-// ==================== BATCH MANAGEMENT API ROUTES ====================
-
-
-
-// Get student's batch sessions with timezone conversion (for parent portal)
-app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
-  res.json([]);
-});
-
 
 
 // ==================== BATCH MANAGEMENT API ROUTES ====================
@@ -2834,7 +2998,7 @@ app.delete('/api/batches/:batchId/students/:studentId', async (req, res) => {
   }
 });
 
-// Schedule batch sessions
+// Schedule batch sessions with UTC storage
 app.post('/api/batches/:batchId/schedule', async (req, res) => {
   const { batchId } = req.params;
   const { sessions } = req.body;
@@ -2851,6 +3015,7 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
     }
 
     const batch = batchResult.rows[0];
+    const BATCH_TIMEZONE = batch.timezone; // Batch's teaching timezone
 
     // Get current session count
     const countResult = await pool.query(
@@ -2860,14 +3025,21 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
 
     let sessionNumber = parseInt(countResult.rows[0].count) + 1;
 
-    // Insert sessions
+    // Insert sessions WITH UTC CONVERSION
     for (const session of sessions) {
+      const utcDateTime = convertToUTC(session.date, session.time, BATCH_TIMEZONE);
+      
+      if (!utcDateTime) {
+        console.error('❌ Failed to convert batch time to UTC:', session);
+        continue;
+      }
+
       await pool.query(
         `INSERT INTO batch_sessions (
-          batch_id, session_number, session_date, session_time, 
-          zoom_link, status
-        ) VALUES ($1, $2, $3, $4, $5, 'Pending')`,
-        [batchId, sessionNumber, session.date, session.time, batch.zoom_link]
+          batch_id, session_number, session_date, session_time,
+          session_datetime_utc, batch_timezone, zoom_link, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending')`,
+        [batchId, sessionNumber, session.date, session.time, utcDateTime, BATCH_TIMEZONE, batch.zoom_link]
       );
       sessionNumber++;
     }
@@ -2881,24 +3053,41 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
     );
 
     for (const student of enrollmentsResult.rows) {
+      // Convert each session time to student's timezone for email
+      const scheduleRows = sessions.map((s, i) => {
+        const utcDateTime = convertToUTC(s.date, s.time, BATCH_TIMEZONE);
+        if (!utcDateTime) return '';
+        
+        const { date: studentDate, time: studentTime } = convertFromUTC(utcDateTime, student.timezone);
+        
+        return `
+          <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
+            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${studentDate}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${studentTime}</td>
+          </tr>
+        `;
+      }).join('');
+
       const scheduleEmail = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #667eea;">📅 ${batch.batch_name} - Class Schedule</h2>
           <p>Dear ${student.parent_name},</p>
           <p>${sessions.length} new classes scheduled for ${student.name}:</p>
+          
+          <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
+            <p style="margin: 0; color: #0c5460;">
+              <strong>ℹ️ Timezone Info:</strong> All times shown are in YOUR timezone (${student.timezone})
+            </p>
+          </div>
+          
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr style="background: #667eea; color: white;">
               <th style="padding: 10px; border: 1px solid #ddd;">Session</th>
               <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
               <th style="padding: 10px; border: 1px solid #ddd;">Time (${student.timezone})</th>
             </tr>
-            ${sessions.map((s, i) => `
-              <tr>
-                <td style="padding: 10px; border: 1px solid #ddd;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${s.date}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${s.time}</td>
-              </tr>
-            `).join('')}
+            ${scheduleRows}
           </table>
           <p><a href="${batch.zoom_link}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Join Class</a></p>
         </div>
@@ -2911,27 +3100,43 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
         student.parent_name,
         'Batch Schedule'
       );
+      
+      await new Promise(r => setTimeout(r, 1000)); // Rate limiting
     }
 
     res.json({ message: `${sessions.length} sessions scheduled and emails sent!` });
   } catch (err) {
+    console.error('❌ Batch schedule error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Mark batch session attendance
+
+
+ // Mark batch session attendance (COMPLETE IMPLEMENTATION)
 app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
   const { sessionId } = req.params;
-  const { attendanceData } = req.body;
+  const { attendanceData } = req.body; // Array of {student_id, attendance, notes}
 
   try {
+    // Verify session exists
+    const sessionCheck = await pool.query(
+      'SELECT * FROM batch_sessions WHERE id = $1',
+      [sessionId]
+    );
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Mark attendance for each student
     for (const record of attendanceData) {
       await pool.query(
         `INSERT INTO batch_attendance (batch_session_id, student_id, attendance, notes)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (batch_session_id, student_id) 
-         DO UPDATE SET attendance = $3, notes = $4`,
-        [sessionId, record.student_id, record.attendance, record.notes]
+         DO UPDATE SET attendance = $3, notes = $4, marked_at = CURRENT_TIMESTAMP`,
+        [sessionId, record.student_id, record.attendance, record.notes || null]
       );
 
       // Update student's completed sessions if present
@@ -2939,26 +3144,30 @@ app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
         await pool.query(
           `UPDATE students SET 
             completed_sessions = completed_sessions + 1,
-            remaining_sessions = remaining_sessions - 1
+            remaining_sessions = GREATEST(remaining_sessions - 1, 0)
            WHERE id = $1`,
           [record.student_id]
         );
       }
     }
 
-    // Update session status
+    // Update session status to completed
     await pool.query(
       `UPDATE batch_sessions SET status = 'Completed' WHERE id = $1`,
       [sessionId]
     );
 
-    res.json({ message: 'Attendance marked successfully!' });
+    res.json({ 
+      success: true,
+      message: 'Attendance marked successfully!' 
+    });
   } catch (err) {
+    console.error('Batch attendance error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Upload batch material
+// Upload batch material (FIXED - proper batch name retrieval)
 app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (req, res) => {
   const { batchId } = req.params;
   const { fileType, sessionDate } = req.body;
@@ -2966,19 +3175,22 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   try {
-    // Get batch info
+    // Get batch info with error handling
     const batchResult = await pool.query(
       'SELECT * FROM batches WHERE id = $1',
       [batchId]
     );
 
     if (batchResult.rows.length === 0) {
+      // Clean up uploaded file if batch not found
+      const filePath = path.join(__dirname, 'uploads', 'homework', req.file.filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       return res.status(404).json({ error: 'Batch not found' });
     }
 
     const batch = batchResult.rows[0];
 
-    // Insert material
+    // Insert material with batch_name (not batch_id)
     await pool.query(
       `INSERT INTO materials (batch_name, session_date, file_type, file_name, file_path, uploaded_by)
        VALUES ($1, $2, $3, $4, $5, 'Teacher')`,
@@ -2995,15 +3207,19 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
 
     for (const student of studentsResult.rows) {
       const materialEmail = `
-        <h2>📚 New Material - ${batch.batch_name}</h2>
-        <p>Dear ${student.parent_name},</p>
-        <p>New material uploaded:</p>
-        <ul>
-          <li><strong>Type:</strong> ${fileType}</li>
-          <li><strong>File:</strong> ${req.file.originalname}</li>
-          <li><strong>Session:</strong> ${sessionDate}</li>
-        </ul>
-        <p>Access via parent portal.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #667eea;">📚 New Material - ${batch.batch_name}</h2>
+          <p>Dear ${student.parent_name},</p>
+          <p>New material has been uploaded for ${student.name}:</p>
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Type:</strong> ${fileType}</p>
+            <p><strong>File:</strong> ${req.file.originalname}</p>
+            <p><strong>Session Date:</strong> ${sessionDate}</p>
+            <p><strong>Batch:</strong> ${batch.batch_name}</p>
+          </div>
+          <p>You can access this material through your parent portal.</p>
+          <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
+        </div>
       `;
 
       await sendEmail(
@@ -3013,13 +3229,54 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
         student.parent_name,
         'Batch Material'
       );
+      
+      // Rate limiting delay
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     res.json({ message: 'Material uploaded and students notified!' });
   } catch (err) {
+    console.error('Batch material upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
+// ==================== BATCH SESSIONS FOR PARENT PORTAL ====================
+
+// Get student's batch sessions for parent portal (FIXED)
+app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
+  const studentId = req.params.studentId;
+  
+  try {
+    // Get all active batch enrollments for this student
+    const enrollmentsResult = await pool.query(
+      `SELECT batch_id FROM batch_enrollments 
+       WHERE student_id = $1 AND status = 'Active'`,
+      [studentId]
+    );
+    
+    if (enrollmentsResult.rows.length === 0) {
+      return res.json([]);
+    }
+    
+    const batchIds = enrollmentsResult.rows.map(e => e.batch_id);
+    
+    // Get all sessions for these batches
+    const sessionsResult = await pool.query(
+      `SELECT bs.*, b.batch_name, b.zoom_link, b.duration, bs.session_datetime_utc, bs.batch_timezone
+       FROM batch_sessions bs
+       JOIN batches b ON bs.batch_id = b.id
+       WHERE bs.batch_id = ANY($1)
+       ORDER BY bs.session_date ASC, bs.session_time ASC`,
+      [batchIds]
+    );
+    
+    res.json(sessionsResult.rows);
+  } catch (err) {
+    console.error('Batch sessions error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== EXISTING CODE CONTINUES ====================
 
 // ==================== NEW FEEDBACK API ROUTES ====================
