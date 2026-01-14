@@ -220,6 +220,10 @@ CREATE TABLE IF NOT EXISTS students (
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
     )`);
+await pool.query(`
+  ALTER TABLE sessions
+  ADD COLUMN IF NOT EXISTS session_start_utc TIMESTAMP
+`);
 
     // NEW: Try to add feedback columns if table already exists
     try {
@@ -1623,20 +1627,50 @@ app.post('/api/schedule/classes', async (req, res) => {
 
     let sessionNumber = parseInt(countResult.rows[0].count) + 1;
 
+// ✅ CREATE session_start_utc (CRITICAL)
+
+
     // Insert all sessions
     for (const cls of classes) {
-      await pool.query(
-        `INSERT INTO sessions (student_id, session_number, session_date, session_time, zoom_link, status) VALUES ($1, $2, $3, $4, $5, 'Pending')`,
-        [student_id, sessionNumber, cls.date, cls.time, ZOOM_LINK]
-      );
+
+      const sessionStartUTC = moment
+  .tz(`${cls.date} ${cls.time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata')
+  .utc()
+  .format();
+
+       await pool.query(
+  `INSERT INTO sessions (
+    student_id,
+    session_number,
+    session_date,
+    session_time,
+    session_start_utc,
+    zoom_link,
+    status
+  ) VALUES ($1, $2, $3, $4, $5, $6, 'Pending')`,
+  [
+    student_id,
+    sessionNumber,
+    cls.date,
+    cls.time,
+    sessionStartUTC,
+    ZOOM_LINK
+  ]
+);
+
       sessionNumber++;
     }
 
     // Enhanced schedule email with timezone conversion
 const scheduleEmailRows = classes.map((cls, index) => {
-  // CRITICAL FIX: Treat stored time as IST (admin's timezone)
-  const dateTimeString = `${cls.date}T${cls.time}+05:30`; // Force IST
-  const sessionDateTime = new Date(dateTimeString);
+
+  const sessionStartUTC = moment
+    .tz(`${cls.date} ${cls.time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata')
+    .utc()
+    .format();
+
+  const sessionDateTime = new Date(sessionStartUTC);
+
   
   // Convert to student's timezone
   const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
@@ -2197,22 +2231,8 @@ app.get('/api/sessions/upcoming/:studentId', async (req, res) => {
       `SELECT * FROM sessions WHERE student_id = $1 AND session_date >= $2 AND status IN ('Pending', 'Scheduled') ORDER BY session_date ASC`,
       [req.params.studentId, today]
     );
-   const fixed = result.rows.map(s => {
-  const istDateTime = `${s.session_date} ${s.session_time}`;
+   res.json(result.rows);
 
-  const utcTime = moment
-    .tz(istDateTime, 'YYYY-MM-DD HH:mm:ss', 'Asia/Kolkata')
-    .utc()
-    .format();
-
-  return {
-    ...s,
-    session_start_utc: utcTime,
-    timezone: 'UTC'
-  };
-});
-
-res.json(fixed);
 
 
   } catch (err) {
@@ -2244,7 +2264,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
         s.session_number,
         s.session_date,
         s.session_time,
-        s.duration,
+         session_start_utc,
         s.status
       FROM sessions s
       WHERE s.student_id = $1
@@ -3341,21 +3361,8 @@ app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
     `, [batchIds, studentId]);
     
     console.log(`  ✅ Found ${sessions.rows.length} batch sessions`);
-    const fixed = sessions.rows.map(s => {
-  const istDateTime = `${s.session_date} ${s.session_time}`;
+    res.json(sessions.rows);
 
-  const utcTime = moment
-    .tz(istDateTime, 'YYYY-MM-DD HH:mm:ss', 'Asia/Kolkata')
-    .utc()
-    .format();
-
-  return {
-    ...s,
-    session_start_utc: utcTime
-  };
-});
-
-res.json(fixed);
 
     
   } catch (err) {
