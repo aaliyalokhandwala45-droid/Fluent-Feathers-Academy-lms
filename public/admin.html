@@ -2268,6 +2268,12 @@ window.viewBatchDetails = async function(batchId) {
     // Sessions (FIXED - Added delete button)
     const sessBody = document.getElementById('batchSessionsBody');
     const sessions = data.sessions || [];
+    // ✅ SORT SESSIONS BY DATE PROPERLY
+sessions.sort((a, b) => {
+  const dateA = new Date(`${a.session_date}T${a.session_time}`);
+  const dateB = new Date(`${b.session_date}T${b.session_time}`);
+  return dateA - dateB;
+});
     sessBody.innerHTML = sessions.length ? sessions.map(s => `
       <tr>
         <td>${s.session_number}</td>
@@ -2378,49 +2384,44 @@ window.deleteBatchSession = async function(sessionId, sessionDate) {
     alert('❌ Network error');
   }
 }
-window.generateBatchBulkSchedule = function() {
-  const startDateStr = document.getElementById('batchBulkScheduleStartDate').value;
-  const time = document.getElementById('batchBulkScheduleTime').value;
-  const weeks = parseInt(document.getElementById('batchBulkScheduleWeeks').value);
-  const checkedBoxes = document.querySelectorAll('input[name="batchBulkDay"]:checked');
-  
-  if(!startDateStr || !time || weeks < 1 || checkedBoxes.length === 0) {
-    return alert('Please fill all bulk schedule fields');
-  }
+// Collect all dates first
+const allDates = [];
 
-  const startDate = new Date(startDateStr);
-  const selectedDays = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
-  
-  // Clear existing rows
-  document.getElementById('batchClassScheduleList').innerHTML = '';
-  
-  // Generate sessions
-  for(let w=0; w<weeks; w++) {
-    selectedDays.forEach(day => {
-      const currentDate = new Date(startDate);
-      const dayOfWeek = currentDate.getDay();
-      
-      let diff = day - dayOfWeek;
-      if (diff < 0) diff += 7;
-      
-      currentDate.setDate(startDate.getDate() + (w * 7) + diff);
-      const dateStr = currentDate.toISOString().split('T')[0];
-      
-      // Add Row
-      const row = document.createElement('div');
-      row.className = 'schedule-row';
-      row.innerHTML = `
-        <input type="date" value="${dateStr}" readonly style="background:#e9ecef">
-        <input type="time" value="${time}">
-        <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
-      `;
-      document.getElementById('batchClassScheduleList').appendChild(row);
+for(let w=0; w<weeks; w++) {
+  selectedDays.forEach(day => {
+    const currentDate = new Date(startDate);
+    const dayOfWeek = currentDate.getDay();
+    let diff = day - dayOfWeek;
+    if (diff < 0) diff += 7;
+    currentDate.setDate(startDate.getDate() + (w * 7) + diff);
+    
+    allDates.push({
+      date: currentDate.toISOString().split('T')[0],
+      time: time,
+      dateObj: new Date(currentDate)
     });
-  }
+  });
+}
+
+// ✅ SORT BY DATE
+allDates.sort((a, b) => a.dateObj - b.dateObj);
+
+// Clear and add in order
+document.getElementById('batchClassScheduleList').innerHTML = '';
+allDates.forEach(session => {
+  const row = document.createElement('div');
+  row.className = 'schedule-row';
+  row.innerHTML = `
+    <input type="date" value="${session.date}" readonly style="background:#e9ecef">
+    <input type="time" value="${session.time}">
+    <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
+  `;
+  document.getElementById('batchClassScheduleList').appendChild(row);
+});
   
   closeBatchBulkSchedule();
   alert(`✅ Generated ${selectedDays.length * weeks} sessions`);
-}
+
 
 window.showBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'block'; }
 window.hideBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'none'; }
