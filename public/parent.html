@@ -614,7 +614,9 @@
    
 
 
-// Replace your loadUpcomingSessions() function with this (around line 1129)
+// COMPLETE FIXED loadUpcomingSessions() function
+// Replace the entire function in parent.html
+
 async function loadUpcomingSessions() {
   try {
     console.log('🔍 Loading sessions for student:', currentStudent.id);
@@ -622,8 +624,8 @@ async function loadUpcomingSessions() {
     
     // Get BOTH private and batch sessions
     const [privateRes, batchRes] = await Promise.all([
-      fetch(`/api/sessions/${currentStudent.id}`),
-      fetch(`/api/students/${currentStudent.id}/batch-sessions`)
+      fetch('/api/sessions/' + currentStudent.id),
+      fetch('/api/students/' + currentStudent.id + '/batch-sessions')
     ]);
     
     const privateSessions = await privateRes.json();
@@ -635,32 +637,45 @@ async function loadUpcomingSessions() {
     // Filter upcoming sessions
     const today = new Date().toISOString().split('T')[0];
     
-    // Process private sessions with timezone conversion
+    // Process private sessions
     const privateUpcoming = privateSessions
-      .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
-      .map(s => {
-        console.log('  → Private session #' + s.session_number + ': ' + s.session_date + ' ' + s.session_time);
+      .filter(function(s) {
+        return s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled');
+      })
+      .map(function(s) {
         return {
-          ...s,
+          id: s.id,
+          session_number: s.session_number,
+          session_date: s.session_date,
+          session_time: s.session_time,
+          status: s.status,
           type: 'Private',
           duration: currentStudent.duration,
           zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
         };
       });
     
-    // Process batch sessions with timezone conversion
+    // Process batch sessions
     const batchUpcoming = batchSessions
-      .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
-      .map(s => {
-        console.log('  → Batch session #' + s.session_number + ': ' + s.session_date + ' ' + s.session_time + ' (' + s.batch_name + ')');
+      .filter(function(s) {
+        return s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled');
+      })
+      .map(function(s) {
         return {
-          ...s,
-          type: 'Batch'
+          id: s.id,
+          session_number: s.session_number,
+          session_date: s.session_date,
+          session_time: s.session_time,
+          status: s.status,
+          type: 'Batch',
+          batch_name: s.batch_name,
+          duration: s.duration,
+          zoom_link: s.zoom_link
         };
       });
     
     // Combine all sessions
-    const allSessions = [...privateUpcoming, ...batchUpcoming].sort((a, b) => {
+    const allSessions = privateUpcoming.concat(batchUpcoming).sort(function(a, b) {
       const dateA = new Date(a.session_date + 'T' + a.session_time);
       const dateB = new Date(b.session_date + 'T' + b.session_time);
       return dateA - dateB;
@@ -681,41 +696,72 @@ async function loadUpcomingSessions() {
     }
     
     // Render sessions with PROPER timezone conversion
-    tbody.innerHTML = allSessions.map(s => {
+    var rows = [];
+    
+    for (var i = 0; i < allSessions.length; i++) {
+      var s = allSessions[i];
+      
       try {
-        // CRITICAL FIX: Always interpret stored time as IST (UTC+5:30)
-        const istDateTime = s.session_date + 'T' + s.session_time + '+05:30';
-        const sessionDate = new Date(istDateTime);
+        // CRITICAL: Validate data first
+        if (!s.session_date || !s.session_time) {
+          console.error('❌ Missing date/time:', s);
+          continue;
+        }
         
-        console.log('    Converting: ' + istDateTime + ' → ', sessionDate);
+        // Clean the time string (remove microseconds if present)
+        var cleanTime = s.session_time;
+        if (cleanTime.includes('.')) {
+          cleanTime = cleanTime.split('.')[0];
+        }
+        
+        // Ensure time is in HH:MM:SS format
+        var timeParts = cleanTime.split(':');
+        if (timeParts.length === 2) {
+          cleanTime = cleanTime + ':00'; // Add seconds if missing
+        }
+        
+        console.log('Processing session:', s.session_number, s.session_date, cleanTime);
+        
+        // Create ISO string with IST timezone
+        var istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
+        console.log('  ISO string:', istDateTime);
+        
+        var sessionDate = new Date(istDateTime);
+        console.log('  Date object:', sessionDate);
+        
+        // Check if date is valid
+        if (isNaN(sessionDate.getTime())) {
+          console.error('❌ Invalid date created from:', istDateTime);
+          throw new Error('Invalid date');
+        }
         
         // Convert to student's timezone
-        const displayTime = sessionDate.toLocaleTimeString('en-US', {
+        var displayTime = sessionDate.toLocaleTimeString('en-US', {
           timeZone: currentStudent.timezone,
           hour12: true,
           hour: '2-digit',
           minute: '2-digit'
         });
 
-        const formattedDate = sessionDate.toLocaleDateString('en-US', {
+        var formattedDate = sessionDate.toLocaleDateString('en-US', {
           timeZone: currentStudent.timezone,
           month: 'short', 
           day: 'numeric', 
           year: 'numeric'
         });
         
-        const tzAbbr = currentStudent.timezone.split('/')[1] || currentStudent.timezone;
+        var tzParts = currentStudent.timezone.split('/');
+        var tzAbbr = tzParts[tzParts.length - 1];
 
         // Session type badge
-        const typeLabel = s.type === 'Batch' 
-          ? '<span style="background:#4299e1; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>' 
-          : '';
+        var typeLabel = '';
+        if (s.type === 'Batch') {
+          typeLabel = '<span style="background:#4299e1; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>';
+        }
 
-        const sessionName = s.type === 'Batch' 
-          ? (s.batch_name || 'Group Class') 
-          : 'Private Class';
+        var sessionName = s.type === 'Batch' ? (s.batch_name || 'Group Class') : 'Private Class';
 
-        return '<tr>' +
+        var row = '<tr>' +
           '<td><strong>#' + s.session_number + '</strong>' + typeLabel + '<br><small style="color:#718096;">' + sessionName + '</small></td>' +
           '<td>' + formattedDate + '</td>' +
           '<td><strong>' + displayTime + '</strong><br><small style="color:#718096;">(' + tzAbbr + ')</small></td>' +
@@ -723,26 +769,33 @@ async function loadUpcomingSessions() {
           '<td><a href="' + s.zoom_link + '" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>' +
         '</tr>';
         
+        rows.push(row);
+        
       } catch (err) {
-        console.error('❌ Timezone conversion error:', err, s);
-        // Fallback to raw data
-        return '<tr>' +
+        console.error('❌ Error processing session:', err, s);
+        
+        // Fallback row with raw data
+        var fallbackRow = '<tr>' +
           '<td>#' + s.session_number + '</td>' +
           '<td>' + s.session_date + '</td>' +
-          '<td>' + s.session_time + ' ⚠️</td>' +
-          '<td>' + s.duration + '</td>' +
+          '<td>' + (s.session_time || 'N/A') + ' <span style="color:red;">⚠️</span></td>' +
+          '<td>' + (s.duration || 'N/A') + '</td>' +
           '<td><a href="' + (s.zoom_link || '#') + '" target="_blank">Join</a></td>' +
         '</tr>';
+        
+        rows.push(fallbackRow);
       }
-    }).join('');
+    }
+    
+    tbody.innerHTML = rows.join('');
     
   } catch(e) { 
     console.error('❌ Load upcoming sessions error:', e);
-    const tbody = document.getElementById('upcomingSessionsBody');
+    var tbody = document.getElementById('upcomingSessionsBody');
     if (tbody) {
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">' +
         '❌ Failed to load sessions<br>' +
-        '<small style="color:#718096;">Check console for details</small>' +
+        '<small style="color:#718096;">Error: ' + e.message + '</small>' +
       '</td></tr>';
     }
   }
