@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1599,33 +1600,25 @@ function initFormHandlers() {
     });
   }
 
-     // 9. Upload Material (Private & Batch - FIXED)
+  // 9. Upload Material (Private)
   const uploadMaterialForm = document.getElementById('uploadMaterialForm');
   if (uploadMaterialForm) {
     uploadMaterialForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData();
       const uploadType = document.getElementById('uploadType').value;
-      
-      // Common fields
       formData.append('file', document.getElementById('materialFile').files[0]);
-      formData.append('materialSessionDate', document.getElementById('materialSessionDate').value);
+      formData.append('sessionDate', document.getElementById('materialSessionDate').value);
       formData.append('fileType', document.getElementById('materialType').value);
       formData.append('uploadType', uploadType);
 
       let url = '';
-      
       if (uploadType === 'private') {
         const studentId = document.getElementById('privateStudentId').value;
         if(!studentId) return alert('Select a student');
         url = `/api/upload/material/${studentId}`;
-      } else if (uploadType === 'batch') {
-        const batchId = document.getElementById('batchSelect').value;
-        if(!batchId) return alert('Select a batch');
-        // CRITICAL FIX: Route to batch endpoint
-        url = `/api/upload/batch-material/${batchId}`;
       } else {
-        return alert('Please select an upload type');
+        return alert('Batch uploads must use batch material route');
       }
 
       try {
@@ -1634,15 +1627,8 @@ function initFormHandlers() {
           alert('✅ Material Uploaded');
           uploadMaterialForm.reset();
           loadMaterialsTab();
-          // If it was a batch upload, refresh that specific batch's materials
-          if(uploadType === 'batch' && currentBatchId) {
-            loadBatchMaterials(currentBatchId);
-          }
-        } else { 
-          const err = await res.json();
-          alert('❌ Failed: ' + (err.error || 'Unknown error')); 
-        }
-      } catch (err) { alert('❌ Network Error'); }
+        } else { alert('❌ Failed'); }
+      } catch (err) { alert('❌ Error'); }
     });
   }
   
@@ -1829,18 +1815,16 @@ async function loadEmailLog() {
 }
 
 // --- STUDENT DETAILS & PAYMENTS (FIXED) ---
-// In admin.html - Replace window.viewStudentDetails function
 window.viewStudentDetails = async function(studentId) {
   currentStudentId = studentId;
   try {
-    // 1. Fetch Basic Details (includes payments and makeup, but NOT sessions)
     const response = await fetch(`/api/students/${studentId}/details`);
     const data = await response.json();
     const student = data.student;
     
     document.getElementById('modalStudentName').textContent = student.name;
     
-    // 2. Render Info Tab
+    // Info Tab
     document.getElementById('studentInfoContent').innerHTML = `
       <div class="info-grid">
         <div class="info-card">
@@ -1866,7 +1850,7 @@ window.viewStudentDetails = async function(studentId) {
       </div>
     `;
     
-    // 3. Render Payment History
+    // Fix: Render Payment History
     const payments = data.paymentHistory || [];
     const payBody = document.getElementById('paymentHistoryBody');
     if(payments.length === 0) {
@@ -1883,12 +1867,9 @@ window.viewStudentDetails = async function(studentId) {
         </tr>
       `).join('');
     }
-
-    // 4. FIX: Fetch Sessions Separately
-    const sessRes = await fetch(`/api/sessions/${studentId}`);
-    const sessions = await sessRes.json();
     
-    // 5. Render Sessions Table
+    // Fix: Render Sessions with Resources
+    const sessions = data.sessions || [];
     const sessBody = document.getElementById('adminStudentSessionsBody');
     
     if(sessions.length === 0) {
@@ -1898,7 +1879,7 @@ window.viewStudentDetails = async function(studentId) {
         <tr>
           <td><strong>#${s.session_number}</strong></td>
           <td>${s.session_date}</td>
-          <td>${s.session_time.substring(0,5)}</td>
+          <td>${s.session_time}</td>
           <td>${s.attendance || '-'}</td>
           <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-view">📥 PPT</a>` : '-'}</td>
           <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-view">🎥 Rec</a>` : '-'}</td>
@@ -2163,17 +2144,8 @@ async function loadEvents() {
     const response = await fetch('/api/events');
     allEvents = await response.json();
     renderEvents();
-    populateBatchDropdowns(); // Keep this for batch dropdowns
-  } catch (error) { 
-    console.error('Error loading events:', error);
-    const tbody = document.getElementById('eventsTableBody');
-    if(tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">Failed to load events</td></tr>';
-  }
-}
-
-// Make sure loadEvents is called on tab switch
-async function loadEventsTab() {
-  await loadEvents();
+    populateBatchDropdowns();
+  } catch (error) { console.error('Error:', error); }
 }
 
 function renderEvents() {
@@ -2185,10 +2157,9 @@ function renderEvents() {
       <td>${ev.event_date} ${ev.event_time}</td>
       <td>${ev.registered_count || 0}</td>
       <td>${ev.max_participants || 'Unlimited'}</td>
-      <td><span style="color:${ev.event_status==='Completed'?'green':'orange'}">${ev.event_status}</span></td>
+      <td>${ev.event_status}</td>
       <td>
-        <button onclick="viewEventDetails(${ev.id})" class="btn-view">Details</button>
-        <button onclick="deleteEvent(${ev.id})" class="btn-mini-delete">Delete</button>
+        <button onclick="alert('Details not implemented in this view')" class="btn-view">Details</button>
       </td>
     </tr>
   `).join('');
@@ -2265,29 +2236,11 @@ window.viewBatchDetails = async function(batchId) {
     const students = data.enrollments || [];
     sBody.innerHTML = students.length ? students.map(s => `<tr><td>${s.name}</td><td>${s.grade}</td><td>${s.parent_name}</td><td>${s.parent_email}</td><td>${s.timezone}</td><td>${new Date(s.enrollment_date).toLocaleDateString()}</td><td>Active</td><td><button onclick="removeStudentFromBatch(${s.student_id})" class="btn-mini-delete">Remove</button></td></tr>`).join('') : '<tr><td colspan="7" style="text-align:center">No students</td></tr>';
     
-    // Sessions (FIXED - Added delete button)
+    // Sessions
     const sessBody = document.getElementById('batchSessionsBody');
     const sessions = data.sessions || [];
-    // ✅ SORT SESSIONS BY DATE PROPERLY
-sessions.sort((a, b) => {
-  const dateA = new Date(`${a.session_date}T${a.session_time}`);
-  const dateB = new Date(`${b.session_date}T${b.session_time}`);
-  return dateA - dateB;
-});
-    sessBody.innerHTML = sessions.length ? sessions.map(s => `
-      <tr>
-        <td>${s.session_number}</td>
-        <td>${s.session_date}</td>
-        <td>${s.session_time}</td>
-        <td><span style="color:${s.status==='Completed'?'green':s.status.includes('Cancelled')?'red':'orange'}">${s.status}</span></td>
-        <td>
-          ${s.status === 'Pending' || s.status === 'Scheduled' ? 
-            `<button onclick="deleteBatchSession(${s.id}, '${s.session_date}')" class="btn-mini-delete">Delete</button>` 
-            : 
-            '<span style="color:#7f8c8d;">Completed</span>'}
-        </td>
-      </tr>
-    `).join('') : '<tr><td colspan="5" style="text-align:center">No sessions</td></tr>';
+    sessBody.innerHTML = sessions.length ? sessions.map(s => `<tr><td>${s.session_number}</td><td>${s.session_date}</td><td>${s.session_time}</td><td>${s.status}</td><td>-</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center">No sessions</td></tr>';
+    
     document.getElementById('batchDetailsModal').style.display = 'flex';
   } catch (err) { alert('Failed to load batch'); }
 }
@@ -2362,66 +2315,50 @@ window.closeBatchBulkSchedule = function() {
   const bulkUI = document.getElementById('batchBulkScheduleUI');
   if(bulkUI) bulkUI.remove();
 }
-// Delete batch session
-window.deleteBatchSession = async function(sessionId, sessionDate) {
-  if(!confirm(`Delete batch session on ${sessionDate}?\n\nThis cannot be undone.`)) return;
+
+window.generateBatchBulkSchedule = function() {
+  const startDateStr = document.getElementById('batchBulkScheduleStartDate').value;
+  const time = document.getElementById('batchBulkScheduleTime').value;
+  const weeks = parseInt(document.getElementById('batchBulkScheduleWeeks').value);
+  const checkedBoxes = document.querySelectorAll('input[name="batchBulkDay"]:checked');
   
-  try {
-    const res = await fetch(`/api/batches/sessions/${sessionId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await res.json();
-    
-    if(res.ok) {
-      alert('✅ ' + result.message);
-      viewBatchDetails(currentBatchId); // Refresh modal
-    } else {
-      alert('❌ ' + (result.error || 'Failed to delete'));
-    }
-  } catch(err) {
-    console.error('Delete error:', err);
-    alert('❌ Network error');
+  if(!startDateStr || !time || weeks < 1 || checkedBoxes.length === 0) {
+    return alert('Please fill all bulk schedule fields');
   }
-}
-// Collect all dates first
-const allDates = [];
 
-for(let w=0; w<weeks; w++) {
-  selectedDays.forEach(day => {
-    const currentDate = new Date(startDate);
-    const dayOfWeek = currentDate.getDay();
-    let diff = day - dayOfWeek;
-    if (diff < 0) diff += 7;
-    currentDate.setDate(startDate.getDate() + (w * 7) + diff);
-    
-    allDates.push({
-      date: currentDate.toISOString().split('T')[0],
-      time: time,
-      dateObj: new Date(currentDate)
+  const startDate = new Date(startDateStr);
+  const selectedDays = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+  
+  // Clear existing rows
+  document.getElementById('batchClassScheduleList').innerHTML = '';
+  
+  // Generate sessions
+  for(let w=0; w<weeks; w++) {
+    selectedDays.forEach(day => {
+      const currentDate = new Date(startDate);
+      const dayOfWeek = currentDate.getDay();
+      
+      let diff = day - dayOfWeek;
+      if (diff < 0) diff += 7;
+      
+      currentDate.setDate(startDate.getDate() + (w * 7) + diff);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      // Add Row
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      row.innerHTML = `
+        <input type="date" value="${dateStr}" readonly style="background:#e9ecef">
+        <input type="time" value="${time}">
+        <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
+      `;
+      document.getElementById('batchClassScheduleList').appendChild(row);
     });
-  });
-}
-
-// ✅ SORT BY DATE
-allDates.sort((a, b) => a.dateObj - b.dateObj);
-
-// Clear and add in order
-document.getElementById('batchClassScheduleList').innerHTML = '';
-allDates.forEach(session => {
-  const row = document.createElement('div');
-  row.className = 'schedule-row';
-  row.innerHTML = `
-    <input type="date" value="${session.date}" readonly style="background:#e9ecef">
-    <input type="time" value="${session.time}">
-    <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
-  `;
-  document.getElementById('batchClassScheduleList').appendChild(row);
-});
+  }
   
   closeBatchBulkSchedule();
   alert(`✅ Generated ${selectedDays.length * weeks} sessions`);
-
+}
 
 window.showBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'block'; }
 window.hideBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'none'; }
@@ -2450,37 +2387,6 @@ async function loadBatchMaterials(batchId) {
       `</tbody></table>`;
     }
   } catch(e) { console.error(e); }
-}
-// Delete event
-window.deleteEvent = async function(eventId) {
-  if(!confirm('Delete this event?\n\nAll registrations will also be deleted.')) return;
-  
-  try {
-    const res = await fetch(`/api/events/${eventId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await res.json();
-    
-    if(res.ok) {
-      alert('✅ ' + result.message);
-      loadEvents(); // Refresh table
-      loadDashboardStats(); // Update dashboard
-    } else {
-      alert('❌ ' + (result.error || 'Failed to delete'));
-    }
-  } catch(err) {
-    console.error('Delete error:', err);
-    alert('❌ Network error');
-  }
-}
-
-// View event details (placeholder)
-window.viewEventDetails = function(eventId) {
-  const event = allEvents.find(e => e.id === eventId);
-  if(!event) return alert('Event not found');
-  
-  alert(`📋 Event: ${event.event_name}\n📅 Date: ${event.event_date}\n🕐 Time: ${event.event_time}\n👥 Registered: ${event.registered_count || 0}\n\nFull details modal coming soon!`);
 }
 
 // --- UTILS ---
@@ -2525,37 +2431,12 @@ window.deleteBatch = async function(id) {
 }
 
 window.switchToLearnerView = async function() {
-  if (!currentStudentId) {
-    return alert('⚠️ No student selected');
-  }
-  
-  const student = allStudents.find(st => st.id === currentStudentId);
-  
-  if (!student) {
-    return alert('❌ Student data not found. Please refresh and try again.');
-  }
-  
-  // Validate required fields
-  if (!student.parent_email) {
-    return alert('❌ Student has no parent email. Cannot switch to learner view.');
-  }
-  
-  try {
-    // Store student data for learner view
-    sessionStorage.setItem('adminAccessStudent', JSON.stringify(student));
-    sessionStorage.setItem('adminAccessMode', 'true');
-    sessionStorage.setItem('adminAccessEmail', student.parent_email);
-    
-    // Open in new tab
-    const learnerWindow = window.open('parent.html', '_blank');
-    
-    if (!learnerWindow) {
-      alert('⚠️ Pop-up blocked! Please allow pop-ups for this site.');
-    }
-  } catch (error) {
-    console.error('Switch to learner view error:', error);
-    alert('❌ Failed to switch to learner view: ' + error.message);
-  }
+  if (!currentStudentId) return alert('No student selected');
+  const s = allStudents.find(st => st.id === currentStudentId);
+  sessionStorage.setItem('adminAccessStudent', JSON.stringify(s));
+  sessionStorage.setItem('adminAccessMode', 'true');
+  sessionStorage.setItem('adminAccessEmail', 'admin@fluentfeathers.com');
+  window.open('parent.html', '_blank');
 }
 
 window.toggleUploadTarget = function() {
@@ -2608,18 +2489,6 @@ document.getElementById('feedbackForm').addEventListener('submit', async (e) => 
     } else { alert('Failed'); }
   } catch(err) { alert('Error'); }
 });
-// Helper: Get material icon by type
-function getMaterialIcon(fileType) {
-  const icons = {
-    'PPT': '📊',
-    'PDF': '📄',
-    'Recording': '🎥',
-    'Homework': '📝',
-    'Notes': '📓',
-    'Other': '📁'
-  };
-  return icons[fileType] || '📁';
-}
   </script>
 </body>
 </html>
