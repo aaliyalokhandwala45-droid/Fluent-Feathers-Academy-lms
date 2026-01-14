@@ -146,9 +146,13 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.get('/', (req, res) => {
+app.get('*', (req, res) => {
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.status(404).json([]);
+  }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 
 app.get('/uploads/homework/:filename', (req, res) => {
   const filePath = path.join(__dirname, 'uploads', 'homework', req.params.filename);
@@ -2232,6 +2236,33 @@ app.get('/api/sessions/completed/:studentId', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+// ✅ PARENT PORTAL – GET ALL SESSIONS (PRIVATE + GROUP)
+app.get('/api/sessions/:studentId', async (req, res) => {
+  try {
+    const studentId = req.params.studentId;
+
+    const result = await pool.query(
+      `
+      SELECT
+        s.id,
+        s.session_number,
+        s.session_date,
+        s.session_time,
+        s.duration,
+        s.status
+      FROM sessions s
+      WHERE s.student_id = $1
+      ORDER BY s.session_number ASC
+      `,
+      [studentId]
+    );
+
+    res.json(result.rows || []);
+  } catch (err) {
+    console.error('❌ Parent sessions error:', err);
+    res.json([]); // NEVER return HTML
   }
 });
 
