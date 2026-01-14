@@ -2016,14 +2016,39 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
   }
 });
 
-// Delete batch session
+// Delete batch session (ENHANCED with validation)
 app.delete('/api/batches/sessions/:sessionId', async (req, res) => {
   const sessionId = req.params.sessionId;
   
   try {
+    // Check if session exists
+    const checkResult = await pool.query(
+      'SELECT * FROM batch_sessions WHERE id = $1',
+      [sessionId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    const session = checkResult.rows[0];
+    
+    // Don't allow deleting completed sessions
+    if (session.status === 'Completed') {
+      return res.status(400).json({ 
+        error: 'Cannot delete completed sessions. They are part of student records.' 
+      });
+    }
+    
+    // Delete the session
     await pool.query('DELETE FROM batch_sessions WHERE id = $1', [sessionId]);
-    res.json({ success: true, message: 'Batch session deleted successfully' });
+    
+    res.json({ 
+      success: true, 
+      message: 'Batch session deleted successfully' 
+    });
   } catch (err) {
+    console.error('Delete batch session error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -2499,6 +2524,29 @@ app.post('/api/events/:eventId/complete', async (req, res) => {
   }
 });
 
+// Delete event
+app.delete('/api/events/:id', async (req, res) => {
+  try {
+    // Check if event exists
+    const checkResult = await pool.query(
+      'SELECT * FROM events WHERE id = $1',
+      [req.params.id]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    // Delete event (CASCADE will delete registrations)
+    await pool.query('DELETE FROM events WHERE id = $1', [req.params.id]);
+    
+    res.json({ success: true, message: 'Event deleted successfully' });
+  } catch (err) {
+    console.error('Delete event error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Timetable endpoints
 app.get('/api/timetable/slots', async (req, res) => {
   try {
@@ -2834,7 +2882,7 @@ app.delete('/api/batches/:batchId/students/:studentId', async (req, res) => {
   }
 });
 
-// Schedule batch sessions
+// Schedule batch sessions (FIXED - Proper timezone handling)
 app.post('/api/batches/:batchId/schedule', async (req, res) => {
   const { batchId } = req.params;
   const { sessions } = req.body;
@@ -2860,7 +2908,7 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
 
     let sessionNumber = parseInt(countResult.rows[0].count) + 1;
 
-    // Insert sessions
+    // Insert sessions - store times AS-IS (admin's timezone - usually IST)
     for (const session of sessions) {
       await pool.query(
         `INSERT INTO batch_sessions (
@@ -2881,24 +2929,55 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
     );
 
     for (const student of enrollmentsResult.rows) {
+      // Convert each session time to student's timezone for email
+      const scheduleRows = sessions.map((s, i) => {
+        // Create datetime assuming batch timezone (stored in database)
+        const dateTimeString = `${s.date}T${s.time}`;
+        const sessionDateTime = new Date(dateTimeString);
+        
+        // Convert to student's timezone
+        const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
+          timeZone: student.timezone,
+          hour12: true,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        const studentDate = sessionDateTime.toLocaleDateString('en-US', {
+          timeZone: student.timezone,
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
+        return `
+          <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
+            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${studentDate}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${studentTime}</td>
+          </tr>
+        `;
+      }).join('');
+
       const scheduleEmail = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #667eea;">📅 ${batch.batch_name} - Class Schedule</h2>
           <p>Dear ${student.parent_name},</p>
           <p>${sessions.length} new classes scheduled for ${student.name}:</p>
+          
+          <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
+            <p style="margin: 0; color: #0c5460;">
+              <strong>ℹ️ Timezone Info:</strong> All times shown are in YOUR timezone (${student.timezone})
+            </p>
+          </div>
+          
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr style="background: #667eea; color: white;">
               <th style="padding: 10px; border: 1px solid #ddd;">Session</th>
               <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
               <th style="padding: 10px; border: 1px solid #ddd;">Time (${student.timezone})</th>
             </tr>
-            ${sessions.map((s, i) => `
-              <tr>
-                <td style="padding: 10px; border: 1px solid #ddd;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${s.date}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">${s.time}</td>
-              </tr>
-            `).join('')}
+            ${scheduleRows}
           </table>
           <p><a href="${batch.zoom_link}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Join Class</a></p>
         </div>
@@ -2919,19 +2998,30 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
   }
 });
 
-// Mark batch session attendance
+// Mark batch session attendance (COMPLETE IMPLEMENTATION)
 app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
   const { sessionId } = req.params;
-  const { attendanceData } = req.body;
+  const { attendanceData } = req.body; // Array of {student_id, attendance, notes}
 
   try {
+    // Verify session exists
+    const sessionCheck = await pool.query(
+      'SELECT * FROM batch_sessions WHERE id = $1',
+      [sessionId]
+    );
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Mark attendance for each student
     for (const record of attendanceData) {
       await pool.query(
         `INSERT INTO batch_attendance (batch_session_id, student_id, attendance, notes)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (batch_session_id, student_id) 
-         DO UPDATE SET attendance = $3, notes = $4`,
-        [sessionId, record.student_id, record.attendance, record.notes]
+         DO UPDATE SET attendance = $3, notes = $4, marked_at = CURRENT_TIMESTAMP`,
+        [sessionId, record.student_id, record.attendance, record.notes || null]
       );
 
       // Update student's completed sessions if present
@@ -2939,26 +3029,30 @@ app.post('/api/batches/sessions/:sessionId/attendance', async (req, res) => {
         await pool.query(
           `UPDATE students SET 
             completed_sessions = completed_sessions + 1,
-            remaining_sessions = remaining_sessions - 1
+            remaining_sessions = GREATEST(remaining_sessions - 1, 0)
            WHERE id = $1`,
           [record.student_id]
         );
       }
     }
 
-    // Update session status
+    // Update session status to completed
     await pool.query(
       `UPDATE batch_sessions SET status = 'Completed' WHERE id = $1`,
       [sessionId]
     );
 
-    res.json({ message: 'Attendance marked successfully!' });
+    res.json({ 
+      success: true,
+      message: 'Attendance marked successfully!' 
+    });
   } catch (err) {
+    console.error('Batch attendance error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Upload batch material
+// Upload batch material (FIXED - proper file path)
 app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (req, res) => {
   const { batchId } = req.params;
   const { fileType, sessionDate } = req.body;
@@ -2978,7 +3072,7 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
 
     const batch = batchResult.rows[0];
 
-    // Insert material
+    // Insert material with correct file path (just filename, not full path)
     await pool.query(
       `INSERT INTO materials (batch_name, session_date, file_type, file_name, file_path, uploaded_by)
        VALUES ($1, $2, $3, $4, $5, 'Teacher')`,
@@ -3020,6 +3114,42 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
     res.status(500).json({ error: err.message });
   }
 });
+// ==================== BATCH SESSIONS FOR PARENT PORTAL ====================
+
+// Get student's batch sessions for parent portal
+app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
+  try {
+    const studentId = req.params.studentId;
+    
+    // Get all batches this student is enrolled in
+    const enrollments = await pool.query(
+      `SELECT batch_id FROM batch_enrollments 
+       WHERE student_id = $1 AND status = 'Active'`,
+      [studentId]
+    );
+    
+    if (enrollments.rows.length === 0) {
+      return res.json([]);
+    }
+    
+    const batchIds = enrollments.rows.map(e => e.batch_id);
+    
+    // Get all sessions for these batches
+    const sessions = await pool.query(
+      `SELECT bs.*, b.batch_name, b.zoom_link, b.duration
+       FROM batch_sessions bs
+       JOIN batches b ON bs.batch_id = b.id
+       WHERE bs.batch_id = ANY($1)
+       ORDER BY bs.session_date ASC, bs.session_time ASC`,
+      [batchIds]
+    );
+    
+    res.json(sessions.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== EXISTING CODE CONTINUES ====================
 
 // ==================== NEW FEEDBACK API ROUTES ====================

@@ -651,16 +651,43 @@
 
     // ==================== DATA LOADERS ====================
     
-    // 1. Upcoming Sessions (TIMEZONE FIXED)
-// 1. Upcoming Sessions (TIMEZONE FIXED)
+    // 1. Upcoming Sessions - INCLUDING BATCH SESSIONS (TIMEZONE FIXED)
 async function loadUpcomingSessions() {
   try {
-    const res = await fetch(`/api/sessions/${currentStudent.id}`);
-    const allSessions = await res.json();
+    // Get BOTH private AND batch sessions
+    const privateRes = await fetch(`/api/sessions/${currentStudent.id}`);
+    const privateSessions = await privateRes.json();
     
-    // Filter Client Side (for safety)
+    const batchRes = await fetch(`/api/students/${currentStudent.id}/batch-sessions`);
+    const batchSessions = await batchRes.json();
+    
+    // Merge both types
+    const allSessions = [
+      ...privateSessions.map(s => ({
+        ...s, 
+        type: 'Private',
+        duration: currentStudent.duration,
+        zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
+      })),
+      ...batchSessions.map(s => ({
+        ...s, 
+        type: 'Batch',
+        session_number: s.session_number,
+        session_date: s.session_date,
+        session_time: s.session_time,
+        status: s.status
+      }))
+    ];
+    
+    // Filter and sort
     const today = new Date().toISOString().split('T')[0];
-    const upcoming = allSessions.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
+    const upcoming = allSessions
+      .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
+      .sort((a, b) => {
+        const dateCompare = new Date(a.session_date) - new Date(b.session_date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.session_time.localeCompare(b.session_time);
+      });
     
     const tbody = document.getElementById('upcomingSessionsBody');
     if(upcoming.length === 0) {
@@ -668,12 +695,12 @@ async function loadUpcomingSessions() {
     } else {
       tbody.innerHTML = upcoming.map(s => {
         try {
-          // FIX: Parse session_time correctly (HH:MM:SS format from database)
+          // Parse session_time correctly
           const [hours, minutes] = s.session_time.split(':');
           
           // Create date in UTC, treating the stored time as IST
           const sessionDate = new Date(s.session_date);
-          sessionDate.setUTCHours(parseInt(hours) - 5, parseInt(minutes) - 30, 0, 0); // Subtract IST offset to get UTC
+          sessionDate.setUTCHours(parseInt(hours) - 5, parseInt(minutes) - 30, 0, 0);
           
           const formattedTime = sessionDate.toLocaleTimeString('en-US', {
             timeZone: currentStudent.timezone,
@@ -689,12 +716,17 @@ async function loadUpcomingSessions() {
             year: 'numeric'
           });
 
+          // Add badge for batch sessions
+          const typeLabel = s.type === 'Batch' 
+            ? `<span style="background:#4299e1;color:white;padding:2px 8px;border-radius:12px;font-size:0.7rem;margin-left:5px;">GROUP</span>` 
+            : '';
+
           return `
             <tr>
-              <td><strong>#${s.session_number}</strong></td>
+              <td><strong>#${s.session_number}</strong>${typeLabel}</td>
               <td>${formattedDate}</td>
               <td>${formattedTime} <small style="color:#718096;">(${currentStudent.timezone.split('/')[1]})</small></td>
-              <td>${currentStudent.duration}</td>
+              <td>${s.duration}</td>
               <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
             </tr>
           `;
@@ -705,33 +737,50 @@ async function loadUpcomingSessions() {
               <td><strong>#${s.session_number}</strong></td>
               <td>${s.session_date}</td>
               <td>${s.session_time}</td>
-              <td>${currentStudent.duration}</td>
-              <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
+              <td>${s.duration || currentStudent.duration}</td>
+              <td><a href="${s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
             </tr>
           `;
         }
       }).join('');
     }
-  } catch(e) { console.error(e); }
+  } catch(e) { 
+    console.error('Load upcoming sessions error:', e); 
+    const tbody = document.getElementById('upcomingSessionsBody');
+    if(tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Failed to load sessions</td></tr>';
+  }
 }
 
-   // 2. Past Sessions (FIXED: TIMEZONE & TABLE)
+   // 2. Past Sessions - INCLUDING BATCH (FIXED: TIMEZONE & TABLE)
 async function loadPastSessions() {
   try {
-    const res = await fetch(`/api/sessions/${currentStudent.id}`);
-    const allSessions = await res.json();
-    const past = allSessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
+    // Get both private and batch sessions
+    const privateRes = await fetch(`/api/sessions/${currentStudent.id}`);
+    const privateSessions = await privateRes.json();
+    
+    const batchRes = await fetch(`/api/students/${currentStudent.id}/batch-sessions`);
+    const batchSessions = await batchRes.json();
+    
+    // Merge and filter completed
+    const allSessions = [
+      ...privateSessions.map(s => ({...s, type: 'Private'})),
+      ...batchSessions.map(s => ({...s, type: 'Batch'}))
+    ];
+    
+    const past = allSessions
+      .filter(s => s.status === 'Completed' || s.status === 'Missed')
+      .sort((a, b) => new Date(b.session_date) - new Date(a.session_date)); // Most recent first
     
     const tbody = document.getElementById('pastSessionsBody');
     
     if(past.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
       return;
     }
 
     tbody.innerHTML = past.map(s => {
       try {
-        // FIX: Parse session_time correctly
+        // Parse session_time correctly
         const [hours, minutes] = s.session_time.split(':');
         
         // Create date in UTC, treating stored time as IST
@@ -750,12 +799,17 @@ async function loadPastSessions() {
           month: 'short', day: 'numeric', year: 'numeric'
         });
 
+        // Add GROUP badge for batch sessions
+        const typeLabel = s.type === 'Batch' 
+          ? `<span style="background:#4299e1;color:white;padding:2px 6px;border-radius:10px;font-size:0.65rem;margin-left:5px;">GROUP</span>` 
+          : '';
+
         return `
           <tr>
-            <td><strong>#${s.session_number}</strong></td>
+            <td><strong>#${s.session_number}</strong>${typeLabel}</td>
             <td>${formattedDate}</td>
             <td>${formattedTime}</td>
-            <td><span class="status-${s.status.toLowerCase()}">${s.attendance || s.status}</span></td>
+            <td><span class="status-${s.status.toLowerCase().replace(/ /g, '-')}">${s.attendance || s.status}</span></td>
             <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
             <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
             <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
@@ -769,7 +823,7 @@ async function loadPastSessions() {
             <td><strong>#${s.session_number}</strong></td>
             <td>${s.session_date}</td>
             <td>${s.session_time}</td>
-            <td><span class="status-${s.status.toLowerCase()}">${s.attendance || s.status}</span></td>
+            <td><span class="status-${s.status.toLowerCase().replace(/ /g, '-')}">${s.attendance || s.status}</span></td>
             <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
             <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
             <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
@@ -778,17 +832,23 @@ async function loadPastSessions() {
         `;
       }
     }).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { 
+    console.error('Load past sessions error:', e);
+    const tbody = document.getElementById('pastSessionsBody');
+    if(tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">Failed to load past sessions</td></tr>';
+  }
 }
-
-    // 3. Materials
+   // 3. Materials - INCLUDING BATCH MATERIALS
     async function loadMaterials() {
       try {
         const res = await fetch(`/api/materials/${currentStudent.id}`);
         const allMats = await res.json();
         
-        // Filter for Teacher uploads
-        const teacherMats = allMats.filter(m => m.uploaded_by === 'Teacher');
+        // Filter for Teacher uploads (includes both private and batch materials)
+        const teacherMats = allMats
+          .filter(m => m.uploaded_by === 'Teacher')
+          .sort((a, b) => new Date(b.session_date) - new Date(a.session_date)); // Most recent first
+        
         const grid = document.getElementById('materialsGrid');
         
         if(teacherMats.length === 0) {
@@ -801,9 +861,17 @@ async function loadPastSessions() {
           if(m.file_type === 'PPT') icon = '📊';
           if(m.file_type === 'PDF') icon = '📄';
           if(m.file_type === 'Recording') icon = '🎥';
+          if(m.file_type === 'Homework') icon = '📝';
+          if(m.file_type === 'Notes') icon = '📓';
+          
+          // Show if it's from batch or private
+          const sourceLabel = m.batch_name 
+            ? `<div class="material-source">📚 ${m.batch_name}</div>`
+            : `<div class="material-source">👤 Private</div>`;
           
           return `
             <div class="material-card">
+              ${sourceLabel}
               <div class="material-icon">${icon}</div>
               <div class="material-type">${m.file_type}</div>
               <div class="material-name">${m.file_name}</div>
@@ -812,7 +880,11 @@ async function loadPastSessions() {
             </div>
           `;
         }).join('');
-      } catch(e) { console.error(e); }
+      } catch(e) { 
+        console.error('Load materials error:', e);
+        const grid = document.getElementById('materialsGrid');
+        if(grid) grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color:red;">Failed to load materials</p>';
+      }
     }
 
     // 4. Events
@@ -861,9 +933,10 @@ async function loadPastSessions() {
         `).join('');
       } catch(e) { console.error(e); }
     }
-// 6. Cancel Dropdown Logic
+// 6. Cancel Dropdown Logic - PRIVATE SESSIONS ONLY (can't cancel batch)
 async function loadUpcomingClassesDropdown() {
   try {
+    // Only load PRIVATE sessions for cancellation
     const res = await fetch(`/api/sessions/${currentStudent.id}`);
     const all = await res.json();
     const today = new Date().toISOString().split('T')[0];
@@ -871,11 +944,11 @@ async function loadUpcomingClassesDropdown() {
     const select = document.getElementById('cancelClassSelect');
     
     if(upcoming.length === 0) {
-      select.innerHTML = '<option value="">No upcoming classes</option>';
+      select.innerHTML = '<option value="">No upcoming private classes to cancel</option>';
       select.disabled = true;
     } else {
       select.disabled = false;
-      select.innerHTML = '<option value="">-- Select Class --</option>' + 
+      select.innerHTML = '<option value="">-- Select Class to Cancel --</option>' + 
       upcoming.map(s => {
         try {
           // Parse time correctly
@@ -902,7 +975,14 @@ async function loadUpcomingClassesDropdown() {
         }
       }).join('');
     }
-  } catch(e) { console.error(e); }
+  } catch(e) { 
+    console.error('Load cancel dropdown error:', e);
+    const select = document.getElementById('cancelClassSelect');
+    if(select) {
+      select.innerHTML = '<option value="">Error loading classes</option>';
+      select.disabled = true;
+    }
+  }
 }
     
  

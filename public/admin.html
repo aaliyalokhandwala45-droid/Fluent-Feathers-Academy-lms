@@ -2144,8 +2144,17 @@ async function loadEvents() {
     const response = await fetch('/api/events');
     allEvents = await response.json();
     renderEvents();
-    populateBatchDropdowns();
-  } catch (error) { console.error('Error:', error); }
+    populateBatchDropdowns(); // Keep this for batch dropdowns
+  } catch (error) { 
+    console.error('Error loading events:', error);
+    const tbody = document.getElementById('eventsTableBody');
+    if(tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">Failed to load events</td></tr>';
+  }
+}
+
+// Make sure loadEvents is called on tab switch
+async function loadEventsTab() {
+  await loadEvents();
 }
 
 function renderEvents() {
@@ -2157,9 +2166,10 @@ function renderEvents() {
       <td>${ev.event_date} ${ev.event_time}</td>
       <td>${ev.registered_count || 0}</td>
       <td>${ev.max_participants || 'Unlimited'}</td>
-      <td>${ev.event_status}</td>
+      <td><span style="color:${ev.event_status==='Completed'?'green':'orange'}">${ev.event_status}</span></td>
       <td>
-        <button onclick="alert('Details not implemented in this view')" class="btn-view">Details</button>
+        <button onclick="viewEventDetails(${ev.id})" class="btn-view">Details</button>
+        <button onclick="deleteEvent(${ev.id})" class="btn-mini-delete">Delete</button>
       </td>
     </tr>
   `).join('');
@@ -2236,10 +2246,23 @@ window.viewBatchDetails = async function(batchId) {
     const students = data.enrollments || [];
     sBody.innerHTML = students.length ? students.map(s => `<tr><td>${s.name}</td><td>${s.grade}</td><td>${s.parent_name}</td><td>${s.parent_email}</td><td>${s.timezone}</td><td>${new Date(s.enrollment_date).toLocaleDateString()}</td><td>Active</td><td><button onclick="removeStudentFromBatch(${s.student_id})" class="btn-mini-delete">Remove</button></td></tr>`).join('') : '<tr><td colspan="7" style="text-align:center">No students</td></tr>';
     
-    // Sessions
+    // Sessions (FIXED - Added delete button)
     const sessBody = document.getElementById('batchSessionsBody');
     const sessions = data.sessions || [];
-    sessBody.innerHTML = sessions.length ? sessions.map(s => `<tr><td>${s.session_number}</td><td>${s.session_date}</td><td>${s.session_time}</td><td>${s.status}</td><td>-</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center">No sessions</td></tr>';
+    sessBody.innerHTML = sessions.length ? sessions.map(s => `
+      <tr>
+        <td>${s.session_number}</td>
+        <td>${s.session_date}</td>
+        <td>${s.session_time}</td>
+        <td><span style="color:${s.status==='Completed'?'green':s.status.includes('Cancelled')?'red':'orange'}">${s.status}</span></td>
+        <td>
+          ${s.status === 'Pending' || s.status === 'Scheduled' ? 
+            `<button onclick="deleteBatchSession(${s.id}, '${s.session_date}')" class="btn-mini-delete">Delete</button>` 
+            : 
+            '<span style="color:#7f8c8d;">Completed</span>'}
+        </td>
+      </tr>
+    `).join('') : '<tr><td colspan="5" style="text-align:center">No sessions</td></tr>';
     
     document.getElementById('batchDetailsModal').style.display = 'flex';
   } catch (err) { alert('Failed to load batch'); }
@@ -2315,7 +2338,28 @@ window.closeBatchBulkSchedule = function() {
   const bulkUI = document.getElementById('batchBulkScheduleUI');
   if(bulkUI) bulkUI.remove();
 }
-
+// Delete batch session
+window.deleteBatchSession = async function(sessionId, sessionDate) {
+  if(!confirm(`Delete batch session on ${sessionDate}?\n\nThis cannot be undone.`)) return;
+  
+  try {
+    const res = await fetch(`/api/batches/sessions/${sessionId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await res.json();
+    
+    if(res.ok) {
+      alert('✅ ' + result.message);
+      viewBatchDetails(currentBatchId); // Refresh modal
+    } else {
+      alert('❌ ' + (result.error || 'Failed to delete'));
+    }
+  } catch(err) {
+    console.error('Delete error:', err);
+    alert('❌ Network error');
+  }
+}
 window.generateBatchBulkSchedule = function() {
   const startDateStr = document.getElementById('batchBulkScheduleStartDate').value;
   const time = document.getElementById('batchBulkScheduleTime').value;
@@ -2388,6 +2432,38 @@ async function loadBatchMaterials(batchId) {
     }
   } catch(e) { console.error(e); }
 }
+// Delete event
+window.deleteEvent = async function(eventId) {
+  if(!confirm('Delete this event?\n\nAll registrations will also be deleted.')) return;
+  
+  try {
+    const res = await fetch(`/api/events/${eventId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await res.json();
+    
+    if(res.ok) {
+      alert('✅ ' + result.message);
+      loadEvents(); // Refresh table
+      loadDashboardStats(); // Update dashboard
+    } else {
+      alert('❌ ' + (result.error || 'Failed to delete'));
+    }
+  } catch(err) {
+    console.error('Delete error:', err);
+    alert('❌ Network error');
+  }
+}
+
+// View event details (placeholder)
+window.viewEventDetails = function(eventId) {
+  const event = allEvents.find(e => e.id === eventId);
+  if(!event) return alert('Event not found');
+  
+  alert(`📋 Event: ${event.event_name}\n📅 Date: ${event.event_date}\n🕐 Time: ${event.event_time}\n👥 Registered: ${event.registered_count || 0}\n\nFull details modal coming soon!`);
+}
+
 
 // --- UTILS ---
 function calculateTotalFees() {
