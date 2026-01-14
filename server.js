@@ -1635,8 +1635,9 @@ app.post('/api/schedule/classes', async (req, res) => {
 
     // Enhanced schedule email with timezone conversion
 const scheduleEmailRows = classes.map((cls, index) => {
-  // Create date object in IST (your admin timezone)
-  const sessionDateTime = new Date(`${cls.date}T${cls.time}`);
+  // CRITICAL FIX: Treat stored time as IST (admin's timezone)
+  const dateTimeString = `${cls.date}T${cls.time}+05:30`; // Force IST
+  const sessionDateTime = new Date(dateTimeString);
   
   // Convert to student's timezone
   const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
@@ -1653,11 +1654,16 @@ const scheduleEmailRows = classes.map((cls, index) => {
     year: 'numeric'
   });
   
+  const dayOfWeek = sessionDateTime.toLocaleDateString('en-US', {
+    timeZone: student.timezone,
+    weekday: 'short'
+  });
+  
   return `
     <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : 'white'};">
       <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + index + 1}</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">${studentDate}</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">${studentTime}</td>
+      <td style="padding: 10px; border: 1px solid #ddd;">${dayOfWeek}, ${studentDate}</td>
+      <td style="padding: 10px; border: 1px solid #ddd;"><strong>${studentTime}</strong></td>
     </tr>
   `;
 }).join('');
@@ -1670,7 +1676,9 @@ const scheduleHtml = `
     
     <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
       <p style="margin: 0; color: #0c5460;">
-        <strong>ℹ️ Timezone Info:</strong> All times shown are in YOUR timezone (${student.timezone})
+        <strong>🌍 Timezone Information:</strong><br>
+        All times shown are in <strong>YOUR timezone (${student.timezone})</strong>.<br>
+        <small>We've automatically converted from India Standard Time (IST) to your local time.</small>
       </p>
     </div>
     
@@ -1678,7 +1686,7 @@ const scheduleHtml = `
       <tr style="background: #667eea; color: white;">
         <th style="padding: 12px; border: 1px solid #ddd;">Session #</th>
         <th style="padding: 12px; border: 1px solid #ddd;">Date</th>
-        <th style="padding: 12px; border: 1px solid #ddd;">Time (${student.timezone})</th>
+        <th style="padding: 12px; border: 1px solid #ddd;">Time (${student.timezone.split('/').pop()})</th>
       </tr>
       ${scheduleEmailRows}
     </table>
@@ -1698,7 +1706,14 @@ const scheduleHtml = `
   </div>
 `;
 
-await sendEmail(student.parent_email, `📅 Class Schedule for ${student.name}`, scheduleHtml, student.parent_name, 'Schedule');
+await sendEmail(
+  student.parent_email, 
+  `📅 Class Schedule for ${student.name}`, 
+  scheduleHtml, 
+  student.parent_name, 
+  'Schedule'
+);
+
 
     res.json({ message: `${classes.length} classes scheduled successfully! Email sent to ${student.parent_email}.` });
   } catch (err) {
@@ -1931,7 +1946,7 @@ app.post('/api/sessions/:sessionId/grade-homework', async (req, res) => {
 
 // ========== AUTOMATED REMINDERS ==========
 
-// 24-hour reminder cron job
+// ==================== 24-HOUR REMINDER (FIXED TIMEZONE) ====================
 cron.schedule('0 9 * * *', async () => {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1946,44 +1961,81 @@ cron.schedule('0 9 * * *', async () => {
       [tomorrowDate]
     );
 
+    console.log(`📧 Sending 24h reminders for ${result.rows.length} sessions`);
+
     for (const session of result.rows) {
-            // Calculate time in student's timezone
-      const dbTime = session.session_date + 'T' + session.session_time + '+05:30'; // Force IST
+      // ✅ TIMEZONE FIX: Force IST and convert to student timezone
+      const dbTime = session.session_date + 'T' + session.session_time + '+05:30';
       const sessionDateObj = new Date(dbTime);
+      
       const localTime = sessionDateObj.toLocaleTimeString('en-US', {
         timeZone: session.timezone,
         hour12: true,
         hour: '2-digit',
         minute: '2-digit'
       });
+      
       const localDate = sessionDateObj.toLocaleDateString('en-US', {
         timeZone: session.timezone,
-        month: 'short', day: 'numeric', year: 'numeric'
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric'
+      });
+
+      const dayOfWeek = sessionDateObj.toLocaleDateString('en-US', {
+        timeZone: session.timezone,
+        weekday: 'long'
       });
 
       const reminderEmail = `
-        <h2>📅 Class Reminder - Tomorrow at ${localTime}</h2>
-        <p>Dear ${session.parent_name},</p>
-        <p>Reminder: <strong>${session.student_name}</strong> has a class tomorrow!</p>
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-          <p><strong>Date:</strong> ${localDate}</p>
-          <p><strong>Time:</strong> ${localTime} (${session.timezone})</p>
-          <p><strong>Session:</strong> ${session.session_number}</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #667eea;">📅 Class Reminder - Tomorrow at ${localTime}</h2>
+          <p>Dear ${session.parent_name},</p>
+          <p>Friendly reminder: <strong>${session.student_name}</strong> has a class tomorrow!</p>
+          
+          <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #667eea;">
+            <h3 style="color: #667eea; margin-top: 0;">📅 Class Details</h3>
+            <p style="margin: 8px 0;"><strong>Day:</strong> ${dayOfWeek}</p>
+            <p style="margin: 8px 0;"><strong>Date:</strong> ${localDate}</p>
+            <p style="margin: 8px 0;"><strong>Time:</strong> <span style="font-size: 1.3em; color: #667eea; font-weight: bold;">${localTime}</span></p>
+            <p style="margin: 8px 0;"><strong>Your Timezone:</strong> ${session.timezone}</p>
+            <p style="margin: 8px 0;"><strong>Session:</strong> #${session.session_number}</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${session.zoom_link}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 40px; text-decoration: none; border-radius: 30px; font-weight: 600; font-size: 1.1em; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">📱 Join Zoom Class</a>
+          </div>
+
+          <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #27ae60;">
+            <p style="margin: 0; color: #22543d;">
+              <strong>💡 Pro Tip:</strong> Test your internet connection and join 2-3 minutes early!
+            </p>
+          </div>
+          
+          <p style="color: #7f8c8d; font-size: 0.9em; text-align: center;">
+            You'll receive another reminder 1 hour before class starts.
+          </p>
+          
+          <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
         </div>
-        <div style="text-align: center; margin: 20px 0;">
-          <a href="${session.zoom_link}" style="background: #9b59b6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">📱 Join Zoom Class</a>
-        </div>
-        <p>Best regards,<br>Fluent Feathers Academy</p>
       `;
 
-      await sendEmail(session.parent_email, `📅 Class Tomorrow - ${session.student_name}`, reminderEmail, session.parent_name, '24h Reminder');
+      await sendEmail(
+        session.parent_email, 
+        `📅 Class Tomorrow - ${session.student_name} at ${localTime}`, 
+        reminderEmail, 
+        session.parent_name, 
+        '24h Reminder'
+      );
+      
+      console.log(`✅ 24h reminder sent to ${session.parent_email} for ${localDate} ${localTime}`);
     }
   } catch (err) {
-    console.error('24h reminder error:', err);
+    console.error('❌ 24h reminder error:', err);
   }
 });
 
-// 1-hour reminder cron job
+// ==================== 1-HOUR REMINDER (FIXED TIMEZONE) ====================
 cron.schedule('0 * * * *', async () => {
   const now = new Date();
   const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
@@ -1992,17 +2044,20 @@ cron.schedule('0 * * * *', async () => {
 
   try {
     const result = await pool.query(
-      `SELECT s.*, st.parent_email, st.parent_name, st.name as student_name 
+      `SELECT s.*, st.parent_email, st.parent_name, st.name as student_name, st.timezone
        FROM sessions s 
        JOIN students st ON s.student_id = st.id 
        WHERE s.session_date = $1 AND s.session_time = $2 AND s.status IN ('Pending', 'Scheduled')`,
       [currentDate, targetTime]
     );
 
+    console.log(`🔔 Sending 1h reminders for ${result.rows.length} sessions`);
+
     for (const session of result.rows) {
-            // Calculate time in student's timezone
-      const dbTime = session.session_date + 'T' + session.session_time + '+05:30'; // Force IST
+      // ✅ TIMEZONE FIX: Force IST and convert to student timezone
+      const dbTime = session.session_date + 'T' + session.session_time + '+05:30';
       const sessionDateObj = new Date(dbTime);
+      
       const localTime = sessionDateObj.toLocaleTimeString('en-US', {
         timeZone: session.timezone,
         hour12: true,
@@ -2011,18 +2066,48 @@ cron.schedule('0 * * * *', async () => {
       });
 
       const urgentEmail = `
-        <div style="background: #e74c3c; color: white; text-align: center; padding: 20px; border-radius: 10px;">
-          <h2>🔴 CLASS STARTING IN 1 HOUR!</h2>
-          <h3>${session.student_name} - Session ${session.session_number}</h3>
-          <p style="font-size: 1.2em;">Starting at ${localTime} (${session.timezone})</p>
-          <a href="${session.zoom_link}" style="background: white; color: #e74c3c; padding: 20px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 20px;">🎥 JOIN NOW</a>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); padding: 40px 20px; border-radius: 12px;">
+          <div style="background: white; padding: 40px; border-radius: 10px; text-align: center;">
+            <h1 style="color: #e74c3c; margin: 0 0 20px 0; font-size: 2em;">🔴 CLASS STARTING SOON!</h1>
+            
+            <div style="background: #fee; padding: 30px; border-radius: 8px; margin: 20px 0; border: 3px solid #e74c3c;">
+              <h2 style="margin: 0 0 15px 0; color: #2c3e50; font-size: 1.5em;">${session.student_name}</h2>
+              <p style="margin: 0; font-size: 1.1em; color: #555;">Session #${session.session_number}</p>
+              <p style="margin: 20px 0 0 0; font-size: 2em; font-weight: bold; color: #e74c3c;">Starting at ${localTime}</p>
+              <p style="margin: 5px 0 0 0; color: #7f8c8d;">(${session.timezone})</p>
+            </div>
+
+            <div style="margin: 30px 0;">
+              <a href="${session.zoom_link}" style="display: inline-block; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; padding: 25px 50px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 1.3em; box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5); text-transform: uppercase;">
+                🎥 JOIN NOW
+              </a>
+            </div>
+
+            <div style="background: #d1ecf1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #0c5460; font-size: 0.95em;">
+                <strong>⏰ Time Check:</strong> Make sure your device time shows around ${localTime}
+              </p>
+            </div>
+
+            <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 30px;">
+              Please join 2-3 minutes early to test audio/video
+            </p>
+          </div>
         </div>
       `;
 
-      await sendEmail(session.parent_email, `🔴 CLASS IN 1 HOUR - ${session.student_name}`, urgentEmail, session.parent_name, '1h Reminder');
+      await sendEmail(
+        session.parent_email, 
+        `🔴 CLASS IN 1 HOUR - ${session.student_name} at ${localTime}`, 
+        urgentEmail, 
+        session.parent_name, 
+        '1h Reminder'
+      );
+      
+      console.log(`🔔 1h reminder sent to ${session.parent_email} for ${localTime}`);
     }
   } catch (err) {
-    console.error('1h reminder error:', err);
+    console.error('❌ 1h reminder error:', err);
   }
 });
 // Delete a specific session
@@ -2942,77 +3027,93 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
       sessionNumber++;
     }
 
-    // Send schedule emails to all enrolled students
-    const enrollmentsResult = await pool.query(
-      `SELECT s.* FROM students s
-       JOIN batch_enrollments be ON s.id = be.student_id
-       WHERE be.batch_id = $1 AND be.status = 'Active'`,
-      [batchId]
-    );
+    // After inserting sessions in the database, send emails:
+for (const student of enrollmentsResult.rows) {
+  // Convert each session time to student's timezone for email
+  const scheduleRows = sessions.map((s, i) => {
+    // CRITICAL FIX: Treat stored time as IST (your admin timezone)
+    // Create date in IST explicitly
+    const dateTimeString = `${s.date}T${s.time}+05:30`; // Force IST
+    const sessionDateTime = new Date(dateTimeString);
+    
+    // Now convert to student's timezone
+    const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
+      timeZone: student.timezone,
+      hour12: true,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const studentDate = sessionDateTime.toLocaleDateString('en-US', {
+      timeZone: student.timezone,
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    // Also get day of week
+    const dayOfWeek = sessionDateTime.toLocaleDateString('en-US', {
+      timeZone: student.timezone,
+      weekday: 'short'
+    });
+    
+    return `
+      <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${dayOfWeek}, ${studentDate}</td>
+        <td style="padding: 10px; border: 1px solid #ddd;"><strong>${studentTime}</strong></td>
+      </tr>
+    `;
+  }).join('');
 
-    for (const student of enrollmentsResult.rows) {
-      // Convert each session time to student's timezone for email
-      const scheduleRows = sessions.map((s, i) => {
-        // Create datetime assuming batch timezone (stored in database)
-        const dateTimeString = `${s.date}T${s.time}`;
-        const sessionDateTime = new Date(dateTimeString);
-        
-        // Convert to student's timezone
-        const studentTime = sessionDateTime.toLocaleTimeString('en-US', {
-          timeZone: student.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        
-        const studentDate = sessionDateTime.toLocaleDateString('en-US', {
-          timeZone: student.timezone,
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        });
-        
-        return `
-          <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
-            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${parseInt(countResult.rows[0].count) + i + 1}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${studentDate}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${studentTime}</td>
-          </tr>
-        `;
-      }).join('');
+  const scheduleEmail = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #667eea;">📅 ${batch.batch_name} - Class Schedule</h2>
+      <p>Dear ${student.parent_name},</p>
+      <p>${sessions.length} new classes scheduled for ${student.name}:</p>
+      
+      <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
+        <p style="margin: 0; color: #0c5460;">
+          <strong>🌍 Important Timezone Information:</strong><br>
+          All times below are shown in <strong>YOUR timezone (${student.timezone})</strong>.<br>
+          <small>Classes are scheduled in India Standard Time (IST) but automatically converted to your local time.</small>
+        </p>
+      </div>
+      
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr style="background: #667eea; color: white;">
+          <th style="padding: 10px; border: 1px solid #ddd;">Session</th>
+          <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
+          <th style="padding: 10px; border: 1px solid #ddd;">Time (${student.timezone.split('/').pop()})</th>
+        </tr>
+        ${scheduleRows}
+      </table>
+      
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="color: #667eea; margin-top: 0;">📱 Class Details</h3>
+        <p><strong>Batch:</strong> ${batch.batch_name}</p>
+        <p><strong>Program:</strong> ${batch.program_name}</p>
+        <p><strong>Duration:</strong> ${batch.duration}</p>
+        <p><strong>Zoom Link:</strong> <a href="${batch.zoom_link}" style="color: #667eea;">Join Class</a></p>
+      </div>
+      
+      <p style="color: #7f8c8d; font-size: 0.9em;">
+        You'll receive reminders 24 hours and 1 hour before each class.<br>
+        Use the parent portal to manage your schedule and track progress.
+      </p>
+      
+      <p style="color: #667eea; font-weight: bold;">Best regards,<br>Fluent Feathers Academy Team</p>
+    </div>
+  `;
 
-      const scheduleEmail = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #667eea;">📅 ${batch.batch_name} - Class Schedule</h2>
-          <p>Dear ${student.parent_name},</p>
-          <p>${sessions.length} new classes scheduled for ${student.name}:</p>
-          
-          <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #17a2b8;">
-            <p style="margin: 0; color: #0c5460;">
-              <strong>ℹ️ Timezone Info:</strong> All times shown are in YOUR timezone (${student.timezone})
-            </p>
-          </div>
-          
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-            <tr style="background: #667eea; color: white;">
-              <th style="padding: 10px; border: 1px solid #ddd;">Session</th>
-              <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
-              <th style="padding: 10px; border: 1px solid #ddd;">Time (${student.timezone})</th>
-            </tr>
-            ${scheduleRows}
-          </table>
-          <p><a href="${batch.zoom_link}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Join Class</a></p>
-        </div>
-      `;
-
-      await sendEmail(
-        student.parent_email,
-        `${batch.batch_name} - Schedule`,
-        scheduleEmail,
-        student.parent_name,
-        'Batch Schedule'
-      );
-    }
+  await sendEmail(
+    student.parent_email,
+    `${batch.batch_name} - Schedule`,
+    scheduleEmail,
+    student.parent_name,
+    'Batch Schedule'
+  );
+}
 
     res.json({ message: `${sessions.length} sessions scheduled and emails sent!` });
   } catch (err) {
