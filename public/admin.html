@@ -2057,7 +2057,7 @@ async function loadAllSessions() {
     }
 
     // Get student for timezone
-    const student = allStudents.find(st => st.id == filterStudent);
+
     
     tbody.innerHTML = sessions.map(s => {
       // Just display the stored time directly - it's already in the admin's timezone (IST)

@@ -1,4 +1,5 @@
 // force rebuild - smtp switch - PostgreSQL Version
+const moment = require('moment-timezone');
 console.log("🚀 SERVER FILE STARTED");
 const { Pool } = require('pg');
 require('dotenv').config(); // 👈 move this UP
@@ -2037,10 +2038,13 @@ cron.schedule('0 9 * * *', async () => {
 
 // ==================== 1-HOUR REMINDER (FIXED TIMEZONE) ====================
 cron.schedule('0 * * * *', async () => {
-  const now = new Date();
-  const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-  const currentDate = now.toISOString().split('T')[0];
-  const targetTime = oneHourLater.toTimeString().slice(0, 5);
+  // Always calculate in IST (admin timezone)
+const istNow = moment().tz('Asia/Kolkata');
+const istOneHourLater = istNow.clone().add(1, 'hour');
+
+const currentDate = istOneHourLater.format('YYYY-MM-DD');
+const targetTime = istOneHourLater.format('HH:mm');
+
 
   try {
     const result = await pool.query(
@@ -2183,18 +2187,8 @@ app.delete('/api/batches/sessions/:sessionId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// Get sessions for a student
-app.get('/api/sessions/:studentId', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT * FROM sessions WHERE student_id = $1 ORDER BY session_date ASC`,
-      [req.params.studentId]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+
+
 
 // Get upcoming sessions
 app.get('/api/sessions/upcoming/:studentId', async (req, res) => {
@@ -2205,7 +2199,24 @@ app.get('/api/sessions/upcoming/:studentId', async (req, res) => {
       `SELECT * FROM sessions WHERE student_id = $1 AND session_date >= $2 AND status IN ('Pending', 'Scheduled') ORDER BY session_date ASC`,
       [req.params.studentId, today]
     );
-    res.json(result.rows);
+   const fixed = result.rows.map(s => {
+  const istDateTime = `${s.session_date} ${s.session_time}`;
+
+  const utcTime = moment
+    .tz(istDateTime, 'YYYY-MM-DD HH:mm:ss', 'Asia/Kolkata')
+    .utc()
+    .format();
+
+  return {
+    ...s,
+    session_start_utc: utcTime,
+    timezone: 'UTC'
+  };
+});
+
+res.json(fixed);
+
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3279,9 +3290,10 @@ app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
     );
     
     if (enrollments.rows.length === 0) {
-      console.log('  → No batch enrollments found');
-      return res.json([]);
-    }
+  console.log('  → No batch enrollments found');
+  return res.json([]);
+}
+
     
     const batchIds = enrollments.rows.map(e => e.batch_id);
     console.log('  → Enrolled in batches:', batchIds);
@@ -3304,7 +3316,22 @@ app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
     `, [batchIds, studentId]);
     
     console.log(`  ✅ Found ${sessions.rows.length} batch sessions`);
-    res.json(sessions.rows);
+    const fixed = sessions.rows.map(s => {
+  const istDateTime = `${s.session_date} ${s.session_time}`;
+
+  const utcTime = moment
+    .tz(istDateTime, 'YYYY-MM-DD HH:mm:ss', 'Asia/Kolkata')
+    .utc()
+    .format();
+
+  return {
+    ...s,
+    session_start_utc: utcTime
+  };
+});
+
+res.json(fixed);
+
     
   } catch (err) {
     console.error("❌ Batch Sessions Error:", err);

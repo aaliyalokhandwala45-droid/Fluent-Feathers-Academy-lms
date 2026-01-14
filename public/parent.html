@@ -634,52 +634,62 @@ async function loadUpcomingSessions() {
     console.log('📋 Private sessions loaded:', privateSessions.length);
     console.log('👥 Batch sessions loaded:', batchSessions.length);
     
-    // Filter upcoming sessions
-    const today = new Date().toISOString().split('T')[0];
+  
     
     // Process private sessions
     const privateUpcoming = privateSessions
-      .filter(function(s) {
-        return s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled');
-      })
+     .filter(s => {
+  const now = new Date();
+  const sessionTime = new Date(s.session_start_utc);
+  return sessionTime >= now &&
+    (s.status === 'Pending' || s.status === 'Scheduled');
+})
+
       .map(function(s) {
-        return {
-          id: s.id,
-          session_number: s.session_number,
-          session_date: s.session_date,
-          session_time: s.session_time,
-          status: s.status,
-          type: 'Private',
-          duration: currentStudent.duration,
-          zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
-        };
-      });
+  return {
+    id: s.id,
+    session_number: s.session_number,
+    session_date: s.session_date,
+    session_time: s.session_time,
+    session_start_utc: s.session_start_utc,   // ✅ ADD THIS
+    status: s.status,
+    type: 'Private',
+    duration: currentStudent.duration,
+    zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
+  };
+});
+
     
     // Process batch sessions
     const batchUpcoming = batchSessions
-      .filter(function(s) {
-        return s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled');
-      })
+      .filter(s => {
+  const now = new Date();
+  const sessionTime = new Date(s.session_start_utc);
+  return sessionTime >= now &&
+    (s.status === 'Pending' || s.status === 'Scheduled');
+})
+
       .map(function(s) {
-        return {
-          id: s.id,
-          session_number: s.session_number,
-          session_date: s.session_date,
-          session_time: s.session_time,
-          status: s.status,
-          type: 'Batch',
-          batch_name: s.batch_name,
-          duration: s.duration,
-          zoom_link: s.zoom_link
-        };
-      });
+  return {
+    id: s.id,
+    session_number: s.session_number,
+    session_date: s.session_date,
+    session_time: s.session_time,
+    session_start_utc: s.session_start_utc,   // ✅ ADD THIS
+    status: s.status,
+    type: 'Batch',
+    batch_name: s.batch_name,
+    duration: s.duration,
+    zoom_link: s.zoom_link
+  };
+});
+
     
     // Combine all sessions
     const allSessions = privateUpcoming.concat(batchUpcoming).sort(function(a, b) {
-      const dateA = new Date(a.session_date + 'T' + a.session_time);
-      const dateB = new Date(b.session_date + 'T' + b.session_time);
-      return dateA - dateB;
-    });
+  return new Date(a.session_start_utc) - new Date(b.session_start_utc);
+});
+
     
     console.log('✅ Total upcoming sessions:', allSessions.length);
 
@@ -703,37 +713,22 @@ async function loadUpcomingSessions() {
       
       try {
         // CRITICAL: Validate data first
-        if (!s.session_date || !s.session_time) {
-          console.error('❌ Missing date/time:', s);
-          continue;
-        }
+       if (!s.session_start_utc) {
+  console.error('❌ Missing UTC time:', s);
+  continue;
+}
+
+    
         
-        // Clean the time string (remove microseconds if present)
-        var cleanTime = s.session_time;
-        if (cleanTime.includes('.')) {
-          cleanTime = cleanTime.split('.')[0];
-        }
-        
-        // Ensure time is in HH:MM:SS format
-        var timeParts = cleanTime.split(':');
-        if (timeParts.length === 2) {
-          cleanTime = cleanTime + ':00'; // Add seconds if missing
-        }
-        
-        console.log('Processing session:', s.session_number, s.session_date, cleanTime);
-        
-        // Create ISO string with IST timezone
-        var istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
-        console.log('  ISO string:', istDateTime);
-        
-        var sessionDate = new Date(istDateTime);
-        console.log('  Date object:', sessionDate);
-        
-        // Check if date is valid
-        if (isNaN(sessionDate.getTime())) {
-          console.error('❌ Invalid date created from:', istDateTime);
-          throw new Error('Invalid date');
-        }
+     // Create Date object from UTC sent by server
+var sessionDate = new Date(s.session_start_utc);
+
+// Safety check
+if (isNaN(sessionDate.getTime())) {
+  console.error('❌ Invalid UTC date:', s.session_start_utc);
+  throw new Error('Invalid UTC date');
+}
+
         
         // Convert to student's timezone
         var displayTime = sessionDate.toLocaleTimeString('en-US', {
@@ -816,7 +811,10 @@ async function loadUpcomingSessions() {
           ...privateSessions.map(s => ({ ...s, type: 'Private', duration: currentStudent.duration, zoom_link: currentStudent.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09' })),
           ...batchSessions.map(s => ({ ...s, type: 'Batch' }))
         ].filter(s => s.status === 'Completed' || s.status === 'Missed')
-        .sort((a, b) => new Date(b.session_date + 'T' + b.session_time) - new Date(a.session_date + 'T' + a.session_time));
+        .sort((a, b) => 
+  new Date(b.session_start_utc) - new Date(a.session_start_utc)
+);
+
 
         const tbody = document.getElementById('pastSessionsBody');
         if(allSessions.length === 0) {
@@ -824,10 +822,9 @@ async function loadUpcomingSessions() {
         } else {
           tbody.innerHTML = allSessions.map(s => {
             try {
-              // --- CRITICAL FIX: FORCE IST SOURCE ---
-              const isoString = s.session_date + 'T' + s.session_time + '+05:30';
-              const sessionDate = new Date(isoString);
             
+            const sessionDate = new Date(s.session_start_utc);
+
               // Convert to student's timezone
               const displayTime = sessionDate.toLocaleTimeString('en-US', {
                 timeZone: currentStudent.timezone,
@@ -983,8 +980,13 @@ async function loadUpcomingSessions() {
         const res = await fetch(`/api/sessions/${currentStudent.id}`);
         const allSessions = await res.json();
         
-        const today = new Date().toISOString().split('T')[0];
-        const upcoming = allSessions.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
+        const now = new Date();
+const upcoming = allSessions.filter(s => {
+  const sessionTime = new Date(s.session_start_utc);
+  return sessionTime >= now &&
+    (s.status === 'Pending' || s.status === 'Scheduled');
+});
+
         const select = document.getElementById('cancelClassSelect');
         
         if(upcoming.length === 0) {
@@ -993,12 +995,13 @@ async function loadUpcomingSessions() {
         } else {
           select.disabled = false;
           select.innerHTML = '<option value="">-- Select Class to Cancel --</option>' + 
+
+        
           upcoming.map(s => {
             try {
-              // --- CRITICAL FIX: FORCE IST SOURCE ---
-              const isoString = s.session_date + 'T' + s.session_time + '+05:30';
-              const sessionDate = new Date(isoString);
-              
+        
+              const sessionDate = new Date(s.session_start_utc);
+
               const displayTime = sessionDate.toLocaleTimeString('en-US', {
                 timeZone: currentStudent.timezone,
                 hour12: true,
