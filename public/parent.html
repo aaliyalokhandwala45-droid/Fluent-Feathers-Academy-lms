@@ -4,362 +4,256 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Parent Portal - Fluent Feathers Academy</title>
-  
-  <!-- PROFESSIONAL INLINE STYLES -->
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; color: #2d3748; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
     .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
     
     /* Header */
-    header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-    header h1 { margin: 0; font-size: 24px; color: #2b6cb0; }
-    header p { margin: 5px 0 0 0; color: #718096; font-size: 0.9rem; }
+    header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { color: #667eea; font-size: 24px; }
     
-    /* Forms */
-    .form-section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; text-align: center; }
-    .form-group { margin-bottom: 20px; text-align: left; }
-    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; box-sizing: border-box; transition: border-color 0.2s; }
-    .form-group input:focus { border-color: #4299e1; outline: none; }
+    /* Admin Banner */
+    #adminBanner { position: fixed; top: 0; left: 0; right: 0; background: #2d3748; color: white; padding: 15px 20px; display: none; align-items: center; justify-content: space-between; z-index: 2000; }
+    #adminBanner.active { display: flex; }
     
-    /* Buttons */
-    .btn-primary { background: #4299e1; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; transition: background 0.2s; }
-    .btn-primary:hover { background: #3182ce; }
-    .btn-secondary { background: #718096; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
-    .btn-cancel-large { background: #e53e3e; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
-    .btn-cancel-large:hover { background: #c53030; }
-    .logout-btn { background: #e53e3e; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .btn-zoom-mini { background: #38b2ac; color: white; padding: 5px 15px; border-radius: 20px; text-decoration: none; font-size: 0.8rem; }
-    .btn-zoom-large { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(56, 178, 172, 0.3); transition: transform 0.2s; }
-    .btn-zoom-large:hover { transform: translateY(-2px); }
+    /* Login Section */
+    .login-section { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 500px; margin: 50px auto; text-align: center; }
     
     /* Dashboard */
-    .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #4299e1; }
-    .info-card h3 { margin-top: 0; color: #2c3e50; margin-bottom: 10px; }
-    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-    .info-item strong { display: block; color: #718096; font-size: 0.85rem; margin-bottom: 4px; }
+    .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #667eea; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
+    .info-item { padding: 10px; background: #f7fafc; border-radius: 5px; }
+    .info-item strong { display: block; color: #718096; font-size: 0.85rem; margin-bottom: 5px; }
     .info-item span { font-size: 1.1rem; font-weight: 600; color: #2d3748; }
     
     /* Tabs */
-    .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-    .tab-btn { padding: 12px 20px; background: white; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
-    .tab-btn.active { background: #4299e1; color: white; border-color: #4299e1; font-weight: bold; }
-    .tab-btn:hover:not(.active) { background: #f7fafc; }
-    .tab-content { display: none; animation: fadeIn 0.3s; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab-btn { padding: 12px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+    .tab-btn.active { background: #667eea; color: white; border-color: #667eea; }
+    .tab-content { display: none; }
     .tab-content.active { display: block; }
-
+    
+    /* Sections */
+    .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
+    
+    /* Forms */
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
+    
+    /* Buttons */
+    .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+    .btn-primary { background: #667eea; color: white; width: 100%; }
+    .btn-primary:hover { background: #5568d3; }
+    .btn-secondary { background: #718096; color: white; width: 100%; margin-top: 10px; }
+    .btn-danger { background: #e53e3e; color: white; }
+    .btn-success { background: #38a169; color: white; }
+    .btn-sm { padding: 8px 16px; font-size: 0.9rem; }
+    
     /* Tables */
-    .table-section { margin-top: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
     th { background: #f7fafc; color: #4a5568; font-weight: 600; }
-    tr:last-child td { border-bottom: none; }
+    
+    /* Zoom Button */
+    .zoom-btn { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; }
+    .zoom-btn:hover { transform: translateY(-2px); }
     
     /* Materials Grid */
-    .materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-    .material-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; transition: transform 0.2s; position: relative; }
-    .material-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); border-color: #4299e1; }
+    .materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+    .material-card { background: white; border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; transition: all 0.2s; }
+    .material-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: #667eea; }
     .material-icon { font-size: 3rem; margin-bottom: 10px; }
-    .material-type { color: #4299e1; font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; text-transform: uppercase; }
-    .material-name { font-weight: 600; margin-bottom: 10px; font-size: 1rem; min-height: 40px; display: flex; align-items: center; justify-content: center; }
-    .material-date { color: #718096; font-size: 0.8rem; margin-bottom: 15px; }
-    .material-source { position: absolute; top: 10px; right: 10px; font-size: 0.7rem; background: #edf2f7; padding: 3px 8px; border-radius: 10px; color: #4a5568; }
-    .btn-download-card { display: inline-block; background: #2b6cb0; color: white; padding: 8px 20px; border-radius: 20px; text-decoration: none; font-size: 0.9rem; }
-    
-    /* Status Badges */
-    .status-present { color: #38a169; font-weight: bold; }
-    .status-completed { color: #4299e1; background: #ebf8ff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; }
-    .status-cancelled, .status-missed { color: #e74c3c; }
-    
-    /* Admin Banner */
-    #adminBanner { 
-      position: fixed; top: 0; left: 0; right: 0; width: 100%; 
-      background: #2d3748; color: white; padding: 15px 20px; 
-      display: flex; justify-content: space-between; align-items: center; 
-      box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
-      z-index: 10001;
-    }
-    
-    /* Modal */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; animation: popIn 0.3s; }
-    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; position: relative; }
-    .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
-    .btn-close { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold; }
-
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes popIn { from {transform: scale(0.8); opacity:0;} to {transform: scale(1); opacity:1;} }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>👨‍👩‍👧 Parent Portal</h1>
-        <p>Fluent Feathers Academy</p>
-      </div>
-      <button onclick="logout()" class="logout-btn" style="display: none;" id="logoutBtn">Logout</button>
-    </header>
+  <div id="adminBanner">
+    <span>🔐 Admin View: <strong id="viewingStudentName"></strong></span>
+    <button onclick="exitAdminView()" class="btn btn-danger btn-sm">Exit Admin View</button>
+  </div>
 
+  <div class="container">
     <!-- LOGIN SECTION -->
-    <section id="loginSection" class="form-section">
-      <h2 style="margin-bottom: 10px;">🔐 Parent Login</h2>
-      <p style="color: #718096; margin-bottom: 25px;">Enter your registered email to access your child's portal</p>
+    <div id="loginSection" class="login-section">
+      <h1 style="color: #667eea; margin-bottom: 20px;">🔐 Parent Login</h1>
+      <p style="color: #718096; margin-bottom: 30px;">Enter your registered email to access your child's portal</p>
       
-      <!-- Step 1: Email -->
-      <form id="emailForm" style="display: block; text-align: left;">
-        <div class="form-group">
-          <label>Parent Email Address *</label>
+      <!-- Email Form -->
+      <form id="emailForm" style="display: block;">
+        <div class="form-group" style="text-align: left;">
+          <label>Parent Email *</label>
           <input type="email" id="parentEmail" required placeholder="parent@example.com">
         </div>
-        <button type="submit" class="btn-primary">Continue</button>
+        <button type="submit" class="btn btn-primary">Continue</button>
       </form>
 
-      <!-- Step 2: Method Selection -->
-      <div id="loginMethodSection" style="display: none; text-align: center;">
-        <h3 style="margin-bottom: 20px;">Choose Login Method</h3>
-        <div style="display: flex; gap: 15px; flex-direction: column;">
-          <button onclick="choosePasswordLogin()" class="btn-primary" style="background: #2b6cb0;">
-            🔑 Login with Password
-          </button>
-          <button onclick="chooseOTPLogin()" class="btn-primary" style="background: #38a169;">
-            📱 Send OTP to Email
-          </button>
-        </div>
-        <button onclick="backToEmail()" class="btn-secondary" style="margin-top: 20px; width: 100%;">← Back</button>
-      </div>
-
-      <!-- Step 3a: Password -->
-      <form id="passwordForm" style="display: none; text-align: left;">
-        <div class="form-group">
+      <!-- Password Form -->
+      <form id="passwordForm" style="display: none;">
+        <div class="form-group" style="text-align: left;">
           <label>Password *</label>
-          <input type="password" id="loginPassword" required placeholder="Enter your password">
+          <input type="password" id="loginPassword" required>
         </div>
-        <div style="display: flex; gap: 10px;">
-          <button type="submit" class="btn-primary" style="flex: 1;">Login</button>
-          <button type="button" onclick="backToMethod()" class="btn-secondary" style="flex: 1;">Cancel</button>
-        </div>
-        <p style="margin-top: 15px; text-align: center;">
-          <a href="#" onclick="forgotPassword(); return false;" style="color: #4299e1; text-decoration: none; font-weight: 600;">Forgot Password?</a>
-        </p>
+        <button type="submit" class="btn btn-primary">Login</button>
+        <button type="button" onclick="showOTPForm()" class="btn btn-secondary">Use OTP Instead</button>
       </form>
 
-      <!-- Step 3b: OTP -->
-      <form id="otpForm" style="display: none; text-align: left;">
+      <!-- OTP Form -->
+      <form id="otpForm" style="display: none;">
         <div id="otpSendSection">
-          <p style="color: #38a169; margin-bottom: 20px; background: #f0fff4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #38a169;">
-            ✅ We'll send a 6-digit One-Time Password (OTP) to your registered email.
+          <p style="background: #f0fff4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #38a169; text-align: left;">
+            ✅ We'll send a 6-digit code to your registered email
           </p>
-          <button type="button" onclick="sendOTP()" class="btn-primary" style="background: #38a169;">📧 Send OTP</button>
-          <button type="button" onclick="backToMethod()" class="btn-secondary">Cancel</button>
+          <button type="button" onclick="sendOTP()" class="btn btn-success">📧 Send OTP</button>
+          <button type="button" onclick="showPasswordForm()" class="btn btn-secondary">Use Password Instead</button>
         </div>
 
         <div id="otpVerifySection" style="display: none;">
-          <div class="form-group">
+          <div class="form-group" style="text-align: left;">
             <label>Enter 6-Digit OTP *</label>
-            <input type="text" id="otpCode" required placeholder="000000" maxlength="6" pattern="\d{6}" style="letter-spacing: 5px; text-align: center; font-size: 1.2rem;">
+            <input type="text" id="otpCode" required placeholder="000000" maxlength="6" style="letter-spacing: 5px; text-align: center; font-size: 1.5rem;">
           </div>
-          <p style="color: #718096; font-size: 0.9em; margin-bottom: 20px; text-align: center;">
-            OTP sent to <strong id="otpSentEmail" style="color: #2d3748;"></strong>
-          </p>
-          <div style="display: flex; gap: 10px;">
-            <button type="submit" class="btn-primary" style="flex: 1;">Verify OTP</button>
-            <button type="button" onclick="backToMethod()" class="btn-secondary" style="flex: 1;">Cancel</button>
-          </div>
-          <p style="margin-top: 15px; text-align: center;">
-            <a href="#" onclick="resendOTP(); return false;" style="color: #4299e1; text-decoration: none; font-weight: 600;">Resend OTP</a>
-          </p>
+          <p style="color: #718096; margin-bottom: 15px;">OTP sent to <strong id="otpEmail"></strong></p>
+          <button type="submit" class="btn btn-primary">Verify OTP</button>
+          <button type="button" onclick="resendOTP()" class="btn btn-secondary">Resend OTP</button>
         </div>
       </form>
 
-      <!-- Setup Password -->
-      <form id="setupPasswordForm" style="display: none; text-align: left;">
+      <!-- Setup Password Form -->
+      <form id="setupPasswordForm" style="display: none;">
         <h3 style="color: #38a169; margin-bottom: 15px;">🎉 Welcome! Set Your Password</h3>
-        <p style="color: #718096; margin-bottom: 20px;">This is your first login. Please create a password for future access.</p>
-        <div class="form-group">
+        <p style="color: #718096; margin-bottom: 20px; text-align: left;">This is your first login. Create a password for future access.</p>
+        <div class="form-group" style="text-align: left;">
           <label>Create Password *</label>
-          <input type="password" id="newPassword" required placeholder="Minimum 6 characters" minlength="6">
+          <input type="password" id="newPassword" required minlength="6">
         </div>
-        <div class="form-group">
+        <div class="form-group" style="text-align: left;">
           <label>Confirm Password *</label>
-          <input type="password" id="confirmPassword" required placeholder="Re-enter password" minlength="6">
+          <input type="password" id="confirmPassword" required minlength="6">
         </div>
-        <button type="submit" class="btn-primary">Set Password & Login</button>
-        <button type="button" onclick="backToEmail()" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">Set Password & Login</button>
       </form>
-    </section>
+    </div>
 
     <!-- DASHBOARD SECTION -->
-    <section id="dashboardSection" style="display: none;">
-      
-      <!-- FEEDBACK POP-UP MODAL -->
-      <div id="feedbackModal" class="modal" style="display: none;">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2 style="color: #2b6cb0; margin: 0;">📝 Give Homework Feedback</h2>
-            <button onclick="closeFeedbackModal()" class="btn-close">✕</button>
-          </div>
-          <form id="feedbackSubmitForm">
-            <input type="hidden" id="feedbackSessionId">
-            
-            <div class="form-group">
-              <label>Grade (1-5 Stars)</label>
-              <select id="feedbackRating" required style="font-size: 1.2rem; padding: 10px; background: white; border-radius: 5px;">
-                <option value="5">⭐⭐⭐ (Excellent)</option>
-                <option value="4">⭐⭐ (Very Good)</option>
-                <option value="3">⭐⭐ (Good)</option>
-                <option value="2">⭐⭐ (Fair)</option>
-                <option value="1">⭐ (Poor)</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label>Comments (Optional)</label>
-              <textarea id="feedbackComment" rows="4" placeholder="What did you like or how can we improve?" style="background: #f8f9fa; border-radius: 5px;"></textarea>
-            </div>
-            
-            <div style="text-align: center; margin: 20px 0;">
-              <button type="submit" class="btn-primary">Submit Feedback</button>
-              <button type="button" onclick="closeFeedbackModal()" class="btn-secondary" style="margin-top:10px;">Skip for now</button>
-            </div>
-          </form>
+    <div id="dashboardSection" style="display: none;">
+      <header>
+        <div>
+          <h1>👨‍👩‍👧 Parent Portal</h1>
+          <p>Fluent Feathers Academy</p>
         </div>
-      </div>
+        <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+      </header>
 
       <!-- Student Info Card -->
       <div class="info-card">
-        <h2 style="margin: 0 0 20px 0; color: #2b6cb0;">👤 Student Information</h2>
+        <h2 style="color: #667eea; margin-bottom: 15px;">👤 Student Information</h2>
         <div class="info-grid">
-          <div class="info-item"><strong>Student Name:</strong><span id="displayStudentName">-</span></div>
+          <div class="info-item"><strong>Name:</strong><span id="displayName">-</span></div>
           <div class="info-item"><strong>Grade:</strong><span id="displayGrade">-</span></div>
           <div class="info-item"><strong>Program:</strong><span id="displayProgram">-</span></div>
-          <div class="info-item"><strong>Class Type:</strong><span id="displayClassType">-</span></div>
-          <div class="info-item"><strong>Duration:</strong><span id="displayDuration">-</span></div>
           <div class="info-item"><strong>Timezone:</strong><span id="displayTimezone">-</span></div>
-          <div class="info-item"><strong>Total Sessions:</strong><span id="displayTotalSessions">-</span></div>
-          <div class="info-item"><strong>Completed:</strong><span id="displayCompletedSessions" style="color: #38a169; font-size: 1.4em;">-</span></div>
-          <div class="info-item"><strong>Remaining:</strong><span id="displayRemainingSessions" style="color: #e74c3c; font-size: 1.4em;">-</span></div>
-          <div class="info-item"><strong>Fees Paid:</strong><span id="displayFeesPaid">-</span></div>
+          <div class="info-item"><strong>Total Sessions:</strong><span id="displayTotal">-</span></div>
+          <div class="info-item"><strong>Completed:</strong><span id="displayCompleted" style="color: #38a169;">-</span></div>
+          <div class="info-item"><strong>Remaining:</strong><span id="displayRemaining" style="color: #e53e3e;">-</span></div>
+          <div class="info-item"><strong>Fees Paid:</strong><span id="displayFees">-</span></div>
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
+      <!-- Tabs -->
       <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('upcoming', this)">📅 Upcoming</button>
-        <button class="tab-btn" onclick="showTab('past', this)">📚 Past</button>
-        <button class="tab-btn" onclick="showTab('materials', this)">📁 Materials</button>
-        <button class="tab-btn" onclick="showTab('events', this)">🎉 Events</button>
-        <button class="tab-btn" onclick="showTab('homework', this)">📝 Homework</button>
+        <button class="tab-btn active" onclick="showTab('upcoming')">📅 Upcoming</button>
+        <button class="tab-btn" onclick="showTab('past')">📚 Past Classes</button>
+        <button class="tab-btn" onclick="showTab('materials')">📁 Materials</button>
+        <button class="tab-btn" onclick="showTab('homework')">📝 Homework</button>
       </div>
 
-      <!-- UPCOMING TAB -->
+      <!-- Upcoming Tab -->
       <div id="upcomingTab" class="tab-content active">
-        <a href="https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09" target="_blank" class="btn-zoom-large">
+        <a href="https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09" target="_blank" class="zoom-btn">
           🎥 Join Zoom Class
         </a>
 
-        <div class="form-section" style="max-width: 800px; margin: 20px auto; text-align: left;">
-          <h2 style="font-size: 1.2rem; margin-bottom: 10px;">🚫 Cancel Upcoming Class</h2>
-          <p style="color: #718096; margin-bottom: 20px;">If you cannot attend, please cancel below. A makeup credit will be added automatically.</p>
+        <div class="section">
+          <h2 style="margin-bottom: 20px;">🚫 Cancel Upcoming Class</h2>
+          <p style="color: #718096; margin-bottom: 20px;">If you cannot attend, cancel below. A makeup credit will be added automatically.</p>
           
-          <form id="cancelUpcomingForm">
+          <form id="cancelClassForm">
             <div class="form-group">
               <label>Select Class to Cancel *</label>
-              <select id="cancelClassSelect" required style="width: 100%; padding: 12px; font-size: 1rem; background: white; border: 2px solid #e2e8f0; border-radius: 8px;">
-                <option value="">Loading upcoming classes...</option>
+              <select id="cancelClassSelect" required>
+                <option value="">Loading...</option>
               </select>
             </div>
             <div class="form-group">
               <label>Reason (Optional)</label>
-              <textarea id="cancelReasonText" rows="3" placeholder="Reason for cancellation..." style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px;"></textarea>
+              <textarea id="cancelReason" rows="3"></textarea>
             </div>
-            <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #27ae60;">
-              <p style="margin: 0; color: #22543d;">
-                <strong>💡 Note:</strong> A makeup class credit will be added to your account immediately after cancellation.
+            <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #38a169;">
+              <p style="margin: 0; color: #155724;">
+                <strong>💡 Note:</strong> A makeup class credit will be added immediately after cancellation.
               </p>
             </div>
-            <button type="submit" class="btn-cancel-large">🚫 Cancel Class</button>
+            <button type="submit" class="btn btn-danger">🚫 Cancel Class</button>
           </form>
         </div>
 
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>📅 Schedule</h2>
-          <table id="upcomingSessionsTable">
+        <div class="section">
+          <h2>📅 Upcoming Schedule</h2>
+          <table id="upcomingTable">
             <thead>
               <tr>
                 <th>Session #</th>
                 <th>Date</th>
                 <th>Time</th>
-                <th>Duration</th>
                 <th>Action</th>
               </tr>
             </thead>
-            <tbody id="upcomingSessionsBody">
-              <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+            <tbody id="upcomingBody">
+              <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- PAST TAB -->
+      <!-- Past Tab -->
       <div id="pastTab" class="tab-content">
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>📚 Completed Classes (Detailed)</h2>
-          <table id="pastSessionsTable">
+        <div class="section">
+          <h2>📚 Completed Classes</h2>
+          <table id="pastTable">
             <thead>
               <tr>
-                <th>Topic (Session #)</th>
+                <th>Session #</th>
                 <th>Date</th>
                 <th>Time</th>
                 <th>Attendance</th>
                 <th>PPT</th>
                 <th>Recording</th>
-                <th>HW</th>
-                <th>Feedback</th>
+                <th>Homework</th>
+                <th>Grade</th>
               </tr>
             </thead>
-            <tbody id="pastSessionsBody">
-              <tr><td colspan="9" style="text-align:center;">Loading...</td></tr>
+            <tbody id="pastBody">
+              <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- MATERIALS TAB -->
+      <!-- Materials Tab -->
       <div id="materialsTab" class="tab-content">
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <div class="section">
           <h2>📁 Class Materials</h2>
-          <p style="color: #718096; margin-bottom: 20px;">Download notes, recordings, and resources.</p>
           <div id="materialsGrid" class="materials-grid">
-            <p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 40px;">Loading materials...</p>
+            <p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 40px;">Loading...</p>
           </div>
         </div>
       </div>
 
-      <!-- EVENTS TAB -->
-      <div id="eventsTab" class="tab-content">
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>🎉 Upcoming Events</h2>
-          <table id="eventsTable">
-            <thead>
-              <tr>
-                <th>Event</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="parentEventsBody">
-              <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- HOMEWORK TAB -->
+      <!-- Homework Tab -->
       <div id="homeworkTab" class="tab-content">
-        <div class="form-section" style="max-width: 800px; margin: 20px auto; text-align: left;">
-          <h2 style="margin-bottom: 10px;">📤 Upload Homework</h2>
-          <p style="color: #718096; margin-bottom: 20px;">Submit your completed assignments here.</p>
+        <div class="section">
+          <h2>📤 Upload Homework</h2>
           <form id="uploadHomeworkForm">
             <div class="form-group">
               <label>Session Date *</label>
@@ -370,859 +264,503 @@
               <input type="file" id="homeworkFile" required>
               <small style="color: #718096;">PDF, DOC, Images, ZIP (Max 50MB)</small>
             </div>
-            <button type="submit" class="btn-primary">📤 Upload</button>
+            <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
           </form>
         </div>
 
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <div class="section">
           <h2>📤 Submission History</h2>
-          <table id="submittedHomeworkTable">
+          <table id="homeworkTable">
             <thead>
               <tr>
                 <th>Date</th>
                 <th>File</th>
                 <th>Uploaded</th>
-                <th>Status</th>
-                <th>Feedback</th>
+                <th>Grade</th>
+                <th>Comments</th>
               </tr>
             </thead>
-            <tbody id="submittedHomeworkBody">
-              <tr><td colspan="5" style="text-align:center;">No submissions yet</td></tr>
+            <tbody id="homeworkBody">
+              <tr><td colspan="5" style="text-align: center;">No submissions yet</td></tr>
             </tbody>
           </table>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
 
-    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
-    <script>
+  <script>
     let currentStudent = null;
     let currentEmail = '';
 
     document.addEventListener('DOMContentLoaded', () => {
-      // 1. CHECK FOR ADMIN ACCESS MODE (FIXES LEARNER VIEW)
-      const adminAccessStudent = sessionStorage.getItem('adminAccessStudent');
-      const adminAccessMode = sessionStorage.getItem('adminAccessMode');
-      const adminAccessEmail = sessionStorage.getItem('adminAccessEmail');
+      // Check for admin view mode
+      const parentViewStudent = sessionStorage.getItem('parentViewStudent');
+      const parentViewMode = sessionStorage.getItem('parentViewMode');
 
-      if (adminAccessMode === 'true' && adminAccessStudent) {
-        console.log('🔐 Admin Access Mode Active');
-        const studentData = JSON.parse(adminAccessStudent);
+      if (parentViewMode === 'true' && parentViewStudent) {
+        console.log('🔐 Admin viewing parent portal');
+        currentStudent = JSON.parse(parentViewStudent);
         
-        // Create Admin Banner
-        const banner = document.createElement('div');
-        banner.id = 'adminBanner';
-        banner.innerHTML = `
-          <div>🔐 ADMIN MODE: Viewing ${studentData.name} (${adminAccessEmail})</div>
-          <button onclick="exitAdminMode()" style="background: #718096; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Exit Admin View</button>
-        `;
-        document.body.prepend(banner);
+        const banner = document.getElementById('adminBanner');
+        banner.classList.add('active');
+        document.getElementById('viewingStudentName').textContent = currentStudent.name + ' (' + currentStudent.parent_email + ')';
         document.body.style.paddingTop = '60px';
-
-        // Set State
-        currentStudent = studentData;
-        currentEmail = adminAccessEmail;
+        
         showDashboard();
       } else {
-        // Normal Login Flow
-        setupEventHandlers();
+        setupLoginHandlers();
       }
     });
-window.registerForEvent = function(eventId) {
-  alert('✅ You are registered! (Feature coming soon)');
-};
 
-    // ==================== LOGIN LOGIC ====================
-    function setupEventHandlers() {
-      const emailForm = document.getElementById('emailForm');
-      const passwordForm = document.getElementById('passwordForm');
-      const otpForm = document.getElementById('otpForm');
-      const setupPasswordForm = document.getElementById('setupPasswordForm');
+    // Login handlers
+    function setupLoginHandlers() {
+      // Email form
+      document.getElementById('emailForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        currentEmail = document.getElementById('parentEmail').value.trim();
 
-      if(emailForm) {
-        emailForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          currentEmail = document.getElementById('parentEmail').value.trim();
-          if(!currentEmail) return alert('Please enter email');
+        try {
+          const res = await fetch('/api/parent/check-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: currentEmail })
+          });
+          const result = await res.json();
 
-          try {
-            const res = await fetch('/api/parent/check-email', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail })
-            });
-            const result = await res.json();
+          if (res.ok) {
+            document.getElementById('emailForm').style.display = 'none';
             
-            if(res.ok) {
-              // FIX: Ensure hasExistingPassword is boolean
-              const hasExistingPassword = !!result.hasPassword; 
-              
-              document.getElementById('emailForm').style.display = 'none';
-              document.getElementById('loginMethodSection').style.display = 'block';
-              
-              if(hasExistingPassword) {
-                document.getElementById('passwordForm').style.display = 'block';
-                document.getElementById('otpForm').style.display = 'none';
-                document.getElementById('setupPasswordForm').style.display = 'none';
-              } else {
-                document.getElementById('passwordForm').style.display = 'none';
-                document.getElementById('otpForm').style.display = 'none';
-                document.getElementById('setupPasswordForm').style.display = 'block';
-              }
+            if (result.hasPassword) {
+              document.getElementById('passwordForm').style.display = 'block';
             } else {
-              alert('❌ ' + (result.error || 'No student found'));
+              document.getElementById('setupPasswordForm').style.display = 'block';
             }
-          } catch (err) { 
-            console.error('Email check error:', err); 
-            alert('❌ Network Error'); 
+          } else {
+            alert('❌ ' + result.error);
           }
-        });
-      }
+        } catch (err) {
+          alert('❌ Network error');
+        }
+      });
 
-      if(setupPasswordForm) {
-        setupPasswordForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const p1 = document.getElementById('newPassword').value;
-          const p2 = document.getElementById('confirmPassword').value;
-          
-          if(p1 !== p2) return alert('Passwords do not match');
-          if(p1.length < 6) return alert('Password too short');
+      // Password form
+      document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const password = document.getElementById('loginPassword').value;
 
-          try {
-            const res = await fetch('/api/parent/setup-password', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail, password: p1 })
-            });
-            const result = await res.json();
-            if (res.ok && result.student) {
-              currentStudent = result.student;
-              showDashboard();
-            } else { alert('❌ ' + (result.error || 'Failed')); }
-          } catch (err) { alert('❌ Error'); }
-        });
-      }
+        try {
+          const res = await fetch('/api/parent/login-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: currentEmail, password })
+          });
+          const result = await res.json();
 
-      if(passwordForm) {
-        passwordForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const password = document.getElementById('loginPassword').value;
-          
-          try {
-            const res = await fetch('/api/parent/login-password', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail, password })
-            });
-            
-            const result = await res.json();
-            
-            if (res.ok && result.student) {
-              currentStudent = result.student;
-              showDashboard();
-            } else {
-              alert('❌ ' + (result.error || 'Login failed'));
-            }
-          } catch (err) { 
-            console.error('Login error:', err);
-            alert('❌ Network error'); 
+          if (res.ok && result.student) {
+            currentStudent = result.student;
+            showDashboard();
+          } else {
+            alert('❌ ' + result.error);
           }
-        });
-      }
+        } catch (err) {
+          alert('❌ Network error');
+        }
+      });
 
-      if(otpForm) {
-        otpForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const otp = document.getElementById('otpCode').value;
-          
-          if(!otp || otp.length !== 6) return alert('Please enter valid 6-digit OTP');
-          
-          try {
-            const res = await fetch('/api/parent/verify-otp', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail, otp })
-            });
-            
-            const result = await res.json();
-            
-            if (res.ok && result.student) {
-              currentStudent = result.student;
-              showDashboard();
-            } else {
-              alert('❌ ' + (result.error || 'Invalid OTP'));
-            }
-          } catch (err) { 
-            console.error('OTP error:', err);
-            alert('❌ Network error'); 
+      // OTP form
+      document.getElementById('otpForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const otp = document.getElementById('otpCode').value;
+
+        try {
+          const res = await fetch('/api/parent/verify-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: currentEmail, otp })
+          });
+          const result = await res.json();
+
+          if (res.ok && result.student) {
+            currentStudent = result.student;
+            showDashboard();
+          } else {
+            alert('❌ ' + result.error);
           }
+        } catch (err) {
+          alert('❌ Network error');
+        }
+      });
+
+      // Setup password form
+      document.getElementById('setupPasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const p1 = document.getElementById('newPassword').value;
+        const p2 = document.getElementById('confirmPassword').value;
+
+        if (p1 !== p2) return alert('Passwords do not match');
+        if (p1.length < 6) return alert('Password too short');
+
+        try {
+          const res = await fetch('/api/parent/setup-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: currentEmail, password: p1 })
+          });
+          const result = await res.json();
+
+          if (res.ok && result.student) {
+            currentStudent = result.student;
+            showDashboard();
+          } else {
+            alert('❌ ' + result.error);
+          }
+        } catch (err) {
+          alert('❌ Error');
+        }
+      });
+    }
+
+    function showPasswordForm() {
+      document.getElementById('otpForm').style.display = 'none';
+      document.getElementById('passwordForm').style.display = 'block';
+    }
+
+    function showOTPForm() {
+      document.getElementById('passwordForm').style.display = 'none';
+      document.getElementById('otpForm').style.display = 'block';
+      document.getElementById('otpSendSection').style.display = 'block';
+      document.getElementById('otpVerifySection').style.display = 'none';
+    }
+
+    async function sendOTP() {
+      try {
+        const res = await fetch('/api/parent/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentEmail })
         });
+
+        if (res.ok) {
+          document.getElementById('otpSendSection').style.display = 'none';
+          document.getElementById('otpVerifySection').style.display = 'block';
+          document.getElementById('otpEmail').textContent = currentEmail;
+          alert('✅ OTP sent to your email!');
+        } else {
+          alert('❌ Failed to send OTP');
+        }
+      } catch (err) {
+        alert('❌ Network error');
       }
     }
 
-    // ==================== DASHBOARD LOGIC ====================
+    function resendOTP() {
+      sendOTP();
+    }
+
+    // Dashboard functions
     function showDashboard() {
       document.getElementById('loginSection').style.display = 'none';
       document.getElementById('dashboardSection').style.display = 'block';
-      document.getElementById('logoutBtn').style.display = 'block';
 
-      // Populate Info
-      document.getElementById('displayStudentName').textContent = currentStudent.name;
+      // Populate student info
+      document.getElementById('displayName').textContent = currentStudent.name;
       document.getElementById('displayGrade').textContent = currentStudent.grade;
       document.getElementById('displayProgram').textContent = currentStudent.program_name;
-      document.getElementById('displayClassType').textContent = currentStudent.class_type;
-      document.getElementById('displayDuration').textContent = currentStudent.duration;
       document.getElementById('displayTimezone').textContent = currentStudent.timezone;
-      document.getElementById('displayTotalSessions').textContent = currentStudent.total_sessions;
-      document.getElementById('displayCompletedSessions').textContent = currentStudent.completed_sessions;
-      document.getElementById('displayRemainingSessions').textContent = currentStudent.remaining_sessions;
-      document.getElementById('displayFeesPaid').textContent = currentStudent.currency + (currentStudent.fees_paid || 0);
+      document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
+      document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions;
+      document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
+      document.getElementById('displayFees').textContent = currentStudent.currency + (currentStudent.fees_paid || 0);
 
-      // Load Tabs
       loadUpcomingSessions();
       loadPastSessions();
       loadMaterials();
-      loadSubmittedHomework();
-      loadParentEvents();
-      loadUpcomingClassesDropdown();
-      
-      // Check for Feedback Pop-up
-      checkPendingFeedback();
+      loadHomeworkHistory();
+      loadCancelDropdown();
     }
 
-    async function loadStudentDetails() {
-      // Refresh student object from server to get updated remaining sessions
-      const res = await fetch(`/api/students/${currentStudent.id}/details`);
-      const data = await res.json();
-      if(data.student) {
-        currentStudent = data.student;
-        document.getElementById('displayCompletedSessions').textContent = currentStudent.completed_sessions;
-        document.getElementById('displayRemainingSessions').textContent = currentStudent.remaining_sessions;
-      }
-    }
-
-    // ==================== TAB NAVIGATION ====================
-    window.showTab = function(tabName, btn) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(tabName + 'Tab').classList.add('active');
-      if (btn) btn.classList.add('active');
-      
-      if (tabName === 'events') loadParentEvents();
-      if (tabName === 'past') loadPastSessions();
-      if (tabName === 'upcoming') loadUpcomingSessions();
-      if (tabName === 'materials') loadMaterials();
-      if (tabName === 'homework') loadSubmittedHomework();
-    };
-
-    // ==================== DATA LOADERS ====================
-    
-    // 1. Upcoming Sessions (FIXED TIMEZONE)
+    // Load upcoming sessions
     async function loadUpcomingSessions() {
-      try {
-        console.log('🔍 Loading sessions for student:', currentStudent.id);
-        console.log('👤 Student timezone:', currentStudent.timezone);
-        
-        // Get BOTH private and batch sessions
-        const [privateRes, batchRes] = await Promise.all([
-          fetch('/api/sessions/' + currentStudent.id),
-          fetch('/api/students/' + currentStudent.id + '/batch-sessions')
-        ]);
-        
-        const privateSessions = await privateRes.json();
-        const batchSessions = await batchRes.json();
-        
-        console.log('📋 Private sessions loaded:', privateSessions.length);
-        console.log('👥 Batch sessions loaded:', batchSessions.length);
-        
-        // Filter upcoming sessions
-        const today = new Date().toISOString().split('T')[0];
-        
-        // Process private sessions
-        const privateUpcoming = privateSessions
-          .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
-          .map(s => ({
-            id: s.id,
-            session_number: s.session_number,
-            session_date: s.session_date,
-            session_time: s.session_time,
-            status: s.status,
-            type: 'Private',
-            duration: currentStudent.duration,
-            zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
-          }));
-        
-        // Process batch sessions
-        const batchUpcoming = batchSessions
-          .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
-          .map(s => ({
-            id: s.id,
-            session_number: s.session_number,
-            session_date: s.session_date,
-            session_time: s.session_time,
-            status: s.status,
-            type: 'Batch',
-            batch_name: s.batch_name,
-            duration: s.duration,
-            zoom_link: s.zoom_link
-          }));
-        
-        // Combine all sessions
-        const allSessions = [...privateUpcoming, ...batchUpcoming].sort((a, b) => {
-          const dateA = new Date(a.session_date + 'T' + a.session_time);
-          const dateB = new Date(b.session_date + 'T' + b.session_time);
-          return dateA - dateB;
-        });
-        
-        console.log('✅ Total upcoming sessions:', allSessions.length);
+  try {
+    const res = await fetch(`/api/sessions/${currentStudent.id}`);
+    const sessions = await res.json();
 
-        const tbody = document.getElementById('upcomingSessionsBody');
-        
-        if (!tbody) {
-          console.error('❌ Table body not found!');
-          return;
-        }
-        
-        if (allSessions.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No upcoming classes scheduled</td></tr>';
-          return;
-        }
-        
-        // Render sessions with PROPER timezone conversion
-        tbody.innerHTML = allSessions.map(s => {
-          try {
-            // Clean time string
-            let cleanTime = s.session_time;
-            if (cleanTime.includes('.')) {
-              cleanTime = cleanTime.split('.')[0];
-            }
-            
-            // Ensure HH:MM:SS format
-            const timeParts = cleanTime.split(':');
-            if (timeParts.length === 2) {
-              cleanTime = cleanTime + ':00';
-            }
-            
-            // CRITICAL: Create date in IST (admin's timezone where it was scheduled)
-            const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
-            const sessionDate = new Date(istDateTime);
-            
-            // Validate date
-            if (isNaN(sessionDate.getTime())) {
-              throw new Error('Invalid date');
-            }
-            
-            // Convert to student's timezone for DISPLAY
-            const displayTime = sessionDate.toLocaleTimeString('en-US', {
-              timeZone: currentStudent.timezone,
-              hour12: true,
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = sessions.filter(s => 
+      s.session_date >= today && 
+      (s.status === 'Pending' || s.status === 'Scheduled')
+    );
 
-            const formattedDate = sessionDate.toLocaleDateString('en-US', {
-              timeZone: currentStudent.timezone,
-              month: 'short', 
-              day: 'numeric', 
-              year: 'numeric'
-            });
-            
-            const dayOfWeek = sessionDate.toLocaleDateString('en-US', {
-              timeZone: currentStudent.timezone,
-              weekday: 'short'
-            });
-            
-            const tzParts = currentStudent.timezone.split('/');
-            const tzAbbr = tzParts[tzParts.length - 1];
+    const tbody = document.getElementById('upcomingBody');
 
-            // Session type badge
-            const typeLabel = s.type === 'Batch' 
-              ? '<span style="background:#4299e1; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>'
-              : '';
-
-            const sessionName = s.type === 'Batch' ? (s.batch_name || 'Group Class') : 'Private Class';
-
-            return `
-              <tr>
-                <td><strong>#${s.session_number}</strong>${typeLabel}<br><small style="color:#718096;">${sessionName}</small></td>
-                <td>${dayOfWeek}, ${formattedDate}</td>
-                <td><strong>${displayTime}</strong><br><small style="color:#718096;">(${tzAbbr})</small></td>
-                <td>${s.duration}</td>
-                <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
-              </tr>
-            `;
-            
-          } catch (err) {
-            console.error('❌ Error processing session:', err, s);
-            
-            // Fallback display
-            return `
-              <tr>
-                <td>#${s.session_number}</td>
-                <td>${s.session_date}</td>
-                <td>${s.session_time || 'N/A'} <span style="color:red;">⚠️</span></td>
-                <td>${s.duration || 'N/A'}</td>
-                <td><a href="${s.zoom_link || '#'}" target="_blank">Join</a></td>
-              </tr>
-            `;
-          }
-        }).join('');
-        
-      } catch(e) { 
-        console.error('❌ Load upcoming sessions error:', e);
-        const tbody = document.getElementById('upcomingSessionsBody');
-        if (tbody) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">❌ Failed to load sessions<br><small style="color:#718096;">Error: ${e.message}</small></td></tr>`;
-        }
-      }
+    if (upcoming.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No upcoming classes</td></tr>';
+      return;
     }
 
-    // 2. Past Sessions (FIXED TIMEZONE)
-    async function loadPastSessions() {
+    tbody.innerHTML = upcoming.map(s => {
+      // ✅ FIXED: Proper timezone conversion
+      const utcDateTime = new Date(s.session_date + 'T' + s.session_time + 'Z');
+      
+      const displayTime = utcDateTime.toLocaleTimeString('en-US', {
+        timeZone: currentStudent.timezone,
+        hour12: true,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const displayDate = utcDateTime.toLocaleDateString('en-US', {
+        timeZone: currentStudent.timezone,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
+      return `
+        <tr>
+          <td><strong>Session ${s.session_number}</strong></td>
+          <td>${displayDate}</td>
+          <td>
+            <strong style="color: #667eea; font-size: 1.1rem;">${displayTime}</strong>
+            <br>
+            <small style="color: #718096;">${currentStudent.timezone}</small>
+          </td>
+          <td><a href="${s.zoom_link}" target="_blank" class="btn btn-success btn-sm">🎥 Join</a></td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Failed to load sessions:', err);
+    document.getElementById('upcomingBody').innerHTML = 
+      '<tr><td colspan="4" style="text-align: center; color: #e53e3e;">Error loading sessions</td></tr>';
+  }
+}
+
+    // Load cancel dropdown
+    select.innerHTML = '<option value="">Select a class...</option>' + upcoming.map(s => {
+  // ✅ FIXED: Proper timezone conversion
+  const utcDateTime = new Date(s.session_date + 'T' + s.session_time + 'Z');
+  
+  const displayTime = utcDateTime.toLocaleTimeString('en-US', {
+    timeZone: currentStudent.timezone,
+    hour12: true,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const displayDate = utcDateTime.toLocaleDateString('en-US', {
+    timeZone: currentStudent.timezone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+
+  return `<option value="${s.id}" data-date="${s.session_date}" data-time="${s.session_time}">
+    Session ${s.session_number} - ${displayDate} at ${displayTime} (${currentStudent.timezone})
+  </option>`;
+}).join('');
+
+    // Cancel class form
+    document.getElementById('cancelClassForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const select = document.getElementById('cancelClassSelect');
+      const selectedOption = select.options[select.selectedIndex];
+      
+      if (!selectedOption.value) return alert('Please select a class');
+
+      const sessionDate = selectedOption.getAttribute('data-date');
+      const sessionTime = selectedOption.getAttribute('data-time');
+      const reason = document.getElementById('cancelReason').value;
+
       try {
-        // Get both private and batch sessions
-        const privateRes = await fetch(`/api/sessions/${currentStudent.id}`);
-        const privateSessions = await privateRes.json();
-        
-        const batchRes = await fetch(`/api/students/${currentStudent.id}/batch-sessions`);
-        const batchSessions = await batchRes.json();
-        
-        // Combine and filter completed
-        const allSessions = [
-          ...privateSessions.map(s => ({ 
-            ...s, 
-            type: 'Private', 
-            duration: currentStudent.duration
-          })),
-          ...batchSessions.map(s => ({ ...s, type: 'Batch' }))
-        ]
-        .filter(s => s.status === 'Completed' || s.status === 'Missed')
-        .sort((a, b) => {
-          const dateA = new Date(a.session_date + 'T' + a.session_time);
-          const dateB = new Date(b.session_date + 'T' + b.session_time);
-          return dateB - dateA;
+        const res = await fetch('/api/parent/cancel-class', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_id: currentStudent.id,
+            session_date: sessionDate,
+            session_time: sessionTime,
+            reason: reason
+          })
         });
 
-        const tbody = document.getElementById('pastSessionsBody');
-        
-        if(allSessions.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
-          return;
+        const result = await res.json();
+
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          e.target.reset();
+          loadUpcomingSessions();
+          loadCancelDropdown();
+        } else {
+          alert('❌ ' + result.error);
         }
-        
-        tbody.innerHTML = allSessions.map(s => {
-          try {
-            // CRITICAL FIX: Force IST interpretation
-            let cleanTime = s.session_time;
-            if (cleanTime.includes('.')) {
-              cleanTime = cleanTime.split('.')[0];
-            }
-            const timeParts = cleanTime.split(':');
-            if (timeParts.length === 2) {
-              cleanTime = cleanTime + ':00';
-            }
-            
-            const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
-            const sessionDate = new Date(istDateTime);
-          
-            // Convert to student's timezone
-            const displayTime = sessionDate.toLocaleTimeString('en-US', {
-              timeZone: currentStudent.timezone,
-              hour12: true,
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-
-            const formattedDate = sessionDate.toLocaleDateString('en-US', {
-              timeZone: currentStudent.timezone,
-              month: 'short', 
-              day: 'numeric', 
-              year: 'numeric'
-            });
-
-            // Attendance Display Logic
-            let attendanceDisplay = '-';
-            if(s.status === 'Completed') {
-              if(s.attendance && s.attendance !== '') {
-                attendanceDisplay = `<span class="status-present">✅ ${s.attendance}</span>`;
-              } else {
-                attendanceDisplay = `<span style="color:#e74c3c;">Not Marked</span>`;
-              }
-            } else {
-              attendanceDisplay = `<span class="status-missed">❌ Missed</span>`;
-            }
-
-            const typeLabel = s.type === 'Batch' 
-              ? `<span style="background:#4299e1; color:white; padding:2px 6px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>` 
-              : '';
-
-            return `
-              <tr>
-                <td><strong>#${s.session_number}</strong>${typeLabel}</td>
-                <td>${formattedDate}</td>
-                <td>${displayTime}</td>
-                <td>${attendanceDisplay}</td>
-                <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
-                <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
-                <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
-                <td><small>${s.teacher_notes || (s.homework_grade ? `${s.homework_grade}: ${s.homework_comments}` : '-')}</small></td>
-              </tr>
-            `;
-          } catch (err) {
-            console.error('Error rendering session:', err, s);
-            return `
-              <tr>
-                <td>#${s.session_number}</td>
-                <td>${s.session_date}</td>
-                <td>${s.session_time} <span style="color:red;">⚠️</span></td>
-                <td>${s.status}</td>
-                <td>-</td><td>-</td><td>-</td><td>-</td>
-              </tr>
-            `;
-          }
-        }).join('');
-        
-      } catch(e) { 
-        console.error('Load past sessions error:', e);
-        const tbody = document.getElementById('pastSessionsBody');
-        if(tbody) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">❌ Failed to load past sessions</td></tr>';
-        }
+      } catch (err) {
+        alert('❌ Network error');
       }
-    }
+    });
 
-    // 3. Materials (INCLUDING BATCH MATERIALS)
+    // Load past sessions
+    tbody.innerHTML = past.map(s => {
+  // ✅ FIXED: Proper timezone conversion
+  const utcDateTime = new Date(s.session_date + 'T' + s.session_time + 'Z');
+  
+  const displayTime = utcDateTime.toLocaleTimeString('en-US', {
+    timeZone: currentStudent.timezone,
+    hour12: true,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const displayDate = utcDateTime.toLocaleDateString('en-US', {
+    timeZone: currentStudent.timezone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  return `
+    <tr>
+      <td><strong>${s.session_number}</strong></td>
+      <td>${displayDate}</td>
+      <td>${displayTime}</td>
+      <td>
+        <span style="padding: 4px 12px; border-radius: 12px; background: ${s.attendance === 'Present' ? '#d4edda' : '#f8d7da'};">
+          ${s.attendance || '-'}
+        </span>
+      </td>
+      <td>${s.ppt_file_path ? '<a href="/uploads/materials/' + s.ppt_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📥 PPT</a>' : '-'}</td>
+      <td>${s.recording_file_path ? '<a href="/uploads/materials/' + s.recording_file_path + '" target="_blank" class="btn btn-primary btn-sm">🎥 Video</a>' : '-'}</td>
+      <td>${s.homework_file_path ? '<a href="/uploads/materials/' + s.homework_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📝 HW</a>' : '-'}</td>
+      <td><strong style="color: #667eea;">${s.homework_grade || '-'}</strong></td>
+    </tr>
+  `;
+}).join('');
+
+    // Load materials
     async function loadMaterials() {
       try {
         const res = await fetch(`/api/materials/${currentStudent.id}`);
-        const allMats = await res.json();
-        
-        // Filter for Teacher uploads (includes both private and batch)
-        const teacherMats = allMats.filter(m => m.uploaded_by === 'Teacher')
-        .sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at)); // Most recent first
+        const materials = await res.json();
 
         const grid = document.getElementById('materialsGrid');
-        
-        if(teacherMats.length === 0) {
-          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color:#718096; padding: 40px;">No materials uploaded yet.</p>';
+
+        const teacherMaterials = materials.filter(m => m.uploaded_by === 'Teacher');
+
+        if (teacherMaterials.length === 0) {
+          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096;">No materials yet</p>';
           return;
         }
 
-        grid.innerHTML = teacherMats.map(m => {
+        grid.innerHTML = teacherMaterials.map(m => {
           let icon = '📁';
-          if(m.file_type === 'PPT') icon = '📊';
-          if(m.file_type === 'Recording') icon = '🎥';
-          if(m.file_type === 'Homework') icon = '📝';
-          if(m.file_type === 'Notes') icon = '📓';
-          
-          // Show if it's from batch or private
-          const sourceLabel = m.batch_name 
-            ? `<div class="material-source">📚 ${m.batch_name}</div>`
-            : `<div class="material-source">👤 Private</div>`;
-          
+          if (m.file_type === 'PPT') icon = '📊';
+          if (m.file_type === 'Recording') icon = '🎥';
+          if (m.file_type === 'Homework') icon = '📝';
+
           return `
             <div class="material-card">
-              ${sourceLabel}
               <div class="material-icon">${icon}</div>
-              <div class="material-type">${m.file_type}</div>
-              <div class="material-name">${m.file_name}</div>
-              <div class="material-date">${m.session_date}</div>
-              <a href="/uploads/homework/${m.file_path}" download class="btn-download-card">Download</a>
+              <div style="color: #667eea; font-weight: bold; margin-bottom: 5px;">${m.file_type}</div>
+              <div style="font-weight: 600; margin-bottom: 10px;">${m.file_name}</div>
+              <div style="color: #718096; font-size: 0.85rem; margin-bottom: 15px;">${m.session_date}</div>
+              <a href="/uploads/homework/${m.file_path}" download class="btn btn-primary btn-sm">Download</a>
             </div>
           `;
         }).join('');
-      } catch(e) { 
-        console.error('Load materials error:', e);
-        const grid = document.getElementById('materialsGrid');
-        if(grid) grid.innerHTML = '<p style="text-align:center; color:red;">Failed to load materials</p>'; 
+      } catch (err) {
+        console.error('Failed to load materials:', err);
       }
     }
 
-    // 4. Events
-    async function loadParentEvents() {
-      try {
-        const res = await fetch('/api/events');
-        const events = await res.json();
-        const tbody = document.getElementById('parentEventsBody');
-        
-        if(events.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No upcoming events</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = events.map(ev => `
-          <tr>
-            <td><strong>${ev.event_name}</strong><br><small style="color:#718096;">${ev.event_type}</small></td>
-            <td>${ev.event_date}</td>
-            <td>${ev.event_time}</td>
-            <td><button onclick="registerForEvent(${ev.id})" class="btn-primary" style="padding: 8px 15px; font-size:0.9rem;">Register</button></td>
-          </tr>
-        `).join('');
-      } catch(e) { console.error(e); }
-    }
-
-    // 5. Homework (Submission History)
-    async function loadSubmittedHomework() {
+    // Load homework history
+    async function loadHomeworkHistory() {
       try {
         const res = await fetch(`/api/materials/${currentStudent.id}`);
-        const allMats = await res.json();
-        
-        // Filter for Parent uploads (Homework)
-        const homework = allMats.filter(m => m.uploaded_by === 'Parent' && m.file_type === 'Homework');
-        const tbody = document.getElementById('submittedHomeworkBody');
-        
-        if(homework.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No homework submitted</td></tr>';
-        } else {
-          tbody.innerHTML = homework.map(h => `
-            <tr>
-              <td>${h.session_date}</td>
-              <td><a href="/uploads/homework/${h.file_path}" target="_blank">${h.file_name}</a></td>
-              <td>${new Date(h.uploaded_at).toLocaleDateString()}</td>
-              <td>${h.feedback_given ? '<span style="color:#38a169; font-weight:bold;">Reviewed</span>' : '<span style="color:#f39c12; font-weight:bold;">Pending</span>'}</td>
-              <td>${h.feedback_comments ? `<small>${h.feedback_grade}</small>` : '-'}</td>
-            </tr>
-          `).join('');
-        }
-      } catch(e) { console.error(e); }
-    }
+        const materials = await res.json();
 
-    // 6. Cancel Dropdown (FIXED TIMEZONE)
-    async function loadUpcomingClassesDropdown() {
-      try {
-        // Only load PRIVATE sessions for cancellation
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
-        const allSessions = await res.json();
-        
-        const today = new Date().toISOString().split('T')[0];
-        const upcoming = allSessions.filter(s => 
-          s.session_date >= today && 
-          (s.status === 'Pending' || s.status === 'Scheduled')
-        );
-        
-        const select = document.getElementById('cancelClassSelect');
-        
-        if(upcoming.length === 0) {
-          select.innerHTML = '<option value="">No upcoming private classes to cancel</option>';
-          select.disabled = true;
+        const homework = materials.filter(m => m.uploaded_by === 'Parent');
+
+        const tbody = document.getElementById('homeworkBody');
+
+        if (homework.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No submissions yet</td></tr>';
           return;
         }
-        
-        select.disabled = false;
-        select.innerHTML = '<option value="">-- Select Class to Cancel --</option>';
-        
-        upcoming.forEach(s => {
-          try {
-            // Clean time
-            let cleanTime = s.session_time;
-            if (cleanTime.includes('.')) {
-              cleanTime = cleanTime.split('.')[0];
-            }
-            const timeParts = cleanTime.split(':');
-            if (timeParts.length === 2) {
-              cleanTime = cleanTime + ':00';
-            }
-            
-            // Force IST interpretation
-            const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
-            const sessionDate = new Date(istDateTime);
-            
-            const displayTime = sessionDate.toLocaleTimeString('en-US', {
-              timeZone: currentStudent.timezone,
-              hour12: true,
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-            
-            const displayDate = sessionDate.toLocaleDateString('en-US', {
-              timeZone: currentStudent.timezone,
-              month: 'short',
-              day: 'numeric'
-            });
-            
-            const option = document.createElement('option');
-            option.value = `${s.session_date}|${s.session_time}`;
-            option.textContent = `Session #${s.session_number} - ${displayDate} at ${displayTime}`;
-            select.appendChild(option);
-            
-          } catch (err) {
-            console.error('Dropdown date error:', err, s);
-            // Fallback option
-            const option = document.createElement('option');
-            option.value = `${s.session_date}|${s.session_time}`;
-            option.textContent = `Session #${s.session_number} - ${s.session_date} at ${s.session_time}`;
-            select.appendChild(option);
-          }
-        });
-        
-      } catch(e) {
-        console.error('Dropdown error:', e);
-        const select = document.getElementById('cancelClassSelect');
-        if (select) {
-          select.innerHTML = '<option value="">Error loading classes</option>';
-          select.disabled = true;
-        }
+
+        tbody.innerHTML = homework.map(h => `
+          <tr>
+            <td>${h.session_date}</td>
+            <td><a href="/uploads/homework/${h.file_path}" target="_blank">${h.file_name}</a></td>
+            <td>${new Date(h.uploaded_at).toLocaleDateString()}</td>
+            <td>${h.feedback_grade || '-'}</td>
+            <td>${h.feedback_comments || '-'}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load homework:', err);
       }
     }
 
-    // ==================== HELPERS ====================
-    window.choosePasswordLogin = () => { 
-      document.getElementById('loginMethodSection').style.display='none'; 
-      document.getElementById('passwordForm').style.display='block'; 
-    };
-    window.chooseOTPLogin = () => { 
-      document.getElementById('loginMethodSection').style.display='none'; 
-      document.getElementById('otpForm').style.display='block'; 
-      document.getElementById('otpVerifySection').style.display='none';
-      document.getElementById('otpSendSection').style.display='block';
-    };
-    window.backToEmail = () => { 
-      document.getElementById('otpForm').style.display='none'; 
-      document.getElementById('passwordForm').style.display='none';
-      document.getElementById('setupPasswordForm').style.display='none';
-      document.getElementById('loginMethodSection').style.display='none';
-      document.getElementById('emailForm').style.display='block';
-    };
-    window.backToMethod = () => { 
-      document.getElementById('passwordForm').style.display='none'; 
-      document.getElementById('otpVerifySection').style.display='none';
-      document.getElementById('otpSendSection').style.display='block';
-      document.getElementById('loginMethodSection').style.display='block';
-    };
-    window.sendOTP = async () => {
+    // Upload homework
+    document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const file = document.getElementById('homeworkFile').files[0];
+      if (!file) return alert('Please select a file');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('sessionDate', document.getElementById('homeworkDate').value);
+      formData.append('uploadType', 'homework');
+
       try {
-        const res = await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentEmail }) });
+        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
+          method: 'POST',
+          body: formData
+        });
+
         const result = await res.json();
+
         if (res.ok) {
-          document.getElementById('otpSendSection').style.display='none';
-          document.getElementById('otpVerifySection').style.display='block';
-          document.getElementById('otpSentEmail').textContent = currentEmail;
-        } else { alert('❌ ' + (result.error || 'Failed')); }
-      } catch (e) { alert('❌ Network Error'); }
-    };
-    window.resendOTP = () => sendOTP();
-    window.forgotPassword = () => { alert("Please use 'Send OTP' option to reset your password."); };
-
-    window.logout = async () => {
-  if(!confirm("Logout?")) return;
-  try {
-    await fetch('/api/logout');
-  } catch(e) {}
-  sessionStorage.clear();
-  location.reload();
-};
-
-
-    // Cancel Upcoming Class Form
-    const cancelForm = document.getElementById('cancelUpcomingForm');
-    if (cancelForm) {
-      cancelForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const val = document.getElementById('cancelClassSelect').value;
-        const reason = document.getElementById('cancelReasonText').value;
-        
-        if(!val) return alert('Select a class');
-        
-        const [date, time] = val.split('|');
-        if(!confirm(`Cancel class on ${date}?`)) return;
-
-        try {
-          const res = await fetch('/api/parent/cancel-upcoming-class', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-              student_id: currentStudent.id, 
-              session_date: date, 
-              session_time: time, 
-              reason 
-            })
-          });
-          const result = await res.json();
-          if(res.ok) {
-            alert('✅ Cancelled. Makeup credit added.');
-            cancelForm.reset();
-            loadStudentDetails(); // Refresh counters
-            loadUpcomingSessions(); // Refresh list
-            loadUpcomingClassesDropdown(); // Refresh dropdown
-          } else { alert('❌ ' + (result.error || 'Failed')); }
-        } catch (err) { alert('❌ Network Error'); }
-      });
-    }
-
-    // Homework Upload
-    const hwForm = document.getElementById('uploadHomeworkForm');
-    if(hwForm) {
-      hwForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData();
-        const file = document.getElementById('homeworkFile').files[0];
-        if(!file) return alert('Select a file');
-        
-        formData.append('file', file);
-        formData.append('sessionDate', document.getElementById('homeworkDate').value);
-
-        try {
-          const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
-            method: 'POST',
-            body: formData
-          });
-          if (res.ok) {
-            alert('✅ Homework Uploaded!');
-            hwForm.reset();
-            loadSubmittedHomework();
-          } else { alert('❌ Upload Failed'); }
-        } catch (err) { alert('❌ Error'); }
-      });
-    }
-
-    // ==================== FEEDBACK FEATURE ====================
-    async function checkPendingFeedback() {
-      try {
-        const res = await fetch(`/api/students/${currentStudent.id}/pending-feedback`);
-        const pending = await res.json();
-        
-        if(pending.length > 0) {
-          const session = pending[0];
-          document.getElementById('feedbackSessionId').value = session.id;
-          document.getElementById('feedbackModal').style.display = 'flex'; // Show Pop-up
+          alert('✅ ' + result.message);
+          e.target.reset();
+          loadHomeworkHistory();
+          loadMaterials();
+        } else {
+          alert('❌ ' + result.error);
         }
-      } catch(e) { console.error("Feedback check error", e); }
+      } catch (err) {
+        alert('❌ Upload failed');
+      }
+    });
+
+    // Tab switching
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById(tabName + 'Tab').classList.add('active');
+      event.target.classList.add('active');
     }
 
-    window.closeFeedbackModal = function() {
-      document.getElementById('feedbackModal').style.display = 'none';
+    // Logout
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        sessionStorage.removeItem('parentViewStudent');
+        sessionStorage.removeItem('parentViewMode');
+        location.reload();
+      }
     }
 
-    // Feedback Submit
-    const feedbackSubmitForm = document.getElementById('feedbackSubmitForm');
-    if (feedbackSubmitForm) {
-      feedbackSubmitForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const sessionId = document.getElementById('feedbackSessionId').value;
-        const rating = document.getElementById('feedbackRating').value;
-        const comment = document.getElementById('feedbackComment').value;
-
-        try {
-          const res = await fetch(`/api/sessions/${sessionId}/feedback`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ rating, comment })
-          });
-          if(res.ok) {
-            alert('Thank you for your feedback!');
-            closeFeedbackModal();
-          } else { alert('Failed to submit feedback'); }
-        } catch (err) { alert('Error'); }
-      });
+    // Exit admin view
+    function exitAdminView() {
+      sessionStorage.removeItem('parentViewStudent');
+      sessionStorage.removeItem('parentViewMode');
+      window.close();
     }
-
-    // ==================== ADMIN MODE FUNCTION ====================
-    window.exitAdminMode = function() {
-      sessionStorage.removeItem('adminAccessStudent');
-      sessionStorage.removeItem('adminAccessMode');
-      sessionStorage.removeItem('adminAccessEmail');
-      location.reload();
-    }
-    </script>
+  </script>
 </body>
 </html>
