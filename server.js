@@ -2990,6 +2990,7 @@ app.post('/api/batches/:batchId/enroll', async (req, res) => {
 });
 
 // ==================== BATCH SESSION SCHEDULING (FIXED) ====================
+// ==================== BATCH SESSION SCHEDULING (FIXED TIMEZONE) ====================
 app.post('/api/batches/:batchId/schedule', async (req, res) => {
   const { batchId } = req.params;
   const { sessions } = req.body;
@@ -3014,7 +3015,7 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
 
     let sessionNumber = parseInt(countResult.rows[0].count) + 1;
 
-    // Insert sessions - CRITICAL: Store times AS-IS (admin's IST timezone)
+    // Insert sessions - Store times AS-IS (admin's IST timezone)
     for (const session of sessions) {
       console.log(`  → Inserting session ${sessionNumber}: ${session.date} ${session.time}`);
       
@@ -3046,7 +3047,7 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
       
       // Build schedule table with PROPER timezone conversion
       const scheduleRows = sessions.map((s, i) => {
-        // CRITICAL FIX: Explicitly mark the stored time as IST
+        // CRITICAL: Explicitly mark the stored time as IST
         const istDateTime = `${s.date}T${s.time}+05:30`; // Force IST interpretation
         const sessionDateTime = new Date(istDateTime);
         
@@ -3070,9 +3071,11 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
           weekday: 'short'
         });
         
+        const currentSessionNum = parseInt(countResult.rows[0].count) + i + 1;
+        
         return `
           <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
-            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${sessionNumber - sessions.length + i}</td>
+            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">Session ${currentSessionNum}</td>
             <td style="padding: 10px; border: 1px solid #ddd;">${dayOfWeek}, ${studentDate}</td>
             <td style="padding: 10px; border: 1px solid #ddd;"><strong>${studentTime}</strong></td>
           </tr>
@@ -3264,6 +3267,7 @@ app.post('/api/upload/batch-material/:batchId', upload.single('file'), async (re
 });
 
 
+// ==================== PARENT PORTAL: GET BATCH SESSIONS (FIXED) ====================
 // ==================== PARENT PORTAL: GET BATCH SESSIONS (FIXED) ====================
 app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
   try {
