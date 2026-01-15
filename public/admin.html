@@ -1,2589 +1,1021 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - Fluent Feathers Academy By Aaliya</title>
-  
-  <!-- INTERNAL STYLES ONLY (NO EXTERNAL CSS) -->
-  <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; color: #2d3748; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    
-    /* Header */
-    header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-    header h1 { margin: 0; font-size: 28px; color: #2b6cb0; }
-    header p { margin: 5px 0 0 0; color: #718096; font-size: 0.9rem; }
-    .logout-btn { background: #e53e3e; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-
-    /* Modals */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
-    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
-    .modal-content.large-modal { max-width: 900px; }
-    .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
-    .btn-close { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold; }
-
-    /* Info Cards */
-    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-    .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
-    .info-card h3 { margin-top: 0; color: #2c3e50; margin-bottom: 10px; }
-
-    /* Detail Tabs */
-    .student-details-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
-    .detail-tab-btn { padding: 12px 20px; background: #f8f9fa; border: none; cursor: pointer; }
-    .detail-tab-btn.active { background: white; border-bottom: 3px solid #667eea; color: #667eea; font-weight: bold; }
-    .detail-tab-content { display: none; }
-    .detail-tab-content.active { display: block; }
-
-    /* Buttons */
-    .btn-primary { background: #667eea; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; }
-    .btn-secondary { background: #95a5a6; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; }
-    .btn-view { background: #3498db; color: white; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8rem; margin-right: 5px; }
-    .btn-edit { background: #f39c12; color: white; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8rem; margin-right: 5px; }
-    .btn-mini-delete { background: #e74c3c; color: white; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8rem; }
-    .btn-delete { background: #e74c3c; color: white; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; }
-    .action-btn { display: inline-block; margin: 5px; text-decoration: none; padding: 10px 20px; background: white; border-radius: 8px; color: #2c3e50; border: 1px solid #ddd; font-weight: 600; }
-    .action-btn:hover { background: #f8f9fa; }
-
-    /* Forms */
-    .form-section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-    .form-row { display: flex; gap: 20px; margin-bottom: 15px; }
-    .form-group { flex: 1; }
-    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-    
-    /* Schedule Rows */
-    .schedule-row { display: flex; gap: 10px; margin-bottom: 10px; }
-    .schedule-row input { flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 5px; }
-
-    /* Tabs */
-    .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-    .tab-btn { padding: 10px 20px; background: white; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
-    .tab-btn.active { background: #667eea; color: white; border-color: #667eea; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    
-    /* Tables */
-    .table-section { margin-top: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
-    th { background: #f8f9fa; color: #2c3e50; }
-    .rating-stars { color: #f1c40f; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>🎓 Admin Dashboard </h1>
-        <p>Fluent Feathers Academy By Aaliya - Professional LMS</p>
-      </div>
-      <button onclick="location.href='index.html'" class="logout-btn">Logout</button>
-    </header>
-
-    <!-- Navigation Tabs (TIMETABLE REMOVED) -->
-    <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('dashboard', this)">📊 Dashboard</button>
-      <button class="tab-btn" onclick="showTab('ratings', this)">⭐ Class Ratings</button>
-      <button class="tab-btn" onclick="showTab('students', this)">👥 Students</button>
-      <button class="tab-btn" onclick="showTab('sessions', this)">📅 Sessions</button>
-      <button class="tab-btn" onclick="showTab('materials', this)">📚 Materials</button>
-      <button class="tab-btn" onclick="showTab('events', this)">🎉 Events</button>
-      <button class="tab-btn" onclick="showTab('batches', this)">👥 Batches</button>
-      <button class="tab-btn" onclick="showTab('emails', this)">📧 Emails</button>
-    </div>
-
-    <!-- ==================== DASHBOARD TAB ==================== -->
-    <div id="dashboardTab" class="tab-content active">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px;">
-        <div class="info-card" style="background: white;">
-          <h3 style="margin:0; color:#667eea;">👥 Total Students</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0;" id="totalStudents">0</p>
-        </div>
-        <div class="info-card" style="background: white;">
-          <h3 style="margin:0; color:#48bb78;">📅 Upcoming Sessions</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0;" id="upcomingSessions">0</p>
-        </div>
-        <div class="info-card" style="background: white;">
-          <h3 style="margin:0; color:#4299e1;">📚 Today's Classes</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0;" id="todaySessions">0</p>
-        </div>
-        <div class="info-card" style="background: white;">
-          <h3 style="margin:0; color:#f6ad55;">💰 Total Revenue</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0;" id="totalRevenue">₹0</p>
-        </div>
-        <div class="info-card" style="background: white;">
-          <h3 style="margin:0; color:#ed64a6;">🎉 Upcoming Events</h3>
-          <p style="font-size: 2rem; font-weight: bold; margin: 0;" id="upcomingEvents">0</p>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 30px;">
-        <button onclick="showTab('students', document.querySelectorAll('.tab-btn')[2])" class="action-btn">👥 Manage Students</button>
-        <button onclick="showTab('sessions', document.querySelectorAll('.tab-btn')[3])" class="action-btn">📅 Schedule Classes</button>
-        <button onclick="showTab('materials', document.querySelectorAll('.tab-btn')[4])" class="action-btn">📚 Upload Material</button>
-        <button onclick="showTab('events', document.querySelectorAll('.tab-btn')[5])" class="action-btn">🎉 Create Event</button>
-        <button onclick="window.open('https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09', '_blank')" class="action-btn">🎥 Join Zoom</button>
-      </div>
-
-      <!-- Recent Activity -->
-      <div class="table-section" style="background: white; padding: 20px;">
-        <h2>📋 Recent Activity</h2>
-        <div id="recentActivityList">
-          <p style="text-align: center; color: #7f8c8d; padding: 20px;">Loading recent activity...</p>
-        </div>
-      </div>
-    </div>
-
-<!-- ==================== RATINGS TAB ==================== -->
-    <div id="ratingsTab" class="tab-content">
-      <div class="table-section" style="background: white; padding: 20px;">
-        <h2>⭐ Class Ratings & Feedback</h2>
-        <p>See what parents and students are saying about recent classes.</p>
-        <table id="ratingsTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Student</th>
-              <th>Session</th>
-              <th>Rating</th>
-              <th>Feedback</th>
-            </tr>
-          </thead>
-          <tbody id="ratingsTableBody">
-            <tr><td colspan="5">Loading ratings...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ==================== STUDENTS TAB ==================== -->
-    <div id="studentsTab" class="tab-content">
-      <!-- Add Student Form -->
-      <section class="form-section">
-        <h2>➕ Add New Student</h2>
-        <form id="addStudentForm">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Student Name *</label>
-              <input type="text" id="studentName" required>
-            </div>
-            <div class="form-group">
-              <label>Grade *</label>
-              <input type="text" id="grade" required placeholder="e.g., Grade 5">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Parent Name *</label>
-              <input type="text" id="parentName" required>
-            </div>
-            <div class="form-group">
-              <label>Parent Email *</label>
-              <input type="email" id="parentEmail" required>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Primary Contact Number *</label>
-              <input type="tel" id="primaryContact" required placeholder="+91 98765 43210" pattern="[+0-9\s\-()]+">
-            </div>
-            <div class="form-group">
-              <label>Alternate Contact Number</label>
-              <input type="tel" id="alternateContact" placeholder="+91 98765 43210 (Optional)" pattern="[+0-9\s\-()]+">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Timezone *</label>
-              <select id="timezone" required>
-                <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                <option value="Asia/Dhaka">Asia/Dhaka (BST - Bangladesh)</option>
-                <option value="America/New_York">America/New_York (EST)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-                <option value="Europe/London">Europe/London (GMT)</option>
-                <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-                <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
-                <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Program Name *</label>
-              <input type="text" id="programName" required placeholder="e.g., English Speaking">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Class Type *</label>
-              <select id="classType" required>
-                <option value="">Select...</option>
-                <option value="Private">Private</option>
-                <option value="Group">Group</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Duration *</label>
-              <select id="duration" required>
-                <option value="">Select...</option>
-                <option value="25 mins">25 mins</option>
-                <option value="40 mins">40 mins</option>
-                <option value="60 mins">60 mins</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Currency *</label>
-              <select id="currency" required>
-                <option value="₹">₹ (INR - Indian Rupee)</option>
-                <option value="৳">৳ (BDT - Bangladeshi Taka)</option>
-                <option value="$">$ (USD - US Dollar)</option>
-                <option value="€">€ (EUR - Euro)</option>
-                <option value="£">£ (GBP - British Pound)</option>
-                <option value="د.إ">د.إ (AED - UAE Dirham)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Per Session Fee *</label>
-              <input type="number" id="perSessionFee" required min="0" step="0.01">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Total Sessions *</label>
-              <input type="number" id="totalSessions" required min="1">
-            </div>
-            <div class="form-group">
-              <label>Total Fees (Auto-calculated)</label>
-              <input type="text" id="totalFees" readonly style="background: #f0f0f0;">
-            </div>
-          </div>
-
-          <button type="submit" class="btn-primary">Add Student & Send Welcome Email</button>
-        </form>
-      </section>
-
-      <!-- All Students Table -->
-      <section class="table-section" style="background: white; padding: 20px;">
-        <h2>📋 All Active Students</h2>
-        <div style="margin-bottom: 15px;">
-          <input type="text" id="searchStudents" placeholder="🔍 Search students..." style="padding: 10px; border: 2px solid #ddd; border-radius: 5px; width: 300px;">
-        </div>
-        
-        <table id="studentsTable">
-          <thead>
-            <tr>
-              <th>Student & Grade</th>
-              <th>Program</th>
-              <th>Type</th>
-              <th>Timezone</th>
-              <th>Currency</th>
-              <th>Per Session</th>
-              <th>Sessions (C/R)</th>
-              <th>Payment</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="studentsTableBody">
-            <tr><td colspan="9" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-
-    <!-- Student Details Modal -->
-    <div id="studentDetailsModal" class="modal" style="display: none;">
-      <div class="modal-content large-modal">
-        <div class="modal-header">
-          <h2 id="modalStudentName">Student Details</h2>
-          <button onclick="closeStudentModal()" class="btn-close">✕</button>
-        </div>
-
-        <div class="student-details-tabs">
-          <button class="detail-tab-btn active" onclick="showDetailTab('info', this)">📋 Info</button>
-          <button class="detail-tab-btn" onclick="showDetailTab('payments', this)">💰 Payments</button>
-          <button class="detail-tab-btn" onclick="showDetailTab('makeup', this)">🎁 Make-up Classes</button>
-          <button class="detail-tab-btn" onclick="showDetailTab('sessions', this)">📅 Sessions</button>
-        </div>
-
-        <!-- Info Tab -->
-        <div id="infoDetail" class="detail-tab-content active">
-          <div id="studentInfoContent"></div>
-          
-          <!-- Switch to Learner View -->
-          <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px;">
-            <h3 style="color: white; margin: 0 0 10px 0;">👤 View as Parent</h3>
-            <p style="color: white; margin: 0 0 15px 0; opacity: 0.9;">
-              View this student's parent portal to see what parents see
-            </p>
-            <button onclick="switchToLearnerView()" class="btn-primary" 
-                    style="background: white; color: #667eea; font-weight: bold;">
-              🔄 Switch to Learner View
-            </button>
-          </div>
-        </div>
-
-        <!-- Payments Tab -->
-        <div id="paymentsDetail" class="detail-tab-content">
-          <button onclick="showPaymentForm()" class="btn-primary" style="margin-bottom: 20px;">+ Record New Payment</button>
-          
-          <div id="paymentFormSection" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3>Record Payment</h3>
-            <form id="recordPaymentForm">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Amount *</label>
-                  <input type="number" id="paymentAmount" required step="0.01">
-                </div>
-                <div class="form-group">
-                  <label>Payment Method *</label>
-                  <select id="paymentMethod" required>
-                    <option value="Cash">Cash</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Credit/Debit Card</option>
-                    <option value="Check">Check</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Receipt Number</label>
-                  <input type="text" id="receiptNumber" placeholder="Optional">
-                </div>
-                <div class="form-group">
-                  <label>Sessions Covered</label>
-                  <input type="text" id="sessionsCovered" placeholder="e.g., Sessions 1-10">
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Notes</label>
-                <textarea id="paymentNotes" rows="2" placeholder="Additional notes..."></textarea>
-              </div>
-              <button type="submit" class="btn-primary">Record Payment</button>
-              <button type="button" onclick="hidePaymentForm()" class="btn-secondary">Cancel</button>
-            </form>
-          </div>
-
-          <table id="paymentHistoryTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Method</th>
-                <th>Receipt #</th>
-                <th>Sessions</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody id="paymentHistoryBody"></tbody>
-          </table>
-        </div>
-
-        <!-- Make-up Classes Tab -->
-        <div id="makeupDetail" class="detail-tab-content">
-          <div id="makeupClassesContent"></div>
-        </div>
-
-        <!-- Sessions Tab -->
-        <div id="sessionsDetail" class="detail-tab-content">
-          <h3>📅 Class History & Resources</h3>
-          <table id="adminStudentSessionsTable">
-            <thead>
-              <tr>
-                <th>Session #</th> 
-                <th>Date</th>
-                <th>Time</th>
-                <th>Attendance</th>
-                <th>PPT</th>
-                <th>Recording</th>
-                <th>HW</th>
-                <th>Teacher Feedback</th>
-              </tr>
-            </thead>
-            <tbody id="adminStudentSessionsBody">
-              <!-- Populated via JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit Student Modal -->
-    <div id="editStudentModal" class="modal" style="display: none;">
-      <div class="modal-content large-modal">
-        <div class="modal-header">
-          <h2>✏️ Edit Student Details</h2>
-          <button onclick="closeEditModal()" class="btn-close">✕</button>
-        </div>
-
-        <form id="editStudentForm">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Student Name *</label>
-              <input type="text" id="editStudentName" required>
-            </div>
-            <div class="form-group">
-              <label>Grade *</label>
-              <input type="text" id="editGrade" required>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Parent Name *</label>
-              <input type="text" id="editParentName" required>
-            </div>
-            <div class="form-group">
-              <label>Parent Email *</label>
-              <input type="email" id="editParentEmail" required>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Primary Contact *</label>
-              <input type="tel" id="editPrimaryContact" required>
-            </div>
-            <div class="form-group">
-              <label>Alternate Contact</label>
-              <input type="tel" id="editAlternateContact">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Timezone *</label>
-              <select id="editTimezone" required>
-                <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                <option value="Asia/Dhaka">Asia/Dhaka (BST - Bangladesh)</option>
-                <option value="America/New_York">America/New_York (EST)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-                <option value="Europe/London">Europe/London (GMT)</option>
-                <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-                <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
-                <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Program Name *</label>
-              <input type="text" id="editProgramName" required>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Class Type *</label>
-              <select id="editClassType" required>
-                <option value="Private">Private</option>
-                <option value="Group">Group</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Duration *</label>
-              <select id="editDuration" required>
-                <option value="25 mins">25 mins</option>
-                <option value="40 mins">40 mins</option>
-                <option value="60 mins">60 mins</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Currency *</label>
-              <select id="editCurrency" required>
-                <option value="₹">₹ (INR)</option>
-                <option value="৳">৳ (BDT)</option>
-                <option value="$">$ (USD)</option>
-                <option value="€">€ (EUR)</option>
-                <option value="£">£ (GBP)</option>
-                <option value="د.إ">د.إ (AED)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Per Session Fee *</label>
-              <input type="number" id="editPerSessionFee" required step="0.01">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Total Sessions *</label>
-              <input type="number" id="editTotalSessions" required min="1">
-            </div>
-            <div class="form-group">
-              <label>Total Fees (Auto-calculated)</label>
-              <input type="text" id="editTotalFees" readonly style="background: #f0f0f0;">
-            </div>
-          </div>
-
-          <button type="submit" class="btn-primary">💾 Save Changes</button>
-          <button type="button" onclick="closeEditModal()" class="btn-secondary">Cancel</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- ==================== SESSIONS TAB ==================== -->
-    <div id="sessionsTab" class="tab-content">
-      <section class="form-section">
-        <h2>📅 Schedule Classes</h2>
-        <form id="scheduleForm">
-          <div class="form-group">
-            <label>Select Student *</label>
-            <select id="scheduleStudentId" required>
-              <option value="">Select student...</option>
-            </select>
-          </div>
-          
-          <div id="classScheduleList"></div>
-          
-          <div style="margin: 20px 0;">
-            <button type="button" onclick="addScheduleRow()" class="btn-secondary">+ Add Class</button>
-            <button type="button" onclick="addBulkSchedule()" class="btn-secondary">📅 Bulk Schedule (Weekly Pattern)</button>
-          </div>
-          
-          <button type="submit" class="btn-primary">Schedule All Classes & Send Email</button>
-        </form>
-      </section>
-
-      <!-- Bulk Schedule Section -->
-      <div id="bulkScheduleSection" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3>📅 Bulk Schedule - Weekly Pattern</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Select Days *</label>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-              <label><input type="checkbox" name="bulkDay" value="1"> Monday</label>
-              <label><input type="checkbox" name="bulkDay" value="2"> Tuesday</label>
-              <label><input type="checkbox" name="bulkDay" value="3"> Wednesday</label>
-              <label><input type="checkbox" name="bulkDay" value="4"> Thursday</label>
-              <label><input type="checkbox" name="bulkDay" value="5"> Friday</label>
-              <label><input type="checkbox" name="bulkDay" value="6"> Saturday</label>
-              <label><input type="checkbox" name="bulkDay" value="0"> Sunday</label>
-            </div>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Time *</label>
-            <input type="time" id="bulkScheduleTime" required>
-          </div>
-          <div class="form-group">
-            <label>Number of Weeks *</label>
-            <input type="number" id="bulkScheduleWeeks" min="1" max="12" value="4">
-          </div>
-          <div class="form-group">
-            <label>Start Date *</label>
-            <input type="date" id="bulkScheduleStartDate" required>
-          </div>
-        </div>
-        <button type="button" onclick="generateBulkSchedule()" class="btn-primary">Generate Schedule</button>
-        <button type="button" onclick="closeBulkSchedule()" class="btn-secondary">Cancel</button>
-      </div>
-
-      <!-- All Sessions -->
-      <section class="table-section" style="background: white; padding: 20px;">
-        <h2>📅 All Sessions</h2>
-        <div class="form-row" style="margin-bottom: 20px;">
-          <div class="form-group">
-            <label>Filter by Student</label>
-            <select id="filterSessionStudent" onchange="loadAllSessions()">
-              <option value="">All Students</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Filter by Status</label>
-            <select id="filterSessionStatus" onchange="loadAllSessions()">
-              <option value="">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Completed">Completed</option>
-              <option value="Missed">Missed</option>
-              <option value="Cancelled by Teacher">Cancelled by Teacher</option>
-              <option value="Cancelled by Parent">Cancelled by Parent</option>
-            </select>
-          </div>
-        </div>
-        
-        <table id="allSessionsTable">
-  <thead>
-    <tr>
-      <th>Session #</th>
-      <th>Date</th>
-      <th>Time</th>
-      <th>Status</th>
-      <th>Attendance</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-          <tbody id="allSessionsBody">
-            <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-
-<!-- ==================== MATERIALS TAB ==================== -->
-    <div id="materialsTab" class="tab-content">
-      <section class="form-section">
-        <h2>📤 Upload Class Material</h2>
-        <form id="uploadMaterialForm" enctype="multipart/form-data">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Upload Type *</label>
-              <select id="uploadType" required onchange="toggleUploadTarget()">
-                <option value="">Select...</option>
-                <option value="private">Private Student</option>
-                <option value="batch">Batch/Group</option>
-              </select>
-            </div>
-            <div class="form-group" id="privateTargetGroup" style="display: none;">
-              <label>Select Private Student *</label>
-              <select id="privateStudentId">
-                <option value="">Select student...</option>
-              </select>
-            </div>
-            <div class="form-group" id="batchTargetGroup" style="display: none;">
-              <label>Select Batch *</label>
-              <select id="batchSelect">
-                <option value="">Select batch...</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Session Date *</label>
-              <input type="date" id="materialSessionDate" required>
-            </div>
-            <div class="form-group">
-              <label>Material Type *</label>
-              <select id="materialType" required>
-                <option value="">Select...</option>
-                <option value="PPT">📊 PPT/Presentation</option>
-                <option value="PDF">📄 PDF/Document</option>
-                <option value="Recording">🎥 Class Recording</option>
-                <option value="Homework">📝 Homework Assignment</option>
-                <option value="Notes">📓 Study Notes</option>
-                <option value="Other">📁 Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Upload File *</label>
-            <input type="file" id="materialFile" required>
-            <small>Max 50MB - Supported: PDF, PPT, DOCX, MP4, ZIP, etc.</small>
-          </div>
-
-          <button type="submit" class="btn-primary">📤 Upload Material & Notify Students</button>
-        </form>
-      </section>
-
-      <!-- All Materials -->
-      <section class="table-section" style="background: white; padding: 20px;">
-        <h2>📚 All Uploaded Materials</h2>
-        <div class="form-row" style="margin-bottom: 20px;">
-          <div class="form-group">
-            <label>Filter by Student</label>
-            <select id="filterMaterialStudent" onchange="loadMaterials()">
-              <option value="">All Students</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Filter by Type</label>
-            <select id="filterMaterialType" onchange="loadMaterials()">
-              <option value="">All Types</option>
-              <option value="PPT">PPT</option>
-              <option value="PDF">PDF</option>
-              <option value="Recording">Recording</option>
-              <option value="Homework">Homework</option>
-              <option value="Notes">Notes</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-        </div>
-        <table id="materialsTable">
-          <thead>
-            <tr>
-              <th>Target</th>
-              <th>Date</th>
-              <th>Type</th>
-              <th>File Name</th>
-              <th>Uploaded By</th>
-              <th>Uploaded At</th>
-              <th>Feedback</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="materialsTableBody">
-            <tr><td colspan="9" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-
-    <!-- Feedback Modal -->
-    <div id="feedbackModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>📝 Give Homework Feedback</h2>
-          <button onclick="closeFeedbackModal()" class="btn-close">✕</button>
-        </div>
-        <form id="feedbackForm">
-          <div class="form-group">
-            <label>Grade *</label>
-            <select id="feedbackGrade" required>
-              <option value="">Select grade...</option>
-              <option value="A+">A+ Excellent</option>
-              <option value="A">A Very Good</option>
-              <option value="B+">B+ Good</option>
-              <option value="B">B Satisfactory</option>
-              <option value="C">C Needs Improvement</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Feedback Comments *</label>
-            <textarea id="feedbackComments" rows="4" required placeholder="Write your feedback here..."></textarea>
-          </div>
-          <button type="submit" class="btn-primary">✅ Submit & Send Email</button>
-          <button type="button" onclick="closeFeedbackModal()" class="btn-secondary">Cancel</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- ==================== EVENTS TAB ==================== -->
-    <div id="eventsTab" class="tab-content">
-      <section class="form-section">
-        <h2>🎉 Create New Event</h2>
-        <form id="createEventForm">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Event Type *</label>
-              <select id="eventType" required>
-                <option value="">Select...</option>
-                <option value="Workshop">🎓 Workshop</option>
-                <option value="Competition">🏆 Competition</option>
-                <option value="Showcase">🎭 Showcase</option>
-                <option value="Webinar">💻 Webinar</option>
-                <option value="Other">📌 Other</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Event Name *</label>
-              <input type="text" id="eventName" required placeholder="e.g., Public Speaking Workshop">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Description *</label>
-            <textarea id="eventDescription" rows="3" required placeholder="Describe event..."></textarea>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Event Date *</label>
-              <input type="date" id="eventDate" required>
-            </div>
-            <div class="form-group">
-              <label>Event Time *</label>
-              <input type="time" id="eventTime" required>
-            </div>
-            <div class="form-group">
-              <label>Duration *</label>
-              <select id="eventDuration" required>
-                <option value="30 minutes">30 minutes</option>
-                <option value="1 hour">1 hour</option>
-                <option value="1.5 hours">1.5 hours</option>
-                <option value="2 hours">2 hours</option>
-                <option value="3 hours">3 hours</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Zoom Link *</label>
-              <input type="url" id="eventZoomLink" required placeholder="https://zoom.us/j/...">
-            </div>
-            <div class="form-group">
-              <label>Max Participants (0 = Unlimited)</label>
-              <input type="number" id="eventMaxParticipants" min="0" value="0">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Registration Deadline</label>
-            <input type="datetime-local" id="eventRegistrationDeadline">
-          </div>
-
-          <button type="submit" class="btn-primary">🎉 Create Event & Send Announcements</button>
-        </form>
-      </section>
-
-      <!-- All Events -->
-      <section class="table-section" style="background: white; padding: 20px;">
-        <h2>📋 All Events</h2>
-        <table id="eventsTable">
-          <thead>
-            <tr>
-              <th>Event Name</th>
-              <th>Type</th>
-              <th>Date & Time</th>
-              <th>Registered</th>
-              <th>Capacity</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="eventsTableBody">
-            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-
-    <!-- Event Details Modal -->
-    <div id="eventDetailsModal" class="modal" style="display: none;">
-      <div class="modal-content large-modal">
-        <div class="modal-header">
-          <h2 id="modalEventName">Event Details</h2>
-          <button onclick="closeEventModal()" class="btn-close">✕</button>
-        </div>
-
-        <div id="eventDetailsContent"></div>
-
-        <div id="eventAttendanceSection" style="margin-top: 20px;">
-          <h3>Mark Attendance</h3>
-          <div id="eventRegistrationsList"></div>
-          <button onclick="markEventAttendance()" class="btn-primary">✅ Save Attendance & Generate Certificates</button>
-        </div>
-      </div>
-    </div>
-    <!-- ==================== EMAILS TAB ==================== -->
-    <div id="emailsTab" class="tab-content">
-      <section class="table-section" style="background: white; padding: 20px;">
-        <h2>📧 Email Log</h2>
-        <p style="color: #7f8c8d; margin-bottom: 20px;">Track all automated emails sent by the system</p>
-        
-        <div class="form-row" style="margin-bottom: 20px;">
-          <div class="form-group">
-            <label>Filter by Type</label>
-            <select id="filterEmailType" onchange="loadEmailLog()">
-              <option value="">All Types</option>
-              <option value="Welcome">Welcome</option>
-              <option value="Schedule">Schedule</option>
-              <option value="24h Reminder">24h Reminder</option>
-              <option value="1h Reminder">1h Reminder</option>
-              <option value="Cancellation">Cancellation</option>
-              <option value="Material Upload">Material Upload</option>
-              <option value="Event Announcement">Event Announcement</option>
-              <option value="Certificate">Certificate</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Filter by Status</label>
-            <select id="filterEmailStatus" onchange="loadEmailLog()">
-              <option value="">All Status</option>
-              <option value="Sent">Sent</option>
-              <option value="Failed">Failed</option>
-            </select>
-          </div>
-        </div>
-
-        <table id="emailsTable">
-          <thead>
-            <tr>
-              <th>Sent At</th>
-              <th>Recipient</th>
-              <th>Email</th>
-              <th>Type</th>
-              <th>Subject</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="emailsTableBody">
-            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-    <!-- ==================== BATCHES TAB ==================== -->
-    <div id="batchesTab" class="tab-content">
-      <!-- Create New Batch Form -->
-      <section class="form-section">
-        <h2>➕ Create New Batch/Group</h2>
-        <form id="createBatchForm">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Batch Name *</label>
-              <input type="text" id="batchName" required placeholder="e.g., English Speaking - Morning Batch">
-            </div>
-            <div class="form-group">
-              <label>Batch Code *</label>
-              <input type="text" id="batchCode" required placeholder="e.g., ES-M-001" style="text-transform: uppercase;">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Program Name *</label>
-              <input type="text" id="batchProgramName" required placeholder="e.g., English Speaking">
-            </div>
-            <div class="form-group">
-              <label>Grade Level *</label>
-              <input type="text" id="batchGradeLevel" required placeholder="e.g., Grades 5-7">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Duration *</label>
-              <select id="batchDuration" required>
-                <option value="">Select...</option>
-                <option value="25 mins">25 mins</option>
-                <option value="40 mins">40 mins</option>
-                <option value="60 mins">60 mins</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Batch Timezone (Your Teaching Timezone) *</label>
-              <select id="batchTimezone" required>
-                <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                <option value="America/New_York">America/New_York (EST)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-                <option value="Europe/London">Europe/London (GMT)</option>
-                <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-                <option value="Asia/Dhaka">Asia/Dhaka (BST - Bangladesh)</option>
-                <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
-                <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Max Students *</label>
-              <input type="number" id="batchMaxStudents" required min="2" max="50" value="10">
-            </div>
-            <div class="form-group">
-              <label>Currency *</label>
-              <select id="batchCurrency" required>
-                <option value="₹">₹ (INR - Indian Rupee)</option>
-                <option value="৳">৳ (BDT - Bangladeshi Taka)</option>
-                <option value="$">$ (USD - US Dollar)</option>
-                <option value="€">€ (EUR - Euro)</option>
-                <option value="£">£ (GBP - British Pound)</option>
-                <option value="د.إ">د.إ (AED - UAE Dirham)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Per Session Fee *</label>
-              <input type="number" id="batchPerSessionFee" required min="0" step="0.01">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Start Date</label>
-              <input type="date" id="batchStartDate">
-            </div>
-            <div class="form-group">
-              <label>End Date</label>
-              <input type="date" id="batchEndDate">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Zoom Link *</label>
-            <input type="url" id="batchZoomLink" required placeholder="https://zoom.us/j/...">
-          </div>
-
-          <div class="form-group">
-            <label>Description</label>
-            <textarea id="batchDescription" rows="3" placeholder="Brief description of batch..."></textarea>
-          </div>
-
-          <button type="submit" class="btn-primary">Create Batch</button>
-        </form>
-      </section>
-
-      <!-- All Batches Table -->
-      <section class="table-section" style="background: white; padding: 20px;">
-        <h2>📋 All Batches</h2>
-        <div style="margin-bottom: 15px;">
-          <input type="text" id="searchBatches" placeholder="🔍 Search batches..." style="padding: 10px; border: 2px solid #ddd; border-radius: 5px; width: 300px;">
-          <select id="filterBatchStatus" onchange="loadBatches()" style="padding: 10px; border: 2px solid #ddd; border-radius: 5px; margin-left: 10px;">
-            <option value="">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Completed">Completed</option>
-            <option value="On Hold">On Hold</option>
-          </select>
-        </div>
-        
-        <table id="batchesTable">
-          <thead>
-            <tr>
-              <th>Batch Name & Code</th>
-              <th>Program</th>
-              <th>Grade Level</th>
-              <th>Duration</th>
-              <th>Timezone</th>
-              <th>Enrollment</th>
-              <th>Fee</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="batchesTableBody">
-            <tr><td colspan="9" style="text-align: center;">No batches yet. Create one above!</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-
-    <!-- ==================== BATCH MODALS ==================== -->
-
-<!-- Batch Details Modal -->
-<div id="batchDetailsModal" class="modal" style="display: none;">
-  <div class="modal-content large-modal">
-    <div class="modal-header">
-      <h2 id="modalBatchName">Batch Details</h2>
-      <button onclick="closeBatchModal()" class="btn-close">✕</button>
-    </div>
-
-    <div class="student-details-tabs">
-      <button class="detail-tab-btn active" onclick="showBatchDetailTab('batchInfo', this)">📋 Info</button>
-      <button class="detail-tab-btn" onclick="showBatchDetailTab('batchStudents', this)">👥 Students</button>
-      <button class="detail-tab-btn" onclick="showBatchDetailTab('batchSchedule', this)">📅 Schedule</button>
-      <button class="detail-tab-btn" onclick="showBatchDetailTab('batchMaterials', this)">📚 Materials</button>
-    </div>
-
-    <!-- Batch Info Tab -->
-    <div id="batchInfoDetail" class="detail-tab-content active">
-      <div id="batchInfoContent"></div>
-      <div style="margin-top: 20px;">
-        <button onclick="openEditBatchModal()" class="btn-primary">✏️ Edit Batch</button>
-        <button onclick="deleteBatch()" class="btn-delete" style="margin-left: 10px;">🗑️ Delete Batch</button>
-      </div>
-    </div>
-
-    <!-- Students Tab -->
-    <div id="batchStudentsDetail" class="detail-tab-content">
-      <button onclick="showEnrollStudentForm()" class="btn-primary" style="margin-bottom: 20px;">+ Enroll Student</button>
-      
-      <div id="enrollStudentForm" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h3>Enroll Student in Batch</h3>
-        <form id="enrollStudentInBatchForm">
-          <div class="form-group">
-            <label>Select Student *</label>
-            <select id="enrollStudentSelect" required>
-              <option value="">Select student...</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Notes</label>
-            <textarea id="enrollmentNotes" rows="2" placeholder="Optional notes..."></textarea>
-          </div>
-          <button type="submit" class="btn-primary">Enroll Student</button>
-          <button type="button" onclick="hideEnrollStudentForm()" class="btn-secondary">Cancel</button>
-        </form>
-      </div>
-
-      <table id="batchStudentsTable">
-        <thead>
-          <tr>
-            <th>Student Name</th>
-            <th>Grade</th>
-            <th>Parent</th>
-            <th>Timezone</th>
-            <th>Enrolled Date</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="batchStudentsBody"></tbody>
-      </table>
-    </div>
-
-    <!-- Schedule Tab -->
-    <div id="batchScheduleDetail" class="detail-tab-content">
-      <button onclick="showBatchScheduleForm()" class="btn-primary" style="margin-bottom: 20px;">📅 Schedule Classes</button>
-      
-      <div id="batchScheduleFormSection" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h3>Schedule Batch Sessions</h3>
-        <form id="scheduleBatchSessionsForm">
-          <div id="batchClassScheduleList"></div>
-          
-          <div style="margin: 20px 0;">
-            <button type="button" onclick="addBatchScheduleRow()" class="btn-secondary">+ Add Session</button>
-            <button type="button" onclick="addBatchBulkSchedule()" class="btn-secondary">📅 Bulk Schedule</button>
-          </div>
-          
-          <button type="submit" class="btn-primary">Schedule All & Send Emails</button>
-          <button type="button" onclick="hideBatchScheduleForm()" class="btn-secondary">Cancel</button>
-        </form>
-      </div>
-
-      <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #17a2b8;">
-        <p style="margin: 0; color: #0c5460;">
-          <strong>ℹ️ Timezone Info:</strong> Schedule times in YOUR timezone. Students will see times converted to THEIR timezone automatically.
-        </p>
-      </div>
-
-      <table id="batchSessionsTable">
-        <thead>
-          <tr>
-            <th>Session #</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="batchSessionsBody"></tbody>
-      </table>
-    </div>
-
-    <!-- Materials Tab -->
-    <div id="batchMaterialsDetail" class="detail-tab-content">
-      <button onclick="showBatchMaterialUpload()" class="btn-primary" style="margin-bottom: 20px;">📤 Upload Material</button>
-      
-      <div id="batchMaterialUploadForm"
-     style="display: none; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h3>Upload Material for Batch</h3>
-        <form id="uploadBatchMaterialForm" enctype="multipart/form-data">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Session Date *</label>
-              <input type="date" id="batchMaterialSessionDate" required>
-            </div>
-            <div class="form-group">
-              <label>Material Type *</label>
-              <select id="batchMaterialType" required>
-                <option value="">Select...</option>
-                <option value="PPT">📊 PPT/Presentation</option>
-                <option value="PDF">📄 PDF/Document</option>
-                <option value="Recording">🎥 Class Recording</option>
-                <option value="Homework">📝 Homework Assignment</option>
-                <option value="Notes">📓 Study Notes</option>
-                <option value="Other">📁 Other</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Upload File *</label>
-            <input type="file" id="batchMaterialFile" required>
-          </div>
-          <button type="submit" class="btn-primary">Upload & Notify Students</button>
-          <button type="button" onclick="hideBatchMaterialUpload()" class="btn-secondary">Cancel</button>
-        </form>
-      </div>
-
-      <div id="batchMaterialsList"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Edit Batch Modal -->
-<div id="editBatchModal" class="modal" style="display: none;">
-  <div class="modal-content large-modal">
-    <div class="modal-header">
-      <h2>✏️ Edit Batch Details</h2>
-      <button onclick="closeEditBatchModal()" class="btn-close">✕</button>
-    </div>
-
-    <form id="editBatchForm">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Batch Name *</label>
-          <input type="text" id="editBatchName" required>
-        </div>
-        <div class="form-group">
-          <label>Program Name *</label>
-          <input type="text" id="editBatchProgramName" required>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Grade Level *</label>
-          <input type="text" id="editBatchGradeLevel" required>
-        </div>
-        <div class="form-group">
-          <label>Duration *</label>
-          <select id="editBatchDuration" required>
-            <option value="25 mins">25 mins</option>
-            <option value="40 mins">40 mins</option>
-            <option value="60 mins">60 mins</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Timezone *</label>
-          <select id="editBatchTimezone" required>
-            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-            <option value="America/New_York">America/New_York (EST)</option>
-            <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-            <option value="Europe/London">Europe/London (GMT)</option>
-            <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-            <option value="Asia/Dhaka">Asia/Dhaka (BST - Bangladesh)</option>
-            <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
-            <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Max Students *</label>
-          <input type="number" id="editBatchMaxStudents" required min="2" max="50">
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Currency *</label>
-          <select id="editBatchCurrency" required>
-            <option value="₹">₹ (INR)</option>
-            <option value="৳">৳ (BDT)</option>
-            <option value="$">$ (USD)</option>
-            <option value="€">€ (EUR)</option>
-            <option value="£">£ (GBP)</option>
-            <option value="د.إ">د.إ (AED)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Per Session Fee *</label>
-          <input type="number" id="editBatchPerSessionFee" required step="0.01">
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Start Date</label>
-          <input type="date" id="editBatchStartDate">
-        </div>
-        <div class="form-group">
-          <label>End Date</label>
-          <input type="date" id="editBatchEndDate">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Zoom Link *</label>
-        <input type="url" id="editBatchZoomLink" required>
-      </div>
-
-      <div class="form-group">
-        <label>Status *</label>
-        <select id="editBatchStatus" required>
-          <option value="Active">Active</option>
-          <option value="Completed">Completed</option>
-          <option value="On Hold">On Hold</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Description</label>
-        <textarea id="editBatchDescription" rows="3"></textarea>
-      </div>
-
-      <button type="submit" class="btn-primary">💾 Save Changes</button>
-      <button type="button" onclick="closeEditBatchModal()" class="btn-secondary">Cancel</button>
-    </form>
-  </div>
-</div>
-
-  </div> <!-- Close main container -->  
-
-  <script>
-// Admin Panel JavaScript - Fully Fixed & No Timetable
-let allStudents = [];
-let allEvents = [];
-let allBatches = [];
-let currentStudentId = null;
-let currentEditStudentId = null;
-let currentBatchId = null;
-let scheduleCounter = 0;
-
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('🎓 Admin Panel Loading...');
-  loadDashboardStats();
-  loadStudents();
-  loadRatingsTab();
-  
-  // Form Listeners for Auto-Calculation
-  const perSessionFee = document.getElementById('perSessionFee');
-  const totalSessions = document.getElementById('totalSessions');
-  if (perSessionFee) perSessionFee.addEventListener('input', calculateTotalFees);
-  if (totalSessions) totalSessions.addEventListener('input', calculateTotalFees);
-  
-  const editPerSessionFee = document.getElementById('editPerSessionFee');
-  const editTotalSessions = document.getElementById('editTotalSessions');
-  const editCurrency = document.getElementById('editCurrency');
-  if (editPerSessionFee) editPerSessionFee.addEventListener('input', calculateEditTotalFees);
-  if (editTotalSessions) editTotalSessions.addEventListener('input', calculateEditTotalFees);
-  if (editCurrency) editCurrency.addEventListener('change', calculateEditTotalFees);
-
-  // --- INIT ALL FORM HANDLERS ---
-  initFormHandlers();
-  
-  console.log('✅ Admin Panel Loaded!');
+// force rebuild - smtp switch - PostgreSQL Version
+const moment = require('moment-timezone');
+console.log("🚀 SERVER FILE STARTED");
+const { Pool } = require('pg');
+require('dotenv').config(); 
+const axios = require('axios');
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const archiver = require('archiver');
+const cron = require('node-cron');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+console.log('🔍 EMAIL_USER:', process.env.EMAIL_USER);
+console.log('🔍 BREVO_API_KEY loaded:', !!process.env.BREVO_API_KEY);
+console.log('🌐 BASE_URL:', process.env.BASE_URL);
+
+if (!process.env.BASE_URL) {
+  console.error('❌ CRITICAL: BASE_URL is missing!');
+  console.error('⚠️  Add BASE_URL in Render Environment Variables');
+}
+
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const VERIFIED_SENDER_EMAIL = process.env.EMAIL_USER || 'fluentfeathersbyaaliya@gmail.com';
+const VERIFIED_SENDER_NAME = 'Fluent Feathers Academy';
+
+if (!BREVO_API_KEY) {
+  console.error('❌ CRITICAL: BREVO_API_KEY is missing!');
+}
+if (!VERIFIED_SENDER_EMAIL) {
+  console.error('❌ CRITICAL: EMAIL_USER (sender email) is missing!');
+}
+
+// PostgreSQL Connection Pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Centralized Form Handler Initialization
-function initFormHandlers() {
-  // 1. Add Student
-  const addStudentForm = document.getElementById('addStudentForm');
-  if (addStudentForm) {
-    addStudentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const submitBtn = addStudentForm.querySelector('button[type="submit"]');
-      const originalText = submitBtn.textContent;
-      submitBtn.disabled = true;
-      submitBtn.textContent = '⏳ Adding...';
-      
-      const studentData = {
-        name: document.getElementById('studentName').value,
-        grade: document.getElementById('grade').value,
-        parent_name: document.getElementById('parentName').value,
-        parent_email: document.getElementById('parentEmail').value,
-        primary_contact: document.getElementById('primaryContact').value,
-        alternate_contact: document.getElementById('alternateContact').value || null,
-        timezone: document.getElementById('timezone').value,
-        program_name: document.getElementById('programName').value,
-        class_type: document.getElementById('classType').value,
-        duration: document.getElementById('duration').value,
-        currency: document.getElementById('currency').value,
-        per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
-        total_sessions: parseInt(document.getElementById('totalSessions').value)
-      };
-      
-      try {
-        const response = await fetch('/api/students', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(studentData)
-        });
-        const result = await response.json();
-        if (response.ok && result.success) {
-          alert('✅ ' + result.message);
-          addStudentForm.reset();
-          await loadStudents();
-          loadDashboardStats();
-        } else {
-          alert('❌ ' + (result.error || 'Failed'));
-        }
-      } catch (error) { alert('❌ Network Error'); }
-      finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-      }
-    });
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ Database connection error:', err);
+  } else {
+    console.log('✅ Connected to PostgreSQL database');
+    release();
+    initializeDatabase();
   }
+});
 
-  // 2. Edit Student
-  const editStudentForm = document.getElementById('editStudentForm');
-  if (editStudentForm) {
-    editStudentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const studentData = {
-        name: document.getElementById('editStudentName').value,
-        grade: document.getElementById('editGrade').value,
-        parent_name: document.getElementById('editParentName').value,
-        parent_email: document.getElementById('editParentEmail').value,
-        primary_contact: document.getElementById('editPrimaryContact').value,
-        alternate_contact: document.getElementById('editAlternateContact').value || null,
-        timezone: document.getElementById('editTimezone').value,
-        program_name: document.getElementById('editProgramName').value,
-        class_type: document.getElementById('editClassType').value,
-        duration: document.getElementById('editDuration').value,
-        currency: document.getElementById('editCurrency').value,
-        per_session_fee: parseFloat(document.getElementById('editPerSessionFee').value),
-        total_sessions: parseInt(document.getElementById('editTotalSessions').value)
-      };
-      
-      try {
-        const response = await fetch(`/api/students/${currentEditStudentId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(studentData)
-        });
-        if (response.ok) {
-          alert('✅ Student updated!');
-          closeEditModal();
-          await loadStudents();
-        } else { alert('❌ Failed'); }
-      } catch (error) { alert('❌ Network Error'); }
-    });
-  }
-
-  // 3. Record Payment
-  const recordPaymentForm = document.getElementById('recordPaymentForm');
-  if (recordPaymentForm) {
-    recordPaymentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = {
-        amount: document.getElementById('paymentAmount').value,
-        currency: allStudents.find(s=>s.id === currentStudentId)?.currency || '₹',
-        payment_method: document.getElementById('paymentMethod').value,
-        receipt_number: document.getElementById('receiptNumber').value,
-        sessions_covered: document.getElementById('sessionsCovered').value,
-        notes: document.getElementById('paymentNotes').value
-      };
-      
-      try {
-        const response = await fetch(`/api/students/${currentStudentId}/payment`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        if (response.ok) {
-          alert('✅ Payment Recorded');
-          hidePaymentForm();
-          viewStudentDetails(currentStudentId); // Refresh modal
-          loadStudents(); // Refresh main table
-        } else { alert('❌ Failed'); }
-      } catch (err) { alert('❌ Error'); }
-    });
-  }
-
-  // 4. Schedule Classes (Private)
-  const scheduleForm = document.getElementById('scheduleForm');
-  if (scheduleForm) {
-    scheduleForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const student_id = document.getElementById('scheduleStudentId').value;
-      if (!student_id) return alert('Please select a student');
-
-      const classes = [];
-      // Collect all dynamic rows
-      const rows = document.querySelectorAll('#classScheduleList .schedule-row');
-      if (rows.length === 0) return alert('Please add at least one class');
-
-      rows.forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        const date = inputs[0].value;
-        const time = inputs[1].value;
-        if (date && time) classes.push({ date, time });
-      });
-
-      try {
-        const response = await fetch('/api/schedule/classes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ student_id, classes })
-        });
-        const result = await response.json();
-        if (response.ok) {
-          alert('✅ ' + result.message);
-          scheduleForm.reset();
-          document.getElementById('classScheduleList').innerHTML = '';
-          loadSessionsTab();
-        } else {
-          alert('❌ ' + (result.error || 'Failed'));
-        }
-      } catch (err) { alert('❌ Network Error'); }
-    });
-  }
-
-  // 5. Create Batch
-  const createBatchForm = document.getElementById('createBatchForm');
-  if (createBatchForm) {
-    createBatchForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const batchData = {
-        batch_name: document.getElementById('batchName').value,
-        batch_code: document.getElementById('batchCode').value.toUpperCase(),
-        program_name: document.getElementById('batchProgramName').value,
-        grade_level: document.getElementById('batchGradeLevel').value,
-        duration: document.getElementById('batchDuration').value,
-        timezone: document.getElementById('batchTimezone').value,
-        max_students: parseInt(document.getElementById('batchMaxStudents').value),
-        currency: document.getElementById('batchCurrency').value,
-        per_session_fee: parseFloat(document.getElementById('batchPerSessionFee').value),
-        zoom_link: document.getElementById('batchZoomLink').value,
-        start_date: document.getElementById('batchStartDate').value || null,
-        end_date: document.getElementById('batchEndDate').value || null,
-        description: document.getElementById('batchDescription').value || null
-      };
-      
-      try {
-        const response = await fetch('/api/batches', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(batchData)
-        });
-        const result = await response.json();
-        if (response.ok) {
-          alert('✅ ' + result.message);
-          createBatchForm.reset();
-          loadBatches();
-        } else { alert('❌ ' + result.error); }
-      } catch (err) { alert('❌ Error'); }
-    });
-  }
-
-  // 6. Edit Batch
-  const editBatchForm = document.getElementById('editBatchForm');
-  if (editBatchForm) {
-    editBatchForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const batchId = currentBatchId;
-      const batchData = {
-        batch_name: document.getElementById('editBatchName').value,
-        program_name: document.getElementById('editBatchProgramName').value,
-        grade_level: document.getElementById('editBatchGradeLevel').value,
-        duration: document.getElementById('editBatchDuration').value,
-        timezone: document.getElementById('editBatchTimezone').value,
-        max_students: parseInt(document.getElementById('editBatchMaxStudents').value),
-        currency: document.getElementById('editBatchCurrency').value,
-        per_session_fee: parseFloat(document.getElementById('editBatchPerSessionFee').value),
-        zoom_link: document.getElementById('editBatchZoomLink').value,
-        start_date: document.getElementById('editBatchStartDate').value || null,
-        end_date: document.getElementById('editBatchEndDate').value || null,
-        status: document.getElementById('editBatchStatus').value,
-        description: document.getElementById('editBatchDescription').value || null
-      };
-      
-      try {
-        const response = await fetch(`/api/batches/${batchId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(batchData)
-        });
-        const result = await response.json();
-        if (response.ok) {
-          alert('✅ ' + result.message);
-          closeEditBatchModal();
-          loadBatches();
-          if(currentBatchId) viewBatchDetails(currentBatchId);
-        } else { alert('❌ ' + result.error); }
-      } catch (err) { alert('❌ Error'); }
-    });
-  }
-
-  // 7. Create Event
-  const createEventForm = document.getElementById('createEventForm');
-  if (createEventForm) {
-    createEventForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = {
-        event_type: document.getElementById('eventType').value,
-        event_name: document.getElementById('eventName').value,
-        event_description: document.getElementById('eventDescription').value,
-        event_date: document.getElementById('eventDate').value,
-        event_time: document.getElementById('eventTime').value,
-        duration: document.getElementById('eventDuration').value,
-        zoom_link: document.getElementById('eventZoomLink').value,
-        max_participants: parseInt(document.getElementById('eventMaxParticipants').value),
-        registration_deadline: document.getElementById('eventRegistrationDeadline').value || null
-      };
-      
-      try {
-        const res = await fetch('/api/events', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-        const result = await res.json();
-        if (res.ok) {
-          alert('✅ ' + result.message);
-          createEventForm.reset();
-          loadEvents();
-        } else { alert('❌ ' + result.error); }
-      } catch (err) { alert('❌ Error'); }
-    });
-  }
-
-  // 9. Upload Material (Private)
-  const uploadMaterialForm = document.getElementById('uploadMaterialForm');
-  if (uploadMaterialForm) {
-    uploadMaterialForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData();
-      const uploadType = document.getElementById('uploadType').value;
-      formData.append('file', document.getElementById('materialFile').files[0]);
-      formData.append('sessionDate', document.getElementById('materialSessionDate').value);
-      formData.append('fileType', document.getElementById('materialType').value);
-      formData.append('uploadType', uploadType);
-
-      let url = '';
-      if (uploadType === 'private') {
-        const studentId = document.getElementById('privateStudentId').value;
-        if(!studentId) return alert('Select a student');
-        url = `/api/upload/material/${studentId}`;
-      } else {
-        return alert('Batch uploads must use batch material route');
-      }
-
-      try {
-        const res = await fetch(url, { method: 'POST', body: formData });
-        if (res.ok) {
-          alert('✅ Material Uploaded');
-          uploadMaterialForm.reset();
-          loadMaterialsTab();
-        } else { alert('❌ Failed'); }
-      } catch (err) { alert('❌ Error'); }
-    });
-  }
-  
-  // 10. Upload Batch Material
-  const uploadBatchMaterialForm = document.getElementById('uploadBatchMaterialForm');
-  if (uploadBatchMaterialForm) {
-    uploadBatchMaterialForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData();
-      formData.append('file', document.getElementById('batchMaterialFile').files[0]);
-      formData.append('sessionDate', document.getElementById('batchMaterialSessionDate').value);
-      formData.append('fileType', document.getElementById('batchMaterialType').value);
-
-      try {
-        const res = await fetch(`/api/upload/batch-material/${currentBatchId}`, { method: 'POST', body: formData });
-        if (res.ok) {
-          alert('✅ Material Uploaded');
-          uploadBatchMaterialForm.reset();
-          hideBatchMaterialUpload();
-          loadBatchMaterials(currentBatchId);
-        } else { alert('❌ Failed'); }
-      } catch (err) { alert('❌ Error'); }
-    });
-  }
-  
-  // 11. Batch Schedule Submit
-  const scheduleBatchSessionsForm = document.getElementById('scheduleBatchSessionsForm');
-  if(scheduleBatchSessionsForm) {
-    scheduleBatchSessionsForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const sessions = [];
-      const rows = document.querySelectorAll('#batchClassScheduleList .schedule-row');
-      rows.forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        sessions.push({ date: inputs[0].value, time: inputs[1].value });
-      });
-
-      try {
-        const res = await fetch(`/api/batches/${currentBatchId}/schedule`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ sessions }) });
-        if(res.ok) {
-          alert('✅ Scheduled');
-          hideBatchScheduleForm();
-          viewBatchDetails(currentBatchId);
-        } else { alert('❌ Failed'); }
-      } catch(err) { alert('❌ Error'); }
-    });
-  }
-  
-  // 12. Enroll Student
-  const enrollStudentInBatchForm = document.getElementById('enrollStudentInBatchForm');
-  if(enrollStudentInBatchForm) {
-    enrollStudentInBatchForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = {
-        student_id: document.getElementById('enrollStudentSelect').value,
-        notes: document.getElementById('enrollmentNotes').value
-      };
-      try {
-        const res = await fetch(`/api/batches/${currentBatchId}/enroll`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-        if(res.ok) {
-          alert('✅ Enrolled');
-          hideEnrollStudentForm();
-          viewBatchDetails(currentBatchId);
-          loadBatches();
-        } else { alert('❌ ' + (await res.json()).error); }
-      } catch(err) { alert('❌ Error'); }
-    });
-  }
+// Helper function to convert ? to $1, $2, etc.
+function convertQuery(sql, params) {
+  let paramIndex = 1;
+  const converted = sql.replace(/\?/g, () => `$${paramIndex++}`);
+  return { sql: converted, params };
 }
 
-// --- TAB NAVIGATION ---
-window.showTab = function(tabName, btn) {
-  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(tabName + 'Tab').classList.add('active');
-  if (btn) btn.classList.add('active');
-  
-  if (tabName === 'events') loadEventsTab();
-  if (tabName === 'sessions') loadSessionsTab();
-  if (tabName === 'materials') loadMaterialsTab();
-  if (tabName === 'ratings') loadRatingsTab();
-}
-
-// --- DATA LOADING FUNCTIONS ---
-async function loadDashboardStats() {
+async function sendEmail(to, subject, html, recipientName, emailType) {
   try {
-    const response = await fetch('/api/dashboard/stats');
-    const stats = await response.json();
-    document.getElementById('totalStudents').textContent = stats.totalStudents || 0;
-    document.getElementById('upcomingSessions').textContent = stats.upcomingSessions || 0;
-    document.getElementById('todaySessions').textContent = stats.todaySessions || 0;
-    document.getElementById('totalRevenue').textContent = '₹' + (stats.totalRevenue || 0).toLocaleString();
-    document.getElementById('upcomingEvents').textContent = stats.upcomingEvents || 0;
+    console.log(`📧 [${emailType}] Sending to: ${to}`);
+
+    await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          name: VERIFIED_SENDER_NAME,
+          email: VERIFIED_SENDER_EMAIL
+        },
+        to: [{ email: to, name: recipientName || to }],
+        subject: subject,
+        htmlContent: html
+      },
+      {
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('✅ Email sent via Brevo API');
+
+    const { sql, params } = convertQuery(
+      `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status)
+       VALUES (?, ?, ?, ?, 'Sent')`,
+      [recipientName || '', to, emailType, subject]
+    );
     
-    // Recent Activity Mockup (Since endpoint might not exist or be simple)
-    document.getElementById('recentActivityList').innerHTML = `
-       <ul style="list-style:none; padding:0;">
-         <li style="padding:10px; border-bottom:1px solid #eee;">✅ System Ready</li>
-         <li style="padding:10px; border-bottom:1px solid #eee;">📅 ${stats.todaySessions} classes today</li>
-         <li style="padding:10px; border-bottom:1px solid #eee;">👥 ${stats.totalStudents} active learners</li>
-       </ul>`;
-  } catch (error) { console.error('Stats Error:', error); }
-}
+    pool.query(sql, params);
 
-async function loadStudents() {
-  try {
-    const response = await fetch('/api/students');
-    allStudents = await response.json();
-    renderStudentsTable();
-    populateStudentDropdowns();
-  } catch (error) { console.error('Error:', error); }
-}
-
-function renderStudentsTable() {
-  const tbody = document.getElementById('studentsTableBody');
-  if (!tbody) return;
-  if (allStudents.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No students yet</td></tr>';
-    return;
+    return true;
+  } catch (error) {
+    console.error('❌ Brevo Email Error:', error.response?.data || error.message);
+    return false;
   }
-  tbody.innerHTML = allStudents.map(s => `
-    <tr>
-      <td><strong>${s.name}</strong><br><small>Grade ${s.grade}</small></td>
-      <td>${s.program_name}</td>
-      <td>${s.class_type}</td>
-      <td>${s.timezone}</td>
-      <td>${s.currency}${s.per_session_fee}</td>
-      <td>${s.completed_sessions || 0} / ${s.total_sessions || 0}</td> 
-      <td><strong style="color:#27ae60">${s.currency}${s.fees_paid || 0}</strong></td> 
-      <td>
-        <button onclick="viewStudentDetails(${s.id})" class="btn-view">Details</button>
-        <button onclick="openEditModal(${s.id})" class="btn-edit">Edit</button>
-        <button onclick="deleteStudent(${s.id})" class="btn-mini-delete">Delete</button>
-      </td>
-    </tr>
-  `).join('');
 }
 
-function populateStudentDropdowns() {
-  const dropdowns = ['scheduleStudentId', 'filterSessionStudent', 'privateStudentId', 'filterMaterialStudent'];
-  dropdowns.forEach(id => {
-    const dropdown = document.getElementById(id);
-    if (dropdown) {
-      const isFilter = id.startsWith('filter');
-      dropdown.innerHTML = (isFilter ? '<option value="">All Students</option>' : '<option value="">Select student...</option>');
-      allStudents.forEach(s => {
-        dropdown.innerHTML += `<option value="${s.id}">${s.name} - ${s.program_name}</option>`;
-      });
-    }
+// ==================== TIMEZONE HELPER ====================
+function convertToIST(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'medium',
+    timeStyle: 'short'
   });
 }
 
-// --- EMAIL LOG FUNCTIONALITY (FIXED) ---
-async function loadEmailsTab() {
-  await loadEmailLog();
-}
+// Middleware
+app.use(express.json());
+app.use(express.static('public'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-async function loadEmailLog() {
+app.get('/uploads/homework/:filename', (req, res) => {
+  const filePath = path.join(__dirname, 'uploads', 'homework', req.params.filename);
+  if (fs.existsSync(filePath)) {
+    res.download(filePath);
+  } else {
+    console.log('File not found:', filePath);
+    res.status(404).send('File not found');
+  }
+});
+
+// Create directories
+const directories = ['uploads', 'uploads/materials', 'uploads/homework', 'uploads/settings'];
+directories.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+// Initialize database
+async function initializeDatabase() {
   try {
-    const response = await fetch('/api/emails/log');
-    const logs = await response.json();
-    const tbody = document.getElementById('emailsTableBody');
-    if(!tbody) return;
-    
-    if(logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No emails sent yet.</td></tr>';
-      return;
-    }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        grade TEXT NOT NULL,
+        parent_name TEXT NOT NULL,
+        parent_email TEXT NOT NULL,
+        primary_contact TEXT,
+        alternate_contact TEXT,
+        timezone TEXT DEFAULT 'Asia/Kolkata',
+        program_name TEXT,
+        class_type TEXT,
+        duration TEXT,
+        currency TEXT DEFAULT '₹',
+        per_session_fee DECIMAL(10,2),
+        total_sessions INTEGER DEFAULT 0,
+        completed_sessions INTEGER DEFAULT 0,
+        remaining_sessions INTEGER DEFAULT 0,
+        fees_paid DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-    tbody.innerHTML = logs.map(log => `
-      <tr>
-        <td>${log.sent_at_ist || new Date(log.sent_at).toLocaleString()}</td>
-        <td>${log.recipient_name}</td>
-        <td>${log.recipient_email}</td>
-        <td><span style="background:#eee; padding:2px 6px; border-radius:4px;">${log.email_type}</span></td>
-        <td>${log.subject.substring(0, 30)}...</td>
-        <td><span style="color:${log.status === 'Sent' ? 'green' : 'red'}">${log.status}</span></td>
-      </tr>
-    `).join('');
-  } catch (error) {
-    console.error('Email Log Error:', error);
-    document.getElementById('emailsTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Failed to load emails</td></tr>';
+    await pool.query(`CREATE TABLE IF NOT EXISTS sessions (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL,
+      session_number INTEGER NOT NULL,
+      session_date DATE NOT NULL,
+      session_time TIME NOT NULL,
+      session_start_utc TIMESTAMP,
+      status TEXT DEFAULT 'Pending',
+      attendance TEXT,
+      cancelled_by TEXT,
+      zoom_link TEXT,
+      teacher_notes TEXT,
+      parent_feedback TEXT,
+      ppt_file_path TEXT,
+      recording_file_path TEXT,
+      homework_file_path TEXT,
+      homework_grade TEXT,
+      homework_comments TEXT,
+      feedback_requested BOOLEAN DEFAULT FALSE,
+      student_rating INTEGER,
+      student_feedback TEXT,
+      student_feedback_date TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    )`);
+
+    // Ensure session_start_utc exists
+    try {
+      await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS session_start_utc TIMESTAMP`);
+      await pool.query(`ALTER TABLE batch_sessions ADD COLUMN IF NOT EXISTS session_start_utc TIMESTAMP`);
+    } catch (e) {}
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS materials (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER,
+      batch_name TEXT,
+      session_date DATE NOT NULL,
+      file_type TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      uploaded_by TEXT NOT NULL,
+      uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      feedback_grade TEXT,
+      feedback_comments TEXT,
+      feedback_given INTEGER DEFAULT 0,
+      feedback_date TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS makeup_classes (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL,
+      original_session_id INTEGER,
+      reason TEXT NOT NULL,
+      credit_date DATE NOT NULL,
+      status TEXT DEFAULT 'Available',
+      used_date DATE,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS payment_history (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL,
+      payment_date DATE NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      currency TEXT NOT NULL,
+      payment_method TEXT NOT NULL,
+      receipt_number TEXT,
+      sessions_covered TEXT,
+      payment_status TEXT DEFAULT 'Paid',
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS events (
+      id SERIAL PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      event_name TEXT NOT NULL,
+      event_description TEXT,
+      event_date DATE NOT NULL,
+      event_time TIME NOT NULL,
+      duration TEXT NOT NULL,
+      zoom_link TEXT NOT NULL,
+      max_participants INTEGER DEFAULT 0,
+      registration_deadline TIMESTAMP,
+      event_status TEXT DEFAULT 'Upcoming',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS event_registrations (
+      id SERIAL PRIMARY KEY,
+      event_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      parent_name TEXT NOT NULL,
+      parent_email TEXT NOT NULL,
+      registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      attendance_status TEXT DEFAULT 'Registered',
+      feedback_rating INTEGER,
+      feedback_comments TEXT,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS email_log (
+      id SERIAL PRIMARY KEY,
+      recipient_name TEXT NOT NULL,
+      recipient_email TEXT NOT NULL,
+      email_type TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      status TEXT NOT NULL,
+      sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS batches (
+      id SERIAL PRIMARY KEY,
+      batch_name TEXT UNIQUE NOT NULL,
+      batch_code TEXT UNIQUE NOT NULL,
+      program_name TEXT NOT NULL,
+      grade_level TEXT NOT NULL,
+      class_type TEXT DEFAULT 'Group',
+      duration TEXT NOT NULL,
+      timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+      max_students INTEGER DEFAULT 10,
+      current_students INTEGER DEFAULT 0,
+      per_session_fee DECIMAL(10,2) NOT NULL,
+      currency TEXT NOT NULL DEFAULT '₹',
+      zoom_link TEXT,
+      status TEXT DEFAULT 'Active',
+      start_date DATE,
+      end_date DATE,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS admin_settings (
+      id SERIAL PRIMARY KEY,
+      admin_timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query(`INSERT INTO admin_settings (admin_timezone) SELECT 'Asia/Kolkata' WHERE NOT EXISTS (SELECT 1 FROM admin_settings LIMIT 1)`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS batch_enrollments (
+      id SERIAL PRIMARY KEY,
+      batch_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      enrollment_date DATE NOT NULL,
+      status TEXT DEFAULT 'Active',
+      notes TEXT,
+      FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+      UNIQUE(batch_id, student_id)
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS batch_sessions (
+      id SERIAL PRIMARY KEY,
+      batch_id INTEGER NOT NULL,
+      session_number INTEGER NOT NULL,
+      session_date DATE NOT NULL,
+      session_time TIME NOT NULL,
+      session_start_utc TIMESTAMP,
+      status TEXT DEFAULT 'Pending',
+      zoom_link TEXT,
+      teacher_notes TEXT,
+      ppt_file_path TEXT,
+      recording_file_path TEXT,
+      homework_file_path TEXT,
+      homework_grade TEXT,
+      homework_comments TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS batch_attendance (
+      id SERIAL PRIMARY KEY,
+      batch_session_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      attendance TEXT DEFAULT 'Pending',
+      notes TEXT,
+      homework_grade TEXT,
+      homework_comments TEXT,
+      marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (batch_session_id) REFERENCES batch_sessions(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+      UNIQUE(batch_session_id, student_id)
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS parent_credentials (
+      id SERIAL PRIMARY KEY,
+      parent_email TEXT UNIQUE NOT NULL,
+      password TEXT,
+      otp TEXT,
+      otp_expiry TIMESTAMP,
+      otp_attempts INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_login TIMESTAMP
+    )`);
+
+    // Migration logic for UTC columns
+    try {
+      const privateSessions = await pool.query(`SELECT id, session_date, session_time FROM sessions WHERE session_start_utc IS NULL`);
+      for (const s of privateSessions.rows) {
+        const utc = moment.tz(`${s.session_date} ${s.session_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata').utc().format();
+        await pool.query(`UPDATE sessions SET session_start_utc = $1 WHERE id = $2`, [utc, s.id]);
+      }
+      const batchSessions = await pool.query(`SELECT id, session_date, session_time FROM batch_sessions WHERE session_start_utc IS NULL`);
+      for (const s of batchSessions.rows) {
+        const utc = moment.tz(`${s.session_date} ${s.session_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata').utc().format();
+        await pool.query(`UPDATE batch_sessions SET session_start_utc = $1 WHERE id = $2`, [utc, s.id]);
+      }
+      console.log('✅ UTC Migration complete!');
+    } catch (err) {}
+
+    console.log('✅ Enhanced database tables initialized');
+  } catch (err) {
+    console.error('❌ Database initialization error:', err);
   }
 }
 
-// --- STUDENT DETAILS & PAYMENTS (FIXED) ---
-window.viewStudentDetails = async function(studentId) {
-  currentStudentId = studentId;
-  try {
-    const response = await fetch(`/api/students/${studentId}/details`);
-    const data = await response.json();
-    const student = data.student;
-    
-    document.getElementById('modalStudentName').textContent = student.name;
-    
-    // Info Tab
-    document.getElementById('studentInfoContent').innerHTML = `
-      <div class="info-grid">
-        <div class="info-card">
-          <h3>👤 Personal</h3>
-          <p><strong>Name:</strong> ${student.name}</p>
-          <p><strong>Grade:</strong> ${student.grade}</p>
-          <p><strong>Parent:</strong> ${student.parent_name}</p>
-          <p><strong>Email:</strong> ${student.parent_email}</p>
-        </div>
-        <div class="info-card">
-          <h3>📚 Program</h3>
-          <p><strong>Program:</strong> ${student.program_name}</p>
-          <p><strong>Type:</strong> ${student.class_type}</p>
-          <p><strong>Duration:</strong> ${student.duration}</p>
-        </div>
-        <div class="info-card">
-          <h3>📊 Progress</h3>
-          <p><strong>Total:</strong> ${student.total_sessions}</p>
-          <p><strong>Completed:</strong> ${student.completed_sessions}</p>
-          <p><strong>Remaining:</strong> ${student.remaining_sessions}</p>
-          <p><strong>Fees Paid:</strong> <strong style="color:green">${student.currency}${student.fees_paid || 0}</strong></p>
-        </div>
-      </div>
-    `;
-    
-    // Fix: Render Payment History
-    const payments = data.paymentHistory || [];
-    const payBody = document.getElementById('paymentHistoryBody');
-    if(payments.length === 0) {
-      payBody.innerHTML = '<tr><td colspan="6" style="text-align:center">No payments recorded</td></tr>';
-    } else {
-      payBody.innerHTML = payments.map(p => `
-        <tr>
-          <td>${p.payment_date}</td>
-          <td>${p.currency}${p.amount}</td>
-          <td>${p.payment_method}</td>
-          <td>${p.receipt_number || '-'}</td>
-          <td>${p.sessions_covered || '-'}</td>
-          <td>${p.notes || '-'}</td>
-        </tr>
-      `).join('');
-    }
-    
-    // Fix: Render Sessions with Resources
-    const sessions = data.sessions || [];
-    const sessBody = document.getElementById('adminStudentSessionsBody');
-    
-    if(sessions.length === 0) {
-      sessBody.innerHTML = '<tr><td colspan="9" style="text-align:center">No sessions yet</td></tr>';
-    } else {
-      sessBody.innerHTML = sessions.map(s => `
-        <tr>
-          <td><strong>#${s.session_number}</strong></td>
-          <td>${s.session_date}</td>
-          <td>${s.session_time}</td>
-          <td>${s.attendance || '-'}</td>
-          <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-view">📥 PPT</a>` : '-'}</td>
-          <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-view">🎥 Rec</a>` : '-'}</td>
-          <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-view">📝 HW</a>` : '-'}</td>
-          <td><small>${s.teacher_notes || s.homework_comments || '-'}</small></td>
-        </tr>
-      `).join('');
-    }
-    
-    document.getElementById('studentDetailsModal').style.display = 'flex';
-  } catch (error) {
-    alert('Failed to load student details');
-    console.error(error);
+// Generate 6-digit OTP
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Simple hash
+function hashPassword(password) {
+  return Buffer.from(password).toString('base64');
+}
+
+function verifyPassword(inputPassword, storedHash) {
+  const inputHash = Buffer.from(inputPassword).toString('base64');
+  return inputHash === storedHash;
+}
+
+// Enhanced file upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/homework/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
+    cb(null, uniqueName);
   }
-}
+});
 
-window.closeStudentModal = function() {
-  document.getElementById('studentDetailsModal').style.display = 'none';
-}
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
 
-window.showDetailTab = function(tabName, btn) {
-  document.querySelectorAll('.detail-tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(tabName + 'Detail').classList.add('active');
-  if (btn) btn.classList.add('active');
-}
+// ==================== DASHBOARD & STUDENT APIS ====================
 
-window.showPaymentForm = function() {
-  document.getElementById('paymentFormSection').style.display = 'block';
-}
-window.hidePaymentForm = function() {
-  document.getElementById('paymentFormSection').style.display = 'none';
-}
-
-window.openEditModal = async function(studentId) {
-  currentEditStudentId = studentId;
+app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    const response = await fetch(`/api/students/${studentId}/details`);
-    const data = await response.json();
-    const s = data.student;
+    const studentStats = await pool.query(`SELECT COUNT(*) as totalstudents, SUM(fees_paid) as totalrevenue FROM students`);
+    const today = new Date().toISOString().split('T')[0];
+    const sessionStats = await pool.query(`SELECT COUNT(*) as upcomingsessions FROM sessions WHERE status IN ('Pending', 'Scheduled') AND session_date >= $1`, [today]);
+    const todayStats = await pool.query(`SELECT COUNT(*) as todaysessions FROM sessions WHERE session_date = $1`, [today]);
+    const eventStats = await pool.query(`SELECT COUNT(*) as totalevents FROM events WHERE event_status = 'Upcoming'`);
     
-    document.getElementById('editStudentName').value = s.name;
-    document.getElementById('editGrade').value = s.grade;
-    document.getElementById('editParentName').value = s.parent_name;
-    document.getElementById('editParentEmail').value = s.parent_email;
-    document.getElementById('editPrimaryContact').value = s.primary_contact || '';
-    document.getElementById('editAlternateContact').value = s.alternate_contact || '';
-    document.getElementById('editTimezone').value = s.timezone;
-    document.getElementById('editProgramName').value = s.program_name;
-    document.getElementById('editClassType').value = s.class_type;
-    document.getElementById('editDuration').value = s.duration;
-    document.getElementById('editCurrency').value = s.currency;
-    document.getElementById('editPerSessionFee').value = s.per_session_fee;
-    document.getElementById('editTotalSessions').value = s.total_sessions;
-    
-    calculateEditTotalFees();
-    document.getElementById('editStudentModal').style.display = 'flex';
-  } catch (error) { alert('Failed to load'); }
-}
-
-window.closeEditModal = function() {
-  document.getElementById('editStudentModal').style.display = 'none';
-}
-
-window.deleteStudent = async function(id) {
-  if (!confirm('Delete this student?')) return;
-  try {
-    const response = await fetch(`/api/students/${id}`, { method: 'DELETE' });
-    if (response.ok) {
-      alert('✅ Student deleted!');
-      loadStudents();
-      loadDashboardStats();
-    }
-  } catch (error) { alert('❌ Failed'); }
-}
-
-// --- SCHEDULING LOGIC (FIXED BULK SCHEDULE) ---
-window.addScheduleRow = function() {
-  scheduleCounter++;
-  const row = document.createElement('div');
-  row.className = 'schedule-row';
-  row.innerHTML = `
-    <input type="date" id="scheduleDate${scheduleCounter}" required>
-    <input type="time" id="scheduleTime${scheduleCounter}" required>
-    <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
-  `;
-  document.getElementById('classScheduleList')?.appendChild(row);
-}
-
-window.addBulkSchedule = function() {
-  document.getElementById('bulkScheduleSection').style.display = 'block';
-}
-
-window.closeBulkSchedule = function() {
-  document.getElementById('bulkScheduleSection').style.display = 'none';
-}
-
-window.generateBulkSchedule = function() {
-  const startDateStr = document.getElementById('bulkScheduleStartDate').value;
-  const time = document.getElementById('bulkScheduleTime').value;
-  const weeks = parseInt(document.getElementById('bulkScheduleWeeks').value);
-  const checkedBoxes = document.querySelectorAll('input[name="bulkDay"]:checked');
-  
-  if(!startDateStr || !time || weeks < 1 || checkedBoxes.length === 0) {
-    return alert('Please fill all bulk schedule fields');
-  }
-
-  const startDate = new Date(startDateStr);
-  const selectedDays = Array.from(checkedBoxes).map(cb => parseInt(cb.value)); // 0=Sun, 1=Mon...
-  
-  // Clear existing
-  document.getElementById('classScheduleList').innerHTML = '';
-  scheduleCounter = 0;
-  
-  // Generate
-  for(let w=0; w<weeks; w++) {
-    selectedDays.forEach(day => {
-      // Calculate date for this week and day
-      const currentDate = new Date(startDate);
-      const dayOfWeek = currentDate.getDay(); // 0-6
-      
-      let diff = day - dayOfWeek;
-      if (diff < 0) diff += 7; // If target day is earlier in week than start, go next week
-      
-      currentDate.setDate(startDate.getDate() + (w * 7) + diff);
-      
-      const dateStr = currentDate.toISOString().split('T')[0];
-      
-      // Add Row
-      scheduleCounter++;
-      const row = document.createElement('div');
-      row.className = 'schedule-row';
-      row.innerHTML = `
-        <input type="date" value="${dateStr}" readonly style="background:#e9ecef">
-        <input type="time" value="${time}">
-        <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
-      `;
-      document.getElementById('classScheduleList').appendChild(row);
+    res.json({
+      totalStudents: parseInt(studentStats.rows[0].totalstudents) || 0,
+      totalRevenue: parseFloat(studentStats.rows[0].totalrevenue) || 0,
+      upcomingSessions: parseInt(sessionStats.rows[0].upcomingsessions) || 0,
+      todaySessions: parseInt(todayStats.rows[0].todaysessions) || 0,
+      upcomingEvents: parseInt(eventStats.rows[0].totalevents) || 0
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  closeBulkSchedule();
-}
+});
 
-// --- BATCH & OTHER TABS ---
-async function loadSessionsTab() {
-  // Removed loadTimetableTab call
-  await loadAllSessions();
-}
+app.post('/api/students', async (req, res) => {
+  const { 
+    name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
+    class_type, duration, currency, per_session_fee, total_sessions 
+  } = req.body;
 
-async function loadAllSessions() {
-  const filterStudent = document.getElementById('filterSessionStudent')?.value;
-  const filterStatus = document.getElementById('filterSessionStatus')?.value;
-  const tbody = document.getElementById('allSessionsBody');
-  
-  if(!tbody) return;
-  
-  if(!filterStudent) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Select a student to view sessions</td></tr>';
-    return;
-  }
-  
   try {
-    const res = await fetch(`/api/sessions/${filterStudent}`);
-    const allSessions = await res.json();
-    
-    // Apply status filter
-    let sessions = allSessions;
-    if(filterStatus) {
-      sessions = allSessions.filter(s => s.status === filterStatus);
-    }
-    
-    if(sessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No sessions found</td></tr>';
-      return;
-    }
+    const result = await pool.query(
+      `INSERT INTO students (
+        name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
+        class_type, duration, currency, per_session_fee, total_sessions, 
+        completed_sessions, remaining_sessions, fees_paid
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0) RETURNING id`,
+      [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, 
+       class_type, duration, currency, per_session_fee, total_sessions]
+    );
 
-    // Get student for timezone
+    const studentId = result.rows[0].id;
 
-    
-    tbody.innerHTML = sessions.map(s => {
-      // Just display the stored time directly - it's already in the admin's timezone (IST)
-      const displayTime = s.session_time.substring(0, 5); // HH:MM format
-      
-      return `
-        <tr>
-          <td>${s.session_number}</td>
-          <td>${s.session_date}</td>
-          <td>${displayTime}</td>
-          <td><span style="color:${s.status==='Completed'?'green':s.status==='Cancelled by Teacher'||s.status==='Cancelled by Parent'?'red':'orange'}">${s.status}</span></td>
-          <td>${s.attendance || '-'}</td>
-          <td>
-             ${s.status === 'Pending' || s.status === 'Scheduled' ? 
-               `<button onclick="deleteSession(${s.id}, '${s.session_date}')" class="btn-mini-delete">Delete</button>` 
-               : 
-               '<span style="color:#7f8c8d;">-</span>'}
-          </td>
-        </tr>
-      `;
-    }).join('');
-  } catch(e) { 
-    console.error(e);
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red">Error loading sessions</td></tr>'; 
+    // Send welcome email (Simplified for brevity)
+    await sendEmail(parent_email, `Welcome to Fluent Feathers Academy - ${name}`, `<p>Welcome ${name}!</p>`, parent_name, 'Welcome');
+
+    res.json({ success: true, message: `Student ${name} added successfully!`, studentId });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
-}
+});
 
-// NEW: Delete Session Function
-window.deleteSession = async function(sessionId, sessionDate) {
-  if(!confirm(`Delete session on ${sessionDate}?\n\nThis cannot be undone.`)) return;
-  
+app.put('/api/students/:id', async (req, res) => {
+  const studentId = req.params.id;
+  const { 
+    name, grade, parent_name, parent_email, primary_contact, alternate_contact,
+    timezone, program_name, class_type, duration, currency, 
+    per_session_fee, total_sessions 
+  } = req.body;
+
   try {
-    const res = await fetch(`/api/sessions/${sessionId}`, {
-      method: 'DELETE'
+    await pool.query(
+      `UPDATE students SET 
+        name = $1, grade = $2, parent_name = $3, parent_email = $4,
+        primary_contact = $5, alternate_contact = $6, timezone = $7,
+        program_name = $8, class_type = $9, duration = $10, currency = $11,
+        per_session_fee = $12, total_sessions = $13
+        WHERE id = $14`,
+      [name, grade, parent_name, parent_email, primary_contact, alternate_contact,
+       timezone, program_name, class_type, duration, currency,
+       per_session_fee, total_sessions, studentId]
+    );
+    res.json({ message: 'Student updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT s.* FROM students s ORDER BY s.created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:id/details', async (req, res) => {
+  const studentId = req.params.id;
+  try {
+    const studentResult = await pool.query(`SELECT * FROM students WHERE id = $1`, [studentId]);
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    
+    const paymentsResult = await pool.query(`SELECT * FROM payment_history WHERE student_id = $1 ORDER BY payment_date DESC`, [studentId]);
+    const makeupResult = await pool.query(`SELECT * FROM makeup_classes WHERE student_id = $1 ORDER BY credit_date DESC`, [studentId]);
+    const sessionsResult = await pool.query(`SELECT * FROM sessions WHERE student_id = $1 ORDER BY session_date DESC`, [studentId]);
+
+    res.json({
+      student: studentResult.rows[0],
+      paymentHistory: paymentsResult.rows,
+      makeupClasses: makeupResult.rows,
+      sessions: sessionsResult.rows
     });
-    
-    const result = await res.json();
-    
-    if(res.ok) {
-      alert('✅ ' + result.message);
-      loadAllSessions(); // Refresh table
-      loadDashboardStats(); // Update dashboard
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/students/:id', async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM students WHERE id = $1`, [req.params.id]);
+    res.json({ message: 'Student deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/students/:id/payment', async (req, res) => {
+  const { amount, currency, payment_method, receipt_number, sessions_covered, notes } = req.body;
+  const studentId = req.params.id;
+  const payment_date = new Date().toISOString().split('T')[0];
+
+  try {
+    await pool.query(
+      `INSERT INTO payment_history (
+        student_id, payment_date, amount, currency, payment_method, 
+        receipt_number, sessions_covered, notes, payment_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Paid')`,
+      [studentId, payment_date, amount, currency, payment_method, 
+       receipt_number, sessions_covered, notes]
+    );
+
+    await pool.query(`UPDATE students SET fees_paid = fees_paid + $1 WHERE id = $2`, [amount, studentId]);
+    res.json({ success: true, message: 'Payment recorded successfully!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== PARENT PORTAL APIS (UPDATED) ====================
+
+// ✅ FIX 1: Upcoming Classes (Date-based filter + Merged Results)
+app.get('/api/parent/upcoming/:studentId', async (req, res) => {
+  const { studentId } = req.params;
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    const privateResult = await pool.query(`
+      SELECT id, session_number, session_date, session_time, session_start_utc, status, zoom_link, duration, 'Private' AS type, NULL AS batch_name
+      FROM sessions
+      WHERE student_id = $1 AND session_date >= $2 AND status IN ('Pending', 'Scheduled')
+    `, [studentId, today]);
+
+    const batchResult = await pool.query(`
+      SELECT bs.id, bs.session_number, bs.session_date, bs.session_time, bs.session_start_utc, bs.status, bs.zoom_link, bs.duration, 'Batch' AS type, b.batch_name
+      FROM batch_sessions bs
+      JOIN batches b ON b.id = bs.batch_id
+      JOIN batch_enrollments be ON be.batch_id = b.id
+      WHERE be.student_id = $1 AND be.status = 'Active' AND bs.session_date >= $2 AND bs.status IN ('Pending', 'Scheduled')
+    `, [studentId, today]);
+
+    const combined = [...privateResult.rows, ...batchResult.rows]
+      .sort((a, b) => new Date(a.session_start_utc) - new Date(b.session_start_utc));
+
+    res.json(combined);
+  } catch (err) {
+    console.error('Upcoming classes error:', err);
+    res.status(500).json([]);
+  }
+});
+
+// ✅ FIX 2: Cancellation (Handles Private & Batch)
+app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
+  const { student_id, session_id, type, reason } = req.body;
+
+  try {
+    const studentResult = await pool.query(`SELECT * FROM students WHERE id = $1`, [student_id]);
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    const student = studentResult.rows[0];
+
+    if (type === 'Private') {
+      // Private Class Cancellation
+      const sessionResult = await pool.query(
+        `SELECT * FROM sessions WHERE id = $1 AND student_id = $2 AND status IN ('Pending', 'Scheduled')`,
+        [session_id, student_id]
+      );
+
+      if (sessionResult.rows.length === 0) return res.status(404).json({ error: 'Session not found or already cancelled' });
+      const session = sessionResult.rows[0];
+
+      await pool.query(`UPDATE sessions SET status = 'Cancelled by Parent', cancelled_by = 'Parent' WHERE id = $1`, [session.id]);
+      await pool.query(
+        `INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, notes)
+         VALUES ($1, $2, $3, $4, 'Available', 'Private Cancellation')`,
+        [student_id, session.id, reason || 'Parent Cancelled', session.session_date]
+      );
+      
     } else {
-      alert('❌ ' + (result.error || 'Failed to delete'));
+      // Batch Class Cancellation
+      const batchSessionResult = await pool.query(`SELECT * FROM batch_sessions WHERE id = $1`, [session_id]);
+      if (batchSessionResult.rows.length === 0) return res.status(404).json({ error: 'Batch Session not found' });
+      const session = batchSessionResult.rows[0];
+
+      await pool.query(
+        `INSERT INTO batch_attendance (batch_session_id, student_id, attendance, notes)
+         VALUES ($1, $2, 'Cancelled by Parent', 'Makeup Credit Issued')
+         ON CONFLICT (batch_session_id, student_id) DO UPDATE SET attendance = 'Cancelled by Parent'`,
+        [session_id, student_id]
+      );
+
+      await pool.query(
+        `INSERT INTO makeup_classes (student_id, reason, credit_date, status, notes)
+         VALUES ($1, $2, $3, 'Available', 'Batch Class Cancelled')`,
+        [student_id, reason || 'Batch Cancelled', session.session_date]
+      );
     }
-  } catch(err) {
-    console.error('Delete error:', err);
-    alert('❌ Network error');
-  }
-}
 
-async function loadMaterialsTab() {
+    // Refund credit
+    await pool.query(`UPDATE students SET remaining_sessions = remaining_sessions + 1 WHERE id = $1`, [student_id]);
+
+    await sendEmail(
+      student.parent_email,
+      `✅ Class Cancelled - ${new Date().toISOString().split('T')[0]}`,
+      `<p>Your class has been cancelled. A makeup credit has been added.</p>`,
+      student.parent_name,
+      'Parent Cancellation'
+    );
+
+    res.json({ message: 'Class cancelled successfully! Makeup credit added.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ FIX 3: Parent Authentication
+app.post('/api/parent/check-email', async (req, res) => {
+  const { email } = req.body;
   try {
-    const res = await fetch('/api/materials/all/admin');
-    const materials = await res.json();
-    const tbody = document.getElementById('materialsTableBody');
+    const studentResult = await pool.query(`SELECT * FROM students WHERE parent_email = $1`, [email]);
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'No student found' });
     
-    if(materials.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No materials</td></tr>';
-      return;
+    const credResult = await pool.query(`SELECT * FROM parent_credentials WHERE parent_email = $1`, [email]);
+    res.json({ exists: true, hasPassword: credResult.rows.length > 0 && credResult.rows[0].password ? true : false });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/parent/login-password', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const credResult = await pool.query(`SELECT * FROM parent_credentials WHERE parent_email = $1`, [email]);
+    if (credResult.rows.length === 0 || !credResult.rows[0].password) return res.status(404).json({ error: 'Password not set' });
+    if (!verifyPassword(password, credResult.rows[0].password)) return res.status(401).json({ error: 'Incorrect password' });
+    
+    const studentResult = await pool.query(`SELECT * FROM students WHERE parent_email = $1`, [email]);
+    res.json({ message: 'Login successful', student: studentResult.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/parent/setup-password', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const studentResult = await pool.query(`SELECT * FROM students WHERE parent_email = $1`, [email]);
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    
+    await pool.query(
+      `INSERT INTO parent_credentials (parent_email, password) VALUES ($1, $2) 
+       ON CONFLICT(parent_email) DO UPDATE SET password = $2`,
+      [email, hashPassword(password)]
+    );
+    res.json({ message: 'Password set', student: studentResult.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/parent/send-otp', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const studentResult = await pool.query(`SELECT * FROM students WHERE parent_email = $1`, [email]);
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    
+    const otp = generateOTP();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    
+    await pool.query(
+      `INSERT INTO parent_credentials (parent_email, otp, otp_expiry) VALUES ($1, $2, $3) 
+       ON CONFLICT(parent_email) DO UPDATE SET otp = $2, otp_expiry = $3`,
+      [email, otp, expiry]
+    );
+    
+    await sendEmail(email, '🔐 Login OTP', `<p>Your OTP is: <strong>${otp}</strong></p>`, studentResult.rows[0].parent_name, 'OTP');
+    res.json({ message: 'OTP sent' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/parent/verify-otp', async (req, res) => {
+  const { email, otp } = req.body;
+  try {
+    const credResult = await pool.query(`SELECT * FROM parent_credentials WHERE parent_email = $1`, [email]);
+    if (credResult.rows.length === 0 || credResult.rows[0].otp !== otp) return res.status(401).json({ error: 'Invalid OTP' });
+    
+    const studentResult = await pool.query(`SELECT * FROM students WHERE parent_email = $1`, [email]);
+    res.json({ message: 'Login successful', student: studentResult.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==================== BATCH MANAGEMENT ====================
+
+app.post('/api/batches', async (req, res) => {
+  const { batch_name, batch_code, program_name, grade_level, duration, timezone, max_students, currency, per_session_fee, zoom_link, start_date, end_date, description } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO batches (batch_name, batch_code, program_name, grade_level, duration, timezone, max_students, currency, per_session_fee, zoom_link, start_date, end_date, description, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Active') RETURNING id`,
+      [batch_name, batch_code, program_name, grade_level, duration, timezone, max_students, currency, per_session_fee, zoom_link, start_date, end_date, description]
+    );
+    res.json({ message: 'Batch created!', batchId: result.rows[0].id });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/batches', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT b.*, COUNT(DISTINCT be.student_id) as enrolled_students FROM batches b 
+       LEFT JOIN batch_enrollments be ON b.id = be.batch_id AND be.status = 'Active' 
+       GROUP BY b.id ORDER BY b.created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/batches/:id/details', async (req, res) => {
+  const batchId = req.params.id;
+  try {
+    const batchResult = await pool.query(
+      `SELECT b.*, COUNT(DISTINCT be.student_id) as enrolled_students FROM batches b 
+       LEFT JOIN batch_enrollments be ON b.id = be.batch_id AND be.status = 'Active' 
+       WHERE b.id = $1 GROUP BY b.id`, [batchId]
+    );
+    if (batchResult.rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
+    
+    const enrollments = await pool.query(
+      `SELECT be.*, s.name, s.grade, s.parent_name, s.parent_email, s.timezone FROM batch_enrollments be 
+       JOIN students s ON be.student_id = s.id WHERE be.batch_id = $1`, [batchId]
+    );
+    
+    const sessions = await pool.query(`SELECT * FROM batch_sessions WHERE batch_id = $1 ORDER BY session_date ASC`, [batchId]);
+    res.json({ batch: batchResult.rows[0], enrollments: enrollments.rows, sessions: sessions.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/batches/:batchId/enroll', async (req, res) => {
+  const { batchId } = req.params;
+  const { student_id, notes } = req.body;
+  const enrollment_date = new Date().toISOString().split('T')[0];
+  try {
+    await pool.query(
+      `INSERT INTO batch_enrollments (batch_id, student_id, enrollment_date, notes, status) VALUES ($1, $2, $3, $4, 'Active')`,
+      [batchId, student_id, enrollment_date, notes]
+    );
+    res.json({ message: 'Enrolled successfully' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ✅ FIX 4: Batch Scheduling (Added delay loop)
+app.post('/api/batches/:batchId/schedule', async (req, res) => {
+  const { batchId } = req.params;
+  const { sessions } = req.body;
+  try {
+    const batchResult = await pool.query('SELECT * FROM batches WHERE id = $1', [batchId]);
+    const batch = batchResult.rows[0];
+    const countResult = await pool.query('SELECT COUNT(*) as count FROM batch_sessions WHERE batch_id = $1', [batchId]);
+    let sessionNumber = parseInt(countResult.rows[0].count) + 1;
+
+    for (const session of sessions) {
+      const sessionStartUTC = moment.tz(`${session.date} ${session.time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata').utc().format();
+      await pool.query(
+        `INSERT INTO batch_sessions (batch_id, session_number, session_date, session_time, session_start_utc, zoom_link, status) VALUES ($1, $2, $3, $4, $5, $6, 'Pending')`,
+        [batchId, sessionNumber, session.date, session.time, sessionStartUTC, batch.zoom_link]
+      );
+      sessionNumber++;
     }
 
-    tbody.innerHTML = materials.map(m => `
-      <tr>
-        <td>${m.student_id ? 'Student' : 'Batch'}</td>
-        <td>${m.session_date}</td>
-        <td>${m.file_type}</td>
-        <td>${m.file_name}</td>
-        <td>${m.uploaded_by}</td>
-        <td>${new Date(m.uploaded_at).toLocaleDateString()}</td>
-        <td>${m.feedback_grade || '-'}</td>
-        <td>
-           <a href="/uploads/homework/${m.file_path}" target="_blank" class="btn-view">Download</a>
-           <button onclick="deleteMaterial(${m.id})" class="btn-mini-delete">Del</button>
-        </td>
-      </tr>
-    `).join('');
-  } catch(e) { console.error(e); }
-}
-
-async function loadEvents() {
-  try {
-    const response = await fetch('/api/events');
-    allEvents = await response.json();
-    renderEvents();
-    populateBatchDropdowns(); // Keep this for batch dropdowns
-  } catch (error) { 
-    console.error('Error loading events:', error);
-    const tbody = document.getElementById('eventsTableBody');
-    if(tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">Failed to load events</td></tr>';
-  }
-}
-
-// Make sure loadEvents is called on tab switch
-async function loadEventsTab() {
-  await loadEvents();
-}
-
-function renderEvents() {
-  const tbody = document.getElementById('eventsTableBody');
-  if(!tbody) return;
-  tbody.innerHTML = allEvents.map(ev => `
-    <tr>
-      <td><strong>${ev.event_name}</strong><br><small style="color:#7f8c8d;">${ev.event_type}</small></td>
-      <td>${ev.event_date} ${ev.event_time}</td>
-      <td>${ev.registered_count || 0}</td>
-      <td>${ev.max_participants || 'Unlimited'}</td>
-      <td><span style="color:${ev.event_status==='Completed'?'green':'orange'}">${ev.event_status}</span></td>
-      <td>
-        <button onclick="viewEventDetails(${ev.id})" class="btn-view">Details</button>
-        <button onclick="deleteEvent(${ev.id})" class="btn-mini-delete">Delete</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-async function loadBatches() {
-  try {
-    const response = await fetch('/api/batches');
-    allBatches = await response.json();
-    renderBatchesTable();
-    populateBatchDropdowns();
-  } catch (error) { console.error('Error loading batches:', error); }
-}
-
-function renderBatchesTable() {
-  const tbody = document.getElementById('batchesTableBody');
-  if (!tbody) return;
-  
-  if (!allBatches || allBatches.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No batches yet. Create one above!</td></tr>';
-    return;
-  }
-  
-  tbody.innerHTML = allBatches.map(batch => `
-    <tr>
-      <td><strong>${batch.batch_name}</strong><br><small>${batch.batch_code}</small></td>
-      <td>${batch.program_name}</td>
-      <td>${batch.grade_level}</td>
-      <td>${batch.duration}</td>
-      <td>${batch.timezone}</td>
-      <td>${batch.enrolled_students || 0} / ${batch.max_students}</td>
-      <td>${batch.currency}${batch.per_session_fee}</td>
-      <td><span class="badge" style="background:${batch.status==='Active'?'#27ae60':'#95a5a6'}; color:white;padding:2px 6px;border-radius:4px;">${batch.status}</span></td>
-      <td>
-        <button onclick="viewBatchDetails(${batch.id})" class="btn-view">Details</button>
-        <button onclick="openEditBatchModal(${batch.id})" class="btn-edit">Edit</button>
-        <button onclick="deleteBatch(${batch.id})" class="btn-mini-delete">Delete</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function populateBatchDropdowns() {
-  const dropdowns = ['batchSelect'];
-  dropdowns.forEach(id => {
-    const dropdown = document.getElementById(id);
-    if (dropdown) {
-      dropdown.innerHTML = '<option value="">Select batch...</option>';
-      allBatches.forEach(batch => {
-        dropdown.innerHTML += `<option value="${batch.id}">${batch.batch_name} (${batch.batch_code})</option>`;
-      });
+    // Notify Students (with delay)
+    const students = await pool.query(`SELECT s.* FROM students s JOIN batch_enrollments be ON s.id = be.student_id WHERE be.batch_id = $1`, [batchId]);
+    for (const student of students.rows) {
+      await sendEmail(student.parent_email, `New Schedule - ${batch.batch_name}`, `<p>New classes scheduled.</p>`, student.parent_name, 'Schedule');
+      await new Promise(r => setTimeout(r, 500)); // Delay
     }
-  });
-}
 
-// --- BATCH DETAILS & LOGIC (FIXED) ---
-window.viewBatchDetails = async function(batchId) {
-  currentBatchId = batchId;
-  
-  // --- FIX: ENSURE STUDENT LIST IS LOADED ---
-  if(allStudents.length === 0) {
-      await loadStudents(); 
-  }
-  
-  const select = document.getElementById('enrollStudentSelect');
-  if(select) {
-      select.innerHTML = '<option value="">Select student...</option>';
-      allStudents.forEach(s => {
-          select.innerHTML += `<option value="${s.id}">${s.name} - ${s.program_name}</option>`;
-      });
-  }
-  // --- END FIX ---
+    res.json({ success: true, message: 'Batch sessions scheduled!' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
+// ==================== SESSION MANAGEMENT ====================
+
+app.post('/api/schedule/classes', async (req, res) => {
+  const { student_id, classes } = req.body;
+  const ZOOM_LINK = 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
   try {
-    const response = await fetch(`/api/batches/${batchId}/details`);
-    const data = await response.json();
-    const batch = data.batch;
+    const countResult = await pool.query(`SELECT COUNT(*) as count FROM sessions WHERE student_id = $1`, [student_id]);
+    let sessionNumber = parseInt(countResult.rows[0].count) + 1;
 
-    document.getElementById('modalBatchName').textContent = batch.batch_name;
-    
-    // Render Info
-    document.getElementById('batchInfoContent').innerHTML = `
-      <div class="info-grid">
-        <div class="info-card"><h3>📋 Info</h3><p>Name: ${batch.batch_name}</p><p>Code: ${batch.batch_code}</p></div>
-        <div class="info-card"><h3>👥 Enrollment</h3><p>Max: ${batch.max_students}</p><p>Current: ${batch.enrolled_students||0}</p></div>
-        <div class="info-card"><h3>💰 Fees</h3><p>Rate: ${batch.currency}${batch.per_session_fee}</p></div>
-      </div>`;
-
-    // Render Students
-    const sBody = document.getElementById('batchStudentsBody');
-    const students = data.enrollments || [];
-    sBody.innerHTML = students.length ? students.map(s => `<tr><td>${s.name}</td><td>${s.grade}</td><td>${s.parent_name}</td><td>${s.parent_email}</td><td>${s.timezone}</td><td>${new Date(s.enrollment_date).toLocaleDateString()}</td><td>Active</td><td><button onclick="removeStudentFromBatch(${s.student_id})" class="btn-mini-delete">Remove</button></td></tr>`).join('') : '<tr><td colspan="7" style="text-align:center">No students</td></tr>';
-    
-    // Render Sessions (FIXED: RESOURCES & NOTES)
-    const sessBody = document.getElementById('batchSessionsBody');
-    const sessions = data.sessions || [];
-    
-    if(sessions.length === 0) {
-      sessBody.innerHTML = '<tr><td colspan="5" style="text-align:center">No sessions</td></tr>';
-    } else {
-      sessBody.innerHTML = sessions.map(s => `
-        <tr>
-          <td>${s.session_number}</td>
-          <td>${s.session_date}</td>
-          <td>${s.session_time}</td>
-          <td><span style="color:${s.status==='Completed'?'green':s.status.includes('Cancelled')?'red':'orange'}">${s.status}</span></td>
-          <td>
-            ${s.status === 'Pending' || s.status === 'Scheduled' ? 
-              `<button onclick="deleteBatchSession(${s.id}, '${s.session_date}')" class="btn-mini-delete">Delete</button>` 
-              : 
-              `<button onclick="openBatchAttendanceModal(${s.id}, '${s.session_date}')" class="btn-primary" style="background:#38a169; padding:5px 10px;">✅ Attendance</button>`}
-          </td>
-        </tr>
-      `).join('');
+    for (const cls of classes) {
+      const sessionStartUTC = moment.tz(`${cls.date} ${cls.time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata').utc().format();
+      await pool.query(
+        `INSERT INTO sessions (student_id, session_number, session_date, session_time, session_start_utc, zoom_link, status) VALUES ($1, $2, $3, $4, $5, $6, 'Pending')`,
+        [student_id, sessionNumber, cls.date, cls.time, sessionStartUTC, ZOOM_LINK]
+      );
+      sessionNumber++;
     }
-    
-    document.getElementById('batchDetailsModal').style.display = 'flex';
-  } catch (err) { alert('Failed to load batch'); }
-}
 
-window.closeBatchModal = function() { document.getElementById('batchDetailsModal').style.display = 'none'; currentBatchId = null; }
-window.openEditBatchModal = async function(id) {
-  // In a real app, populate form. For now rely on user knowing ID.
-  alert("Edit feature: Please ensure fields are populated correctly before saving.");
-  document.getElementById('editBatchModal').style.display = 'flex';
-}
-window.closeEditBatchModal = function() { document.getElementById('editBatchModal').style.display = 'none'; }
+    const studentResult = await pool.query(`SELECT * FROM students WHERE id = $1`, [student_id]);
+    const student = studentResult.rows[0];
+    await sendEmail(student.parent_email, 'New Class Schedule', '<p>New classes have been added.</p>', student.parent_name, 'Schedule');
 
-window.showEnrollStudentForm = function() { document.getElementById('enrollStudentForm').style.display = 'block'; }
-window.hideEnrollStudentForm = function() { document.getElementById('enrollStudentForm').style.display = 'none'; }
+    res.json({ message: 'Classes scheduled successfully!' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-window.showBatchScheduleForm = function() { document.getElementById('batchScheduleFormSection').style.display = 'block'; }
-window.hideBatchScheduleForm = function() { document.getElementById('batchScheduleFormSection').style.display = 'none'; }
-window.addBatchScheduleRow = function() {
-  const div = document.createElement('div');
-  div.className = 'schedule-row';
-  div.innerHTML = `<input type="date" required><input type="time" required><button type="button" onclick="this.parentElement.remove()" class="btn-delete">X</button>`;
-  document.getElementById('batchClassScheduleList').appendChild(div);
-}
-window.addBatchBulkSchedule = function() {
-  const bulkUI = document.createElement('div');
-  bulkUI.id = 'batchBulkScheduleUI';
-  bulkUI.style.cssText = 'background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0;';
-  bulkUI.innerHTML = `
-    <h3>📅 Bulk Schedule - Weekly Pattern</h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Select Days *</label>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <label><input type="checkbox" name="batchBulkDay" value="1"> Monday</label>
-          <label><input type="checkbox" name="batchBulkDay" value="2"> Tuesday</label>
-          <label><input type="checkbox" name="batchBulkDay" value="3"> Wednesday</label>
-          <label><input type="checkbox" name="batchBulkDay" value="4"> Thursday</label>
-          <label><input type="checkbox" name="batchBulkDay" value="5"> Friday</label>
-          <label><input type="checkbox" name="batchBulkDay" value="6"> Saturday</label>
-          <label><input type="checkbox" name="batchBulkDay" value="0"> Sunday</label>
-        </div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Time *</label>
-        <input type="time" id="batchBulkScheduleTime" required>
-      </div>
-      <div class="form-group">
-        <label>Number of Weeks *</label>
-        <input type="number" id="batchBulkScheduleWeeks" min="1" max="12" value="4">
-      </div>
-      <div class="form-group">
-        <label>Start Date *</label>
-        <input type="date" id="batchBulkScheduleStartDate" required>
-      </div>
-    </div>
-    <button type="button" onclick="generateBatchBulkSchedule()" class="btn-primary">Generate Schedule</button>
-    <button type="button" onclick="closeBatchBulkSchedule()" class="btn-secondary">Cancel</button>
-  `;
-  
-  // Insert before submit buttons
-  const formSection = document.getElementById('batchScheduleFormSection');
-  const existingBulk = document.getElementById('batchBulkScheduleUI');
-  if(existingBulk) existingBulk.remove();
-  
-  formSection.appendChild(bulkUI);
-}
-window.closeBatchBulkSchedule = function() {
-  const bulkUI = document.getElementById('batchBulkScheduleUI');
-  if(bulkUI) bulkUI.remove();
-}
+// Delete private session
+app.delete('/api/sessions/:sessionId', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM sessions WHERE id = $1', [req.params.sessionId]);
+    res.json({ message: 'Session deleted' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Delete batch session
-window.deleteBatchSession = async function(sessionId, sessionDate) {
-  if(!confirm(`Delete batch session on ${sessionDate}?\n\nThis cannot be undone.`)) return;
-  
+app.delete('/api/batches/sessions/:sessionId', async (req, res) => {
   try {
-    const res = await fetch(`/api/batches/sessions/${sessionId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await res.json();
-    
-    if(res.ok) {
-      alert('✅ ' + result.message);
-      viewBatchDetails(currentBatchId); // Refresh modal
-    } else {
-      alert('❌ ' + (result.error || 'Failed to delete'));
-    }
-  } catch(err) {
-    console.error('Delete error:', err);
-    alert('❌ Network error');
-  }
-}
-window.generateBatchBulkSchedule = function() {
-  const startDateStr = document.getElementById('batchBulkScheduleStartDate').value;
-  const time = document.getElementById('batchBulkScheduleTime').value;
-  const weeks = parseInt(document.getElementById('batchBulkScheduleWeeks').value);
-  const checkedBoxes = document.querySelectorAll('input[name="batchBulkDay"]:checked');
-  
-  if(!startDateStr || !time || weeks < 1 || checkedBoxes.length === 0) {
-    return alert('Please fill all bulk schedule fields');
-  }
-
-  const startDate = new Date(startDateStr);
-  const selectedDays = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
-  
-  // Clear existing rows
-  document.getElementById('batchClassScheduleList').innerHTML = '';
-  
-  // Generate sessions
-  for(let w=0; w<weeks; w++) {
-    selectedDays.forEach(day => {
-      const currentDate = new Date(startDate);
-      const dayOfWeek = currentDate.getDay();
-      
-      let diff = day - dayOfWeek;
-      if (diff < 0) diff += 7;
-      
-      currentDate.setDate(startDate.getDate() + (w * 7) + diff);
-      const dateStr = currentDate.toISOString().split('T')[0];
-      
-      // Add Row
-      const row = document.createElement('div');
-      row.className = 'schedule-row';
-      row.innerHTML = `
-        <input type="date" value="${dateStr}" readonly style="background:#e9ecef">
-        <input type="time" value="${time}">
-        <button type="button" onclick="this.parentElement.remove()" class="btn-delete">✗</button>
-      `;
-      document.getElementById('batchClassScheduleList').appendChild(row);
-    });
-  }
-  
-  closeBatchBulkSchedule();
-  alert(`✅ Generated ${selectedDays.length * weeks} sessions`);
-}
-
-window.showBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'block'; }
-window.hideBatchMaterialUpload = function() { document.getElementById('batchMaterialUploadForm').style.display = 'none'; }
-window.showBatchDetailTab = function(t,b) {
-  document.querySelectorAll('.detail-tab-content').forEach(c=>c.classList.remove('active'));
-  document.querySelectorAll('.detail-tab-btn').forEach(bt=>bt.classList.remove('active'));
-  document.getElementById(t+'Detail').classList.add('active');
-  if(b) b.classList.add('active');
-}
-
-async function loadBatchMaterials(batchId) {
-  try {
-    // Server code has: /api/materials/:studentId. For batches it's filtering by batch_name.
-    // Let's fetch all materials and filter client side for simplicity since endpoint is generic
-    const matRes = await fetch('/api/materials/all/admin');
-    const allMats = await matRes.json();
-    const batch = allBatches.find(b => b.id == batchId);
-    const batchMats = allMats.filter(m => m.batch_name === batch.batch_name);
-    
-    const list = document.getElementById('batchMaterialsList');
-    if(batchMats.length === 0) {
-      list.innerHTML = '<p style="text-align:center">No materials</p>';
-    } else {
-      list.innerHTML = `<table style="width:100%"><thead><tr><th>Date</th><th>Type</th><th>File</th><th>Action</th></tr></thead><tbody>` +
-      batchMats.map(m => `<tr><td>${m.session_date}</td><td>${m.file_type}</td><td>${m.file_name}</td><td><a href="/uploads/homework/${m.file_path}" download class="btn-view">Down</a></td></tr>`).join('') +
-      `</tbody></table>`;
-    }
-  } catch(e) { console.error(e); }
-}
-// Delete event
-window.deleteEvent = async function(eventId) {
-  if(!confirm('Delete this event?\n\nAll registrations will also be deleted.')) return;
-  
-  try {
-    const res = await fetch(`/api/events/${eventId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await res.json();
-    
-    if(res.ok) {
-      alert('✅ ' + result.message);
-      loadEvents(); // Refresh table
-      loadDashboardStats(); // Update dashboard
-    } else {
-      alert('❌ ' + (result.error || 'Failed to delete'));
-    }
-  } catch(err) {
-    console.error('Delete error:', err);
-    alert('❌ Network error');
-  }
-}
-
-// View event details (placeholder)
-window.viewEventDetails = function(eventId) {
-  const event = allEvents.find(e => e.id === eventId);
-  if(!event) return alert('Event not found');
-  
-  alert(`📋 Event: ${event.event_name}\n📅 Date: ${event.event_date}\n🕐 Time: ${event.event_time}\n👥 Registered: ${event.registered_count || 0}\n\nFull details modal coming soon!`);
-}
-
-
-// --- UTILS ---
-function calculateTotalFees() {
-  const perSession = parseFloat(document.getElementById('perSessionFee')?.value) || 0;
-  const totalSessions = parseInt(document.getElementById('totalSessions')?.value) || 0;
-  const currency = document.getElementById('currency')?.value || '₹';
-  const totalFeesElem = document.getElementById('totalFees');
-  if (totalFeesElem) totalFeesElem.value = currency + (perSession * totalSessions).toFixed(2);
-}
-
-function calculateEditTotalFees() {
-  const perSession = parseFloat(document.getElementById('editPerSessionFee')?.value) || 0;
-  const totalSessions = parseInt(document.getElementById('editTotalSessions')?.value) || 0;
-  const currency = document.getElementById('editCurrency')?.value || '₹';
-  const totalFeesElem = document.getElementById('editTotalFees');
-  if (totalFeesElem) totalFeesElem.value = currency + (perSession * totalSessions).toFixed(2);
-}
-
-window.deleteMaterial = async function(id) {
-  if(!confirm("Delete?")) return;
-  try {
-    const res = await fetch(`/api/materials/${id}`, { method: 'DELETE' });
-    if(res.ok) {
-      alert('Deleted');
-      loadMaterialsTab();
-      if(currentBatchId) loadBatchMaterials(currentBatchId);
-    }
-  } catch(e) { alert('Error'); }
-}
-
-window.deleteBatch = async function(id) {
-  if(!confirm("Delete Batch?")) return;
-  try {
-    const res = await fetch(`/api/batches/${id}`, {method:'DELETE'});
-    if(res.ok) {
-      alert('Deleted');
-      closeBatchModal();
-      loadBatches();
-    }
-  } catch(e) { alert('Error'); }
-}
-
-window.switchToLearnerView = async function() {
-  if (!currentStudentId) return alert('No student selected');
-  const s = allStudents.find(st => st.id === currentStudentId);
-  sessionStorage.setItem('adminAccessStudent', JSON.stringify(s));
-  sessionStorage.setItem('adminAccessMode', 'true');
-  sessionStorage.setItem('adminAccessEmail', 'admin@fluentfeathers.com');
-  window.open('parent.html', '_blank');
-}
-
-window.toggleUploadTarget = function() {
-  const type = document.getElementById('uploadType').value;
-  document.getElementById('privateTargetGroup').style.display = (type === 'private') ? 'block' : 'none';
-  document.getElementById('batchTargetGroup').style.display = (type === 'batch') ? 'block' : 'none';
-}
-
-// --- RATING FEATURE ---
-async function loadRatingsTab() {
-  try {
-    const response = await fetch('/api/admin/ratings');
-    const ratings = await response.json();
-    const tbody = document.getElementById('ratingsTableBody');
-    
-    if(ratings.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5">No ratings yet</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = ratings.map(r => `
-      <tr>
-        <td>${new Date(r.student_feedback_date).toLocaleDateString()}</td>
-        <td>${r.student_name}</td>
-        <td>#${r.session_number}</td>
-        <td><span class="rating-stars">${'★'.repeat(r.student_rating)}${'☆'.repeat(5-r.student_rating)}</span> (${r.student_rating}/5)</td>
-        <td>${r.student_feedback || '-'}</td>
-      </tr>
-    `).join('');
-  } catch (err) { console.error(err); }
-}
-
-// --- FEEDBACK MODAL HANDLERS ---
-window.closeFeedbackModal = function() { document.getElementById('feedbackModal').style.display = 'none'; }
-document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const sessionId = document.getElementById('feedbackSessionId').value;
-  const grade = document.getElementById('feedbackGrade').value;
-  const comments = document.getElementById('feedbackComments').value;
-  
-  try {
-    const res = await fetch(`/api/sessions/${sessionId}/grade-homework`, { // Fixed: Use correct API endpoint
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ grade, comments })
-    });
-    if(res.ok) {
-      alert('Graded!');
-      closeFeedbackModal();
-    } else { alert('Failed'); }
-  } catch(err) { alert('Error'); }
+    await pool.query('DELETE FROM batch_sessions WHERE id = $1', [req.params.sessionId]);
+    res.json({ message: 'Batch session deleted' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
-  </script>
-</body>
-</html>
+
+// Get sessions for admin
+app.get('/api/sessions/:studentId', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM sessions WHERE student_id = $1 ORDER BY session_number ASC`, [req.params.studentId]);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==================== MATERIAL & HOMEWORK ====================
+
+app.post('/api/upload/material/:studentId', upload.single('file'), async (req, res) => {
+  const { fileType, sessionDate, uploadType } = req.body;
+  const studentId = req.params.studentId;
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+
+  try {
+    await pool.query(
+      `INSERT INTO materials (student_id, session_date, file_type, file_name, file_path, uploaded_by) VALUES ($1, $2, $3, $4, $5, 'Teacher')`,
+      [studentId, sessionDate, fileType, req.file.originalname, req.file.filename]
+    );
+    res.json({ message: 'Material uploaded' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, res) => {
+  const { sessionDate } = req.body;
+  const studentId = req.params.studentId;
+  try {
+    await pool.query(
+      `INSERT INTO materials (student_id, session_date, file_type, file_name, file_path, uploaded_by) VALUES ($1, $2, 'Homework', $3, $4, 'Parent')`,
+      [studentId, sessionDate, req.file.originalname, req.file.filename]
+    );
+    res.json({ message: 'Homework uploaded' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/materials/:studentId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT m.* FROM materials m 
+       WHERE m.student_id = $1 
+       OR m.batch_name IN (SELECT b.batch_name FROM batches b JOIN batch_enrollments be ON b.id = be.batch_id WHERE be.student_id = $1 AND be.status = 'Active') 
+       ORDER BY m.uploaded_at DESC`,
+      [req.params.studentId]
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/materials/all/admin', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM materials ORDER BY uploaded_at DESC`);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/materials/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM materials WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==================== FEEDBACK ====================
+
+app.get('/api/students/:studentId/pending-feedback', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id FROM sessions WHERE student_id = $1 AND feedback_requested = TRUE AND student_rating IS NULL LIMIT 1`,
+      [req.params.studentId]
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/sessions/:sessionId/feedback', async (req, res) => {
+  const { rating, comment } = req.body;
+  try {
+    await pool.query(
+      `UPDATE sessions SET student_rating = $1, student_feedback = $2, student_feedback_date = CURRENT_TIMESTAMP WHERE id = $3`,
+      [rating, comment, req.params.sessionId]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/ratings', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT s.*, st.name as student_name FROM sessions s JOIN students st ON s.student_id = st.id WHERE s.student_rating IS NOT NULL`
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==================== EVENTS ====================
+
+app.post('/api/events', async (req, res) => {
+  const { event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants } = req.body;
+  try {
+    await pool.query(
+      `INSERT INTO events (event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [event_type, event_name, event_description, event_date, event_time, duration, zoom_link, max_participants]
+    );
+    // Send emails logic (omitted for brevity)
+    res.json({ message: 'Event created' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/events', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT e.*, COUNT(er.id) as registered_count FROM events e LEFT JOIN event_registrations er ON e.id = er.event_id GROUP BY e.id`
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/events/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM events WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Event deleted' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/emails/log', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 100`);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==================== AUTOMATED REMINDERS (UPDATED WITH DELAY) ====================
+
+// 24 Hour Reminder
+cron.schedule('0 9 * * *', async () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDate = tomorrow.toISOString().split('T')[0];
+  try {
+    const result = await pool.query(
+      `SELECT s.*, st.parent_email, st.parent_name FROM sessions s JOIN students st ON s.student_id = st.id WHERE s.session_date = $1 AND s.status IN ('Pending', 'Scheduled')`,
+      [tomorrowDate]
+    );
+    for (const session of result.rows) {
+      await sendEmail(session.parent_email, 'Class Tomorrow', `<p>Reminder for class tomorrow.</p>`, session.parent_name, '24h Reminder');
+      await new Promise(r => setTimeout(r, 1000)); // Delay
+    }
+  } catch (err) { console.error(err); }
+});
+
+// 1 Hour Reminder
+cron.schedule('0 * * * *', async () => {
+  const istNow = moment().tz('Asia/Kolkata');
+  const istOneHourLater = istNow.clone().add(1, 'hour');
+  const currentDate = istOneHourLater.format('YYYY-MM-DD');
+  const targetTime = istOneHourLater.format('HH:mm');
+
+  try {
+    const result = await pool.query(
+      `SELECT s.*, st.parent_email, st.parent_name FROM sessions s JOIN students st ON s.student_id = st.id WHERE s.session_date = $1 AND s.session_time = $2 AND s.status IN ('Pending', 'Scheduled')`,
+      [currentDate, targetTime]
+    );
+    for (const session of result.rows) {
+      await sendEmail(session.parent_email, 'Class in 1 Hour', `<p>Class starting soon.</p>`, session.parent_name, '1h Reminder');
+      await new Promise(r => setTimeout(r, 1000)); // Delay
+    }
+  } catch (err) { console.error(err); }
+});
+
+app.get('*', (req, res) => {
+  if (req.originalUrl.startsWith('/api/')) return res.status(404).json([]);
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ SERVER RUNNING ON PORT ${PORT}`);
+});

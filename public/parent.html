@@ -3,1070 +3,376 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Parent Portal - Fluent Feathers Academy By Aaliya</title>
-  
-  <!-- PROFESSIONAL INLINE STYLES (So you don't need external CSS) -->
+  <title>Parent Portal - Fluent Feathers Academy</title>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; color: #2d3748; }
-    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; margin: 0; padding: 20px; color: #2d3748; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    h1 { margin: 0; color: #2b6cb0; font-size: 24px; }
+    button { cursor: pointer; }
     
-    /* Header */
-    header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-    header h1 { margin: 0; font-size: 24px; color: #2b6cb0; }
-    header p { margin: 5px 0 0 0; color: #718096; font-size: 0.9rem; }
-    
-    /* Forms */
-    .form-section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; text-align: center; }
-    .form-group { margin-bottom: 20px; text-align: left; }
+    .form-section { background: white; padding: 30px; border-radius: 10px; max-width: 500px; margin: 40px auto; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 15px; text-align: left; }
     .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; box-sizing: border-box; transition: border-color 0.2s; }
-    .form-group input:focus { border-color: #4299e1; outline: none; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; }
     
-    /* Buttons */
-    .btn-primary { background: #4299e1; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; transition: background 0.2s; }
-    .btn-primary:hover { background: #3182ce; }
-    .btn-secondary { background: #718096; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
-    .btn-cancel-large { background: #e53e3e; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
-    .btn-cancel-large:hover { background: #c53030; }
-    .logout-btn { background: #e53e3e; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .btn-zoom-mini { background: #38b2ac; color: white; padding: 5px 15px; border-radius: 20px; text-decoration: none; font-size: 0.8rem; }
-    .btn-zoom-large { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(56, 178, 172, 0.3); transition: transform 0.2s; }
-    .btn-zoom-large:hover { transform: translateY(-2px); }
+    .btn-primary { background: #4299e1; color: white; border: none; padding: 12px 20px; border-radius: 6px; width: 100%; font-weight: 600; }
+    .btn-secondary { background: #718096; color: white; border: none; padding: 10px 20px; border-radius: 6px; margin-top: 10px; width: 100%; }
+    .btn-cancel { background: #e53e3e; color: white; border: none; padding: 10px; border-radius: 6px; width: 100%; margin-top: 10px; font-weight: bold; }
+
+    .info-card { background: white; padding: 20px; border-radius: 10px; border-left: 5px solid #4299e1; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
     
-    /* Dashboard */
-    .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #4299e1; }
-    .info-card h3 { margin-top: 0; color: #2c3e50; margin-bottom: 10px; }
-    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-    .info-item strong { display: block; color: #718096; font-size: 0.85rem; margin-bottom: 4px; }
-    .info-item span { font-size: 1.1rem; font-weight: 600; color: #2d3748; }
-    
-    /* Tabs */
-    .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-    .tab-btn { padding: 12px 20px; background: white; border: 1px solid #cbd5e0; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
-    .tab-btn.active { background: #4299e1; color: white; border-color: #4299e1; font-weight: bold; }
-    .tab-btn:hover:not(.active) { background: #f7fafc; }
-    .tab-content { display: none; animation: fadeIn 0.3s; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; }
+    .tab-btn { padding: 10px 20px; background: white; border: 1px solid #cbd5e0; border-radius: 6px; }
+    .tab-btn.active { background: #4299e1; color: white; border-color: #4299e1; }
+    .tab-content { display: none; }
     .tab-content.active { display: block; }
+    
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f7fafc; font-weight: 600; }
+    
+    .btn-zoom { background: #38b2ac; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 0.9em; }
+    .btn-zoom-large { display: block; text-align: center; background: #38b2ac; color: white; text-decoration: none; padding: 15px; border-radius: 8px; font-size: 1.2em; font-weight: bold; margin-bottom: 20px; }
+    
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
-    /* Tables */
-    .table-section { margin-top: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-    th { background: #f7fafc; color: #4a5568; font-weight: 600; }
-    tr:last-child td { border-bottom: none; }
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; }
+    .modal-content { background:white; padding:20px; border-radius:8px; max-width:500px; width:90%; }
     
-    /* Materials Grid */
-    .materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-    .material-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; transition: transform 0.2s; position: relative; }
-    .material-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); border-color: #4299e1; }
-    .material-icon { font-size: 3rem; margin-bottom: 10px; }
-    .material-type { color: #4299e1; font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; text-transform: uppercase; }
-    .material-name { font-weight: 600; margin-bottom: 10px; font-size: 1rem; min-height: 40px; display: flex; align-items: center; justify-content: center; }
-    .material-date { color: #718096; font-size: 0.8rem; margin-bottom: 15px; }
-    .material-source { position: absolute; top: 10px; right: 10px; font-size: 0.7rem; background: #edf2f7; padding: 3px 8px; border-radius: 10px; color: #4a5568; }
-    .btn-download-card { display: inline-block; background: #2b6cb0; color: white; padding: 8px 20px; border-radius: 20px; text-decoration: none; font-size: 0.9rem; }
-    
-    /* Status Badges */
-    .status-present { color: #38a169; font-weight: bold; }
-    .status-completed { color: #4299e1; background: #ebf8ff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; }
-    .status-cancelled, .status-missed { color: #e74c3c; }
-    
-    /* Admin Banner */
-    #adminBanner { 
-      position: fixed; top: 0; left: 0; right: 0; width: 100%; 
-      background: #2d3748; color: white; padding: 15px 20px; 
-      display: flex; justify-content: space-between; align-items: center; 
-      box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
-      z-index: 10001;
-    }
-    
-    /* Modal */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; animation: popIn 0.3s; }
-    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 500px; position: relative; }
-    .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
-    .btn-close { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold; }
-
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes popIn { from {transform: scale(0.8); opacity:0;} to {transform: scale(1); opacity:1;} }
+    #adminBanner { position: fixed; top: 0; left: 0; width: 100%; background: #2d3748; color: white; padding: 10px; text-align: center; z-index: 1000; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>👨‍👩‍👧 Parent Portal</h1>
-        <p>Fluent Feathers Academy</p>
+
+<div class="container">
+  <header>
+    <div><h1>👨‍👩‍👧 Parent Portal</h1><p>Fluent Feathers Academy</p></div>
+    <button onclick="logout()" id="logoutBtn" style="display:none; background:#e53e3e; color:white; border:none; padding:8px 15px; border-radius:5px;">Logout</button>
+  </header>
+
+  <!-- LOGIN SECTION -->
+  <section id="loginSection" class="form-section">
+    <h2>🔐 Login</h2>
+    
+    <!-- Step 1: Email -->
+    <form id="emailForm">
+      <div class="form-group"><label>Email *</label><input type="email" id="parentEmail" required></div>
+      <button type="submit" class="btn-primary">Continue</button>
+    </form>
+
+    <!-- Step 2: Method -->
+    <div id="loginMethodSection" style="display:none;">
+      <button onclick="showPasswordForm()" class="btn-primary">🔑 Password</button>
+      <button onclick="showOTPForm()" class="btn-secondary">📱 Send OTP</button>
+      <button onclick="resetLogin()" class="btn-secondary" style="background:transparent; color:#718096; margin-top:5px;">Back</button>
+    </div>
+
+    <!-- Password Form -->
+    <form id="passwordForm" style="display:none;">
+      <div class="form-group"><label>Password *</label><input type="password" id="loginPassword" required></div>
+      <button type="submit" class="btn-primary">Login</button>
+      <button type="button" onclick="resetLogin()" class="btn-secondary">Cancel</button>
+    </form>
+    
+    <!-- Setup Password -->
+    <form id="setupPasswordForm" style="display:none;">
+      <h3>Create Password</h3>
+      <div class="form-group"><label>New Password</label><input type="password" id="newPass" required></div>
+      <div class="form-group"><label>Confirm</label><input type="password" id="confirmPass" required></div>
+      <button type="submit" class="btn-primary">Set & Login</button>
+    </form>
+
+    <!-- OTP Form -->
+    <form id="otpForm" style="display:none;">
+      <div id="otpSend">
+        <p>We will send a code to your email.</p>
+        <button type="button" onclick="sendOTP()" class="btn-primary">Send Code</button>
       </div>
-      <button onclick="logout()" class="logout-btn" style="display: none;" id="logoutBtn">Logout</button>
-    </header>
-
-    <!-- LOGIN SECTION -->
-    <section id="loginSection" class="form-section">
-      <h2 style="margin-bottom: 10px;">🔐 Parent Login</h2>
-      <p style="color: #718096; margin-bottom: 25px;">Enter your registered email to access your child's portal</p>
-      
-      <!-- Step 1: Email -->
-      <form id="emailForm" style="display: block; text-align: left;">
-        <div class="form-group">
-          <label>Parent Email Address *</label>
-          <input type="email" id="parentEmail" required placeholder="parent@example.com">
-        </div>
-        <button type="submit" class="btn-primary">Continue</button>
-      </form>
-
-      <!-- Step 2: Method Selection -->
-      <div id="loginMethodSection" style="display: none; text-align: center;">
-        <h3 style="margin-bottom: 20px;">Choose Login Method</h3>
-        <div style="display: flex; gap: 15px; flex-direction: column;">
-          <button onclick="choosePasswordLogin()" class="btn-primary" style="background: #2b6cb0;">
-            🔑 Login with Password
-          </button>
-          <button onclick="chooseOTPLogin()" class="btn-primary" style="background: #38a169;">
-            📱 Send OTP to Email
-          </button>
-        </div>
-        <button onclick="backToEmail()" class="btn-secondary" style="margin-top: 20px; width: 100%;">← Back</button>
+      <div id="otpVerify" style="display:none;">
+        <div class="form-group"><label>Enter OTP</label><input type="text" id="otpCode"></div>
+        <button type="submit" class="btn-primary">Verify</button>
       </div>
+      <button type="button" onclick="resetLogin()" class="btn-secondary">Cancel</button>
+    </form>
+  </section>
 
-      <!-- Step 3a: Password -->
-      <form id="passwordForm" style="display: none; text-align: left;">
-        <div class="form-group">
-          <label>Password *</label>
-          <input type="password" id="loginPassword" required placeholder="Enter your password">
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button type="submit" class="btn-primary" style="flex: 1;">Login</button>
-          <button type="button" onclick="backToMethod()" class="btn-secondary" style="flex: 1;">Cancel</button>
-        </div>
-        <p style="margin-top: 15px; text-align: center;">
-          <a href="#" onclick="forgotPassword(); return false;" style="color: #4299e1; text-decoration: none; font-weight: 600;">Forgot Password?</a>
-        </p>
-      </form>
-
-      <!-- Step 3b: OTP -->
-      <form id="otpForm" style="display: none; text-align: left;">
-        <div id="otpSendSection">
-          <p style="color: #38a169; margin-bottom: 20px; background: #f0fff4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #38a169;">
-            ✅ We'll send a 6-digit One-Time Password (OTP) to your registered email.
-          </p>
-          <button type="button" onclick="sendOTP()" class="btn-primary" style="background: #38a169;">📧 Send OTP</button>
-          <button type="button" onclick="backToMethod()" class="btn-secondary">Cancel</button>
-        </div>
-
-        <div id="otpVerifySection" style="display: none;">
-          <div class="form-group">
-            <label>Enter 6-Digit OTP *</label>
-            <input type="text" id="otpCode" required placeholder="000000" maxlength="6" pattern="\d{6}" style="letter-spacing: 5px; text-align: center; font-size: 1.2rem;">
-          </div>
-          <p style="color: #718096; font-size: 0.9em; margin-bottom: 20px; text-align: center;">
-            OTP sent to <strong id="otpSentEmail" style="color: #2d3748;"></strong>
-          </p>
-          <div style="display: flex; gap: 10px;">
-            <button type="submit" class="btn-primary" style="flex: 1;">Verify OTP</button>
-            <button type="button" onclick="backToMethod()" class="btn-secondary" style="flex: 1;">Cancel</button>
-          </div>
-          <p style="margin-top: 15px; text-align: center;">
-            <a href="#" onclick="resendOTP(); return false;" style="color: #4299e1; text-decoration: none; font-weight: 600;">Resend OTP</a>
-          </p>
-        </div>
-      </form>
-
-      <!-- Setup Password -->
-      <form id="setupPasswordForm" style="display: none; text-align: left;">
-        <h3 style="color: #38a169; margin-bottom: 15px;">🎉 Welcome! Set Your Password</h3>
-        <p style="color: #718096; margin-bottom: 20px;">This is your first login. Please create a password for future access.</p>
-        <div class="form-group">
-          <label>Create Password *</label>
-          <input type="password" id="newPassword" required placeholder="Minimum 6 characters" minlength="6">
-        </div>
-        <div class="form-group">
-          <label>Confirm Password *</label>
-          <input type="password" id="confirmPassword" required placeholder="Re-enter password" minlength="6">
-        </div>
-        <button type="submit" class="btn-primary">Set Password & Login</button>
-        <button type="button" onclick="backToEmail()" class="btn-secondary">Cancel</button>
-      </form>
-    </section>
-
-    <!-- DASHBOARD SECTION -->
-    <section id="dashboardSection" style="display: none;">
-      
-      <!-- FEEDBACK POP-UP MODAL (NEW) -->
-      <div id="feedbackModal" class="modal" style="display: none;">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2 style="color: #2b6cb0; margin: 0;">📝 Give Homework Feedback</h2>
-            <button onclick="closeFeedbackModal()" class="btn-close">✕</button>
-          </div>
-          <form id="feedbackSubmitForm">
-            <input type="hidden" id="feedbackSessionId">
-            
-            <div class="form-group">
-              <label>Grade (1-5 Stars)</label>
-              <select id="feedbackRating" required style="font-size: 1.2rem; padding: 10px; background: white; border-radius: 5px;">
-                <option value="5">⭐⭐⭐ (Excellent)</option>
-                <option value="4">⭐⭐ (Very Good)</option>
-                <option value="3">⭐⭐ (Good)</option>
-                <option value="2">⭐⭐ (Fair)</option>
-                <option value="1">⭐ (Poor)</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label>Comments (Optional)</label>
-              <textarea id="feedbackComment" rows="4" placeholder="What did you like or how can we improve?" style="background: #f8f9fa; border-radius: 5px;"></textarea>
-            </div>
-            
-            <div style="text-align: center; margin: 20px 0;">
-              <button type="submit" class="btn-primary">Submit Feedback</button>
-              <button type="button" onclick="closeFeedbackModal()" class="btn-secondary" style="margin-top:10px;">Skip for now</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Student Info Card -->
-      <div class="info-card">
-        <h2 style="margin: 0 0 20px 0; color: #2b6cb0;">👤 Student Information</h2>
-        <div class="info-grid">
-          <div class="info-item"><strong>Student Name:</strong><span id="displayStudentName">-</span></div>
-          <div class="info-item"><strong>Grade:</strong><span id="displayGrade">-</span></div>
-          <div class="info-item"><strong>Program:</strong><span id="displayProgram">-</span></div>
-          <div class="info-item"><strong>Class Type:</strong><span id="displayClassType">-</span></div>
-          <div class="info-item"><strong>Duration:</strong><span id="displayDuration">-</span></div>
-          <div class="info-item"><strong>Timezone:</strong><span id="displayTimezone">-</span></div>
-          <div class="info-item"><strong>Total Sessions:</strong><span id="displayTotalSessions">-</span></div>
-          <div class="info-item"><strong>Completed:</strong><span id="displayCompletedSessions" style="color: #38a169; font-size: 1.4em;">-</span></div>
-          <div class="info-item"><strong>Remaining:</strong><span id="displayRemainingSessions" style="color: #e74c3c; font-size: 1.4em;">-</span></div>
-          <div class="info-item"><strong>Fees Paid:</strong><span id="displayFeesPaid">-</span></div>
-        </div>
-      </div>
-
-      <!-- Navigation Tabs -->
-      <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('upcoming', this)">📅 Upcoming</button>
-        <button class="tab-btn" onclick="showTab('past', this)">📚 Past</button>
-        <button class="tab-btn" onclick="showTab('materials', this)">📁 Materials</button>
-        <button class="tab-btn" onclick="showTab('events', this)">🎉 Events</button>
-        <button class="tab-btn" onclick="showTab('homework', this)">📝 Homework</button>
-      </div>
-
-      <!-- UPCOMING TAB -->
-      <div id="upcomingTab" class="tab-content active">
-        <a href="https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09" target="_blank" class="btn-zoom-large">
-          🎥 Join Zoom Class
-        </a>
-
-        <div class="form-section" style="max-width: 800px; margin: 20px auto; text-align: left;">
-          <h2 style="font-size: 1.2rem; margin-bottom: 10px;">🚫 Cancel Upcoming Class</h2>
-          <p style="color: #718096; margin-bottom: 20px;">If you cannot attend, please cancel below. A makeup credit will be added automatically.</p>
-          
-          <form id="cancelUpcomingForm">
-            <div class="form-group">
-              <label>Select Class to Cancel *</label>
-              <select id="cancelClassSelect" required style="width: 100%; padding: 12px; font-size: 1rem; background: white; border: 2px solid #e2e8f0; border-radius: 8px;">
-                <option value="">Loading upcoming classes...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Reason (Optional)</label>
-              <textarea id="cancelReasonText" rows="3" placeholder="Reason for cancellation..." style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px;"></textarea>
-            </div>
-            <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #27ae60;">
-              <p style="margin: 0; color: #22543d;">
-                <strong>💡 Note:</strong> A makeup class credit will be added to your account immediately after cancellation.
-              </p>
-            </div>
-            <button type="submit" class="btn-cancel-large">🚫 Cancel Class</button>
-          </form>
-        </div>
-
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>📅 Schedule</h2>
-          <table id="upcomingSessionsTable">
-            <thead>
-              <tr>
-                <th>Session #</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Duration</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="upcomingSessionsBody">
-              <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- PAST TAB -->
-      <div id="pastTab" class="tab-content">
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>📚 Completed Classes (Detailed)</h2>
-          <table id="pastSessionsTable">
-            <thead>
-              <tr>
-                <th>Session #</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Topic</th>
-                <th>Attendance</th>
-                <th>PPT</th>
-                <th>Recording</th>
-                <th>HW</th>
-                <th>Feedback</th>
-              </tr>
-            </thead>
-            <tbody id="pastSessionsBody">
-              <tr><td colspan="9" style="text-align:center;">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- MATERIALS TAB -->
-      <div id="materialsTab" class="tab-content">
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>📁 Class Materials</h2>
-          <p style="color: #718096; margin-bottom: 20px;">Download notes, recordings, and resources.</p>
-          <div id="materialsGrid" class="materials-grid">
-            <p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 40px;">Loading materials...</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- EVENTS TAB -->
-      <div id="eventsTab" class="tab-content">
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>🎉 Upcoming Events</h2>
-          <table id="eventsTable">
-            <thead>
-              <tr>
-                <th>Event</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="parentEventsBody">
-              <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- HOMEWORK TAB -->
-      <div id="homeworkTab" class="tab-content">
-        <div class="form-section" style="max-width: 800px; margin: 20px auto; text-align: left;">
-          <h2 style="margin-bottom: 10px;">📤 Upload Homework</h2>
-          <p style="color: #718096; margin-bottom: 20px;">Submit your completed assignments here.</p>
-          <form id="uploadHomeworkForm">
-            <div class="form-group">
-              <label>Session Date *</label>
-              <input type="date" id="homeworkDate" required>
-            </div>
-            <div class="form-group">
-              <label>Select File *</label>
-              <input type="file" id="homeworkFile" required>
-              <small style="color: #718096;">PDF, DOC, Images, ZIP (Max 50MB)</small>
-            </div>
-            <button type="submit" class="btn-primary">📤 Upload</button>
-          </form>
-        </div>
-
-        <div class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <h2>📤 Submission History</h2>
-          <table id="submittedHomeworkTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>File</th>
-                <th>Uploaded</th>
-                <th>Status</th>
-                <th>Feedback</th>
-              </tr>
-            </thead>
-            <tbody id="submittedHomeworkBody">
-              <tr><td colspan="5" style="text-align:center;">No submissions yet</td></tr>
-            </tbody>
-          </table>
-        </div>
+  <!-- DASHBOARD -->
+  <section id="dashboardSection" style="display:none;">
+    <div class="info-card">
+      <div class="info-grid">
+        <div><strong>Student:</strong> <span id="sName">-</span></div>
+        <div><strong>Program:</strong> <span id="sProgram">-</span></div>
+        <div><strong>Completed:</strong> <span id="sCompleted" style="color:green">-</span></div>
+        <div><strong>Remaining:</strong> <span id="sRemaining" style="color:red">-</span></div>
       </div>
     </div>
 
-    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('upcoming', this)">📅 Upcoming</button>
+      <button class="tab-btn" onclick="showTab('past', this)">📚 History</button>
+      <button class="tab-btn" onclick="showTab('materials', this)">📁 Materials</button>
+      <button class="tab-btn" onclick="showTab('homework', this)">📝 Homework</button>
+    </div>
 
-    <script>
-    let currentStudent = null;
-    let currentEmail = '';
-let hasExistingPassword = false;
-
-    document.addEventListener('DOMContentLoaded', () => {
-      // 1. CHECK FOR ADMIN ACCESS MODE (FIXES LEARNER VIEW)
-      const adminAccessStudent = sessionStorage.getItem('adminAccessStudent');
-      const adminAccessMode = sessionStorage.getItem('adminAccessMode');
-      const adminAccessEmail = sessionStorage.getItem('adminAccessEmail');
-
-      if (adminAccessMode === 'true' && adminAccessStudent) {
-        console.log('🔐 Admin Access Mode Active');
-        const studentData = JSON.parse(adminAccessStudent);
-        
-        // Create Admin Banner
-        const banner = document.createElement('div');
-        banner.id = 'adminBanner';
-        banner.innerHTML = `
-          <div>🔐 ADMIN MODE: Viewing ${studentData.name} (${adminAccessEmail})</div>
-          <button onclick="exitAdminMode()" style="background: #718096; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Exit Admin View</button>
-        `;
-        document.body.prepend(banner);
-        document.body.style.paddingTop = '60px';
-
-        // Set State
-        currentStudent = studentData;
-        currentEmail = adminAccessEmail;
-        showDashboard();
-      } else {
-        // Normal Login Flow
-        setupEventHandlers();
-      }
-    });
-
-    // ==================== LOGIN LOGIC ====================
-    function setupEventHandlers() {
-      const emailForm = document.getElementById('emailForm');
-      const passwordForm = document.getElementById('passwordForm');
-      const otpForm = document.getElementById('otpForm');
-      const setupPasswordForm = document.getElementById('setupPasswordForm');
-
-      if(emailForm) {
-        emailForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          currentEmail = document.getElementById('parentEmail').value.trim();
-          if(!currentEmail) return alert('Please enter email');
-
-          try {
-            const res = await fetch('/api/parent/check-email', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail })
-            });
-            const result = await res.json();
-            
-            if(res.ok) {
-              hasExistingPassword = result.hasPassword;
-              document.getElementById('emailForm').style.display = 'none';
-              document.getElementById('loginMethodSection').style.display = 'block';
-              
-              if(hasExistingPassword) {
-                document.getElementById('passwordForm').style.display = 'block';
-                document.getElementById('otpForm').style.display = 'none';
-                document.getElementById('setupPasswordForm').style.display = 'none';
-              } else {
-                document.getElementById('passwordForm').style.display = 'none';
-                document.getElementById('otpForm').style.display = 'none';
-                document.getElementById('setupPasswordForm').style.display = 'block';
-              }
-            } else {
-              alert('❌ ' + (result.error || 'No student found'));
-            }
-          } catch (err) { 
-            console.error('Email check error:', err); 
-            alert('❌ Network Error'); 
-          }
-        });
-      }
-
-      if(setupPasswordForm) {
-        setupPasswordForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const p1 = document.getElementById('newPassword').value;
-          const p2 = document.getElementById('confirmPassword').value;
-          
-          if(p1 !== p2) return alert('Passwords do not match');
-          if(p1.length < 6) return alert('Password too short');
-
-          try {
-            const res = await fetch('/api/parent/setup-password', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail, password: p1 })
-            });
-            const result = await res.json();
-            if (res.ok && result.student) {
-              currentStudent = result.student;
-              showDashboard();
-            } else { alert('❌ ' + (result.error || 'Failed')); }
-          } catch (err) { alert('❌ Error'); }
-        });
-      }
-
-      if(passwordForm) {
-        passwordForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const password = document.getElementById('loginPassword').value;
-          
-          try {
-            const res = await fetch('/api/parent/login-password', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail, password })
-            });
-            
-            const result = await res.json();
-            
-            if (res.ok && result.student) {
-              currentStudent = result.student;
-              showDashboard();
-            } else {
-              alert('❌ ' + (result.error || 'Login failed'));
-            }
-          } catch (err) { 
-            console.error('Login error:', err);
-            alert('❌ Network error'); 
-          }
-        });
-      }
-
-      if(otpForm) {
-        otpForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const otp = document.getElementById('otpCode').value;
-          
-          if(!otp || otp.length !== 6) return alert('Please enter valid 6-digit OTP');
-          
-          try {
-            const res = await fetch('/api/parent/verify-otp', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ email: currentEmail, otp })
-            });
-            
-            const result = await res.json();
-            
-            if (res.ok && result.student) {
-              currentStudent = result.student;
-              showDashboard();
-            } else {
-              alert('❌ ' + (result.error || 'Invalid OTP'));
-            }
-          } catch (err) { 
-            console.error('OTP error:', err);
-            alert('❌ Network error'); 
-          }
-        });
-      }
-    }
-
-    // ==================== DASHBOARD LOGIC ====================
-    function showDashboard() {
-      document.getElementById('loginSection').style.display = 'none';
-      document.getElementById('dashboardSection').style.display = 'block';
-      document.getElementById('logoutBtn').style.display = 'block';
-
-      // Populate Info
-      document.getElementById('displayStudentName').textContent = currentStudent.name;
-      document.getElementById('displayGrade').textContent = currentStudent.grade;
-      document.getElementById('displayProgram').textContent = currentStudent.program_name;
-      document.getElementById('displayClassType').textContent = currentStudent.class_type;
-      document.getElementById('displayDuration').textContent = currentStudent.duration;
-      document.getElementById('displayTimezone').textContent = currentStudent.timezone;
-      document.getElementById('displayTotalSessions').textContent = currentStudent.total_sessions;
-      document.getElementById('displayCompletedSessions').textContent = currentStudent.completed_sessions;
-      document.getElementById('displayRemainingSessions').textContent = currentStudent.remaining_sessions;
-      document.getElementById('displayFeesPaid').textContent = currentStudent.currency + (currentStudent.fees_paid || 0);
-
-      // Load Tabs
-      loadUpcomingSessions();
-      loadPastSessions();
-      loadMaterials();
-      loadSubmittedHomework();
-      loadParentEvents();
-      loadUpcomingClassesDropdown();
+    <!-- UPCOMING TAB -->
+    <div id="upcomingTab" class="tab-content active">
+      <a href="https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09" target="_blank" class="btn-zoom-large">🎥 Join Zoom Class</a>
       
-      // NEW: Check for Feedback Pop-up
-      checkPendingFeedback();
-    }
+      <!-- Cancel Form -->
+      <div style="background:white; padding:20px; border-radius:10px; margin-bottom:20px;">
+        <h3>🚫 Cancel Class</h3>
+        <form id="cancelUpcomingForm">
+          <div class="form-group">
+            <select id="cancelClassSelect" required><option value="">Loading...</option></select>
+          </div>
+          <div class="form-group">
+            <input type="text" id="cancelReason" placeholder="Reason (Optional)">
+          </div>
+          <button type="submit" class="btn-cancel">Cancel Class</button>
+        </form>
+      </div>
 
-    async function loadStudentDetails() {
-      // Refresh student object from server to get updated remaining sessions
-      const res = await fetch(`/api/students/${currentStudent.id}/details`);
-      const data = await res.json();
-      if(data.student) {
-        currentStudent = data.student;
-        document.getElementById('displayCompletedSessions').textContent = currentStudent.completed_sessions;
-        document.getElementById('displayRemainingSessions').textContent = currentStudent.remaining_sessions;
-      }
-    }
+      <table id="upcomingTable">
+        <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Action</th></tr></thead>
+        <tbody id="upcomingBody"></tbody>
+      </table>
+    </div>
 
-    // ==================== TAB NAVIGATION ====================
-    window.showTab = function(tabName, btn) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(tabName + 'Tab').classList.add('active');
-      if (btn) btn.classList.add('active');
-      
-      if (tabName === 'upcoming') loadUpcomingSessions();
-if (tabName === 'past') loadPastSessions();
-if (tabName === 'events') loadParentEvents();
-if (tabName === 'materials') loadMaterials();
-if (tabName === 'homework') loadSubmittedHomework();
+    <!-- PAST TAB -->
+    <div id="pastTab" class="tab-content">
+      <table id="pastTable">
+        <thead><tr><th>Date</th><th>Status</th><th>Resources</th></tr></thead>
+        <tbody id="pastBody"></tbody>
+      </table>
+    </div>
 
-    };
+    <!-- MATERIALS TAB -->
+    <div id="materialsTab" class="tab-content">
+      <div id="materialsGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:15px;"></div>
+    </div>
 
-    // ==================== DATA LOADERS ====================
-   
+    <!-- HOMEWORK TAB -->
+    <div id="homeworkTab" class="tab-content">
+      <div style="background:white; padding:20px; border-radius:10px; margin-bottom:20px;">
+        <h3>Upload Homework</h3>
+        <form id="uploadHwForm">
+          <div class="form-group"><input type="date" id="hwDate" required></div>
+          <div class="form-group"><input type="file" id="hwFile" required></div>
+          <button type="submit" class="btn-primary">Upload</button>
+        </form>
+      </div>
+      <table id="hwTable">
+        <thead><tr><th>Date</th><th>File</th><th>Feedback</th></tr></thead>
+        <tbody id="hwBody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
 
-async function loadUpcomingSessions() {
-  try {
-    const tbody = document.getElementById('upcomingSessionsBody');
-    if (!tbody) return;
+<script>
+let currentStudent = null;
+let currentEmail = '';
 
-    // SINGLE SOURCE OF TRUTH
-    const res = await fetch(`/api/parent/upcoming/${currentStudent.id}`);
-    const allSessions = await res.json();
-
-    // ✅ FIX: Filter for upcoming sessions
-    const now = new Date();
-    const upcoming = allSessions.filter(s => 
-      new Date(s.session_start_utc) >= now &&
-      ['Pending', 'Scheduled'].includes(s.status)
-    ).sort((a, b) => new Date(a.session_start_utc) - new Date(b.session_start_utc));
-
-    if (upcoming.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" style="text-align:center; color:#718096;">
-            No upcoming classes scheduled
-          </td>
-        </tr>`;
-      return;
-    }
-
-    tbody.innerHTML = upcoming.map(s => {
-      const date = new Date(s.session_start_utc);
-
-      const displayDate = date.toLocaleDateString('en-US', {
-        timeZone: currentStudent.timezone,
-        month: 'short', day: 'numeric', year: 'numeric'
-      });
-
-      const displayTime = date.toLocaleTimeString('en-US', {
-        timeZone: currentStudent.timezone,
-        hour: '2-digit', minute: '2-digit'
-      });
-
-      return `
-        <tr>
-          <td>#${s.session_number}</td>
-          <td>${displayDate}</td>
-          <td>${displayTime}</td>
-          <td>${s.duration || currentStudent.duration}</td>
-          <td>
-            <a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">
-              🎥 Join
-            </a>
-          </td>
-        </tr>`;
-    }).join('');
-
-  } catch (err) {
-    console.error(err);
-    document.getElementById('upcomingSessionsBody').innerHTML = `
-      <tr><td colspan="5" style="text-align:center; color:red;">
-        Failed to load upcoming sessions
-      </td></tr>`;
-  }
-}
-    // 2. Past Sessions (FIXED TIMEZONE)
-    async function loadPastSessions() {
-      try {
-        // Get both private and batch sessions
-        const res = await fetch(`/api/parent/upcoming/${currentStudent.id}`);
-const allSessionsRaw = await res.json();
-
-const allSessions = allSessionsRaw
-  .filter(s => s.status === 'Completed' || s.status === 'Missed')
-  .sort((a, b) => new Date(b.session_start_utc) - new Date(a.session_start_utc));
-
-
-        const tbody = document.getElementById('pastSessionsBody');
-        if(allSessions.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
-        } else {
-          tbody.innerHTML = allSessions.map(s => {
-            try {
-            
-            const sessionDate = new Date(s.session_start_utc);
-
-              // Convert to student's timezone
-              const displayTime = sessionDate.toLocaleTimeString('en-US', {
-                timeZone: currentStudent.timezone,
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
-              });
-
-              const formattedDate = sessionDate.toLocaleDateString('en-US', {
-                timeZone: currentStudent.timezone,
-                month: 'short', day: 'numeric', year: 'numeric'
-              });
-
-              // Attendance Display Logic
-              let attendanceDisplay = '';
-
-if (s.status === 'Missed') {
-  attendanceDisplay = `<span class="status-missed">❌ Missed</span>`;
-} else if (s.status === 'Completed') {
-  const att = (s.attendance || '').toString().trim().toLowerCase();
-
-  if (['present', 'p', 'yes', '1'].includes(att)) {
-    attendanceDisplay = `<span class="status-present">✅ Present</span>`;
-  } else if (['absent', 'a', 'no', '0'].includes(att)) {
-    attendanceDisplay = `<span class="status-missed">❌ Absent</span>`;
-  } else {
-    attendanceDisplay = `<span style="color:#f39c12;">⚠️ Not Marked</span>`;
-  }
-} else {
-  attendanceDisplay = '-';
+// Check for Admin Mode
+if(sessionStorage.getItem('adminAccessMode') === 'true') {
+  currentStudent = JSON.parse(sessionStorage.getItem('adminAccessStudent'));
+  currentEmail = sessionStorage.getItem('adminAccessEmail');
+  document.body.insertAdjacentHTML('afterbegin', '<div id="adminBanner">🔐 ADMIN VIEW MODE <button onclick="exitAdmin()">Exit</button></div>');
+  document.body.style.paddingTop = '50px';
+  showDashboard();
 }
 
-
-              return `
-                <tr>
-                  <td><strong>#${s.session_number}</strong></td>
-                  <td>${formattedDate}</td>
-                  <td>${displayTime}</td>
-                  <td>${s.topic || '-'}</td>
-                  <td>${attendanceDisplay}</td>
-                  <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
-                  <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
-                  <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
-                  <td><small>${s.teacher_notes || (s.homework_grade ? `${s.homework_grade}: ${s.homework_comments}` : '-')}</small></td>
-                </tr>
-              `;
-            } catch (err) {
-              console.error('Error rendering session:', err, s);
-              return `<tr><td>#${s.session_number}</td><td>${s.session_date}</td><td>${s.session_time}</td><td>${s.status}</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>`;
-            }
-          }).join('');
-        }
-      } catch(e) { 
-        console.error('Load past sessions error:', e);
-        const tbody = document.getElementById('pastSessionsBody');
-        if(tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:red;">Failed to load past sessions</td></tr>'; 
-      }
-    }
-
-    // 3. Materials (INCLUDING BATCH MATERIALS)
-    async function loadMaterials() {
-      try {
-        const res = await fetch(`/api/materials/${currentStudent.id}`);
-        const allMats = await res.json();
-        
-        // Filter for Teacher uploads (includes both private and batch)
-        const teacherMats = allMats.filter(m => m.uploaded_by === 'Teacher')
-        .sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at)); // Most recent first
-
-        const grid = document.getElementById('materialsGrid');
-        
-        if(teacherMats.length === 0) {
-          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color:#718096; padding: 40px;">No materials uploaded yet.</p>';
-          return;
-        }
-
-        grid.innerHTML = teacherMats.map(m => {
-          let icon = '📁';
-          if(m.file_type === 'PPT') icon = '📊';
-          if(m.file_type === 'Recording') icon = '🎥';
-          if(m.file_type === 'Homework') icon = '📝';
-          if(m.file_type === 'Notes') icon = '📓';
-          
-          // Show if it's from batch or private
-          const sourceLabel = m.batch_name 
-            ? `<div class="material-source">📚 ${m.batch_name}</div>`
-            : `<div class="material-source">👤 Private</div>`;
-          
-          return `
-            <div class="material-card">
-              ${sourceLabel}
-              <div class="material-icon">${icon}</div>
-              <div class="material-type">${m.file_type}</div>
-              <div class="material-name">${m.file_name}</div>
-              <div class="material-date">${m.session_date}</div>
-              <a href="/uploads/homework/${m.file_path}" download class="btn-download-card">Download</a>
-            </div>
-          `;
-        }).join('');
-      } catch(e) { 
-        console.error('Load materials error:', e);
-        const grid = document.getElementById('materialsGrid');
-        if(grid) grid.innerHTML = '<p style="text-align:center; color:red;">Failed to load materials</p>'; 
-      }
-    }
-
-    // 4. Events
-    async function loadParentEvents() {
-      try {
-        const res = await fetch('/api/events');
-        const events = await res.json();
-        const tbody = document.getElementById('parentEventsBody');
-        
-        if(events.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No upcoming events</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = events.map(ev => `
-          <tr>
-            <td><strong>${ev.event_name}</strong><br><small style="color:#718096;">${ev.event_type}</small></td>
-            <td>${ev.event_date}</td>
-            <td>${ev.event_time}</td>
-            <td><button onclick="registerForEvent(${ev.id})" class="btn-primary" style="padding: 8px 15px; font-size:0.9rem;">Register</button></td>
-          </tr>
-        `).join('');
-      } catch(e) { console.error(e); }
-    }
-
-    // 5. Homework (Submission History)
-    async function loadSubmittedHomework() {
-      try {
-        const res = await fetch(`/api/materials/${currentStudent.id}`);
-        const allMats = await res.json();
-        
-        // Filter for Parent uploads (Homework)
-        const homework = allMats.filter(m => m.uploaded_by === 'Parent' && m.file_type === 'Homework');
-        const tbody = document.getElementById('submittedHomeworkBody');
-        
-        if(homework.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No homework submitted</td></tr>';
-        } else {
-          tbody.innerHTML = homework.map(h => `
-            <tr>
-              <td>${h.session_date}</td>
-              <td><a href="/uploads/homework/${h.file_path}" target="_blank">${h.file_name}</a></td>
-              <td>${new Date(h.uploaded_at).toLocaleDateString()}</td>
-              <td>${h.feedback_given ? '<span style="color:#38a169; font-weight:bold;">Reviewed</span>' : '<span style="color:#f39c12; font-weight:bold;">Pending</span>'}</td>
-              <td>${h.feedback_comments ? `<small>${h.feedback_grade}</small>` : '-'}</td>
-            </tr>
-          `).join('');
-        }
-      } catch(e) { console.error(e); }
-    }
-
-        // 6. Cancel Dropdown (FIXED TIMEZONE)
-    async function loadUpcomingClassesDropdown() {
-  try {
-    // Only load PRIVATE sessions for cancellation
-    const res = await fetch(`/api/sessions/${currentStudent.id}`);
-    const allSessions = await res.json();
-    
-    // ✅ FIX: Filter for upcoming private sessions
-    const now = new Date();
-    const upcoming = allSessions.filter(s => 
-      new Date(s.session_start_utc) >= now &&
-      ['Pending', 'Scheduled'].includes(s.status)
-    ).sort((a, b) => new Date(a.session_start_utc) - new Date(b.session_start_utc));
-
-    const select = document.getElementById('cancelClassSelect');
-    
-    if(upcoming.length === 0) {
-      select.innerHTML = '<option value="">No upcoming private classes to cancel</option>';
-      select.disabled = true;
+// Event Listeners
+document.getElementById('emailForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  currentEmail = document.getElementById('parentEmail').value;
+  const res = await fetch('/api/parent/check-email', { method: 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:currentEmail}) });
+  const data = await res.json();
+  
+  if(res.ok) {
+    document.getElementById('emailForm').style.display = 'none';
+    if(data.hasPassword) {
+      document.getElementById('loginMethodSection').style.display = 'block';
     } else {
-      select.disabled = false;
-      select.innerHTML = '<option value="">-- Select Class to Cancel --</option>' + 
-      upcoming.map(s => {
-        try {
-          const sessionDate = new Date(s.session_start_utc);
+      document.getElementById('setupPasswordForm').style.display = 'block';
+    }
+  } else { alert(data.error); }
+});
 
-          const displayTime = sessionDate.toLocaleTimeString('en-US', {
-            timeZone: currentStudent.timezone,
-            hour12: true,
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          
-          const displayDate = sessionDate.toLocaleDateString('en-US', {
-            timeZone: currentStudent.timezone,
-            month: 'short', day: 'numeric'
-          });
-          
-          return `<option value="${s.id}">
-            Session #${s.session_number} - ${displayDate} at ${displayTime}
-          </option>`;
-        } catch (err) {
-          console.error('Dropdown date error:', err);
-          return `<option value="${s.id}">
-            Session #${s.session_number} - ${s.session_date} at ${s.session_time}
-          </option>`;
-        }
-      }).join('');
-    }
-  } catch(e) {
-    console.error('Dropdown error:', e);
-    const select = document.getElementById('cancelClassSelect');
-    if(select) {
-      select.innerHTML = '<option value="">Error loading sessions</option>';
-      select.disabled = true;
-    }
-  }
+document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = document.getElementById('loginPassword').value;
+  const res = await fetch('/api/parent/login-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:currentEmail, password}) });
+  const data = await res.json();
+  if(res.ok) { currentStudent = data.student; showDashboard(); } else { alert(data.error); }
+});
+
+document.getElementById('setupPasswordForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const p1 = document.getElementById('newPass').value;
+  const p2 = document.getElementById('confirmPass').value;
+  if(p1!==p2) return alert('Passwords do not match');
+  const res = await fetch('/api/parent/setup-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:currentEmail, password:p1}) });
+  const data = await res.json();
+  if(res.ok) { currentStudent = data.student; showDashboard(); } else { alert(data.error); }
+});
+
+document.getElementById('otpForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const otp = document.getElementById('otpCode').value;
+  const res = await fetch('/api/parent/verify-otp', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:currentEmail, otp}) });
+  const data = await res.json();
+  if(res.ok) { currentStudent = data.student; showDashboard(); } else { alert(data.error); }
+});
+
+document.getElementById('cancelUpcomingForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const val = document.getElementById('cancelClassSelect').value;
+  if(!val) return alert('Select a class');
+  
+  if(!confirm('Cancel this class?')) return;
+  
+  const [id, type] = val.split('_'); // Split ID and Type
+  const reason = document.getElementById('cancelReason').value;
+
+  const res = await fetch('/api/parent/cancel-upcoming-class', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ student_id: currentStudent.id, session_id: id, type, reason })
+  });
+  
+  if(res.ok) { alert('Cancelled. Credit added.'); loadUpcoming(); loadDropdown(); }
+  else { alert('Failed'); }
+});
+
+document.getElementById('uploadHwForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData();
+  formData.append('file', document.getElementById('hwFile').files[0]);
+  formData.append('sessionDate', document.getElementById('hwDate').value);
+  const res = await fetch(`/api/upload/homework/${currentStudent.id}`, { method:'POST', body:formData });
+  if(res.ok) { alert('Uploaded'); loadHomework(); } else { alert('Error'); }
+});
+
+// UI Functions
+function showPasswordForm() { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('passwordForm').style.display='block'; }
+function showOTPForm() { document.getElementById('loginMethodSection').style.display='none'; document.getElementById('otpForm').style.display='block'; }
+function resetLogin() { location.reload(); }
+function logout() { sessionStorage.clear(); location.reload(); }
+function exitAdmin() { sessionStorage.clear(); location.reload(); }
+
+async function sendOTP() {
+  const res = await fetch('/api/parent/send-otp', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:currentEmail}) });
+  if(res.ok) { document.getElementById('otpSend').style.display='none'; document.getElementById('otpVerify').style.display='block'; }
+  else { alert('Failed to send OTP'); }
 }
-    // ==================== HELPERS ====================
-    window.choosePasswordLogin = () => { 
-      document.getElementById('loginMethodSection').style.display='none'; 
-      document.getElementById('passwordForm').style.display='block'; 
-    };
-    window.chooseOTPLogin = () => { 
-      document.getElementById('loginMethodSection').style.display='none'; 
-      document.getElementById('otpForm').style.display='block'; 
-      document.getElementById('otpVerifySection').style.display='none';
-      document.getElementById('otpSendSection').style.display='block';
-    };
-    window.backToEmail = () => { 
-      document.getElementById('otpForm').style.display='none'; 
-      document.getElementById('passwordForm').style.display='none';
-      document.getElementById('setupPasswordForm').style.display='none';
-      document.getElementById('loginMethodSection').style.display='none';
-      document.getElementById('emailForm').style.display='block';
-    };
-    window.backToMethod = () => { 
-      document.getElementById('passwordForm').style.display='none'; 
-      document.getElementById('otpVerifySection').style.display='none';
-      document.getElementById('otpSendSection').style.display='block';
-      document.getElementById('loginMethodSection').style.display='block';
-    };
-    window.sendOTP = async () => {
-      try {
-        const res = await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentEmail }) });
-        const result = await res.json();
-        if (res.ok) {
-          document.getElementById('otpSendSection').style.display='none';
-          document.getElementById('otpVerifySection').style.display='block';
-          document.getElementById('otpSentEmail').textContent = currentEmail;
-        } else { alert('❌ ' + (result.error || 'Failed')); }
-      } catch (e) { alert('❌ Network Error'); }
-    };
-    window.resendOTP = () => sendOTP();
-    window.forgotPassword = () => { alert("Please use 'Send OTP' option to reset your password."); };
 
-    window.logout = () => {
-      if(!confirm("Logout?")) return;
-      sessionStorage.clear();
-      location.reload();
-    };
+function showDashboard() {
+  document.getElementById('loginSection').style.display='none';
+  document.getElementById('dashboardSection').style.display='block';
+  document.getElementById('logoutBtn').style.display='block';
+  
+  document.getElementById('sName').textContent = currentStudent.name;
+  document.getElementById('sProgram').textContent = currentStudent.program_name;
+  document.getElementById('sCompleted').textContent = currentStudent.completed_sessions;
+  document.getElementById('sRemaining').textContent = currentStudent.remaining_sessions;
+  
+  loadUpcoming();
+  loadDropdown();
+  loadPast();
+  loadMaterials();
+  loadHomework();
+}
 
-    // Cancel Upcoming Class Form
-    const cancelForm = document.getElementById('cancelUpcomingForm');
-    if (cancelForm) {
-      cancelForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const val = document.getElementById('cancelClassSelect').value;
-        const reason = document.getElementById('cancelReasonText').value;
-        
-        if(!val) return alert('Select a class');
-        
-        const sessionId = val;
-if (!confirm('Cancel this class?')) return;
+function showTab(t, btn) {
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(t+'Tab').classList.add('active');
+  if(btn) btn.classList.add('active');
+}
 
+// Data Loaders
+async function loadUpcoming() {
+  const res = await fetch(`/api/parent/upcoming/${currentStudent.id}`);
+  const data = await res.json();
+  
+  // 90 Minute Buffer Logic
+  const now = new Date();
+  const buffer = 90 * 60 * 1000;
+  const cutoff = new Date(now.getTime() - buffer);
+  
+  const upcoming = data.filter(s => new Date(s.session_start_utc) >= cutoff && ['Pending','Scheduled'].includes(s.status));
+  
+  document.getElementById('upcomingBody').innerHTML = upcoming.map(s => {
+    const d = new Date(s.session_start_utc);
+    const dateStr = d.toLocaleDateString('en-US', {timeZone:currentStudent.timezone});
+    const timeStr = d.toLocaleTimeString('en-US', {timeZone:currentStudent.timezone, hour:'2-digit', minute:'2-digit'});
+    
+    // Highlight if active now
+    const isActive = (d <= now && d >= cutoff) || (d - now <= 600000);
+    const btnStyle = isActive ? 'background:#e53e3e; animation:pulse 1.5s infinite;' : 'background:#38b2ac;';
+    
+    return `<tr>
+      <td>#${s.session_number}</td>
+      <td>${dateStr}</td>
+      <td>${timeStr}</td>
+      <td><a href="${s.zoom_link}" target="_blank" style="${btnStyle} padding:5px 10px; color:white; border-radius:4px; text-decoration:none;">${isActive ? '🔴 Join Now' : 'Join'}</a></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4">No upcoming classes</td></tr>';
+}
 
-        try {
-          const res = await fetch('/api/parent/cancel-upcoming-class', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-  student_id: currentStudent.id,
-  session_id: sessionId,
-  reason
-})
+async function loadDropdown() {
+  const res = await fetch(`/api/parent/upcoming/${currentStudent.id}`);
+  const data = await res.json();
+  const now = new Date();
+  const upcoming = data.filter(s => new Date(s.session_start_utc) >= now && ['Pending','Scheduled'].includes(s.status));
+  
+  const sel = document.getElementById('cancelClassSelect');
+  sel.innerHTML = '<option value="">Select class...</option>' + upcoming.map(s => 
+    `<option value="${s.id}_${s.type}">${s.session_date} - ${s.type}</option>`
+  ).join('');
+}
 
-          });
-          const result = await res.json();
-          if(res.ok) {
-            alert('✅ Cancelled. Makeup credit added.');
-            cancelForm.reset();
-            loadStudentDetails(); // Refresh counters
-            loadUpcomingSessions(); // Refresh list
-            loadUpcomingClassesDropdown(); // Refresh dropdown
-          } else { alert('❌ ' + (result.error || 'Failed')); }
-        } catch (err) { alert('❌ Network Error'); }
-      });
-    }
+async function loadPast() {
+  // Use same API but filter for completed/missed
+  const res = await fetch(`/api/parent/upcoming/${currentStudent.id}`);
+  const data = await res.json();
+  const past = data.filter(s => ['Completed','Missed','Cancelled by Parent','Cancelled by Teacher'].includes(s.status));
+  
+  document.getElementById('pastBody').innerHTML = past.map(s => {
+    let resLinks = '';
+    if(s.ppt_file_path) resLinks += `<a href="/uploads/homework/${s.ppt_file_path}">PPT</a> `;
+    if(s.recording_file_path) resLinks += `<a href="/uploads/homework/${s.recording_file_path}">Rec</a> `;
+    return `<tr><td>${s.session_date}</td><td>${s.status}</td><td>${resLinks || '-'}</td></tr>`;
+  }).join('') || '<tr><td colspan="3">No history</td></tr>';
+}
 
-    // Homework Upload
-    const hwForm = document.getElementById('uploadHomeworkForm');
-    if(hwForm) {
-      hwForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData();
-        const file = document.getElementById('homeworkFile').files[0];
-        if(!file) return alert('Select a file');
-        
-        formData.append('file', file);
-        formData.append('sessionDate', document.getElementById('homeworkDate').value);
+async function loadMaterials() {
+  const res = await fetch(`/api/materials/${currentStudent.id}`);
+  const data = await res.json();
+  const mats = data.filter(m => m.uploaded_by === 'Teacher');
+  
+  document.getElementById('materialsGrid').innerHTML = mats.map(m => `
+    <div style="background:white; padding:15px; border-radius:8px; border:1px solid #eee; text-align:center;">
+      <div style="font-size:2em;">📁</div>
+      <div style="font-weight:bold;">${m.file_type}</div>
+      <div style="margin:5px 0;">${m.file_name}</div>
+      <a href="/uploads/homework/${m.file_path}" download style="color:#4299e1;">Download</a>
+    </div>
+  `).join('') || '<p>No materials</p>';
+}
 
-        try {
-          const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
-            method: 'POST',
-            body: formData
-          });
-          if (res.ok) {
-            alert('✅ Homework Uploaded!');
-            hwForm.reset();
-            loadSubmittedHomework();
-          } else { alert('❌ Upload Failed'); }
-        } catch (err) { alert('❌ Error'); }
-      });
-    }
-
-    // ==================== FEEDBACK FEATURE ====================
-    async function checkPendingFeedback() {
-      try {
-        const res = await fetch(`/api/students/${currentStudent.id}/pending-feedback`);
-        const pending = await res.json();
-        
-        if(pending.length > 0) {
-          const session = pending[0];
-          document.getElementById('feedbackSessionId').value = session.id;
-          document.getElementById('feedbackModal').style.display = 'flex'; // Show Pop-up
-        }
-      } catch(e) { console.error("Feedback check error", e); }
-    }
-
-    window.closeFeedbackModal = function() {
-      document.getElementById('feedbackModal').style.display = 'none';
-    }
-
-    // Feedback Submit
-    const feedbackSubmitForm = document.getElementById('feedbackSubmitForm');
-    if (feedbackSubmitForm) {
-      feedbackSubmitForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const sessionId = document.getElementById('feedbackSessionId').value;
-        const rating = document.getElementById('feedbackRating').value;
-        const comment = document.getElementById('feedbackComment').value;
-
-        try {
-          const res = await fetch(`/api/sessions/${sessionId}/feedback`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ rating, comment })
-          });
-          if(res.ok) {
-            alert('Thank you for your feedback!');
-            closeFeedbackModal();
-          } else { alert('Failed to submit feedback'); }
-        } catch (err) { alert('Error'); }
-      });
-    }
-
-    // ==================== ADMIN MODE FUNCTION ====================
-    window.exitAdminMode = function() {
-      sessionStorage.removeItem('adminAccessStudent');
-      sessionStorage.removeItem('adminAccessMode');
-      sessionStorage.removeItem('adminAccessEmail');
-      location.reload();
-    }
-    </script>
+async function loadHomework() {
+  const res = await fetch(`/api/materials/${currentStudent.id}`);
+  const data = await res.json();
+  const hw = data.filter(m => m.uploaded_by === 'Parent');
+  
+  document.getElementById('hwBody').innerHTML = hw.map(h => `
+    <tr><td>${h.session_date}</td><td>${h.file_name}</td><td>${h.feedback_grade || 'Pending'}</td></tr>
+  `).join('') || '<tr><td colspan="3">No uploads</td></tr>';
+}
+</script>
 </body>
 </html>

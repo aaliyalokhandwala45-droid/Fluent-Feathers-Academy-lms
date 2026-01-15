@@ -3541,11 +3541,18 @@ app.get('*', (req, res) => {
 // ================================
 // PARENT PORTAL – UPCOMING CLASSES (PRIVATE + BATCH)
 // ================================
+// ================================
+// PARENT PORTAL – UPCOMING CLASSES (PRIVATE + BATCH)
+// ================================
 app.get('/api/parent/upcoming/:studentId', async (req, res) => {
   const { studentId } = req.params;
+  
+  // Get current date (YYYY-MM-DD) to ensure we get everything for today
+  const today = new Date().toISOString().split('T')[0];
 
   try {
     // 🔹 Private sessions
+    // CHANGED: session_start_utc >= NOW() TO session_date >= $2
     const privateResult = await pool.query(`
       SELECT
         id,
@@ -3560,11 +3567,12 @@ app.get('/api/parent/upcoming/:studentId', async (req, res) => {
         NULL AS batch_name
       FROM sessions
       WHERE student_id = $1
-        AND session_start_utc >= NOW()
+        AND session_date >= $2 
         AND status IN ('Pending', 'Scheduled')
-    `, [studentId]);
+    `, [studentId, today]);
 
     // 🔹 Batch sessions
+    // CHANGED: bs.session_start_utc >= NOW() TO bs.session_date >= $2
     const batchResult = await pool.query(`
       SELECT
         bs.id,
@@ -3582,9 +3590,9 @@ app.get('/api/parent/upcoming/:studentId', async (req, res) => {
       JOIN batch_enrollments be ON be.batch_id = b.id
       WHERE be.student_id = $1
         AND be.status = 'Active'
-        AND bs.session_start_utc >= NOW()
+        AND bs.session_date >= $2
         AND bs.status IN ('Pending', 'Scheduled')
-    `, [studentId]);
+    `, [studentId, today]);
 
     const combined = [...privateResult.rows, ...batchResult.rows]
       .sort((a, b) => new Date(a.session_start_utc) - new Date(b.session_start_utc));
