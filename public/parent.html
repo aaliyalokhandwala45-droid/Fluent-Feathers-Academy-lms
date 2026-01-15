@@ -307,9 +307,10 @@
           <table id="pastSessionsTable">
             <thead>
               <tr>
-                <th>Topic (Session #)</th>
+                <th>Session #</th>
                 <th>Date</th>
                 <th>Time</th>
+                <th>Topic</th>
                 <th>Attendance</th>
                 <th>PPT</th>
                 <th>Recording</th>
@@ -399,6 +400,7 @@
     <script>
     let currentStudent = null;
     let currentEmail = '';
+let hasExistingPassword = false;
 
     document.addEventListener('DOMContentLoaded', () => {
       // 1. CHECK FOR ADMIN ACCESS MODE (FIXES LEARNER VIEW)
@@ -604,216 +606,88 @@
       document.getElementById(tabName + 'Tab').classList.add('active');
       if (btn) btn.classList.add('active');
       
-      if (tabName === 'events') loadParentEvents();
-      if (tabName === 'sessions') { loadUpcomingSessions(); loadPastSessions(); }
-      if (tabName === 'materials') loadMaterials();
-      if (tabName === 'homework') loadSubmittedHomework();
+      if (tabName === 'upcoming') loadUpcomingSessions();
+if (tabName === 'past') loadPastSessions();
+if (tabName === 'events') loadParentEvents();
+if (tabName === 'materials') loadMaterials();
+if (tabName === 'homework') loadSubmittedHomework();
+
     };
 
     // ==================== DATA LOADERS ====================
    
 
-
-// COMPLETE FIXED loadUpcomingSessions() function
-// Replace the entire function in parent.html
-
 async function loadUpcomingSessions() {
   try {
-    console.log('🔍 Loading sessions for student:', currentStudent.id);
-    console.log('👤 Student timezone:', currentStudent.timezone);
-    
-    // Get BOTH private and batch sessions
-    const [privateRes, batchRes] = await Promise.all([
-      fetch('/api/sessions/' + currentStudent.id),
-      fetch('/api/students/' + currentStudent.id + '/batch-sessions')
-    ]);
-    
-    const privateSessions = await privateRes.json();
-    const batchSessions = await batchRes.json();
-    
-    console.log('📋 Private sessions loaded:', privateSessions.length);
-    console.log('👥 Batch sessions loaded:', batchSessions.length);
-    
-  
-    
-    // Process private sessions
-    const privateUpcoming = privateSessions
-     .filter(s => {
-  const now = new Date();
-  const sessionTime = new Date(s.session_start_utc);
-  return sessionTime >= now &&
-    (s.status === 'Pending' || s.status === 'Scheduled');
-})
-
-      .map(function(s) {
-  return {
-    id: s.id,
-    session_number: s.session_number,
-    session_date: s.session_date,
-    session_time: s.session_time,
-    session_start_utc: s.session_start_utc,   // ✅ ADD THIS
-    status: s.status,
-    type: 'Private',
-    duration: currentStudent.duration,
-    zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
-  };
-});
-
-    
-    // Process batch sessions
-    const batchUpcoming = batchSessions
-      .filter(s => {
-  const now = new Date();
-  const sessionTime = new Date(s.session_start_utc);
-  return sessionTime >= now &&
-    (s.status === 'Pending' || s.status === 'Scheduled');
-})
-
-      .map(function(s) {
-  return {
-    id: s.id,
-    session_number: s.session_number,
-    session_date: s.session_date,
-    session_time: s.session_time,
-    session_start_utc: s.session_start_utc,   // ✅ ADD THIS
-    status: s.status,
-    type: 'Batch',
-    batch_name: s.batch_name,
-    duration: s.duration,
-    zoom_link: s.zoom_link
-  };
-});
-
-    
-    // Combine all sessions
-    const allSessions = privateUpcoming.concat(batchUpcoming).sort(function(a, b) {
-  return new Date(a.session_start_utc) - new Date(b.session_start_utc);
-});
-
-    
-    console.log('✅ Total upcoming sessions:', allSessions.length);
-
     const tbody = document.getElementById('upcomingSessionsBody');
-    
-    if (!tbody) {
-      console.error('❌ Table body not found!');
+    if (!tbody) return;
+
+    // SINGLE SOURCE OF TRUTH
+    const res = await fetch(`/api/parent/upcoming/${currentStudent.id}`);
+    const allSessions = await res.json();
+
+    // ✅ FIX: Filter for upcoming sessions
+    const now = new Date();
+    const upcoming = allSessions.filter(s => 
+      new Date(s.session_start_utc) >= now &&
+      ['Pending', 'Scheduled'].includes(s.status)
+    ).sort((a, b) => new Date(a.session_start_utc) - new Date(b.session_start_utc));
+
+    if (upcoming.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center; color:#718096;">
+            No upcoming classes scheduled
+          </td>
+        </tr>`;
       return;
     }
-    
-    if (allSessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No upcoming classes scheduled</td></tr>';
-      return;
-    }
-    
-    // Render sessions with PROPER timezone conversion
-    var rows = [];
-    
-    for (var i = 0; i < allSessions.length; i++) {
-      var s = allSessions[i];
-      
-      try {
-        // CRITICAL: Validate data first
-       if (!s.session_start_utc) {
-  console.error('❌ Missing UTC time:', s);
-  continue;
-}
 
-    
-        
-     // Create Date object from UTC sent by server
-var sessionDate = new Date(s.session_start_utc);
+    tbody.innerHTML = upcoming.map(s => {
+      const date = new Date(s.session_start_utc);
 
-// Safety check
-if (isNaN(sessionDate.getTime())) {
-  console.error('❌ Invalid UTC date:', s.session_start_utc);
-  throw new Error('Invalid UTC date');
-}
+      const displayDate = date.toLocaleDateString('en-US', {
+        timeZone: currentStudent.timezone,
+        month: 'short', day: 'numeric', year: 'numeric'
+      });
 
-        
-        // Convert to student's timezone
-        var displayTime = sessionDate.toLocaleTimeString('en-US', {
-          timeZone: currentStudent.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+      const displayTime = date.toLocaleTimeString('en-US', {
+        timeZone: currentStudent.timezone,
+        hour: '2-digit', minute: '2-digit'
+      });
 
-        var formattedDate = sessionDate.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          month: 'short', 
-          day: 'numeric', 
-          year: 'numeric'
-        });
-        
-        var tzParts = currentStudent.timezone.split('/');
-        var tzAbbr = tzParts[tzParts.length - 1];
+      return `
+        <tr>
+          <td>#${s.session_number}</td>
+          <td>${displayDate}</td>
+          <td>${displayTime}</td>
+          <td>${s.duration || currentStudent.duration}</td>
+          <td>
+            <a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">
+              🎥 Join
+            </a>
+          </td>
+        </tr>`;
+    }).join('');
 
-        // Session type badge
-        var typeLabel = '';
-        if (s.type === 'Batch') {
-          typeLabel = '<span style="background:#4299e1; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>';
-        }
-
-        var sessionName = s.type === 'Batch' ? (s.batch_name || 'Group Class') : 'Private Class';
-
-        var row = '<tr>' +
-          '<td><strong>#' + s.session_number + '</strong>' + typeLabel + '<br><small style="color:#718096;">' + sessionName + '</small></td>' +
-          '<td>' + formattedDate + '</td>' +
-          '<td><strong>' + displayTime + '</strong><br><small style="color:#718096;">(' + tzAbbr + ')</small></td>' +
-          '<td>' + s.duration + '</td>' +
-          '<td><a href="' + s.zoom_link + '" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>' +
-        '</tr>';
-        
-        rows.push(row);
-        
-      } catch (err) {
-        console.error('❌ Error processing session:', err, s);
-        
-        // Fallback row with raw data
-        var fallbackRow = '<tr>' +
-          '<td>#' + s.session_number + '</td>' +
-          '<td>' + s.session_date + '</td>' +
-          '<td>' + (s.session_time || 'N/A') + ' <span style="color:red;">⚠️</span></td>' +
-          '<td>' + (s.duration || 'N/A') + '</td>' +
-          '<td><a href="' + (s.zoom_link || '#') + '" target="_blank">Join</a></td>' +
-        '</tr>';
-        
-        rows.push(fallbackRow);
-      }
-    }
-    
-    tbody.innerHTML = rows.join('');
-    
-  } catch(e) { 
-    console.error('❌ Load upcoming sessions error:', e);
-    var tbody = document.getElementById('upcomingSessionsBody');
-    if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">' +
-        '❌ Failed to load sessions<br>' +
-        '<small style="color:#718096;">Error: ' + e.message + '</small>' +
-      '</td></tr>';
-    }
+  } catch (err) {
+    console.error(err);
+    document.getElementById('upcomingSessionsBody').innerHTML = `
+      <tr><td colspan="5" style="text-align:center; color:red;">
+        Failed to load upcoming sessions
+      </td></tr>`;
   }
 }
-
     // 2. Past Sessions (FIXED TIMEZONE)
     async function loadPastSessions() {
       try {
         // Get both private and batch sessions
-        const privateRes = await fetch(`/api/sessions/${currentStudent.id}`);
-        const privateSessions = await privateRes.json();
-        
-        const batchRes = await fetch(`/api/students/${currentStudent.id}/batch-sessions`);
-        const batchSessions = await batchRes.json();
-        
-        // Combine and filter completed
-        const allSessions = [
-          ...privateSessions.map(s => ({ ...s, type: 'Private', duration: currentStudent.duration, zoom_link: currentStudent.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09' })),
-          ...batchSessions.map(s => ({ ...s, type: 'Batch' }))
-        ].filter(s => s.status === 'Completed' || s.status === 'Missed')
-        .sort((a, b) => 
-  new Date(b.session_start_utc) - new Date(a.session_start_utc)
-);
+        const res = await fetch(`/api/parent/upcoming/${currentStudent.id}`);
+const allSessionsRaw = await res.json();
+
+const allSessions = allSessionsRaw
+  .filter(s => s.status === 'Completed' || s.status === 'Missed')
+  .sort((a, b) => new Date(b.session_start_utc) - new Date(a.session_start_utc));
 
 
         const tbody = document.getElementById('pastSessionsBody');
@@ -839,24 +713,31 @@ if (isNaN(sessionDate.getTime())) {
               });
 
               // Attendance Display Logic
-              let attendanceDisplay = '-';
-              if(s.status === 'Completed') {
-                if(s.attendance && s.attendance !== '') {
-                  attendanceDisplay = `<span class="status-present">✅ ${s.attendance}</span>`;
-                } else {
-                  attendanceDisplay = `<span style="color:#e74c3c;">Absent/Not Marked</span>`;
-                }
-              } else {
-                attendanceDisplay = `<span class="status-missed">Missed</span>`;
-              }
+              let attendanceDisplay = '';
 
-              const typeLabel = s.type === 'Batch' ? `<span style="background:#4299e1; color:white; padding:2px 6px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>` : '';
+if (s.status === 'Missed') {
+  attendanceDisplay = `<span class="status-missed">❌ Missed</span>`;
+} else if (s.status === 'Completed') {
+  const att = (s.attendance || '').toString().trim().toLowerCase();
+
+  if (['present', 'p', 'yes', '1'].includes(att)) {
+    attendanceDisplay = `<span class="status-present">✅ Present</span>`;
+  } else if (['absent', 'a', 'no', '0'].includes(att)) {
+    attendanceDisplay = `<span class="status-missed">❌ Absent</span>`;
+  } else {
+    attendanceDisplay = `<span style="color:#f39c12;">⚠️ Not Marked</span>`;
+  }
+} else {
+  attendanceDisplay = '-';
+}
+
 
               return `
                 <tr>
-                  <td><strong>#${s.session_number}</strong>${typeLabel}</td>
+                  <td><strong>#${s.session_number}</strong></td>
                   <td>${formattedDate}</td>
                   <td>${displayTime}</td>
+                  <td>${s.topic || '-'}</td>
                   <td>${attendanceDisplay}</td>
                   <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
                   <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
@@ -975,56 +856,62 @@ if (isNaN(sessionDate.getTime())) {
 
         // 6. Cancel Dropdown (FIXED TIMEZONE)
     async function loadUpcomingClassesDropdown() {
-      try {
-        // Only load PRIVATE sessions for cancellation
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
-        const allSessions = await res.json();
-        
-        const now = new Date();
-const upcoming = allSessions.filter(s => {
-  const sessionTime = new Date(s.session_start_utc);
-  return sessionTime >= now &&
-    (s.status === 'Pending' || s.status === 'Scheduled');
-});
+  try {
+    // Only load PRIVATE sessions for cancellation
+    const res = await fetch(`/api/sessions/${currentStudent.id}`);
+    const allSessions = await res.json();
+    
+    // ✅ FIX: Filter for upcoming private sessions
+    const now = new Date();
+    const upcoming = allSessions.filter(s => 
+      new Date(s.session_start_utc) >= now &&
+      ['Pending', 'Scheduled'].includes(s.status)
+    ).sort((a, b) => new Date(a.session_start_utc) - new Date(b.session_start_utc));
 
-        const select = document.getElementById('cancelClassSelect');
-        
-        if(upcoming.length === 0) {
-          select.innerHTML = '<option value="">No upcoming private classes to cancel</option>';
-          select.disabled = true;
-        } else {
-          select.disabled = false;
-          select.innerHTML = '<option value="">-- Select Class to Cancel --</option>' + 
+    const select = document.getElementById('cancelClassSelect');
+    
+    if(upcoming.length === 0) {
+      select.innerHTML = '<option value="">No upcoming private classes to cancel</option>';
+      select.disabled = true;
+    } else {
+      select.disabled = false;
+      select.innerHTML = '<option value="">-- Select Class to Cancel --</option>' + 
+      upcoming.map(s => {
+        try {
+          const sessionDate = new Date(s.session_start_utc);
 
-        
-          upcoming.map(s => {
-            try {
-        
-              const sessionDate = new Date(s.session_start_utc);
-
-              const displayTime = sessionDate.toLocaleTimeString('en-US', {
-                timeZone: currentStudent.timezone,
-                hour12: true,
-                hour: '2-digit',
-                minute: '2-digit'
-              });
-              const displayDate = sessionDate.toLocaleDateString('en-US', {
-                timeZone: currentStudent.timezone,
-                month: 'short', day: 'numeric'
-              });
-              
-              return `<option value="${s.session_date}|${s.session_time}">Session #${s.session_number} - ${displayDate} at ${displayTime}</option>`;
-            } catch (err) {
-              console.error('Dropdown date error:', err);
-              return `<option value="${s.session_date}|${s.session_time}">Session #${s.session_number} - ${s.session_date} at ${s.session_time}</option>`;
-            }
-          }).join('');
+          const displayTime = sessionDate.toLocaleTimeString('en-US', {
+            timeZone: currentStudent.timezone,
+            hour12: true,
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          
+          const displayDate = sessionDate.toLocaleDateString('en-US', {
+            timeZone: currentStudent.timezone,
+            month: 'short', day: 'numeric'
+          });
+          
+          return `<option value="${s.id}">
+            Session #${s.session_number} - ${displayDate} at ${displayTime}
+          </option>`;
+        } catch (err) {
+          console.error('Dropdown date error:', err);
+          return `<option value="${s.id}">
+            Session #${s.session_number} - ${s.session_date} at ${s.session_time}
+          </option>`;
         }
-      } catch(e) {
-        console.error('Dropdown error:', e);
-      }
+      }).join('');
     }
-
+  } catch(e) {
+    console.error('Dropdown error:', e);
+    const select = document.getElementById('cancelClassSelect');
+    if(select) {
+      select.innerHTML = '<option value="">Error loading sessions</option>';
+      select.disabled = true;
+    }
+  }
+}
     // ==================== HELPERS ====================
     window.choosePasswordLogin = () => { 
       document.getElementById('loginMethodSection').style.display='none'; 
@@ -1079,19 +966,20 @@ const upcoming = allSessions.filter(s => {
         
         if(!val) return alert('Select a class');
         
-        const [date, time] = val.split('|');
-        if(!confirm(`Cancel class on ${date}?`)) return;
+        const sessionId = val;
+if (!confirm('Cancel this class?')) return;
+
 
         try {
           const res = await fetch('/api/parent/cancel-upcoming-class', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-              student_id: currentStudent.id, 
-              session_date: date, 
-              session_time: time, 
-              reason 
-            })
+            body: JSON.stringify({
+  student_id: currentStudent.id,
+  session_id: sessionId,
+  reason
+})
+
           });
           const result = await res.json();
           if(res.ok) {

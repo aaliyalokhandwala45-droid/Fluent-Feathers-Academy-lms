@@ -225,6 +225,27 @@ await pool.query(`
   ADD COLUMN IF NOT EXISTS session_start_utc TIMESTAMP
 `);
 
+// ✅ FIX: Ensure session_start_utc column exists
+try {
+  await pool.query(`
+    ALTER TABLE sessions 
+    ADD COLUMN IF NOT EXISTS session_start_utc TIMESTAMP
+  `);
+  console.log('✅ session_start_utc column added to sessions table');
+} catch (e) {
+  console.log('⚠️ session_start_utc column already exists');
+}
+
+try {
+  await pool.query(`
+    ALTER TABLE batch_sessions 
+    ADD COLUMN IF NOT EXISTS session_start_utc TIMESTAMP
+  `);
+  console.log('✅ session_start_utc column added to batch_sessions table');
+} catch (e) {
+  console.log('⚠️ batch_sessions.session_start_utc column already exists');
+}
+
     // NEW: Try to add feedback columns if table already exists
     try {
       await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS feedback_requested BOOLEAN DEFAULT FALSE`);
@@ -450,7 +471,48 @@ console.log('✅ Enhanced database tables with Batch Management initialized');
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       last_login TIMESTAMP
     )`);
-
+// ✅ FIX: Update existing sessions with session_start_utc
+try {
+  const privateSessions = await pool.query(
+    `SELECT id, session_date, session_time FROM sessions WHERE session_start_utc IS NULL`
+  );
+  
+  console.log(`🔧 Migrating ${privateSessions.rows.length} private sessions...`);
+  
+  for (const s of privateSessions.rows) {
+    const utc = moment
+      .tz(`${s.session_date} ${s.session_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata')
+      .utc()
+      .format();
+    
+    await pool.query(
+      `UPDATE sessions SET session_start_utc = $1 WHERE id = $2`,
+      [utc, s.id]
+    );
+  }
+  
+  const batchSessions = await pool.query(
+    `SELECT id, session_date, session_time FROM batch_sessions WHERE session_start_utc IS NULL`
+  );
+  
+  console.log(`🔧 Migrating ${batchSessions.rows.length} batch sessions...`);
+  
+  for (const s of batchSessions.rows) {
+    const utc = moment
+      .tz(`${s.session_date} ${s.session_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata')
+      .utc()
+      .format();
+    
+    await pool.query(
+      `UPDATE batch_sessions SET session_start_utc = $1 WHERE id = $2`,
+      [utc, s.id]
+    );
+  }
+  
+  console.log('✅ Existing sessions migration complete!');
+} catch (err) {
+  console.error('❌ Migration error:', err);
+}
     console.log('✅ Enhanced database tables initialized');
   } catch (err) {
     console.error('❌ Database initialization error:', err);
@@ -1490,7 +1552,8 @@ app.get('/register-event/:eventId/:studentId', async (req, res) => {
 
 // Parent cancel specific upcoming class
 app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
-  const { student_id, session_date, session_time, reason } = req.body;
+ const { student_id, session_id, reason } = req.body;
+
 
   try {
     // Get student info
@@ -1507,9 +1570,13 @@ app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
 
     // Find the specific session
     const sessionResult = await pool.query(
-      `SELECT * FROM sessions WHERE student_id = $1 AND session_date = $2 AND session_time = $3 AND status IN ('Pending', 'Scheduled')`,
-      [student_id, session_date, session_time]
-    );
+  `SELECT * FROM sessions 
+   WHERE id = $1 
+   AND student_id = $2
+   AND status IN ('Pending', 'Scheduled')`,
+  [session_id, student_id]
+);
+
 
     if (sessionResult.rows.length === 0) {
       return res.status(404).json({ error: 'Session not found or already cancelled' });
@@ -1527,7 +1594,8 @@ app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
     await pool.query(
       `INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, notes)
        VALUES ($1, $2, $3, $4, 'Available', 'Parent cancellation - makeup available')`,
-      [student_id, session.id, reason || 'Cancelled by Parent', session_date]
+      [student_id, session.id, reason || 'Cancelled by Parent', session.session_date]
+
     );
 
     // Increase remaining sessions count
@@ -1545,8 +1613,9 @@ app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
         
         <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 5px solid #e74c3c;">
           <p><strong>Student:</strong> ${student.name}</p>
-          <p><strong>Date:</strong> ${session_date}</p>
-          <p><strong>Time:</strong> ${session_time}</p>
+        <p><strong>Date:</strong> ${session.session_date}</p>
+        <p><strong>Time:</strong> ${session.session_time}</p>
+
           <p><strong>Session:</strong> #${session.session_number}</p>
           ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
         </div>
@@ -1563,7 +1632,7 @@ app.post('/api/parent/cancel-upcoming-class', async (req, res) => {
 
     await sendEmail(
       student.parent_email,
-      `✅ Cancellation Confirmed - ${session_date}`,
+      `✅ Cancellation Confirmed - ${session.session_date}`,
       cancelEmail,
       student.parent_name,
       'Parent Cancellation'
@@ -1755,35 +1824,27 @@ await sendEmail(
 });
 
 // Enhanced attendance marking with makeup class credits AND FEEDBACK REQUEST
-app.post('/api/attendance/present/:studentId', async (req, res) => {
-  const studentId = req.params.studentId;
-  const today = new Date().toISOString().split('T')[0];
+// Replace your existing /api/attendance/present/:studentId with this:
+app.post('/api/attendance/mark-attendance/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  const { status, studentId } = req.body; // status: 'Present' or 'Absent'
 
   try {
-    const sessionResult = await pool.query(
-      `SELECT * FROM sessions WHERE student_id = $1 AND session_date = $2 AND status IN ('Pending', 'Scheduled') LIMIT 1`,
-      [studentId, today]
+    // 1. Mark session
+    await pool.query(
+      `UPDATE sessions SET status = 'Completed', attendance = $1, feedback_requested = TRUE WHERE id = $2`,
+      [status, sessionId]
     );
 
-    if (sessionResult.rows.length === 0) {
-      return res.status(404).json({ error: 'No scheduled session found for today' });
+    // 2. Only decrement sessions if they were actually present
+    if (status === 'Present') {
+      await pool.query(
+        `UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = remaining_sessions - 1 WHERE id = $1`,
+        [studentId]
+      );
     }
 
-    const session = sessionResult.rows[0];
-
-    // Mark session as completed AND REQUEST FEEDBACK
-    await pool.query(
-      `UPDATE sessions SET status = 'Completed', attendance = 'Present', feedback_requested = TRUE WHERE id = $1`,
-      [session.id]
-    );
-
-    // Update student's completed and remaining sessions
-    await pool.query(
-      `UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = remaining_sessions - 1 WHERE id = $1`,
-      [studentId]
-    );
-
-    res.json({ message: 'Attendance marked as Present! Session completed successfully.' });
+    res.json({ success: true, message: 'Attendance updated!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1797,9 +1858,15 @@ app.post('/api/attendance/absent/:studentId', async (req, res) => {
 
   try {
     const sessionResult = await pool.query(
-      `SELECT * FROM sessions WHERE student_id = $1 AND session_date = $2 AND status IN ('Pending', 'Scheduled') LIMIT 1`,
-      [studentId, today]
-    );
+  `SELECT * FROM sessions
+   WHERE student_id = $1
+   AND session_date = $2
+   AND status IN ('Pending', 'Scheduled')
+   ORDER BY session_start_utc ASC
+   LIMIT 1`,
+  [studentId, today]
+);
+
 
     if (sessionResult.rows.length === 0) {
       return res.status(404).json({ error: 'No session found for today' });
@@ -3074,13 +3141,19 @@ app.post('/api/batches/:batchId/schedule', async (req, res) => {
     for (const session of sessions) {
       console.log(`  → Inserting session ${sessionNumber}: ${session.date} ${session.time}`);
       
-      await pool.query(
-        `INSERT INTO batch_sessions (
-          batch_id, session_number, session_date, session_time, 
-          zoom_link, status
-        ) VALUES ($1, $2, $3, $4, $5, 'Pending')`,
-        [batchId, sessionNumber, session.date, session.time, batch.zoom_link]
-      );
+      // ✅ FIX: Calculate UTC time for batch sessions
+const sessionStartUTC = moment
+  .tz(`${session.date} ${session.time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata')
+  .utc()
+  .format();
+
+await pool.query(
+  `INSERT INTO batch_sessions (
+    batch_id, session_number, session_date, session_time, 
+    session_start_utc, zoom_link, status
+  ) VALUES ($1, $2, $3, $4, $5, $6, 'Pending')`,
+  [batchId, sessionNumber, session.date, session.time, sessionStartUTC, batch.zoom_link]
+);
       sessionNumber++;
     }
 
@@ -3346,6 +3419,7 @@ app.get('/api/students/:studentId/batch-sessions', async (req, res) => {
     // Get all sessions for these batches with attendance and resources
     const sessions = await pool.query(`
       SELECT bs.*, 
+      bs.session_start_utc,
              b.batch_name, 
              b.zoom_link, 
              b.duration,
@@ -3463,6 +3537,65 @@ app.get('*', (req, res) => {
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// ================================
+// PARENT PORTAL – UPCOMING CLASSES (PRIVATE + BATCH)
+// ================================
+app.get('/api/parent/upcoming/:studentId', async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    // 🔹 Private sessions
+    const privateResult = await pool.query(`
+      SELECT
+        id,
+        session_number,
+        session_date,
+        session_time,
+        session_start_utc,
+        status,
+        zoom_link,
+        duration,
+        'Private' AS type,
+        NULL AS batch_name
+      FROM sessions
+      WHERE student_id = $1
+        AND session_start_utc >= NOW()
+        AND status IN ('Pending', 'Scheduled')
+    `, [studentId]);
+
+    // 🔹 Batch sessions
+    const batchResult = await pool.query(`
+      SELECT
+        bs.id,
+        bs.session_number,
+        bs.session_date,
+        bs.session_time,
+        bs.session_start_utc,
+        bs.status,
+        bs.zoom_link,
+        bs.duration,
+        'Batch' AS type,
+        b.batch_name
+      FROM batch_sessions bs
+      JOIN batches b ON b.id = bs.batch_id
+      JOIN batch_enrollments be ON be.batch_id = b.id
+      WHERE be.student_id = $1
+        AND be.status = 'Active'
+        AND bs.session_start_utc >= NOW()
+        AND bs.status IN ('Pending', 'Scheduled')
+    `, [studentId]);
+
+    const combined = [...privateResult.rows, ...batchResult.rows]
+      .sort((a, b) => new Date(a.session_start_utc) - new Date(b.session_start_utc));
+
+    res.json(combined);
+  } catch (err) {
+    console.error('❌ Upcoming classes error:', err);
+    res.status(500).json([]);
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`
