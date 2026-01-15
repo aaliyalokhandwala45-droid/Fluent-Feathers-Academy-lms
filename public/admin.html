@@ -2030,6 +2030,9 @@ async function loadSessionsTab() {
   await loadAllSessions();
 }
 
+// Fixed Admin Sessions Display
+// Replace in admin.html
+
 async function loadAllSessions() {
   const filterStudent = document.getElementById('filterSessionStudent')?.value;
   const filterStatus = document.getElementById('filterSessionStatus')?.value;
@@ -2044,12 +2047,11 @@ async function loadAllSessions() {
   
   try {
     const res = await fetch(`/api/sessions/${filterStudent}`);
-    const allSessions = await res.json();
+    let sessions = await res.json();
     
     // Apply status filter
-    let sessions = allSessions;
     if(filterStatus) {
-      sessions = allSessions.filter(s => s.status === filterStatus);
+      sessions = sessions.filter(s => s.status === filterStatus);
     }
     
     if(sessions.length === 0) {
@@ -2057,19 +2059,21 @@ async function loadAllSessions() {
       return;
     }
 
-    // Get student for timezone
-
-    
     tbody.innerHTML = sessions.map(s => {
-      // Just display the stored time directly - it's already in the admin's timezone (IST)
+      // Admin sees times in IST (stored format) - no conversion needed
       const displayTime = s.session_time.substring(0, 5); // HH:MM format
+      
+      // Color code status
+      let statusColor = 'orange';
+      if (s.status === 'Completed') statusColor = 'green';
+      if (s.status.includes('Cancelled') || s.status === 'Missed') statusColor = 'red';
       
       return `
         <tr>
           <td>${s.session_number}</td>
           <td>${s.session_date}</td>
-          <td>${displayTime}</td>
-          <td><span style="color:${s.status==='Completed'?'green':s.status==='Cancelled by Teacher'||s.status==='Cancelled by Parent'?'red':'orange'}">${s.status}</span></td>
+          <td>${displayTime} <small style="color:#718096;">(IST)</small></td>
+          <td><span style="color:${statusColor}; font-weight:bold;">${s.status}</span></td>
           <td>${s.attendance || '-'}</td>
           <td>
              ${s.status === 'Pending' || s.status === 'Scheduled' ? 
