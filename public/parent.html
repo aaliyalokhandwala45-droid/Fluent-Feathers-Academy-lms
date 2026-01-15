@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Parent Portal - Fluent Feathers Academy By Aaliya</title>
+  <title>Parent Portal - Fluent Feathers Academy</title>
   
-  <!-- PROFESSIONAL INLINE STYLES (So you don't need external CSS) -->
+  <!-- PROFESSIONAL INLINE STYLES -->
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; margin: 0; padding: 0; color: #2d3748; }
     .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
@@ -82,7 +82,7 @@
     
     /* Modal */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; animation: popIn 0.3s; }
-    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 500px; position: relative; }
+    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; position: relative; }
     .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
     .btn-close { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold; }
 
@@ -191,7 +191,7 @@
     <!-- DASHBOARD SECTION -->
     <section id="dashboardSection" style="display: none;">
       
-      <!-- FEEDBACK POP-UP MODAL (NEW) -->
+      <!-- FEEDBACK POP-UP MODAL -->
       <div id="feedbackModal" class="modal" style="display: none;">
         <div class="modal-content">
           <div class="modal-header">
@@ -392,10 +392,9 @@
           </table>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- ==================== JAVASCRIPT LOGIC ==================== -->
-
     <script>
     let currentStudent = null;
     let currentEmail = '';
@@ -429,6 +428,9 @@
         setupEventHandlers();
       }
     });
+window.registerForEvent = function(eventId) {
+  alert('✅ You are registered! (Feature coming soon)');
+};
 
     // ==================== LOGIN LOGIC ====================
     function setupEventHandlers() {
@@ -452,7 +454,9 @@
             const result = await res.json();
             
             if(res.ok) {
-              hasExistingPassword = result.hasPassword;
+              // FIX: Ensure hasExistingPassword is boolean
+              const hasExistingPassword = !!result.hasPassword; 
+              
               document.getElementById('emailForm').style.display = 'none';
               document.getElementById('loginMethodSection').style.display = 'block';
               
@@ -582,7 +586,7 @@
       loadParentEvents();
       loadUpcomingClassesDropdown();
       
-      // NEW: Check for Feedback Pop-up
+      // Check for Feedback Pop-up
       checkPendingFeedback();
     }
 
@@ -605,290 +609,288 @@
       if (btn) btn.classList.add('active');
       
       if (tabName === 'events') loadParentEvents();
-      if (tabName === 'sessions') { loadUpcomingSessions(); loadPastSessions(); }
+      if (tabName === 'past') loadPastSessions();
+      if (tabName === 'upcoming') loadUpcomingSessions();
       if (tabName === 'materials') loadMaterials();
       if (tabName === 'homework') loadSubmittedHomework();
     };
 
     // ==================== DATA LOADERS ====================
-   
-
-
-// // COMPLETE FIXED loadUpcomingSessions() function
-async function loadUpcomingSessions() {
-  try {
-    console.log('🔍 Loading sessions for student:', currentStudent.id);
-    console.log('👤 Student timezone:', currentStudent.timezone);
     
-    // Get BOTH private and batch sessions
-    const [privateRes, batchRes] = await Promise.all([
-      fetch('/api/sessions/' + currentStudent.id),
-      fetch('/api/students/' + currentStudent.id + '/batch-sessions')
-    ]);
-    
-    const privateSessions = await privateRes.json();
-    const batchSessions = await batchRes.json();
-    
-    console.log('📋 Private sessions loaded:', privateSessions.length);
-    console.log('👥 Batch sessions loaded:', batchSessions.length);
-    
-    // Filter upcoming sessions
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Process private sessions
-    const privateUpcoming = privateSessions
-      .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
-      .map(s => ({
-        id: s.id,
-        session_number: s.session_number,
-        session_date: s.session_date,
-        session_time: s.session_time,
-        status: s.status,
-        type: 'Private',
-        duration: currentStudent.duration,
-        zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
-      }));
-    
-    // Process batch sessions
-    const batchUpcoming = batchSessions
-      .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
-      .map(s => ({
-        id: s.id,
-        session_number: s.session_number,
-        session_date: s.session_date,
-        session_time: s.session_time,
-        status: s.status,
-        type: 'Batch',
-        batch_name: s.batch_name,
-        duration: s.duration,
-        zoom_link: s.zoom_link
-      }));
-    
-    // Combine all sessions
-    const allSessions = [...privateUpcoming, ...batchUpcoming].sort((a, b) => {
-      const dateA = new Date(a.session_date + 'T' + a.session_time);
-      const dateB = new Date(b.session_date + 'T' + b.session_time);
-      return dateA - dateB;
-    });
-    
-    console.log('✅ Total upcoming sessions:', allSessions.length);
-
-    const tbody = document.getElementById('upcomingSessionsBody');
-    
-    if (!tbody) {
-      console.error('❌ Table body not found!');
-      return;
-    }
-    
-    if (allSessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No upcoming classes scheduled</td></tr>';
-      return;
-    }
-    
-    // Render sessions with PROPER timezone conversion
-    tbody.innerHTML = allSessions.map(s => {
+    // 1. Upcoming Sessions (FIXED TIMEZONE)
+    async function loadUpcomingSessions() {
       try {
-        // Clean the time string
-        let cleanTime = s.session_time;
-        if (cleanTime.includes('.')) {
-          cleanTime = cleanTime.split('.')[0];
+        console.log('🔍 Loading sessions for student:', currentStudent.id);
+        console.log('👤 Student timezone:', currentStudent.timezone);
+        
+        // Get BOTH private and batch sessions
+        const [privateRes, batchRes] = await Promise.all([
+          fetch('/api/sessions/' + currentStudent.id),
+          fetch('/api/students/' + currentStudent.id + '/batch-sessions')
+        ]);
+        
+        const privateSessions = await privateRes.json();
+        const batchSessions = await batchRes.json();
+        
+        console.log('📋 Private sessions loaded:', privateSessions.length);
+        console.log('👥 Batch sessions loaded:', batchSessions.length);
+        
+        // Filter upcoming sessions
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Process private sessions
+        const privateUpcoming = privateSessions
+          .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
+          .map(s => ({
+            id: s.id,
+            session_number: s.session_number,
+            session_date: s.session_date,
+            session_time: s.session_time,
+            status: s.status,
+            type: 'Private',
+            duration: currentStudent.duration,
+            zoom_link: s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09'
+          }));
+        
+        // Process batch sessions
+        const batchUpcoming = batchSessions
+          .filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'))
+          .map(s => ({
+            id: s.id,
+            session_number: s.session_number,
+            session_date: s.session_date,
+            session_time: s.session_time,
+            status: s.status,
+            type: 'Batch',
+            batch_name: s.batch_name,
+            duration: s.duration,
+            zoom_link: s.zoom_link
+          }));
+        
+        // Combine all sessions
+        const allSessions = [...privateUpcoming, ...batchUpcoming].sort((a, b) => {
+          const dateA = new Date(a.session_date + 'T' + a.session_time);
+          const dateB = new Date(b.session_date + 'T' + b.session_time);
+          return dateA - dateB;
+        });
+        
+        console.log('✅ Total upcoming sessions:', allSessions.length);
+
+        const tbody = document.getElementById('upcomingSessionsBody');
+        
+        if (!tbody) {
+          console.error('❌ Table body not found!');
+          return;
         }
         
-        // Ensure HH:MM:SS format
-        const timeParts = cleanTime.split(':');
-        if (timeParts.length === 2) {
-          cleanTime = cleanTime + ':00';
+        if (allSessions.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No upcoming classes scheduled</td></tr>';
+          return;
         }
         
-        // CRITICAL: Create date in IST (admin's timezone where it was scheduled)
-        const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
-        const sessionDate = new Date(istDateTime);
-        
-        // Validate date
-        if (isNaN(sessionDate.getTime())) {
-          throw new Error('Invalid date');
-        }
-        
-        // Convert to student's timezone for DISPLAY
-        const displayTime = sessionDate.toLocaleTimeString('en-US', {
-          timeZone: currentStudent.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        // Render sessions with PROPER timezone conversion
+        tbody.innerHTML = allSessions.map(s => {
+          try {
+            // Clean time string
+            let cleanTime = s.session_time;
+            if (cleanTime.includes('.')) {
+              cleanTime = cleanTime.split('.')[0];
+            }
+            
+            // Ensure HH:MM:SS format
+            const timeParts = cleanTime.split(':');
+            if (timeParts.length === 2) {
+              cleanTime = cleanTime + ':00';
+            }
+            
+            // CRITICAL: Create date in IST (admin's timezone where it was scheduled)
+            const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
+            const sessionDate = new Date(istDateTime);
+            
+            // Validate date
+            if (isNaN(sessionDate.getTime())) {
+              throw new Error('Invalid date');
+            }
+            
+            // Convert to student's timezone for DISPLAY
+            const displayTime = sessionDate.toLocaleTimeString('en-US', {
+              timeZone: currentStudent.timezone,
+              hour12: true,
+              hour: '2-digit',
+              minute: '2-digit'
+            });
 
-        const formattedDate = sessionDate.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          month: 'short', 
-          day: 'numeric', 
-          year: 'numeric'
-        });
-        
-        const dayOfWeek = sessionDate.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          weekday: 'short'
-        });
-        
-        const tzParts = currentStudent.timezone.split('/');
-        const tzAbbr = tzParts[tzParts.length - 1];
+            const formattedDate = sessionDate.toLocaleDateString('en-US', {
+              timeZone: currentStudent.timezone,
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric'
+            });
+            
+            const dayOfWeek = sessionDate.toLocaleDateString('en-US', {
+              timeZone: currentStudent.timezone,
+              weekday: 'short'
+            });
+            
+            const tzParts = currentStudent.timezone.split('/');
+            const tzAbbr = tzParts[tzParts.length - 1];
 
-        // Session type badge
-        const typeLabel = s.type === 'Batch' 
-          ? '<span style="background:#4299e1; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>'
-          : '';
+            // Session type badge
+            const typeLabel = s.type === 'Batch' 
+              ? '<span style="background:#4299e1; color:white; padding:2px 8px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>'
+              : '';
 
-        const sessionName = s.type === 'Batch' ? (s.batch_name || 'Group Class') : 'Private Class';
+            const sessionName = s.type === 'Batch' ? (s.batch_name || 'Group Class') : 'Private Class';
 
-        return `
-          <tr>
-            <td><strong>#${s.session_number}</strong>${typeLabel}<br><small style="color:#718096;">${sessionName}</small></td>
-            <td>${dayOfWeek}, ${formattedDate}</td>
-            <td><strong>${displayTime}</strong><br><small style="color:#718096;">(${tzAbbr})</small></td>
-            <td>${s.duration}</td>
-            <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
-          </tr>
-        `;
-        
-      } catch (err) {
-        console.error('❌ Error processing session:', err, s);
-        
-        // Fallback display
-        return `
-          <tr>
-            <td>#${s.session_number}</td>
-            <td>${s.session_date}</td>
-            <td>${s.session_time || 'N/A'} <span style="color:red;">⚠️</span></td>
-            <td>${s.duration || 'N/A'}</td>
-            <td><a href="${s.zoom_link || '#'}" target="_blank">Join</a></td>
-          </tr>
-        `;
-      }
-    }).join('');
-    
-  } catch(e) { 
-    console.error('❌ Load upcoming sessions error:', e);
-    const tbody = document.getElementById('upcomingSessionsBody');
-    if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">❌ Failed to load sessions<br><small style="color:#718096;">Error: ${e.message}</small></td></tr>`;
-    }
-  }
-}
-    // 2. Past Sessions (FIXED TIMEZONE)
-    // Fixed loadPastSessions() with proper timezone conversion
-// Replace in parent.html
-
-async function loadPastSessions() {
-  try {
-    // Get both private and batch sessions
-    const privateRes = await fetch(`/api/sessions/${currentStudent.id}`);
-    const privateSessions = await privateRes.json();
-    
-    const batchRes = await fetch(`/api/students/${currentStudent.id}/batch-sessions`);
-    const batchSessions = await batchRes.json();
-    
-    // Combine and filter completed
-    const allSessions = [
-      ...privateSessions.map(s => ({ 
-        ...s, 
-        type: 'Private', 
-        duration: currentStudent.duration
-      })),
-      ...batchSessions.map(s => ({ ...s, type: 'Batch' }))
-    ]
-    .filter(s => s.status === 'Completed' || s.status === 'Missed')
-    .sort((a, b) => {
-      const dateA = new Date(a.session_date + 'T' + a.session_time);
-      const dateB = new Date(b.session_date + 'T' + b.session_time);
-      return dateB - dateA;
-    });
-
-    const tbody = document.getElementById('pastSessionsBody');
-    
-    if(allSessions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = allSessions.map(s => {
-      try {
-        // CRITICAL FIX: Force IST interpretation
-        let cleanTime = s.session_time;
-        if (cleanTime.includes('.')) {
-          cleanTime = cleanTime.split('.')[0];
-        }
-        const timeParts = cleanTime.split(':');
-        if (timeParts.length === 2) {
-          cleanTime = cleanTime + ':00';
-        }
-        
-        const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
-        const sessionDate = new Date(istDateTime);
-      
-        // Convert to student's timezone
-        const displayTime = sessionDate.toLocaleTimeString('en-US', {
-          timeZone: currentStudent.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-
-        const formattedDate = sessionDate.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          month: 'short', 
-          day: 'numeric', 
-          year: 'numeric'
-        });
-
-        // Attendance Display Logic
-        let attendanceDisplay = '-';
-        if(s.status === 'Completed') {
-          if(s.attendance && s.attendance !== '') {
-            attendanceDisplay = `<span class="status-present">✅ ${s.attendance}</span>`;
-          } else {
-            attendanceDisplay = `<span style="color:#e74c3c;">Not Marked</span>`;
+            return `
+              <tr>
+                <td><strong>#${s.session_number}</strong>${typeLabel}<br><small style="color:#718096;">${sessionName}</small></td>
+                <td>${dayOfWeek}, ${formattedDate}</td>
+                <td><strong>${displayTime}</strong><br><small style="color:#718096;">(${tzAbbr})</small></td>
+                <td>${s.duration}</td>
+                <td><a href="${s.zoom_link}" target="_blank" class="btn-zoom-mini">🎥 Join</a></td>
+              </tr>
+            `;
+            
+          } catch (err) {
+            console.error('❌ Error processing session:', err, s);
+            
+            // Fallback display
+            return `
+              <tr>
+                <td>#${s.session_number}</td>
+                <td>${s.session_date}</td>
+                <td>${s.session_time || 'N/A'} <span style="color:red;">⚠️</span></td>
+                <td>${s.duration || 'N/A'}</td>
+                <td><a href="${s.zoom_link || '#'}" target="_blank">Join</a></td>
+              </tr>
+            `;
           }
-        } else {
-          attendanceDisplay = `<span class="status-missed">❌ Missed</span>`;
+        }).join('');
+        
+      } catch(e) { 
+        console.error('❌ Load upcoming sessions error:', e);
+        const tbody = document.getElementById('upcomingSessionsBody');
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">❌ Failed to load sessions<br><small style="color:#718096;">Error: ${e.message}</small></td></tr>`;
         }
-
-        const typeLabel = s.type === 'Batch' 
-          ? `<span style="background:#4299e1; color:white; padding:2px 6px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>` 
-          : '';
-
-        return `
-          <tr>
-            <td><strong>#${s.session_number}</strong>${typeLabel}</td>
-            <td>${formattedDate}</td>
-            <td>${displayTime}</td>
-            <td>${attendanceDisplay}</td>
-            <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
-            <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
-            <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
-            <td><small>${s.teacher_notes || (s.homework_grade ? `${s.homework_grade}: ${s.homework_comments}` : '-')}</small></td>
-          </tr>
-        `;
-      } catch (err) {
-        console.error('Error rendering session:', err, s);
-        return `
-          <tr>
-            <td>#${s.session_number}</td>
-            <td>${s.session_date}</td>
-            <td>${s.session_time} <span style="color:red;">⚠️</span></td>
-            <td>${s.status}</td>
-            <td>-</td><td>-</td><td>-</td><td>-</td>
-          </tr>
-        `;
       }
-    }).join('');
-    
-  } catch(e) { 
-    console.error('Load past sessions error:', e);
-    const tbody = document.getElementById('pastSessionsBody');
-    if(tbody) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">❌ Failed to load past sessions</td></tr>';
     }
-  }
-}
+
+    // 2. Past Sessions (FIXED TIMEZONE)
+    async function loadPastSessions() {
+      try {
+        // Get both private and batch sessions
+        const privateRes = await fetch(`/api/sessions/${currentStudent.id}`);
+        const privateSessions = await privateRes.json();
+        
+        const batchRes = await fetch(`/api/students/${currentStudent.id}/batch-sessions`);
+        const batchSessions = await batchRes.json();
+        
+        // Combine and filter completed
+        const allSessions = [
+          ...privateSessions.map(s => ({ 
+            ...s, 
+            type: 'Private', 
+            duration: currentStudent.duration
+          })),
+          ...batchSessions.map(s => ({ ...s, type: 'Batch' }))
+        ]
+        .filter(s => s.status === 'Completed' || s.status === 'Missed')
+        .sort((a, b) => {
+          const dateA = new Date(a.session_date + 'T' + a.session_time);
+          const dateB = new Date(b.session_date + 'T' + b.session_time);
+          return dateB - dateA;
+        });
+
+        const tbody = document.getElementById('pastSessionsBody');
+        
+        if(allSessions.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096;">No past classes yet</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = allSessions.map(s => {
+          try {
+            // CRITICAL FIX: Force IST interpretation
+            let cleanTime = s.session_time;
+            if (cleanTime.includes('.')) {
+              cleanTime = cleanTime.split('.')[0];
+            }
+            const timeParts = cleanTime.split(':');
+            if (timeParts.length === 2) {
+              cleanTime = cleanTime + ':00';
+            }
+            
+            const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
+            const sessionDate = new Date(istDateTime);
+          
+            // Convert to student's timezone
+            const displayTime = sessionDate.toLocaleTimeString('en-US', {
+              timeZone: currentStudent.timezone,
+              hour12: true,
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+
+            const formattedDate = sessionDate.toLocaleDateString('en-US', {
+              timeZone: currentStudent.timezone,
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric'
+            });
+
+            // Attendance Display Logic
+            let attendanceDisplay = '-';
+            if(s.status === 'Completed') {
+              if(s.attendance && s.attendance !== '') {
+                attendanceDisplay = `<span class="status-present">✅ ${s.attendance}</span>`;
+              } else {
+                attendanceDisplay = `<span style="color:#e74c3c;">Not Marked</span>`;
+              }
+            } else {
+              attendanceDisplay = `<span class="status-missed">❌ Missed</span>`;
+            }
+
+            const typeLabel = s.type === 'Batch' 
+              ? `<span style="background:#4299e1; color:white; padding:2px 6px; border-radius:12px; font-size:0.7rem; margin-left:5px;">GROUP</span>` 
+              : '';
+
+            return `
+              <tr>
+                <td><strong>#${s.session_number}</strong>${typeLabel}</td>
+                <td>${formattedDate}</td>
+                <td>${displayTime}</td>
+                <td>${attendanceDisplay}</td>
+                <td>${s.ppt_file_path ? `<a href="/uploads/homework/${s.ppt_file_path}" target="_blank" class="btn-zoom-mini">📥 PPT</a>` : '-'}</td>
+                <td>${s.recording_file_path ? `<a href="/uploads/homework/${s.recording_file_path}" target="_blank" class="btn-zoom-mini">🎥 Rec</a>` : '-'}</td>
+                <td>${s.homework_file_path ? `<a href="/uploads/homework/${s.homework_file_path}" target="_blank" class="btn-zoom-mini">📝 HW</a>` : '-'}</td>
+                <td><small>${s.teacher_notes || (s.homework_grade ? `${s.homework_grade}: ${s.homework_comments}` : '-')}</small></td>
+              </tr>
+            `;
+          } catch (err) {
+            console.error('Error rendering session:', err, s);
+            return `
+              <tr>
+                <td>#${s.session_number}</td>
+                <td>${s.session_date}</td>
+                <td>${s.session_time} <span style="color:red;">⚠️</span></td>
+                <td>${s.status}</td>
+                <td>-</td><td>-</td><td>-</td><td>-</td>
+              </tr>
+            `;
+          }
+        }).join('');
+        
+      } catch(e) { 
+        console.error('Load past sessions error:', e);
+        const tbody = document.getElementById('pastSessionsBody');
+        if(tbody) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">❌ Failed to load past sessions</td></tr>';
+        }
+      }
+    }
+
     // 3. Materials (INCLUDING BATCH MATERIALS)
     async function loadMaterials() {
       try {
@@ -985,86 +987,84 @@ async function loadPastSessions() {
       } catch(e) { console.error(e); }
     }
 
-        // 6. Cancel Dropdown (FIXED TIMEZONE)
-    // Fixed loadUpcomingClassesDropdown() with proper timezone
-// Replace in parent.html
-
-async function loadUpcomingClassesDropdown() {
-  try {
-    // Only load PRIVATE sessions for cancellation
-    const res = await fetch(`/api/sessions/${currentStudent.id}`);
-    const allSessions = await res.json();
-    
-    const today = new Date().toISOString().split('T')[0];
-    const upcoming = allSessions.filter(s => 
-      s.session_date >= today && 
-      (s.status === 'Pending' || s.status === 'Scheduled')
-    );
-    
-    const select = document.getElementById('cancelClassSelect');
-    
-    if(upcoming.length === 0) {
-      select.innerHTML = '<option value="">No upcoming private classes to cancel</option>';
-      select.disabled = true;
-      return;
-    }
-    
-    select.disabled = false;
-    select.innerHTML = '<option value="">-- Select Class to Cancel --</option>';
-    
-    upcoming.forEach(s => {
+    // 6. Cancel Dropdown (FIXED TIMEZONE)
+    async function loadUpcomingClassesDropdown() {
       try {
-        // Clean time
-        let cleanTime = s.session_time;
-        if (cleanTime.includes('.')) {
-          cleanTime = cleanTime.split('.')[0];
-        }
-        const timeParts = cleanTime.split(':');
-        if (timeParts.length === 2) {
-          cleanTime = cleanTime + ':00';
+        // Only load PRIVATE sessions for cancellation
+        const res = await fetch(`/api/sessions/${currentStudent.id}`);
+        const allSessions = await res.json();
+        
+        const today = new Date().toISOString().split('T')[0];
+        const upcoming = allSessions.filter(s => 
+          s.session_date >= today && 
+          (s.status === 'Pending' || s.status === 'Scheduled')
+        );
+        
+        const select = document.getElementById('cancelClassSelect');
+        
+        if(upcoming.length === 0) {
+          select.innerHTML = '<option value="">No upcoming private classes to cancel</option>';
+          select.disabled = true;
+          return;
         }
         
-        // Force IST interpretation
-        const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
-        const sessionDate = new Date(istDateTime);
+        select.disabled = false;
+        select.innerHTML = '<option value="">-- Select Class to Cancel --</option>';
         
-        const displayTime = sessionDate.toLocaleTimeString('en-US', {
-          timeZone: currentStudent.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
+        upcoming.forEach(s => {
+          try {
+            // Clean time
+            let cleanTime = s.session_time;
+            if (cleanTime.includes('.')) {
+              cleanTime = cleanTime.split('.')[0];
+            }
+            const timeParts = cleanTime.split(':');
+            if (timeParts.length === 2) {
+              cleanTime = cleanTime + ':00';
+            }
+            
+            // Force IST interpretation
+            const istDateTime = s.session_date + 'T' + cleanTime + '+05:30';
+            const sessionDate = new Date(istDateTime);
+            
+            const displayTime = sessionDate.toLocaleTimeString('en-US', {
+              timeZone: currentStudent.timezone,
+              hour12: true,
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            
+            const displayDate = sessionDate.toLocaleDateString('en-US', {
+              timeZone: currentStudent.timezone,
+              month: 'short',
+              day: 'numeric'
+            });
+            
+            const option = document.createElement('option');
+            option.value = `${s.session_date}|${s.session_time}`;
+            option.textContent = `Session #${s.session_number} - ${displayDate} at ${displayTime}`;
+            select.appendChild(option);
+            
+          } catch (err) {
+            console.error('Dropdown date error:', err, s);
+            // Fallback option
+            const option = document.createElement('option');
+            option.value = `${s.session_date}|${s.session_time}`;
+            option.textContent = `Session #${s.session_number} - ${s.session_date} at ${s.session_time}`;
+            select.appendChild(option);
+          }
         });
         
-        const displayDate = sessionDate.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          month: 'short',
-          day: 'numeric'
-        });
-        
-        const option = document.createElement('option');
-        option.value = `${s.session_date}|${s.session_time}`;
-        option.textContent = `Session #${s.session_number} - ${displayDate} at ${displayTime}`;
-        select.appendChild(option);
-        
-      } catch (err) {
-        console.error('Dropdown date error:', err, s);
-        // Fallback option
-        const option = document.createElement('option');
-        option.value = `${s.session_date}|${s.session_time}`;
-        option.textContent = `Session #${s.session_number} - ${s.session_date} at ${s.session_time}`;
-        select.appendChild(option);
+      } catch(e) {
+        console.error('Dropdown error:', e);
+        const select = document.getElementById('cancelClassSelect');
+        if (select) {
+          select.innerHTML = '<option value="">Error loading classes</option>';
+          select.disabled = true;
+        }
       }
-    });
-    
-  } catch(e) {
-    console.error('Dropdown error:', e);
-    const select = document.getElementById('cancelClassSelect');
-    if (select) {
-      select.innerHTML = '<option value="">Error loading classes</option>';
-      select.disabled = true;
     }
-  }
-}
+
     // ==================== HELPERS ====================
     window.choosePasswordLogin = () => { 
       document.getElementById('loginMethodSection').style.display='none'; 
@@ -1103,11 +1103,15 @@ async function loadUpcomingClassesDropdown() {
     window.resendOTP = () => sendOTP();
     window.forgotPassword = () => { alert("Please use 'Send OTP' option to reset your password."); };
 
-    window.logout = () => {
-      if(!confirm("Logout?")) return;
-      sessionStorage.clear();
-      location.reload();
-    };
+    window.logout = async () => {
+  if(!confirm("Logout?")) return;
+  try {
+    await fetch('/api/logout');
+  } catch(e) {}
+  sessionStorage.clear();
+  location.reload();
+};
+
 
     // Cancel Upcoming Class Form
     const cancelForm = document.getElementById('cancelUpcomingForm');
