@@ -57,8 +57,8 @@
     th { background: #f7fafc; color: #4a5568; font-weight: 600; }
     
     /* Zoom Button */
-    .zoom-btn { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; }
-    .zoom-btn:hover { transform: translateY(-2px); }
+    .zoom-btn { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; transition: all 0.2s; }
+    .zoom-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(56, 178, 172, 0.4); }
     
     /* Materials Grid */
     .materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
@@ -187,7 +187,7 @@
             </div>
             <div class="form-group">
               <label>Reason (Optional)</label>
-              <textarea id="cancelReason" rows="3"></textarea>
+              <textarea id="cancelReason" rows="3" placeholder="Let us know why you need to cancel..."></textarea>
             </div>
             <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #38a169;">
               <p style="margin: 0; color: #155724;">
@@ -261,7 +261,7 @@
             </div>
             <div class="form-group">
               <label>Select File *</label>
-              <input type="file" id="homeworkFile" required>
+              <input type="file" id="homeworkFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
               <small style="color: #718096;">PDF, DOC, Images, ZIP (Max 50MB)</small>
             </div>
             <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
@@ -293,8 +293,93 @@
     let currentStudent = null;
     let currentEmail = '';
 
+    // ✅ HELPER: Normalize time string to HH:MM format
+    function normalizeTimeString(timeStr) {
+      if (!timeStr) return null;
+      
+      timeStr = timeStr.trim();
+      
+      // Already in HH:MM format
+      if (/^\d{2}:\d{2}$/.test(timeStr)) {
+        return timeStr;
+      }
+      
+      // HH:MM:SS format - extract HH:MM
+      if (/^\d{2}:\d{2}:\d{2}/.test(timeStr)) {
+        return timeStr.substring(0, 5);
+      }
+      
+      // Try parsing as full datetime
+      try {
+        const date = new Date(timeStr);
+        if (!isNaN(date.getTime())) {
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        }
+      } catch (e) {
+        console.error('Failed to parse time:', timeStr, e);
+      }
+      
+      return null;
+    }
+
+    // ✅ HELPER: Create proper UTC datetime string
+    function createUTCDateTime(dateStr, timeStr) {
+      const normalizedTime = normalizeTimeString(timeStr);
+      
+      if (!dateStr || !normalizedTime) {
+        console.error('Invalid input:', { dateStr, timeStr, normalizedTime });
+        return null;
+      }
+      
+      // Create ISO 8601 UTC datetime string
+      const utcDateTimeStr = `${dateStr}T${normalizedTime}:00Z`;
+      
+      // Validate
+      const testDate = new Date(utcDateTimeStr);
+      if (isNaN(testDate.getTime())) {
+        console.error('Invalid datetime created:', utcDateTimeStr);
+        return null;
+      }
+      
+      return utcDateTimeStr;
+    }
+
+    // ✅ HELPER: Convert UTC datetime to local timezone
+    function convertToLocalTime(dateStr, timeStr, timezone) {
+      const utcDateTimeStr = createUTCDateTime(dateStr, timeStr);
+      
+      if (!utcDateTimeStr) {
+        return { date: 'Invalid Date', time: 'Invalid Time', isValid: false };
+      }
+      
+      try {
+        const utcDateTime = new Date(utcDateTimeStr);
+        
+        const displayDate = utcDateTime.toLocaleDateString('en-US', {
+          timeZone: timezone,
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
+        const displayTime = utcDateTime.toLocaleTimeString('en-US', {
+          timeZone: timezone,
+          hour12: true,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        return { date: displayDate, time: displayTime, isValid: true };
+      } catch (e) {
+        console.error('Conversion error:', e);
+        return { date: 'Invalid Date', time: 'Invalid Time', isValid: false };
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      // Check for admin view mode
       const parentViewStudent = sessionStorage.getItem('parentViewStudent');
       const parentViewMode = sessionStorage.getItem('parentViewMode');
 
@@ -313,13 +398,11 @@
       }
     });
 
-    // Login handlers
     function setupLoginHandlers() {
-      // Email form
       document.getElementById('emailForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         currentEmail = document.getElementById('parentEmail').value.trim();
-
+        
         try {
           const res = await fetch('/api/parent/check-email', {
             method: 'POST',
@@ -327,10 +410,9 @@
             body: JSON.stringify({ email: currentEmail })
           });
           const result = await res.json();
-
+          
           if (res.ok) {
             document.getElementById('emailForm').style.display = 'none';
-            
             if (result.hasPassword) {
               document.getElementById('passwordForm').style.display = 'block';
             } else {
@@ -340,15 +422,15 @@
             alert('❌ ' + result.error);
           }
         } catch (err) {
-          alert('❌ Network error');
+          alert('❌ Network error. Please try again.');
+          console.error(err);
         }
       });
 
-      // Password form
       document.getElementById('passwordForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const password = document.getElementById('loginPassword').value;
-
+        
         try {
           const res = await fetch('/api/parent/login-password', {
             method: 'POST',
@@ -356,7 +438,7 @@
             body: JSON.stringify({ email: currentEmail, password })
           });
           const result = await res.json();
-
+          
           if (res.ok && result.student) {
             currentStudent = result.student;
             showDashboard();
@@ -364,15 +446,15 @@
             alert('❌ ' + result.error);
           }
         } catch (err) {
-          alert('❌ Network error');
+          alert('❌ Network error. Please try again.');
+          console.error(err);
         }
       });
 
-      // OTP form
       document.getElementById('otpForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const otp = document.getElementById('otpCode').value;
-
+        
         try {
           const res = await fetch('/api/parent/verify-otp', {
             method: 'POST',
@@ -380,7 +462,7 @@
             body: JSON.stringify({ email: currentEmail, otp })
           });
           const result = await res.json();
-
+          
           if (res.ok && result.student) {
             currentStudent = result.student;
             showDashboard();
@@ -388,19 +470,19 @@
             alert('❌ ' + result.error);
           }
         } catch (err) {
-          alert('❌ Network error');
+          alert('❌ Network error. Please try again.');
+          console.error(err);
         }
       });
 
-      // Setup password form
       document.getElementById('setupPasswordForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const p1 = document.getElementById('newPassword').value;
         const p2 = document.getElementById('confirmPassword').value;
-
-        if (p1 !== p2) return alert('Passwords do not match');
-        if (p1.length < 6) return alert('Password too short');
-
+        
+        if (p1 !== p2) return alert('❌ Passwords do not match');
+        if (p1.length < 6) return alert('❌ Password must be at least 6 characters');
+        
         try {
           const res = await fetch('/api/parent/setup-password', {
             method: 'POST',
@@ -408,7 +490,7 @@
             body: JSON.stringify({ email: currentEmail, password: p1 })
           });
           const result = await res.json();
-
+          
           if (res.ok && result.student) {
             currentStudent = result.student;
             showDashboard();
@@ -416,7 +498,8 @@
             alert('❌ ' + result.error);
           }
         } catch (err) {
-          alert('❌ Error');
+          alert('❌ Error setting password. Please try again.');
+          console.error(err);
         }
       });
     }
@@ -440,7 +523,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: currentEmail })
         });
-
+        
         if (res.ok) {
           document.getElementById('otpSendSection').style.display = 'none';
           document.getElementById('otpVerifySection').style.display = 'block';
@@ -451,6 +534,7 @@
         }
       } catch (err) {
         alert('❌ Network error');
+        console.error(err);
       }
     }
 
@@ -458,12 +542,10 @@
       sendOTP();
     }
 
-    // Dashboard functions
     function showDashboard() {
       document.getElementById('loginSection').style.display = 'none';
       document.getElementById('dashboardSection').style.display = 'block';
-
-      // Populate student info
+      
       document.getElementById('displayName').textContent = currentStudent.name;
       document.getElementById('displayGrade').textContent = currentStudent.grade;
       document.getElementById('displayProgram').textContent = currentStudent.program_name;
@@ -472,7 +554,7 @@
       document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions;
       document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
       document.getElementById('displayFees').textContent = currentStudent.currency + (currentStudent.fees_paid || 0);
-
+      
       loadUpcomingSessions();
       loadPastSessions();
       loadMaterials();
@@ -480,140 +562,111 @@
       loadCancelDropdown();
     }
 
-    // Load upcoming sessions
     async function loadUpcomingSessions() {
-  try {
-    const res = await fetch(`/api/sessions/${currentStudent.id}`);
-    const sessions = await res.json();
-
-    const today = new Date().toISOString().split('T')[0];
-    const upcoming = sessions.filter(s => 
-      s.session_date >= today && 
-      (s.status === 'Pending' || s.status === 'Scheduled')
-    );
-
-    const tbody = document.getElementById('upcomingBody');
-
-    if (upcoming.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No upcoming classes</td></tr>';
-      return;
+      try {
+        const res = await fetch(`/api/sessions/${currentStudent.id}`);
+        const sessions = await res.json();
+        
+        const today = new Date().toISOString().split('T')[0];
+        const upcoming = sessions.filter(s => 
+          s.session_date >= today && 
+          (s.status === 'Pending' || s.status === 'Scheduled')
+        );
+        
+        const tbody = document.getElementById('upcomingBody');
+        
+        if (upcoming.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = upcoming.map(s => {
+          const converted = convertToLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          
+          if (!converted.isValid) {
+            console.error('Invalid session data:', s);
+            return `
+              <tr>
+                <td><strong>Session ${s.session_number}</strong></td>
+                <td colspan="3" style="color: #e53e3e;">
+                  Invalid date/time data
+                  <br><small>Date: ${s.session_date}, Time: ${s.session_time}</small>
+                </td>
+              </tr>
+            `;
+          }
+          
+          return `
+            <tr>
+              <td><strong>Session ${s.session_number}</strong></td>
+              <td>${converted.date}</td>
+              <td>
+                <strong style="color: #667eea; font-size: 1.1rem;">${converted.time}</strong>
+                <br>
+                <small style="color: #718096;">${currentStudent.timezone}</small>
+              </td>
+              <td><a href="${s.zoom_link}" target="_blank" class="btn btn-success btn-sm">🎥 Join</a></td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to load upcoming sessions:', err);
+        document.getElementById('upcomingBody').innerHTML = 
+          '<tr><td colspan="4" style="text-align: center; color: #e53e3e;">Error loading sessions</td></tr>';
+      }
     }
 
-    tbody.innerHTML = upcoming.map(s => {
-      // ✅ CRITICAL FIX: Proper UTC datetime string with 'Z' suffix
-      const utcDateTimeStr = `${s.session_date}T${s.session_time}Z`;
-      const utcDateTime = new Date(utcDateTimeStr);
-      
-      // ✅ VALIDATION: Check if date is valid
-      if (isNaN(utcDateTime.getTime())) {
-        console.error('Invalid date:', s.session_date, s.session_time);
-        return `
-          <tr>
-            <td><strong>Session ${s.session_number}</strong></td>
-            <td colspan="3" style="color: #e53e3e;">Invalid date/time data</td>
-          </tr>
-        `;
-      }
-      
-      const displayTime = utcDateTime.toLocaleTimeString('en-US', {
-        timeZone: currentStudent.timezone,
-        hour12: true,
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      const displayDate = utcDateTime.toLocaleDateString('en-US', {
-        timeZone: currentStudent.timezone,
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-
-      return `
-        <tr>
-          <td><strong>Session ${s.session_number}</strong></td>
-          <td>${displayDate}</td>
-          <td>
-            <strong style="color: #667eea; font-size: 1.1rem;">${displayTime}</strong>
-            <br>
-            <small style="color: #718096;">${currentStudent.timezone}</small>
-          </td>
-          <td><a href="${s.zoom_link}" target="_blank" class="btn btn-success btn-sm">🎥 Join</a></td>
-        </tr>
-      `;
-    }).join('');
-  } catch (err) {
-    console.error('Failed to load sessions:', err);
-    document.getElementById('upcomingBody').innerHTML = 
-      '<tr><td colspan="4" style="text-align: center; color: #e53e3e;">Error loading sessions</td></tr>';
-  }
-}
-    // Load cancel dropdown
-   async function loadCancelDropdown() {
-  try {
-    const res = await fetch(`/api/sessions/${currentStudent.id}`);
-    const sessions = await res.json();
-
-    const today = new Date().toISOString().split('T')[0];
-    const upcoming = sessions.filter(s => 
-      s.session_date >= today && 
-      (s.status === 'Pending' || s.status === 'Scheduled')
-    );
-
-    const select = document.getElementById('cancelClassSelect');
-
-    if (upcoming.length === 0) {
-      select.innerHTML = '<option value="">No upcoming classes</option>';
-      return;
+    async function loadCancelDropdown() {
+      try {
+        const res = await fetch(`/api/sessions/${currentStudent.id}`);
+        const sessions = await res.json();
+        
+        const today = new Date().toISOString().split('T')[0];
+        const upcoming = sessions.filter(s => 
+          s.session_date >= today && 
+          (s.status === 'Pending' || s.status === 'Scheduled')
+        );
+        
+        const select = document.getElementById('cancelClassSelect');
+        
+        if (upcoming.length === 0) {
+          select.innerHTML = '<option value="">No upcoming classes to cancel</option>';
+          return;
+        }
+        
+        select.innerHTML = '<option value="">Select a class...</option>' + 
+          upcoming.map(s => {
+            const converted = convertToLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+            
+            if (!converted.isValid) return '';
+            
+            const normalizedTime = normalizeTimeString(s.session_time);
+            
+            return `<option value="${s.id}" data-date="${s.session_date}" data-time="${normalizedTime}">
+              Session ${s.session_number} - ${converted.date} at ${converted.time} (${currentStudent.timezone})
+            </option>`;
+          }).join('');
+      } catch (err) {
+        console.error('Failed to load cancel dropdown:', err);
+         }
     }
 
-    select.innerHTML = '<option value="">Select a class...</option>' + upcoming.map(s => {
-      // ✅ FIXED: Proper UTC datetime string
-      const utcDateTimeStr = `${s.session_date}T${s.session_time}Z`;
-      const utcDateTime = new Date(utcDateTimeStr);
-      
-      // ✅ VALIDATION
-      if (isNaN(utcDateTime.getTime())) {
-        return '';
-      }
-      
-      const displayTime = utcDateTime.toLocaleTimeString('en-US', {
-        timeZone: currentStudent.timezone,
-        hour12: true,
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      const displayDate = utcDateTime.toLocaleDateString('en-US', {
-        timeZone: currentStudent.timezone,
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
-      });
-
-      return `<option value="${s.id}" data-date="${s.session_date}" data-time="${s.session_time}">
-        Session ${s.session_number} - ${displayDate} at ${displayTime} (${currentStudent.timezone})
-      </option>`;
-    }).join('');
-  } catch (err) {
-    console.error('Failed to load cancel options:', err);
-  }
-}
-
-    // Cancel class form
     document.getElementById('cancelClassForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-
+      
       const select = document.getElementById('cancelClassSelect');
       const selectedOption = select.options[select.selectedIndex];
       
-      if (!selectedOption.value) return alert('Please select a class');
-
+      if (!selectedOption.value) return alert('Please select a class to cancel');
+      
       const sessionDate = selectedOption.getAttribute('data-date');
       const sessionTime = selectedOption.getAttribute('data-time');
       const reason = document.getElementById('cancelReason').value;
-
+      
+      if (!confirm('Are you sure you want to cancel this class? A makeup credit will be added to your account.')) {
+        return;
+      }
+      
       try {
         const res = await fetch('/api/parent/cancel-class', {
           method: 'POST',
@@ -625,9 +678,9 @@
             reason: reason
           })
         });
-
+        
         const result = await res.json();
-
+        
         if (res.ok) {
           alert('✅ ' + result.message);
           e.target.reset();
@@ -638,156 +691,152 @@
         }
       } catch (err) {
         alert('❌ Network error');
+        console.error(err);
       }
     });
 
-    // Load past sessions
     async function loadPastSessions() {
-  try {
-    const res = await fetch(`/api/sessions/${currentStudent.id}`);
-    const sessions = await res.json();
-
-    const past = sessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
-
-    const tbody = document.getElementById('pastBody');
-
-    if (past.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No completed classes yet</td></tr>';
-      return;
+      try {
+        const res = await fetch(`/api/sessions/${currentStudent.id}`);
+        const sessions = await res.json();
+        
+        const past = sessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
+        
+        const tbody = document.getElementById('pastBody');
+        
+        if (past.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #718096;">No completed classes yet</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = past.map(s => {
+          const converted = convertToLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          
+          let displayDate = 'Invalid Date';
+          let displayTime = 'Invalid Time';
+          
+          if (converted.isValid) {
+            displayDate = converted.date;
+            displayTime = converted.time;
+          }
+          
+          return `
+            <tr>
+              <td><strong>Session ${s.session_number}</strong></td>
+              <td>${displayDate}</td>
+              <td>${displayTime}</td>
+              <td>
+                <span style="padding: 4px 12px; border-radius: 12px; background: ${s.attendance === 'Present' ? '#d4edda' : '#f8d7da'}; color: ${s.attendance === 'Present' ? '#155724' : '#721c24'};">
+                  ${s.attendance || '-'}
+                </span>
+              </td>
+              <td>${s.ppt_file_path ? '<a href="/uploads/materials/' + s.ppt_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📥 PPT</a>' : '-'}</td>
+              <td>${s.recording_file_path ? '<a href="/uploads/materials/' + s.recording_file_path + '" target="_blank" class="btn btn-primary btn-sm">🎥 Video</a>' : '-'}</td>
+              <td>${s.homework_file_path ? '<a href="/uploads/materials/' + s.homework_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📝 HW</a>' : '-'}</td>
+              <td><strong style="color: #667eea;">${s.homework_grade || '-'}</strong></td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to load past sessions:', err);
+        document.getElementById('pastBody').innerHTML = 
+          '<tr><td colspan="8" style="text-align: center; color: #e53e3e;">Error loading past sessions</td></tr>';
+      }
     }
 
-    tbody.innerHTML = past.map(s => {
-      // ✅ FIXED: Proper UTC datetime string
-      const utcDateTimeStr = `${s.session_date}T${s.session_time}Z`;
-      const utcDateTime = new Date(utcDateTimeStr);
-      
-      let displayTime = 'Invalid';
-      let displayDate = 'Invalid Date';
-      
-      // ✅ VALIDATION
-      if (!isNaN(utcDateTime.getTime())) {
-        displayTime = utcDateTime.toLocaleTimeString('en-US', {
-          timeZone: currentStudent.timezone,
-          hour12: true,
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-
-        displayDate = utcDateTime.toLocaleDateString('en-US', {
-          timeZone: currentStudent.timezone,
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        });
-      }
-
-      return `
-        <tr>
-          <td><strong>${s.session_number}</strong></td>
-          <td>${displayDate}</td>
-          <td>${displayTime}</td>
-          <td>
-            <span style="padding: 4px 12px; border-radius: 12px; background: ${s.attendance === 'Present' ? '#d4edda' : '#f8d7da'};">
-              ${s.attendance || '-'}
-            </span>
-          </td>
-          <td>${s.ppt_file_path ? '<a href="/uploads/materials/' + s.ppt_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📥 PPT</a>' : '-'}</td>
-          <td>${s.recording_file_path ? '<a href="/uploads/materials/' + s.recording_file_path + '" target="_blank" class="btn btn-primary btn-sm">🎥 Video</a>' : '-'}</td>
-          <td>${s.homework_file_path ? '<a href="/uploads/materials/' + s.homework_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📝 HW</a>' : '-'}</td>
-          <td><strong style="color: #667eea;">${s.homework_grade || '-'}</strong></td>
-        </tr>
-      `;
-    }).join('');
-  } catch (err) {
-    console.error('Failed to load past sessions:', err);
-  }
-}
-
-    // Load materials
     async function loadMaterials() {
       try {
         const res = await fetch(`/api/materials/${currentStudent.id}`);
         const materials = await res.json();
-
+        
         const grid = document.getElementById('materialsGrid');
-
         const teacherMaterials = materials.filter(m => m.uploaded_by === 'Teacher');
-
+        
         if (teacherMaterials.length === 0) {
-          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096;">No materials yet</p>';
+          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 40px;">No materials available yet</p>';
           return;
         }
-
+        
         grid.innerHTML = teacherMaterials.map(m => {
           let icon = '📁';
           if (m.file_type === 'PPT') icon = '📊';
           if (m.file_type === 'Recording') icon = '🎥';
           if (m.file_type === 'Homework') icon = '📝';
-
+          
           return `
             <div class="material-card">
               <div class="material-icon">${icon}</div>
               <div style="color: #667eea; font-weight: bold; margin-bottom: 5px;">${m.file_type}</div>
               <div style="font-weight: 600; margin-bottom: 10px;">${m.file_name}</div>
-              <div style="color: #718096; font-size: 0.85rem; margin-bottom: 15px;">${m.session_date}</div>
+              <div style="color: #718096; font-size: 0.85rem; margin-bottom: 15px;">${m.session_date || 'General'}</div>
               <a href="/uploads/homework/${m.file_path}" download class="btn btn-primary btn-sm">Download</a>
             </div>
           `;
         }).join('');
       } catch (err) {
         console.error('Failed to load materials:', err);
+        document.getElementById('materialsGrid').innerHTML = 
+          '<p style="grid-column: 1/-1; text-align: center; color: #e53e3e; padding: 40px;">Error loading materials</p>';
       }
     }
 
-    // Load homework history
     async function loadHomeworkHistory() {
       try {
         const res = await fetch(`/api/materials/${currentStudent.id}`);
         const materials = await res.json();
-
+        
         const homework = materials.filter(m => m.uploaded_by === 'Parent');
-
+        
         const tbody = document.getElementById('homeworkBody');
-
+        
         if (homework.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No submissions yet</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #718096;">No submissions yet</td></tr>';
           return;
         }
-
+        
         tbody.innerHTML = homework.map(h => `
           <tr>
-            <td>${h.session_date}</td>
-            <td><a href="/uploads/homework/${h.file_path}" target="_blank">${h.file_name}</a></td>
-            <td>${new Date(h.uploaded_at).toLocaleDateString()}</td>
-            <td>${h.feedback_grade || '-'}</td>
+            <td>${h.session_date || '-'}</td>
+            <td><a href="/uploads/homework/${h.file_path}" target="_blank" style="color: #667eea; text-decoration: none;">${h.file_name}</a></td>
+            <td>${new Date(h.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+            <td><strong style="color: ${h.feedback_grade ? '#38a169' : '#718096'};">${h.feedback_grade || 'Pending'}</strong></td>
             <td>${h.feedback_comments || '-'}</td>
           </tr>
         `).join('');
       } catch (err) {
-        console.error('Failed to load homework:', err);
+        console.error('Failed to load homework history:', err);
+        document.getElementById('homeworkBody').innerHTML = 
+          '<tr><td colspan="5" style="text-align: center; color: #e53e3e;">Error loading homework</td></tr>';
       }
     }
 
-    // Upload homework
     document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-
+      
       const file = document.getElementById('homeworkFile').files[0];
       if (!file) return alert('Please select a file');
-
+      
+      if (file.size > 50 * 1024 * 1024) {
+        return alert('❌ File size exceeds 50MB limit');
+      }
+      
       const formData = new FormData();
       formData.append('file', file);
       formData.append('sessionDate', document.getElementById('homeworkDate').value);
       formData.append('uploadType', 'homework');
-
+      
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Uploading...';
+      
       try {
         const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
           method: 'POST',
           body: formData
         });
-
+        
         const result = await res.json();
-
+        
         if (res.ok) {
           alert('✅ ' + result.message);
           e.target.reset();
@@ -797,11 +846,14 @@
           alert('❌ ' + result.error);
         }
       } catch (err) {
-        alert('❌ Upload failed');
+        alert('❌ Upload failed. Please try again.');
+        console.error(err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📤 Upload Homework';
       }
     });
 
-    // Tab switching
     function showTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -810,7 +862,6 @@
       event.target.classList.add('active');
     }
 
-    // Logout
     function logout() {
       if (confirm('Are you sure you want to logout?')) {
         sessionStorage.removeItem('parentViewStudent');
@@ -819,7 +870,6 @@
       }
     }
 
-    // Exit admin view
     function exitAdminView() {
       sessionStorage.removeItem('parentViewStudent');
       sessionStorage.removeItem('parentViewMode');
