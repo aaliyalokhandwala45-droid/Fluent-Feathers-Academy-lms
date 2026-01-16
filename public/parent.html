@@ -324,7 +324,7 @@
       return null;
     }
 
-    // ✅ HELPER: Create proper UTC datetime string
+   // ✅ HELPER: Create proper UTC datetime string
     function createUTCDateTime(dateStr, timeStr) {
       const normalizedTime = normalizeTimeString(timeStr);
       
@@ -333,8 +333,10 @@
         return null;
       }
       
-      // Create ISO 8601 UTC datetime string
-      const utcDateTimeStr = `${dateStr}T${normalizedTime}:00Z`;
+      // Clean date and time before creating UTC string
+      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      const cleanTime = normalizedTime.length === 8 ? normalizedTime.substring(0, 5) : normalizedTime;
+      const utcDateTimeStr = `${cleanDate}T${cleanTime}:00Z`;
       
       // Validate
       const testDate = new Date(utcDateTimeStr);
