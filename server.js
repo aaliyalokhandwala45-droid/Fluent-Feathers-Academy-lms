@@ -228,24 +228,32 @@ function istToUTC(dateStr, timeStr) {
       throw new Error('Date or time is missing');
     }
     
-    const isoString = `${dateStr}T${timeStr}:00+05:30`;
+    // ✅ Clean date format (remove any time component)
+    const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    
+    // ✅ Clean time format (ensure HH:MM or HH:MM:SS)
+    let cleanTime = timeStr.trim();
+    if (cleanTime.length === 5) cleanTime += ':00'; // Add seconds if missing
+    
+    const isoString = `${cleanDate}T${cleanTime}+05:30`;
     const date = new Date(isoString);
     
     // ✅ Check if date is valid
     if (isNaN(date.getTime())) {
       console.error('❌ Invalid IST datetime:', dateStr, timeStr);
-      return { date: dateStr, time: timeStr };
+      return { date: cleanDate, time: cleanTime.substring(0, 5) };
     }
     
     const utcDate = date.toISOString().split('T')[0];
-    const utcTime = date.toISOString().split('T')[1].substring(0, 5);
+    const utcTime = date.toISOString().split('T')[1].substring(0, 8); // HH:MM:SS
     
-    console.log(`🌍 IST->UTC: ${dateStr} ${timeStr} -> ${utcDate} ${utcTime}`);
+    console.log(`🌍 IST->UTC: ${cleanDate} ${cleanTime} -> ${utcDate} ${utcTime}`);
     
     return { date: utcDate, time: utcTime };
   } catch (error) {
     console.error('❌ IST to UTC conversion error:', error);
-    return { date: dateStr, time: timeStr };
+    const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    return { date: cleanDate, time: timeStr };
   }
 }
 
@@ -256,7 +264,13 @@ function utcToTimezone(utcDate, utcTime, timezone) {
       throw new Error('Missing UTC date, time, or timezone');
     }
     
-    const isoString = `${utcDate}T${utcTime}:00Z`;
+    // ✅ Clean date (remove time component if present)
+    const cleanDate = utcDate.includes('T') ? utcDate.split('T')[0] : utcDate;
+    
+    // ✅ Clean time (ensure proper format)
+    const cleanTime = utcTime.length === 5 ? utcTime + ':00' : utcTime.substring(0, 8);
+    
+    const isoString = `${cleanDate}T${cleanTime}Z`;
     const date = new Date(isoString);
     
     // ✅ Check if date is valid
@@ -614,7 +628,7 @@ app.post('/api/schedule/classes', async (req, res) => {
       await pool.query(
         `INSERT INTO sessions (
           student_id, session_number, session_date, session_time, zoom_link, status
-        ) VALUES ($1, $2, $3, $4, $5, 'Pending')`,
+        ) VALUES ($1, $2, $3::date, $4::time, $5, 'Pending')`,
         [student_id, sessionNumber, utc.date, utc.time, zoomLink]
       );
       
@@ -805,8 +819,8 @@ app.post('/api/parent/cancel-class', async (req, res) => {
   const { student_id, session_date, session_time, reason } = req.body;
 
   try {
-    const session = (await pool.query(
-      'SELECT * FROM sessions WHERE student_id = $1 AND session_date = $2 AND session_time = $3',
+   const session = (await pool.query(
+      'SELECT * FROM sessions WHERE student_id = $1 AND session_date = $2::date AND session_time = $3::time',
       [student_id, session_date, session_time]
     )).rows[0];
 
