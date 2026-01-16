@@ -3,773 +3,357 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Parent Portal - Fluent Feathers Academy</title>
+  <title>Parent Portal - Fluent Feathers Academy By Aaliya</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
     .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
     header h1 { color: #667eea; font-size: 24px; }
-    
-    #adminBanner { position: fixed; top: 0; left: 0; right: 0; background: #2d3748; color: white; padding: 15px 20px; display: none; align-items: center; justify-content: space-between; z-index: 2000; }
-    #adminBanner.active { display: flex; }
-    
     .login-section { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 500px; margin: 50px auto; text-align: center; }
-    
     .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #667eea; }
-    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
-    .info-item { padding: 10px; background: #f7fafc; border-radius: 5px; }
-    .info-item strong { display: block; color: #718096; font-size: 0.85rem; margin-bottom: 5px; }
-    .info-item span { font-size: 1.1rem; font-weight: 600; color: #2d3748; }
-    
     .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     .tab-btn { padding: 12px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .tab-btn.active { background: #667eea; color: white; border-color: #667eea; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
-    
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
-    
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
     .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .btn-primary { background: #667eea; color: white; width: 100%; }
-    .btn-primary:hover { background: #5568d3; }
-    .btn-secondary { background: #718096; color: white; width: 100%; margin-top: 10px; }
     .btn-danger { background: #e53e3e; color: white; }
-    .btn-success { background: #38a169; color: white; }
-    .btn-sm { padding: 8px 16px; font-size: 0.9rem; }
-    
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
     th { background: #f7fafc; color: #4a5568; font-weight: 600; }
-    
-    .zoom-btn { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; transition: all 0.2s; }
-    .zoom-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(56, 178, 172, 0.4); }
-    
-    .materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-    .material-card { background: white; border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; transition: all 0.2s; }
-    .material-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: #667eea; }
-    .material-icon { font-size: 3rem; margin-bottom: 10px; }
-
-    .event-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
-    .event-card h3 { margin-bottom: 10px; }
-    .event-card p { margin: 5px 0; opacity: 0.9; }
+    .zoom-btn { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; }
+    #studentSelector { margin-bottom: 20px; padding: 20px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; text-align: center; display: none; }
   </style>
 </head>
 <body>
-  <div id="adminBanner">
-    <span>🔐 Admin View: <strong id="viewingStudentName"></strong></span>
-    <button onclick="exitAdminView()" class="btn btn-danger btn-sm">Exit Admin View</button>
-  </div>
-
   <div class="container">
     <!-- LOGIN SECTION -->
     <div id="loginSection" class="login-section">
       <h1 style="color: #667eea; margin-bottom: 20px;">🔐 Parent Login</h1>
-      <p style="color: #718096; margin-bottom: 30px;">Enter your registered email to access your child's portal</p>
-      
-      <form id="emailForm">
-        <div class="form-group" style="text-align: left;">
-          <label>Parent Email *</label>
-          <input type="email" id="parentEmail" required placeholder="parent@example.com">
-        </div>
-        <button type="submit" class="btn btn-primary">Continue</button>
-      </form>
-
-      <form id="passwordForm" style="display: none;">
-        <div class="form-group" style="text-align: left;">
-          <label>Password *</label>
-          <input type="password" id="loginPassword" required>
-        </div>
-        <button type="submit" class="btn btn-primary">Login</button>
-        <button type="button" onclick="showOTPForm()" class="btn btn-secondary">Use OTP Instead</button>
-      </form>
-
-      <form id="otpForm" style="display: none;">
-        <div id="otpSendSection">
-          <p style="background: #f0fff4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #38a169; text-align: left;">
-            ✅ We'll send a 6-digit code to your registered email
-          </p>
-          <button type="button" onclick="sendOTP()" class="btn btn-success">📧 Send OTP</button>
-          <button type="button" onclick="showPasswordForm()" class="btn btn-secondary">Use Password Instead</button>
-        </div>
-
-        <div id="otpVerifySection" style="display: none;">
-          <div class="form-group" style="text-align: left;">
-            <label>Enter 6-Digit OTP *</label>
-            <input type="text" id="otpCode" required placeholder="000000" maxlength="6" style="letter-spacing: 5px; text-align: center; font-size: 1.5rem;">
-          </div>
-          <p style="color: #718096; margin-bottom: 15px;">OTP sent to <strong id="otpEmail"></strong></p>
-          <button type="submit" class="btn btn-primary">Verify OTP</button>
-          <button type="button" onclick="resendOTP()" class="btn btn-secondary">Resend OTP</button>
-        </div>
-      </form>
-
-      <form id="setupPasswordForm" style="display: none;">
-        <h3 style="color: #38a169; margin-bottom: 15px;">🎉 Welcome! Set Your Password</h3>
-        <p style="color: #718096; margin-bottom: 20px; text-align: left;">This is your first login. Create a password for future access.</p>
-        <div class="form-group" style="text-align: left;">
-          <label>Create Password *</label>
-          <input type="password" id="newPassword" required minlength="6">
-        </div>
-        <div class="form-group" style="text-align: left;">
-          <label>Confirm Password *</label>
-          <input type="password" id="confirmPassword" required minlength="6">
-        </div>
-        <button type="submit" class="btn btn-primary">Set Password & Login</button>
-      </form>
+      <form id="emailForm"><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div><button type="submit" class="btn btn-primary">Continue</button></form>
+      <form id="passwordForm" style="display: none;"><div class="form-group"><label>Password *</label><input type="password" id="loginPassword" required></div><button type="submit" class="btn btn-primary">Login</button></form>
+      <form id="otpForm" style="display: none;"><div id="otpSendSection"><button type="button" onclick="sendOTP()" class="btn btn-primary">📧 Send OTP</button></div><div id="otpVerifySection" style="display: none;"><div class="form-group"><label>Enter OTP *</label><input type="text" id="otpCode" required></div><button type="submit" class="btn btn-primary">Verify</button></div></form>
     </div>
 
     <!-- DASHBOARD SECTION -->
     <div id="dashboardSection" style="display: none;">
-      <header>
-        <div>
-          <h1>👨‍👩‍👧 Parent Portal</h1>
-          <p>Fluent Feathers Academy By Aaliya</p>
-        </div>
-        <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
-      </header>
+      <header><div><h1>👨‍👩‍👧 Parent Portal</h1></div><button onclick="logout()" class="btn btn-danger btn-sm">Logout</button></header>
+      
+      <div id="studentSelector">
+        <h3>👋 Welcome! Select a child:</h3>
+        <select id="childSelect" style="max-width: 300px; margin: 10px auto; padding: 10px;"><option value="">Select Child...</option></select>
+      </div>
 
-      <!-- Student Info -->
       <div class="info-card">
         <h2 style="color: #667eea; margin-bottom: 15px;">👤 Student Information</h2>
-        <div class="info-grid">
-          <div class="info-item"><strong>Name:</strong><span id="displayName">-</span></div>
-          <div class="info-item"><strong>Grade:</strong><span id="displayGrade">-</span></div>
-          <div class="info-item"><strong>Program:</strong><span id="displayProgram">-</span></div>
-          <div class="info-item"><strong>Timezone:</strong><span id="displayTimezone">-</span></div>
-          <div class="info-item"><strong>Total Sessions:</strong><span id="displayTotal">-</span></div>
-          <div class="info-item"><strong>Completed:</strong><span id="displayCompleted" style="color: #38a169;">-</span></div>
-          <div class="info-item"><strong>Remaining:</strong><span id="displayRemaining" style="color: #e53e3e;">-</span></div>
-          <div class="info-item"><strong>Makeup Credits:</strong><span id="displayMakeup" style="color: #667eea;">-</span></div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+          <div><strong>Name:</strong> <span id="displayName">-</span></div>
+          <div><strong>Grade:</strong> <span id="displayGrade">-</span></div>
+          <div><strong>Total Sessions:</strong> <span id="displayTotal">-</span></div>
+          <div><strong>Remaining:</strong> <span id="displayRemaining" style="color: #e53e3e;">-</span></div>
         </div>
       </div>
 
-      <!-- Tabs -->
       <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('upcoming')">📅 Upcoming</button>
-        <button class="tab-btn" onclick="showTab('past')">📚 Past Classes</button>
-        <button class="tab-btn" onclick="showTab('materials')">📁 Materials</button>
-        <button class="tab-btn" onclick="showTab('homework')">📝 Homework</button>
-        <button class="tab-btn" onclick="showTab('events')">🎉 Events</button>
+        <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
+        <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
+        <button class="tab-btn" onclick="showTab('homework', event)">📝 Homework</button>
+        <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
       </div>
 
-      <!-- Upcoming Tab -->
       <div id="upcomingTab" class="tab-content active">
-        <a href="https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09" target="_blank" class="zoom-btn">
-          🎥 Join Zoom Class
-        </a>
-
-        <div class="section">
-          <h2>🚫 Cancel Upcoming Class</h2>
-          <p style="color: #718096; margin-bottom: 20px;">If you cannot attend, cancel below. A makeup credit will be added automatically.</p>
-          
-          <form id="cancelClassForm">
-            <div class="form-group">
-              <label>Select Class to Cancel *</label>
-              <select id="cancelClassSelect" required>
-                <option value="">Loading...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Reason (Optional)</label>
-              <textarea id="cancelReason" rows="3" placeholder="Let us know why..."></textarea>
-            </div>
-            <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #38a169;">
-              <p style="margin: 0; color: #155724;">
-                <strong>💡 Note:</strong> A makeup class credit will be added immediately.
-              </p>
-            </div>
-            <button type="submit" class="btn btn-danger">🚫 Cancel Class</button>
-          </form>
-        </div>
-
-        <div class="section">
-          <h2>📅 Upcoming Schedule</h2>
-          <table id="upcomingTable">
-            <thead>
-              <tr>
-                <th>Session #</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="upcomingBody">
-              <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <!-- 🔴 FIX: Dynamic Zoom Link -->
+        <a id="zoomLink" target="_blank" class="zoom-btn" style="display:none;">🎥 Join Zoom Class</a>
+        
+        <div class="section"><h2>🚫 Cancel Class</h2><p style="color: #718096; margin-bottom: 20px;">Note: Cannot cancel less than 2 hours before class.</p><form id="cancelClassForm"><div class="form-group"><label>Select Class</label><select id="cancelClassSelect" required></select></div><button type="submit" class="btn btn-danger">Cancel Class</button></form></div>
+        <div class="section"><h2>📅 Schedule</h2><table id="upcomingTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th></tr></thead><tbody id="upcomingBody"><tr><td>Loading...</td></tr></tbody></table></div>
       </div>
 
-      <!-- Past Tab -->
       <div id="pastTab" class="tab-content">
-        <div class="section">
-          <h2>📚 Completed Classes</h2>
-          <table id="pastTable">
-            <thead>
-              <tr>
-                <th>Session #</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Attendance</th>
-                <th>PPT</th>
-                <th>Recording</th>
-                <th>Homework</th>
-                <th>Grade</th>
-              </tr>
-            </thead>
-            <tbody id="pastBody">
-              <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <div class="section"><h2>📚 Completed Classes</h2><table id="pastTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th></tr></thead><tbody id="pastBody"><tr><td>Loading...</td></tr></tbody></table></div>
       </div>
 
-      <!-- Materials Tab -->
-      <div id="materialsTab" class="tab-content">
-        <div class="section">
-          <h2>📁 Class Materials</h2>
-          <div id="materialsGrid" class="materials-grid">
-            <p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 40px;">Loading...</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Homework Tab -->
       <div id="homeworkTab" class="tab-content">
-        <div class="section">
-          <h2>📤 Upload Homework</h2>
-          <form id="uploadHomeworkForm">
-            <div class="form-group">
-              <label>Session Date *</label>
-              <input type="date" id="homeworkDate" required>
-            </div>
-            <div class="form-group">
-              <label>Select File *</label>
-              <input type="file" id="homeworkFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
-              <small style="color: #718096;">PDF, DOC, Images, ZIP (Max 50MB)</small>
-            </div>
-            <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
-          </form>
-        </div>
-
-        <div class="section">
-          <h2>📤 Submission History</h2>
-          <table id="homeworkTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>File</th>
-                <th>Uploaded</th>
-                <th>Grade</th>
-                <th>Comments</th>
-              </tr>
-            </thead>
-            <tbody id="homeworkBody">
-              <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <div class="section"><h2>📤 Upload Homework</h2><form id="uploadHomeworkForm"><div class="form-group"><label>Select Session *</label><select id="homeworkSessionSelect" required><option value="">Loading...</option></select></div><div class="form-group"><label>File *</label><input type="file" id="homeworkFile" required accept=".pdf,.doc,.docx,.jpg,.png"></div><button type="submit" class="btn btn-primary">Upload</button></form></div>
       </div>
 
-      <!-- Events Tab -->
       <div id="eventsTab" class="tab-content">
-        <div class="section">
-          <h2>🎉 Upcoming Events</h2>
-          <div id="eventsContainer">
-            <p style="text-align: center; color: #718096; padding: 20px;">Loading...</p>
-          </div>
-        </div>
+        <div class="section"><h2>🎉 Events</h2><div id="eventsContainer"></div></div>
       </div>
     </div>
   </div>
 
   <script>
     let currentStudent = null;
-    let currentEmail = '';
+    let allMyStudents = [];
 
-    function normalizeTimeString(timeStr) {
-      if (!timeStr) return null;
-      timeStr = timeStr.trim();
-      if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
-      if (/^\d{2}:\d{2}:\d{2}/.test(timeStr)) return timeStr.substring(0, 5);
-      try {
-        const date = new Date(timeStr);
-        if (!isNaN(date.getTime())) {
-          return String(date.getUTCHours()).padStart(2, '0') + ':' + String(date.getUTCMinutes()).padStart(2, '0');
-        }
-      } catch (e) {}
-      return null;
+    // 🔴 FIX: Auth Headers Helper
+    const adminToken = sessionStorage.getItem('adminParentToken');
+    function authHeaders() {
+      return adminToken ? { 'x-admin-token': adminToken } : {};
     }
 
-    function createUTCDateTime(dateStr, timeStr) {
-      const normalizedTime = normalizeTimeString(timeStr);
-      if (!dateStr || !normalizedTime) return null;
-      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-      const cleanTime = normalizedTime.length === 8 ? normalizedTime.substring(0, 5) : normalizedTime;
-      const utcDateTimeStr = `${cleanDate}T${cleanTime}:00Z`;
-      const testDate = new Date(utcDateTimeStr);
-      if (isNaN(testDate.getTime())) return null;
-      return utcDateTimeStr;
-    }
-
-    function convertToLocalTime(dateStr, timeStr, timezone) {
-      const utcDateTimeStr = createUTCDateTime(dateStr, timeStr);
-      if (!utcDateTimeStr) return { date: 'Invalid Date', time: 'Invalid Time', isValid: false };
+    function toLocalTime(dateStr, timeStr, tz) {
       try {
-        const utcDateTime = new Date(utcDateTimeStr);
-        const displayDate = utcDateTime.toLocaleDateString('en-US', {
-          timeZone: timezone, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
-        });
-        const displayTime = utcDateTime.toLocaleTimeString('en-US', {
-          timeZone: timezone, hour12: true, hour: '2-digit', minute: '2-digit'
-        });
-        return { date: displayDate, time: displayTime, isValid: true };
-      } catch (e) {
-        return { date: 'Invalid Date', time: 'Invalid Time', isValid: false };
-      }
+        const d = new Date(`${dateStr}T${timeStr}Z`);
+        return {
+          date: d.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' }),
+          time: d.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true })
+        };
+      } catch(e) { return { date: dateStr, time: timeStr }; }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      const parentViewStudent = sessionStorage.getItem('parentViewStudent');
-      const parentViewMode = sessionStorage.getItem('parentViewMode');
-      if (parentViewMode === 'true' && parentViewStudent) {
-        currentStudent = JSON.parse(parentViewStudent);
-        document.getElementById('adminBanner').classList.add('active');
-        document.getElementById('viewingStudentName').textContent = currentStudent.name;
-        document.body.style.paddingTop = '60px';
-        showDashboard();
-      } else {
-        setupLoginHandlers();
+      // 🔴 FIX: Secure Token Verification
+      if (adminToken) {
+        fetch('/api/parent/admin-view', { headers: authHeaders() })
+        .then(res => {
+          if (!res.ok) throw new Error('Invalid Token');
+          return res.json();
+        })
+        .then(data => {
+          currentStudent = data.student;
+          document.getElementById('loginSection').style.display = 'none';
+          document.getElementById('dashboardSection').style.display = 'block';
+          showDashboard();
+        })
+        .catch(() => {
+          sessionStorage.removeItem('adminParentToken');
+          location.reload();
+        });
+        return;
       }
+      setupLoginHandlers();
     });
 
     function setupLoginHandlers() {
       document.getElementById('emailForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        currentEmail = document.getElementById('parentEmail').value.trim();
+        const email = document.getElementById('parentEmail').value.trim();
         try {
-          const res = await fetch('/api/parent/check-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: currentEmail })
-          });
-          const result = await res.json();
-          if (res.ok) {
-            document.getElementById('emailForm').style.display = 'none';
-            if (result.hasPassword) {
-              document.getElementById('passwordForm').style.display = 'block';
-            } else {
-              document.getElementById('setupPasswordForm').style.display = 'block';
-            }
-          } else {
-            alert('❌ ' + result.error);
-          }
-        } catch (err) {
-          alert('❌ Network error');
-        }
+          const res = await fetch('/api/parent/check-email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+          const data = await res.json();
+          document.getElementById('emailForm').style.display = 'none';
+          if (data.hasPassword) document.getElementById('passwordForm').style.display = 'block';
+          else document.getElementById('otpForm').style.display = 'block';
+        } catch (err) { alert('Error'); }
       });
 
       document.getElementById('passwordForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const password = document.getElementById('loginPassword').value;
+        const email = document.getElementById('parentEmail').value.trim();
+        const pwd = document.getElementById('loginPassword').value;
         try {
-          const res = await fetch('/api/parent/login-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: currentEmail, password })
-          });
-          const result = await res.json();
-          if (res.ok && result.student) {
-            currentStudent = result.student;
-            showDashboard();
-          } else {
-            alert('❌ ' + result.error);
-          }
-        } catch (err) {
-          alert('❌ Network error');
-        }
+          const res = await fetch('/api/parent/login-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd }) });
+          const data = await res.json();
+          if (res.ok) handleMultipleStudents(data.students);
+          else alert(data.error);
+        } catch (err) { alert('Error'); }
       });
 
       document.getElementById('otpForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const email = document.getElementById('parentEmail').value.trim();
         const otp = document.getElementById('otpCode').value;
         try {
-          const res = await fetch('/api/parent/verify-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: currentEmail, otp })
-          });
-          const result = await res.json();
-          if (res.ok && result.student) {
-            currentStudent = result.student;
-            showDashboard();
-          } else {
-            alert('❌ ' + result.error);
-          }
-        } catch (err) {
-          alert('❌ Network error');
-        }
-      });
-
-      document.getElementById('setupPasswordForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const p1 = document.getElementById('newPassword').value;
-        const p2 = document.getElementById('confirmPassword').value;
-        if (p1 !== p2) return alert('❌ Passwords do not match');
-        if (p1.length < 6) return alert('❌ Password must be at least 6 characters');
-        try {
-          const res = await fetch('/api/parent/setup-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: currentEmail, password: p1 })
-          });
-          const result = await res.json();
-          if (res.ok && result.student) {
-            currentStudent = result.student;
-            showDashboard();
-          } else {
-            alert('❌ ' + result.error);
-          }
-        } catch (err) {
-          alert('❌ Network error');
-        }
+          const res = await fetch('/api/parent/verify-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, otp }) });
+          const data = await res.json();
+          if (res.ok) handleMultipleStudents(data.students);
+          else alert(data.error);
+        } catch (err) { alert('Error'); }
       });
     }
 
-    function showPasswordForm() {
-      document.getElementById('otpForm').style.display = 'none';
-      document.getElementById('passwordForm').style.display = 'block';
-    }
-
-    function showOTPForm() {
-      document.getElementById('passwordForm').style.display = 'none';
-      document.getElementById('otpForm').style.display = 'block';
-      document.getElementById('otpSendSection').style.display = 'block';
-      document.getElementById('otpVerifySection').style.display = 'none';
-    }
-
-    async function sendOTP() {
-      try {
-        const res = await fetch('/api/parent/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: currentEmail })
+    function handleMultipleStudents(students) {
+      allMyStudents = students;
+      if (students.length > 1) {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('studentSelector').style.display = 'block';
+        const sel = document.getElementById('childSelect');
+        sel.innerHTML = '<option value="">Select Child...</option>' + students.map(s => `<option value="${s.id}">${s.name} (${s.grade})</option>`).join('');
+        sel.addEventListener('change', (e) => {
+          const s = students.find(st => st.id == e.target.value);
+          if (s) {
+            currentStudent = s;
+            document.getElementById('studentSelector').style.display = 'none';
+            showDashboard();
+          }
         });
-        if (res.ok) {
-          document.getElementById('otpSendSection').style.display = 'none';
-          document.getElementById('otpVerifySection').style.display = 'block';
-          document.getElementById('otpEmail').textContent = currentEmail;
-          alert('✅ OTP sent!');
-        } else {
-          alert('❌ Failed to send OTP');
-        }
-      } catch (err) {
-        alert('❌ Network error');
+      } else {
+        currentStudent = students[0];
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('dashboardSection').style.display = 'block';
+        showDashboard();
       }
     }
 
-    function resendOTP() { sendOTP(); }
+    function showOTPForm() { document.getElementById('passwordForm').style.display = 'none'; document.getElementById('otpForm').style.display = 'block'; }
+    
+    async function sendOTP() {
+      const email = document.getElementById('parentEmail').value.trim();
+      await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+      document.getElementById('otpSendSection').style.display = 'none';
+      document.getElementById('otpVerifySection').style.display = 'block';
+    }
+
+    function showTab(name, e) {
+      if(e) e.stopPropagation();
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(name+'Tab').classList.add('active');
+      if(e) e.target.classList.add('active');
+      if(name === 'homework') loadHomeworkSessions();
+    }
 
     function showDashboard() {
-      document.getElementById('loginSection').style.display = 'none';
-      document.getElementById('dashboardSection').style.display = 'block';
       document.getElementById('displayName').textContent = currentStudent.name;
       document.getElementById('displayGrade').textContent = currentStudent.grade;
-      document.getElementById('displayProgram').textContent = currentStudent.program_name;
-      document.getElementById('displayTimezone').textContent = currentStudent.timezone;
       document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
-      document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions;
       document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
-      
-      loadMakeupCredits();
-      loadUpcomingSessions();
-      loadPastSessions();
-      loadMaterials();
-      loadHomeworkHistory();
-      loadCancelDropdown();
-      loadEvents();
+      loadUpcoming(); loadPast(); loadEvents(); loadCancelDropdown();
     }
 
-    async function loadMakeupCredits() {
+    async function loadUpcoming() {
       try {
-        const res = await fetch(`/api/students/${currentStudent.id}/makeup-credits`);
-        const credits = await res.json();
-        document.getElementById('displayMakeup').textContent = credits.length;
-      } catch (err) {
-        document.getElementById('displayMakeup').textContent = '0';
-      }
-    }
-
-    async function loadUpcomingSessions() {
-      try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
+        // 🔴 FIX: Attach Auth Headers
+        const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
         const today = new Date().toISOString().split('T')[0];
-        const upcoming = sessions.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
+        const upcoming = sessions.filter(s => s.session_date >= today && s.status !== 'Cancelled');
         const tbody = document.getElementById('upcomingBody');
-        if (upcoming.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No upcoming classes</td></tr>';
-          return;
+        
+        // 🔴 FIX: Show/Hide Zoom Button & Set Link
+        const zoomBtn = document.getElementById('zoomLink');
+        if (upcoming.length > 0) {
+             zoomBtn.href = upcoming[0].zoom_link || 'https://zoom.us';
+             zoomBtn.style.display = 'block';
+        } else {
+             zoomBtn.style.display = 'none';
         }
+
         tbody.innerHTML = upcoming.map(s => {
-          const converted = convertToLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-          if (!converted.isValid) {
-            return `<tr><td colspan="4" style="color: #e53e3e;">Invalid date/time</td></tr>`;
-          }
-          return `
-            <tr>
-              <td><strong>Session ${s.session_number}</strong></td>
-              <td>${converted.date}</td>
-              <td><strong style="color: #667eea;">${converted.time}</strong></td>
-              <td><a href="${s.zoom_link}" target="_blank" class="btn btn-success btn-sm">🎥 Join</a></td>
-            </tr>
-          `;
+          const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          return `<tr><td>#${s.session_number}</td><td>${t.date}</td><td><strong style="color:#667eea">${t.time}</strong></td></tr>`;
         }).join('');
-      } catch (err) {
-        document.getElementById('upcomingBody').innerHTML = '<tr><td colspan="4" style="color: #e53e3e;">Error loading</td></tr>';
-      }
+      } catch(e) {}
+    }
+
+    async function loadPast() {
+      try {
+        const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
+        const sessions = await res.json();
+        const today = new Date().toISOString().split('T')[0];
+        const past = sessions.filter(s => s.session_date < today || ['Completed', 'Missed'].includes(s.status));
+        const tbody = document.getElementById('pastBody');
+        tbody.innerHTML = past.map(s => {
+          const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          return `<tr><td>#${s.session_number}</td><td>${t.date}</td><td>${t.time}</td><td>${s.attendance||'-'}</td><td>${s.ppt_file_path?'📊':''} ${s.recording_file_path?'🎥':''}</td></tr>`;
+        }).join('');
+      } catch(e) {}
+    }
+
+    async function loadHomeworkSessions() {
+      try {
+        const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
+        const sessions = await res.json();
+        const completed = sessions.filter(s => s.status === 'Completed');
+        const sel = document.getElementById('homeworkSessionSelect');
+        sel.innerHTML = '<option value="">Select Session...</option>' + completed.map(s => `<option value="${s.id}">Session #${s.session_number} - ${s.session_date}</option>`).join('');
+      } catch(e) {}
     }
 
     async function loadCancelDropdown() {
       try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
+        const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
         const today = new Date().toISOString().split('T')[0];
-        const upcoming = sessions.filter(s => s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled'));
-        const select = document.getElementById('cancelClassSelect');
+        const upcoming = sessions.filter(s => s.session_date >= today && s.status === 'Pending');
+        const sel = document.getElementById('cancelClassSelect');
+        
         if (upcoming.length === 0) {
-          select.innerHTML = '<option value="">No classes to cancel</option>';
-          return;
+           sel.innerHTML = '<option>No cancellable classes</option>';
+           return;
         }
-        select.innerHTML = '<option value="">Select...</option>' + upcoming.map(s => {
-          const converted = convertToLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-          if (!converted.isValid) return '';
-          const normalizedTime = normalizeTimeString(s.session_time);
-          return `<option value="${s.id}" data-date="${s.session_date}" data-time="${normalizedTime}">
-            Session ${s.session_number} - ${converted.date} at ${converted.time}
-          </option>`;
+
+        sel.innerHTML = '<option value="">Select Class...</option>' + upcoming.map(s => {
+            const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+            return `<option value="${s.id}">Session #${s.session_number} - ${t.date} at ${t.time}</option>`;
         }).join('');
-      } catch (err) {}
+      } catch(e) {}
     }
 
     document.getElementById('cancelClassForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const select = document.getElementById('cancelClassSelect');
-  const selectedOption = select.options[select.selectedIndex];
-  if (!selectedOption.value) return alert('Select a class');
-  const sessionId = selectedOption.value;
-  const reason = document.getElementById('cancelReason').value;
-  if (!confirm('Cancel this class? A makeup credit will be added.')) return;
-  try {
-    const res = await fetch('/api/parent/cancel-class', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ student_id: currentStudent.id, session_id: sessionId, reason })
+      e.preventDefault();
+      const sid = document.getElementById('cancelClassSelect').value;
+      if(!sid) return alert('Select class');
+      try {
+        // 🔴 FIX: Attach Headers
+        const res = await fetch('/api/parent/cancel-class', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ student_id: currentStudent.id, session_id: sid }) });
+        if(res.ok) { alert('Cancelled'); loadUpcoming(); loadCancelDropdown(); }
+        else alert((await res.json()).error);
+      } catch(e) { alert('Error'); }
     });
-    const result = await res.json();
-    if (res.ok) {
-      alert('✅ ' + result.message);
-      e.target.reset();
-      loadUpcomingSessions();
-      loadCancelDropdown();
-      loadMakeupCredits();
-    } else {
-      alert('❌ ' + result.error);
-    }
-  } catch (err) {
-    alert('❌ Network error');
-  }
-});
-
-    async function loadPastSessions() {
-      try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`);
-        const sessions = await res.json();
-        const past = sessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
-        const tbody = document.getElementById('pastBody');
-        if (past.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No completed classes</td></tr>';
-          return;
-        }
-        tbody.innerHTML = past.map(s => {
-          const converted = convertToLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-          return `
-            <tr>
-              <td><strong>${s.session_number}</strong></td>
-              <td>${converted.isValid ? converted.date : 'Invalid'}</td>
-              <td>${converted.isValid ? converted.time : 'Invalid'}</td>
-              <td><span style="background: ${s.attendance === 'Present' ? '#d4edda' : '#f8d7da'}; padding: 4px 8px; border-radius: 12px;">${s.attendance || '-'}</span></td>
-              <td>${s.ppt_file_path ? '<a href="/uploads/materials/' + s.ppt_file_path + '" download class="btn btn-primary btn-sm">📥 PPT</a>' : '-'}</td>
-              <td>${s.recording_file_path ? '<a href="/uploads/materials/' + s.recording_file_path + '" target="_blank" class="btn btn-primary btn-sm">🎥 Video</a>' : '-'}</td>
-              <td>${s.homework_file_path ? '<a href="/uploads/materials/' + s.homework_file_path + '" download class="btn btn-primary btn-sm">📝 HW</a>' : '-'}</td>
-              <td><strong style="color: #667eea;">${s.homework_grade || '-'}</strong></td>
-            </tr>
-          `;
-        }).join('');
-      } catch (err) {
-        document.getElementById('pastBody').innerHTML = '<tr><td colspan="8" style="color: #e53e3e;">Error</td></tr>';
-      }
-    }
-
-    async function loadMaterials() {
-      try {
-        const res = await fetch(`/api/materials/${currentStudent.id}`);
-        const materials = await res.json();
-        const grid = document.getElementById('materialsGrid');
-        const teacherMaterials = materials.filter(m => m.uploaded_by === 'Teacher');
-        if (teacherMaterials.length === 0) {
-          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 40px;">No materials yet</p>';
-          return;
-        }
-        grid.innerHTML = teacherMaterials.map(m => {
-          let icon = '📁';
-          if (m.file_type === 'PPT') icon = '📊';
-          if (m.file_type === 'Recording') icon = '🎥';
-          if (m.file_type === 'Homework') icon = '📝';
-          return `
-            <div class="material-card">
-              <div class="material-icon">${icon}</div>
-              <div style="color: #667eea; font-weight: bold;">${m.file_type}</div>
-              <div style="font-weight: 600; margin: 10px 0;">${m.file_name}</div>
-              <div style="color: #718096; font-size: 0.85rem; margin-bottom: 15px;">${m.session_date || 'General'}</div>
-              <a href="/uploads/homework/${m.file_path}" download class="btn btn-primary btn-sm">Download</a>
-            </div>
-          `;
-        }).join('');
-      } catch (err) {
-        document.getElementById('materialsGrid').innerHTML = '<p style="color: #e53e3e;">Error</p>';
-      }
-    }
-
-    async function loadHomeworkHistory() {
-      try {
-        const res = await fetch(`/api/materials/${currentStudent.id}`);
-        const materials = await res.json();
-        const homework = materials.filter(m => m.uploaded_by === 'Parent');
-        const tbody = document.getElementById('homeworkBody');
-        if (homework.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No submissions</td></tr>';
-          return;
-        }
-        tbody.innerHTML = homework.map(h => `
-          <tr>
-            <td>${h.session_date || '-'}</td>
-            <td><a href="/uploads/homework/${h.file_path}" target="_blank" style="color: #667eea;">${h.file_name}</a></td>
-            <td>${new Date(h.uploaded_at).toLocaleDateString()}</td>
-            <td><strong style="color: ${h.feedback_grade ? '#38a169' : '#718096'};">${h.feedback_grade || 'Pending'}</strong></td>
-            <td>${h.feedback_comments || '-'}</td>
-          </tr>
-        `).join('');
-      } catch (err) {
-        document.getElementById('homeworkBody').innerHTML = '<tr><td colspan="5" style="color: #e53e3e;">Error</td></tr>';
-      }
-    }
 
     document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const sid = document.getElementById('homeworkSessionSelect').value;
       const file = document.getElementById('homeworkFile').files[0];
-      if (!file) return alert('Select a file');
-      if (file.size > 50 * 1024 * 1024) return alert('❌ File too large (max 50MB)');
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('sessionDate', document.getElementById('homeworkDate').value);
-      formData.append('uploadType', 'homework');
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      submitBtn.textContent = '⏳ Uploading...';
+      if(!sid || !file) return alert('Fill all fields');
+      
+      const fd = new FormData();
+      fd.append('file', file);
+      // 🔴 FIX: No Dummy Date
+      fd.append('sessionId', sid);
+      fd.append('uploadType', 'homework');
+
       try {
-        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, { method: 'POST', body: formData });
-        const result = await res.json();
-        if (res.ok) {
-          alert('✅ ' + result.message);
-          e.target.reset();
-          loadHomeworkHistory();
-          loadMaterials();
-        } else {
-          alert('❌ ' + result.error);
-        }
-      } catch (err) {
-        alert('❌ Upload failed');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '📤 Upload Homework';
-      }
+        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, { method: 'POST', body: fd });
+        if(res.ok) { alert('Uploaded'); e.target.reset(); }
+        else alert('Error');
+      } catch(e) { alert('Error'); }
     });
 
     async function loadEvents() {
       try {
-        const res = await fetch(`/api/events/student/${currentStudent.id}`);
+        // 🔴 FIX: Attach Headers
+        const res = await fetch(`/api/events/student/${currentStudent.id}`, { headers: authHeaders() });
         const events = await res.json();
-        const container = document.getElementById('eventsContainer');
-        if (events.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No upcoming events</p>';
-          return;
-        }
-        container.innerHTML = events.map(e => {
-          const converted = convertToLocalTime(e.event_date, e.event_time, currentStudent.timezone);
+        document.getElementById('eventsContainer').innerHTML = events.map(e => {
+          // 🔴 FIX: Convert Event Time to Local
+          const t = toLocalTime(e.event_date, e.event_time, currentStudent.timezone);
           return `
-            <div class="event-card">
-              <h3>${e.event_name}</h3>
-              <p>📅 ${converted.isValid ? converted.date : e.event_date} at ${converted.isValid ? converted.time : e.event_time}</p>
-              <p>⏱️ Duration: ${e.event_duration}</p>
-              <p>${e.event_description || ''}</p>
-              ${e.is_registered ? 
-                '<p style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin-top: 10px;">✅ You are registered!</p>' :
-                `<button onclick="registerForEvent(${e.id})" class="btn btn-success" style="margin-top: 10px;">Register Now</button>`
-              }
-            </div>
-          `;
+          <div style="background:white; border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:8px;">
+            <h3>${e.event_name}</h3>
+            <p>Date: ${t.date} | Time: ${t.time}</p>
+            ${!e.is_registered ? `<button onclick="registerEvent(${e.id})" class="btn btn-primary" style="margin-top:5px;">Register</button>` : '<span style="color:green">Registered</span>'}
+          </div>`;
         }).join('');
-      } catch (err) {
-        document.getElementById('eventsContainer').innerHTML = '<p style="color: #e53e3e;">Error loading events</p>';
-      }
+      } catch(e) {}
     }
 
-    async function registerForEvent(eventId) {
-      if (!confirm('Register for this event?')) return;
+    async function registerEvent(eid) {
       try {
-        const res = await fetch(`/api/events/${eventId}/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ student_id: currentStudent.id })
-        });
-        const result = await res.json();
-        if (res.ok) {
-          alert('✅ ' + result.message);
-          loadEvents();
-        } else {
-          alert('❌ ' + result.error);
-        }
-      } catch (err) {
-        alert('❌ Network error');
-      }
-    }
-
-    function showTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      document.getElementById(tabName + 'Tab').classList.add('active');
-      event.target.classList.add('active');
+        // 🔴 FIX: Attach Headers
+        const res = await fetch(`/api/events/${eid}/register`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ student_id: currentStudent.id }) });
+        if(res.ok) { alert('Registered'); loadEvents(); }
+        else alert((await res.json()).error);
+      } catch(e) {}
     }
 
     function logout() {
-      if (confirm('Logout?')) {
+      if(confirm('Logout?')) {
+        // 🔴 FIX: Specific Cleanup
+        sessionStorage.removeItem('adminParentToken');
         sessionStorage.removeItem('parentViewStudent');
         sessionStorage.removeItem('parentViewMode');
         location.reload();
       }
-    }
-
-    function exitAdminView() {
-      sessionStorage.removeItem('parentViewStudent');
-      sessionStorage.removeItem('parentViewMode');
-      window.close();
     }
   </script>
 </body>
