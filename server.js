@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto'); // 🔴 CRITICAL FOR SECURITY
+const crypto = require('crypto'); 
 require('dotenv').config();
 
 const app = express();
@@ -85,17 +85,15 @@ function verifyAdminToken(token) {
   } catch { return null; }
 }
 
-// 🔴 SECURITY MIDDLEWARE FOR PARENT PORTAL
 function verifyParentAccess(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (!token) return next(); // Normal parent login
+  if (!token) return next(); 
   const studentId = verifyAdminToken(token);
   if (!studentId) return res.status(403).json({ error: 'Invalid or expired admin access token' });
   req.adminStudentId = studentId;
   next();
 }
 
-// Apply to protected routes
 app.use('/api/parent', verifyParentAccess);
 app.use('/api/sessions', verifyParentAccess);
 app.use('/api/upload', verifyParentAccess);
@@ -134,23 +132,16 @@ async function initializeDatabase() {
     
     await client.query(`CREATE TABLE IF NOT EXISTS parent_credentials (id SERIAL PRIMARY KEY, parent_email TEXT UNIQUE NOT NULL, password TEXT, otp TEXT, otp_expiry TIMESTAMP, otp_attempts INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, last_login TIMESTAMP)`);
 
-    // 2. MIGRATIONS: Add columns if they are missing (Fixes Render deployment errors)
-    // This handles cases where the table exists but columns are missing from older schemas
+    // 2. MIGRATIONS: Fix Column Errors (Robust Fix for Render)
     
-    // Add is_active if missing
-    try {
-      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`);
-    } catch(e) {} // Ignore if column exists
+    // Students Table
+    try { await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`); } catch(e) {}
+    try { await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS group_id INTEGER`); } catch(e) {}
+    try { await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS group_name TEXT`); } catch(e) {}
 
-    // Add group_id if missing
-    try {
-      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS group_id INTEGER`);
-    } catch(e) {}
-
-    // Add group_name if missing
-    try {
-      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS group_name TEXT`);
-    } catch(e) {}
+    // Sessions Table (Critical fix for group_id errors in queries)
+    try { await client.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS group_id INTEGER`); } catch(e) {}
+    try { await client.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS session_type TEXT DEFAULT 'Private'`); } catch(e) {}
 
     await client.query('COMMIT');
     console.log('✅ Database initialized securely');
@@ -196,7 +187,10 @@ function formatUTCToLocal(utcDateStr, utcTimeStr, timezone) {
 async function sendEmail(to, subject, html, recipientName, emailType) {
   try {
     const apiKey = process.env.BREVO_API_KEY;
-    if (!apiKey) return false;
+    if (!apiKey) {
+      console.warn('⚠️ BREVO_API_KEY missing. Email not sent.');
+      return false;
+    }
     await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: html }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
     await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status) VALUES ($1, $2, $3, $4, 'Sent')`, [recipientName || '', to, emailType, subject]);
     return true;
@@ -222,7 +216,15 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
 
 app.get('/api/students', async (req, res) => { try { const r = await pool.query(`SELECT s.*, COUNT(m.id) as makeup_credits FROM students s LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available' WHERE s.is_active = true GROUP BY s.id ORDER BY s.created_at DESC`); res.json(r.rows); } catch (err) { res.status(500).json({ error: err.message }); } });
 
-app.post('/api/students', async (req, res) => { const { name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions } = req.body; try { const r = await pool.query(`INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0, true) RETURNING id`, [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions]); sendEmail(parent_email, `Welcome - ${name}`, getWelcomeEmail({ parent_name, student_name: name, program_name, zoom_link: DEFAULT_ZOOM }), parent_name, 'Welcome'); res.json({ success: true, studentId: r.rows[0].id }); } catch (err) { res.status(500).json({ success: false, error: err.message }); } });
+app.post('/api/students', async (req, res) => { 
+  const { name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions } = req.body; 
+  try { 
+    const r = await pool.query(`INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0, true) RETURNING id`, [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions]); 
+    
+    const emailSent = await sendEmail(parent_email, `Welcome - ${name}`, getWelcomeEmail({ parent_name, student_name: name, program_name, zoom_link: DEFAULT_ZOOM }), parent_name, 'Welcome'); 
+    
+    res.json({ success: true, studentId: r.rows[0].id, emailSent: emailSent }); 
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); } });
 
 app.delete('/api/students/:id', async (req, res) => { try { await pool.query('UPDATE students SET is_active = false WHERE id = $1', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); } });
 
@@ -238,7 +240,6 @@ app.post('/api/schedule/private-classes', async (req, res) => { const client = a
 
 app.post('/api/schedule/group-classes', async (req, res) => { const client = await pool.connect(); try { const { group_id, classes } = req.body; const group = (await client.query('SELECT * FROM groups WHERE id = $1', [group_id])).rows[0]; if(!group) return res.status(404).json({ error: 'Group not found' }); if(group.current_students >= group.max_students) return res.status(400).json({ error: 'Group full' }); const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [group_id])).rows[0].count; let sessionNumber = parseInt(count)+1; await client.query('BEGIN'); for(const cls of classes) { if(!cls.date || !cls.time) continue; const utc = istToUTC(cls.date, cls.time); const r = await client.query(`INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, zoom_link, status) VALUES ($1, 'Group', $2, $3::date, $4::time, $5, 'Pending') RETURNING id`, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_ZOOM]); const sessionId = r.rows[0].id; const students = await client.query('SELECT id FROM students WHERE group_id = $1 AND is_active = true', [group_id]); for(const s of students.rows) await client.query('INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, \'Pending\')', [sessionId, s.id]); sessionNumber++; } await client.query('COMMIT'); res.json({ success: true }); } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); } });
 
-// 🔴 ADMIN IMPERSONATION API
 app.post('/api/admin/parent-view-token', async (req, res) => {
   try { const { student_id } = req.body; const student = await pool.query('SELECT id FROM students WHERE id = $1', [student_id]); if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' }); const token = generateAdminToken(student_id); res.json({ token }); } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -248,7 +249,6 @@ app.get('/api/parent/admin-view', async (req, res) => {
   try { const student = await pool.query('SELECT * FROM students WHERE id = $1 AND is_active = true', [studentId]); res.json({ student: student.rows[0] }); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 🔴 CRITICAL FIX: MISSING ROUTES
 app.get('/api/sessions/:sessionId/details', async (req, res) => {
   try { const session = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]); res.json(session.rows[0]); } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -256,16 +256,9 @@ app.get('/api/sessions/:sessionId/details', async (req, res) => {
 app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
   try {
     const { attendance } = req.body;
-
-    await pool.query(
-      'UPDATE sessions SET status = $1 WHERE id = $2',
-      [attendance === 'Present' ? 'Completed' : 'Missed', req.params.sessionId]
-    );
-
+    await pool.query('UPDATE sessions SET status = $1 WHERE id = $2', [attendance === 'Present' ? 'Completed' : 'Missed', req.params.sessionId]);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
@@ -276,40 +269,19 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
   try { const { attendanceData } = req.body; const sessionId = req.params.sessionId;
     await client.query('BEGIN');
     for (const record of attendanceData) {
-
-  // 🔴 CHECK PREVIOUS ATTENDANCE
-  const prev = await client.query(
-    'SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2',
-    [sessionId, record.student_id]
-  );
-
-  // 🔴 UPDATE ATTENDANCE
-  await client.query(
-    'UPDATE session_attendance SET attendance = $1 WHERE session_id = $2 AND student_id = $3',
-    [record.attendance, sessionId, record.student_id]
-  );
-
-  // 🔴 INCREMENT ONLY ON FIRST PRESENT
+  const prev = await client.query('SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2', [sessionId, record.student_id]);
+  await client.query('UPDATE session_attendance SET attendance = $1 WHERE session_id = $2 AND student_id = $3', [record.attendance, sessionId, record.student_id]);
   if (prev.rows[0]?.attendance !== 'Present' && record.attendance === 'Present') {
-    await client.query(
-      `UPDATE students 
-       SET completed_sessions = completed_sessions + 1,
-           remaining_sessions = GREATEST(remaining_sessions - 1, 0)
-       WHERE id = $1`,
-      [record.student_id]
-    );
+    await client.query(`UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
   }
 }
-
     await client.query('UPDATE sessions SET status = $1 WHERE id = $2', ['Completed', sessionId]);
     await client.query('COMMIT');
     res.json({ message: 'Group attendance marked successfully!' });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
-  }
+  } finally { client.release(); }
 });
 
 app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, res) => {
@@ -329,9 +301,7 @@ app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, r
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
-  }
+  } finally { client.release(); }
 });
 
 app.put('/api/sessions/:sessionId/notes', async (req, res) => { try { await pool.query('UPDATE sessions SET teacher_notes = $1 WHERE id = $2', [req.body.teacher_notes, req.params.sessionId]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); } });
@@ -348,9 +318,7 @@ app.post('/api/sessions/:sessionId/grade/:studentId', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
-  }
+  } finally { client.release(); }
 });
 
 app.get('/api/materials/:studentId', async (req, res) => { try { res.json((await pool.query('SELECT * FROM materials WHERE student_id = $1 ORDER BY uploaded_at DESC', [req.params.studentId])).rows); } catch (err) { res.status(500).json({ error: err.message }); } });
@@ -384,13 +352,8 @@ app.post('/api/events/:eventId/register', async (req, res) => {
   const client = await pool.connect();
   try {
     const { student_id } = req.body; const eventId = req.params.eventId;
-   const eventResult = await pool.query(
-  'SELECT * FROM events WHERE id = $1',
-  [eventId]
-);
-
-const event = eventResult.rows[0];
-
+    const eventResult = await pool.query('SELECT * FROM events WHERE id = $1', [eventId]);
+    const event = eventResult.rows[0];
     if (event.max_participants && event.current_participants >= event.max_participants) return res.status(400).json({ error: 'Event is full' });
     await client.query('BEGIN');
     await client.query(`INSERT INTO event_registrations (event_id, student_id, registration_method) VALUES ($1, $2, 'Parent')`, [eventId, student_id]);
@@ -400,9 +363,7 @@ const event = eventResult.rows[0];
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
-  }
+  } finally { client.release(); }
 });
 
 app.post('/api/events/:eventId/register-manual', async (req, res) => { try { await pool.query(`INSERT INTO event_registrations (event_id, student_id, registration_method) VALUES ($1, $2, 'Manual')`, [req.params.eventId, req.body.student_id]); await pool.query('UPDATE events SET current_participants = current_participants + 1 WHERE id = $1', [req.params.eventId]); res.json({ message: 'Student registered successfully!' }); } catch (err) { res.status(500).json({ error: err.message }); } });
@@ -423,11 +384,9 @@ app.get('/api/events/student/:studentId', async (req, res) => {
 
 app.get('/api/events/:id', async (req, res) => { try { const result = await pool.query('SELECT * FROM events WHERE id = $1', [req.params.id]); if (result.rows.length === 0) return res.status(404).json({ error: 'Event not found' }); res.json(result.rows[0]); } catch (err) { res.status(500).json({ error: err.message }); } });
 
-// 🔴 CRITICAL FIX: MISSING EMAIL LOGS ROUTE
 app.get('/api/email-logs', async (req, res) => {
   try { const r = await pool.query('SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 100'); res.json(r.rows); } catch (err) { res.status(500).json({ error: err.message }); } });
 
-// Parent Portal Routes (Protected)
 app.get('/api/sessions/:studentId', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
   if(req.adminStudentId && req.adminStudentId != req.params.studentId) return res.status(403).json({ error: 'Access denied' });
@@ -466,31 +425,13 @@ app.post('/api/parent/login-password', async (req, res) => { try { const c = (aw
 
 app.post('/api/parent/send-otp', async (req, res) => {
   try {
-    const students = (await pool.query(
-      'SELECT * FROM students WHERE parent_email = $1 AND is_active = true',
-      [req.body.email]
-    )).rows;
-
-    if (students.length === 0) {
-      return res.status(404).json({ error: 'No student found' });
-    }
-
+    const students = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
+    if (students.length === 0) return res.status(404).json({ error: 'No student found' });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const exp = new Date(Date.now() + 10 * 60 * 1000);
-
-    await pool.query(
-      `INSERT INTO parent_credentials (parent_email, otp, otp_expiry, otp_attempts)
-       VALUES ($1, $2, $3, 0)
-       ON CONFLICT(parent_email)
-       DO UPDATE SET otp = $2, otp_expiry = $3, otp_attempts = 0`,
-      [req.body.email, otp, exp]
-    );
-
-    // Optional: sendEmail(req.body.email, 'Your OTP', ...)
+    await pool.query(`INSERT INTO parent_credentials (parent_email, otp, otp_expiry, otp_attempts) VALUES ($1, $2, $3, 0) ON CONFLICT(parent_email) DO UPDATE SET otp = $2, otp_expiry = $3, otp_attempts = 0`, [req.body.email, otp, exp]);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/parent/verify-otp', async (req, res) => { try { const c = (await pool.query('SELECT otp, otp_expiry FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0]; if(!c || c.otp !== req.body.otp || new Date() > new Date(c.otp_expiry)) return res.status(401).json({ error: 'Invalid or Expired OTP' }); const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows; await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE parent_email = $1', [req.body.email]); res.json({ students: s }); } catch(e) { res.status(500).json({error:e.message})} });

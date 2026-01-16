@@ -73,10 +73,57 @@
         <form id="addStudentForm">
           <div class="form-row"><div class="form-group"><label>Student Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label>Grade *</label><input type="text" id="grade" required></div></div>
           <div class="form-row"><div class="form-group"><label>Parent Name *</label><input type="text" id="parentName" required></div><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div></div>
-          <div class="form-row"><div class="form-group"><label>Primary Contact *</label><input type="tel" id="primaryContact" required></div><div class="form-group"><label>Timezone *</label><select id="timezone" required><option value="Asia/Kolkata">India (IST)</option><option value="Asia/Dhaka">Bangladesh (BST)</option><option value="America/New_York">USA (EST)</option></select></div></div>
+          <div class="form-row"><div class="form-group"><label>Primary Contact *</label><input type="tel" id="primaryContact" required></div>
+            <div class="form-group"><label>Timezone *</label>
+              <select id="timezone" required>
+                <option value="UTC">UTC (Universal Coordinated Time)</option>
+                <option value="Asia/Kolkata">India (IST)</option>
+                <option value="Asia/Dhaka">Bangladesh (BST)</option>
+                <option value="America/New_York">USA (EST)</option>
+                <option value="America/Los_Angeles">USA (PST)</option>
+                <option value="America/Chicago">USA (CST)</option>
+                <option value="Europe/London">UK (GMT)</option>
+                <option value="Europe/Paris">France (CET)</option>
+                <option value="Europe/Berlin">Germany (CET)</option>
+                <option value="Asia/Tokyo">Japan (JST)</option>
+                <option value="Asia/Singapore">Singapore (SGT)</option>
+                <option value="Australia/Sydney">Australia (AEDT)</option>
+                <option value="Asia/Dubai">UAE (GST)</option>
+                <option value="Asia/Riyadh">Saudi Arabia (AST)</option>
+                <option value="Africa/Cairo">Egypt (EET)</option>
+              </select>
+            </div>
+          </div>
           <div class="form-row"><div class="form-group"><label>Program Name *</label><input type="text" id="programName" required></div><div class="form-group"><label>Class Type *</label><select id="classType" required><option value="Private">Private</option><option value="Group">Group</option></select></div></div>
-          <div class="form-row"><div class="form-group"><label>Duration *</label><select id="duration" required><option value="25 mins">25 mins</option><option value="60 mins">60 mins</option></select></div></div>
-          <div class="form-row"><div class="form-group"><label>Currency *</label><select id="currency" required><option value="₹">₹ INR</option><option value="৳">৳ BDT</option><option value="$">$ USD</option></select></div><div class="form-group"><label>Per Session Fee *</label><input type="number" id="perSessionFee" required step="0.01"></div><div class="form-group"><label>Total Sessions *</label><input type="number" id="totalSessions" required min="1"></div></div>
+          <div class="form-row">
+            <div class="form-group"><label>Duration *</label>
+              <select id="duration" required>
+                <option value="25 mins">25 mins</option>
+                <option value="30 mins">30 mins</option>
+                <option value="40 mins">40 mins</option>
+                <option value="45 mins">45 mins</option>
+                <option value="60 mins">60 mins</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Currency *</label>
+              <select id="currency" required>
+                <option value="USD ($)">USD ($)</option>
+                <option value="EUR (€)">EUR (€)</option>
+                <option value="GBP (£)">GBP (£)</option>
+                <option value="INR (₹)">INR (₹)</option>
+                <option value="BDT (৳)">BDT (৳)</option>
+                <option value="CAD ($)">CAD ($)</option>
+                <option value="AUD ($)">AUD ($)</option>
+                <option value="JPY (¥)">JPY (¥)</option>
+                <option value="CNY (¥)">CNY (¥)</option>
+                <option value="AED (د.إ)">AED (د.إ)</option>
+                <option value="SAR (﷼)">SAR (﷼)</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Per Session Fee *</label><input type="number" id="perSessionFee" required step="0.01"></div><div class="form-group"><label>Total Sessions *</label><input type="number" id="totalSessions" required min="1"></div>
+          </div>
           <button type="submit" class="btn btn-primary">Add Student</button>
         </form>
       </div>
@@ -84,7 +131,32 @@
     </div>
 
     <div id="groupsTab" class="tab-content">
-      <div class="section"><h2>➕ Create New Group</h2><form id="createGroupForm"><div class="form-row"><div class="form-group"><label>Group Name *</label><input type="text" id="groupName" required></div><div class="form-group"><label>Program Name *</label><input type="text" id="groupProgram" required></div></div><div class="form-row"><div class="form-group"><label>Duration *</label><select id="groupDuration" required><option value="25 mins">25 mins</option><option value="60 mins">60 mins</option></select></div><div class="form-group"><label>Timezone *</label><select id="groupTimezone" required><option value="Asia/Kolkata">India (IST)</option><option value="Asia/Dhaka">Bangladesh (BST)</option></select></div><div class="form-group"><label>Max Students *</label><input type="number" id="groupMaxStudents" value="10" required></div></div><button type="submit" class="btn btn-primary">Create Group</button></form></div>
+      <div class="section"><h2>➕ Create New Group</h2><form id="createGroupForm">
+        <div class="form-row"><div class="form-group"><label>Group Name *</label><input type="text" id="groupName" required></div><div class="form-group"><label>Program Name *</label><input type="text" id="groupProgram" required></div></div>
+        <div class="form-row">
+            <div class="form-group"><label>Duration *</label>
+                <select id="groupDuration" required>
+                    <option value="25 mins">25 mins</option>
+                    <option value="30 mins">30 mins</option>
+                    <option value="40 mins">40 mins</option>
+                    <option value="45 mins">45 mins</option>
+                    <option value="60 mins">60 mins</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Timezone *</label>
+                <select id="groupTimezone" required>
+                    <option value="UTC">UTC</option>
+                    <option value="Asia/Kolkata">India (IST)</option>
+                    <option value="Asia/Dhaka">Bangladesh (BST)</option>
+                    <option value="America/New_York">USA (EST)</option>
+                    <option value="Europe/London">UK (GMT)</option>
+                    <option value="Asia/Tokyo">Japan (JST)</option>
+                    <option value="Australia/Sydney">Australia (AEDT)</option>
+                    <option value="Asia/Dubai">UAE (GST)</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Max Students *</label><input type="number" id="groupMaxStudents" value="10" required></div>
+        </div><button type="submit" class="btn btn-primary">Create Group</button></form></div>
       <div class="section"><h2>📋 All Groups</h2><table id="groupsTable"><thead><tr><th>Group Name</th><th>Program</th><th>Duration</th><th>Students</th><th>Max</th><th>Actions</th></tr></thead><tbody id="groupsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
     </div>
 
@@ -109,7 +181,17 @@
     </div>
 
     <div id="eventsTab" class="tab-content">
-      <div class="section"><h2>🎉 Create New Event</h2><form id="createEventForm"><div class="form-row"><div class="form-group"><label>Event Name *</label><input type="text" id="eventName" required></div><div class="form-group"><label>Event Duration *</label><input type="text" id="eventDuration" required></div></div><div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="eventDate" required></div><div class="form-group"><label>Time (IST) *</label><input type="time" id="eventTime" required></div></div><button type="submit" class="btn btn-primary">Create Event</button></form></div>
+      <div class="section"><h2>🎉 Create New Event</h2><form id="createEventForm">
+        <div class="form-row"><div class="form-group"><label>Event Name *</label><input type="text" id="eventName" required></div><div class="form-group"><label>Event Duration *</label>
+            <select id="eventDuration" required>
+                <option value="25 mins">25 mins</option>
+                <option value="30 mins">30 mins</option>
+                <option value="40 mins">40 mins</option>
+                <option value="45 mins">45 mins</option>
+                <option value="60 mins">60 mins</option>
+            </select>
+        </div></div>
+        <div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="eventDate" required></div><div class="form-group"><label>Time (IST) *</label><input type="time" id="eventTime" required></div></div><button type="submit" class="btn btn-primary">Create Event</button></form></div>
       <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date</th><th>Time</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
     </div>
     
@@ -158,8 +240,19 @@
 
     document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const data = { name: document.getElementById('studentName').value, grade: document.getElementById('grade').value, parent_name: document.getElementById('parentName').value, parent_email: document.getElementById('parentEmail').value, primary_contact: document.getElementById('primaryContact').value, timezone: document.getElementById('timezone').value, program_name: document.getElementById('programName').value, class_type: document.getElementById('classType').value, duration: document.getElementById('duration').value, currency: document.getElementById('currency').value, per_session_fee: parseFloat(document.getElementById('perSessionFee').value), total_sessions: parseInt(document.getElementById('totalSessions').value) };
-      try { const res = await fetch('/api/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (res.ok) { alert('✅ Student added'); e.target.reset(); loadStudents(); loadDashboardStats(); } else alert('❌ Failed'); } catch (err) { alert('❌ Error'); }
+      const data = { name: document.getElementById('studentName').value, grade: document.getElementById('grade').value, parent_name: document.getElementById('parentName').value, parent_email: document.getElementById('parentEmail').value, primary_contact: document.getElementById('primaryContact').value, timezone: document.getElementById('timezone').value, program_name: document.getElementById('programName').value, class_type: document.getElementById('classType').value, duration: document.getElementById('duration').value, currency: document.getElementById('currency').value.split(' ')[0], per_session_fee: parseFloat(document.getElementById('perSessionFee').value), total_sessions: parseInt(document.getElementById('totalSessions').value) };
+      try { 
+        const res = await fetch('/api/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); 
+        const result = await res.json();
+        if (res.ok) { 
+          alert(`✅ Student added. ${result.emailSent ? 'Welcome Email Sent.' : '⚠️ Email skipped (Check API Key).'}`); 
+          e.target.reset(); 
+          loadStudents(); 
+          loadDashboardStats(); 
+        } else { 
+          alert('❌ Failed: ' + (result.error || 'Unknown error')); 
+        } 
+      } catch (err) { alert('❌ Error'); }
     });
 
     function addScheduleRow() {
