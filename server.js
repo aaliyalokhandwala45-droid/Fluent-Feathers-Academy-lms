@@ -105,49 +105,234 @@ async function initializeDatabase() {
   try {
     await client.query('BEGIN');
     
-    // 1. Create Tables IF NOT EXISTS
-    await client.query(`CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, name TEXT NOT NULL, grade TEXT NOT NULL, parent_name TEXT NOT NULL, parent_email TEXT NOT NULL, primary_contact TEXT, alternate_contact TEXT, timezone TEXT DEFAULT 'Asia/Kolkata', program_name TEXT, class_type TEXT, duration TEXT, currency TEXT DEFAULT '₹', per_session_fee DECIMAL(10,2), total_sessions INTEGER DEFAULT 0, completed_sessions INTEGER DEFAULT 0, remaining_sessions INTEGER DEFAULT 0, fees_paid DECIMAL(10,2) DEFAULT 0, group_id INTEGER, group_name TEXT, is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    console.log('🔧 Dropping existing tables for clean setup...');
+    // Drop tables in correct order (reverse of creation due to foreign keys)
+    await client.query('DROP TABLE IF EXISTS email_log CASCADE');
+    await client.query('DROP TABLE IF EXISTS event_registrations CASCADE');
+    await client.query('DROP TABLE IF EXISTS events CASCADE');
+    await client.query('DROP TABLE IF EXISTS payment_history CASCADE');
+    await client.query('DROP TABLE IF EXISTS makeup_classes CASCADE');
+    await client.query('DROP TABLE IF EXISTS materials CASCADE');
+    await client.query('DROP TABLE IF EXISTS session_attendance CASCADE');
+    await client.query('DROP TABLE IF EXISTS sessions CASCADE');
+    await client.query('DROP TABLE IF EXISTS groups CASCADE');
+    await client.query('DROP TABLE IF EXISTS students CASCADE');
+    await client.query('DROP TABLE IF EXISTS parent_credentials CASCADE');
     
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_student ON sessions(student_id)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)`);
+    console.log('✅ Old tables dropped');
     
-    await client.query(`CREATE TABLE IF NOT EXISTS groups (id SERIAL PRIMARY KEY, group_name TEXT NOT NULL, program_name TEXT NOT NULL, duration TEXT NOT NULL, timezone TEXT DEFAULT 'Asia/Kolkata', max_students INTEGER DEFAULT 10, current_students INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    // 1. Create Tables with ALL required columns from the start
+    console.log('🔧 Creating students table...');
+    await client.query(`
+      CREATE TABLE students (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        grade TEXT NOT NULL,
+        parent_name TEXT NOT NULL,
+        parent_email TEXT NOT NULL,
+        primary_contact TEXT,
+        alternate_contact TEXT,
+        timezone TEXT DEFAULT 'Asia/Kolkata',
+        program_name TEXT,
+        class_type TEXT,
+        duration TEXT,
+        currency TEXT DEFAULT '₹',
+        per_session_fee DECIMAL(10,2),
+        total_sessions INTEGER DEFAULT 0,
+        completed_sessions INTEGER DEFAULT 0,
+        remaining_sessions INTEGER DEFAULT 0,
+        fees_paid DECIMAL(10,2) DEFAULT 0,
+        group_id INTEGER,
+        group_name TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS sessions (id SERIAL PRIMARY KEY, student_id INTEGER, group_id INTEGER, session_type TEXT DEFAULT 'Private', session_number INTEGER NOT NULL, session_date DATE NOT NULL, session_time TIME NOT NULL, status TEXT DEFAULT 'Pending', attendance TEXT, cancelled_by TEXT, zoom_link TEXT, teacher_notes TEXT, ppt_file_path TEXT, recording_file_path TEXT, homework_file_path TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE, FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE)`);
+    console.log('🔧 Creating groups table...');
+    await client.query(`
+      CREATE TABLE groups (
+        id SERIAL PRIMARY KEY,
+        group_name TEXT NOT NULL,
+        program_name TEXT NOT NULL,
+        duration TEXT NOT NULL,
+        timezone TEXT DEFAULT 'Asia/Kolkata',
+        max_students INTEGER DEFAULT 10,
+        current_students INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS session_attendance (id SERIAL PRIMARY KEY, session_id INTEGER NOT NULL, student_id INTEGER NOT NULL, attendance TEXT DEFAULT 'Pending', homework_grade TEXT, homework_comments TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE, FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE, UNIQUE(session_id, student_id))`);
+    console.log('🔧 Creating sessions table...');
+    await client.query(`
+      CREATE TABLE sessions (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER,
+        group_id INTEGER,
+        session_type TEXT DEFAULT 'Private',
+        session_number INTEGER NOT NULL,
+        session_date DATE NOT NULL,
+        session_time TIME NOT NULL,
+        status TEXT DEFAULT 'Pending',
+        attendance TEXT,
+        cancelled_by TEXT,
+        zoom_link TEXT,
+        teacher_notes TEXT,
+        ppt_file_path TEXT,
+        recording_file_path TEXT,
+        homework_file_path TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS materials (id SERIAL PRIMARY KEY, student_id INTEGER, group_id INTEGER, session_id INTEGER, session_date DATE NOT NULL, file_type TEXT NOT NULL, file_name TEXT NOT NULL, file_path TEXT NOT NULL, uploaded_by TEXT NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, feedback_grade TEXT, feedback_comments TEXT, feedback_given INTEGER DEFAULT 0, feedback_date TIMESTAMP, FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE, FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE, FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE)`);
+    console.log('🔧 Creating session_attendance table...');
+    await client.query(`
+      CREATE TABLE session_attendance (
+        id SERIAL PRIMARY KEY,
+        session_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        attendance TEXT DEFAULT 'Pending',
+        homework_grade TEXT,
+        homework_comments TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        UNIQUE(session_id, student_id)
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS makeup_classes (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL, original_session_id INTEGER, reason TEXT NOT NULL, credit_date DATE NOT NULL, status TEXT DEFAULT 'Available', used_date DATE, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE)`);
+    console.log('🔧 Creating materials table...');
+    await client.query(`
+      CREATE TABLE materials (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER,
+        group_id INTEGER,
+        session_id INTEGER,
+        session_date DATE NOT NULL,
+        file_type TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        uploaded_by TEXT NOT NULL,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        feedback_grade TEXT,
+        feedback_comments TEXT,
+        feedback_given INTEGER DEFAULT 0,
+        feedback_date TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS payment_history (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL, payment_date DATE NOT NULL, amount DECIMAL(10,2) NOT NULL, currency TEXT NOT NULL, payment_method TEXT NOT NULL, receipt_number TEXT, sessions_covered TEXT, payment_status TEXT DEFAULT 'Paid', notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE)`);
+    console.log('🔧 Creating makeup_classes table...');
+    await client.query(`
+      CREATE TABLE makeup_classes (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        original_session_id INTEGER,
+        reason TEXT NOT NULL,
+        credit_date DATE NOT NULL,
+        status TEXT DEFAULT 'Available',
+        used_date DATE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS events (id SERIAL PRIMARY KEY, event_name TEXT NOT NULL, event_description TEXT, event_date DATE NOT NULL, event_time TIME NOT NULL, event_duration TEXT, target_audience TEXT DEFAULT 'All', specific_grades TEXT, zoom_link TEXT, max_participants INTEGER, current_participants INTEGER DEFAULT 0, status TEXT DEFAULT 'Active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    console.log('🔧 Creating payment_history table...');
+    await client.query(`
+      CREATE TABLE payment_history (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        payment_date DATE NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        currency TEXT NOT NULL,
+        payment_method TEXT NOT NULL,
+        receipt_number TEXT,
+        sessions_covered TEXT,
+        payment_status TEXT DEFAULT 'Paid',
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS event_registrations (id SERIAL PRIMARY KEY, event_id INTEGER NOT NULL, student_id INTEGER NOT NULL, registration_method TEXT DEFAULT 'Parent', attendance TEXT DEFAULT 'Pending', registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE, FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE, UNIQUE(event_id, student_id))`);
+    console.log('🔧 Creating events table...');
+    await client.query(`
+      CREATE TABLE events (
+        id SERIAL PRIMARY KEY,
+        event_name TEXT NOT NULL,
+        event_description TEXT,
+        event_date DATE NOT NULL,
+        event_time TIME NOT NULL,
+        event_duration TEXT,
+        target_audience TEXT DEFAULT 'All',
+        specific_grades TEXT,
+        zoom_link TEXT,
+        max_participants INTEGER,
+        current_participants INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'Active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS email_log (id SERIAL PRIMARY KEY, recipient_name TEXT NOT NULL, recipient_email TEXT NOT NULL, email_type TEXT NOT NULL, subject TEXT NOT NULL, status TEXT NOT NULL, sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    console.log('🔧 Creating event_registrations table...');
+    await client.query(`
+      CREATE TABLE event_registrations (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        registration_method TEXT DEFAULT 'Parent',
+        attendance TEXT DEFAULT 'Pending',
+        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        UNIQUE(event_id, student_id)
+      )
+    `);
     
-    await client.query(`CREATE TABLE IF NOT EXISTS parent_credentials (id SERIAL PRIMARY KEY, parent_email TEXT UNIQUE NOT NULL, password TEXT, otp TEXT, otp_expiry TIMESTAMP, otp_attempts INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, last_login TIMESTAMP)`);
+    console.log('🔧 Creating email_log table...');
+    await client.query(`
+      CREATE TABLE email_log (
+        id SERIAL PRIMARY KEY,
+        recipient_name TEXT NOT NULL,
+        recipient_email TEXT NOT NULL,
+        email_type TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        status TEXT NOT NULL,
+        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    console.log('🔧 Creating parent_credentials table...');
+    await client.query(`
+      CREATE TABLE parent_credentials (
+        id SERIAL PRIMARY KEY,
+        parent_email TEXT UNIQUE NOT NULL,
+        password TEXT,
+        otp TEXT,
+        otp_expiry TIMESTAMP,
+        otp_attempts INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP
+      )
+    `);
 
-    // 2. MIGRATIONS: Fix Column Errors (Robust Fix for Render)
-    
-    // Students Table
-    try { await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`); } catch(e) {}
-    try { await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS group_id INTEGER`); } catch(e) {}
-    try { await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS group_name TEXT`); } catch(e) {}
-
-    // Sessions Table (Critical fix for group_id errors in queries)
-    try { await client.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS group_id INTEGER`); } catch(e) {}
-    try { await client.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS session_type TEXT DEFAULT 'Private'`); } catch(e) {}
+    // Create indexes
+    console.log('🔧 Creating indexes...');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_student ON sessions(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)');
 
     await client.query('COMMIT');
-    console.log('✅ Database initialized securely');
+    console.log('✅ Database initialized successfully with all tables and columns');
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('❌ DB Error:', err);
+    console.error('❌ Database initialization error:', err);
+    throw err;
   } finally {
     client.release();
   }
