@@ -344,8 +344,63 @@
     function closeStudentModal() { document.getElementById('studentModal').classList.remove('active'); }
     function closeSessionModal() { document.getElementById('sessionModal').classList.remove('active'); }
     function deleteGroup(id) { if(confirm('Delete group?')) fetch(`/api/groups/${id}`, {method:'DELETE'}).then(()=>loadGroups()); }
-    function openStudentModal(id) { currentStudentId = id; document.getElementById('studentModal').classList.add('active'); document.getElementById('modalStudentName').textContent = 'Student Details'; document.getElementById('studentInfoContent').innerHTML = 'Loading details...'; }
+    async function openStudentModal(id) { 
+  currentStudentId = id; 
+  const student = allStudents.find(s => s.id == id);
+  
+  if (!student) {
+    alert('Student not found');
+    return;
+  }
+  
+  document.getElementById('modalStudentName').textContent = student.name;
+  
+  // Build info display
+  const infoHTML = `
+    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3 style="color: #667eea; margin-bottom: 15px;">Basic Information</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div><strong>Name:</strong> ${student.name}</div>
+        <div><strong>Grade:</strong> ${student.grade}</div>
+        <div><strong>Parent:</strong> ${student.parent_name}</div>
+        <div><strong>Email:</strong> ${student.parent_email}</div>
+        <div><strong>Contact:</strong> ${student.primary_contact || 'N/A'}</div>
+        <div><strong>Timezone:</strong> ${student.timezone}</div>
+      </div>
+    </div>
     
+    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3 style="color: #667eea; margin-bottom: 15px;">Program Details</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div><strong>Program:</strong> ${student.program_name}</div>
+        <div><strong>Type:</strong> ${student.class_type}</div>
+        <div><strong>Duration:</strong> ${student.duration}</div>
+        <div><strong>Fee per Session:</strong> ${student.currency} ${student.per_session_fee}</div>
+      </div>
+    </div>
+    
+    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3 style="color: #667eea; margin-bottom: 15px;">Session Statistics</h3>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+        <div><strong>Total:</strong> ${student.total_sessions}</div>
+        <div><strong>Completed:</strong> <span style="color: #38a169;">${student.completed_sessions}</span></div>
+        <div><strong>Remaining:</strong> <span style="color: #e53e3e;">${student.remaining_sessions}</span></div>
+        <div><strong>Makeup Credits:</strong> ${student.makeup_credits || 0}</div>
+      </div>
+    </div>
+    
+    <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
+      <h3 style="color: #667eea; margin-bottom: 15px;">Financial Summary</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div><strong>Total Paid:</strong> ${student.currency} ${student.fees_paid || 0}</div>
+        <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('studentInfoContent').innerHTML = infoHTML;
+  document.getElementById('studentModal').classList.add('active'); 
+}
     function handleScheduleTypeChange() { const type = document.getElementById('scheduleType').value; document.getElementById('schedulePrivateForm').style.display = type === 'private' ? 'block' : 'none'; document.getElementById('scheduleGroupForm').style.display = type === 'group' ? 'block' : 'none'; if(type==='group' && document.getElementById('groupClassScheduleList').children.length===0) addGroupScheduleRow(); }
     function addGroupScheduleRow() { const container = document.getElementById('groupClassScheduleList'); const row = document.createElement('div'); row.className = 'schedule-row'; row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>`; container.appendChild(row); }
     function uploadMaterial(id, type) { const inp = document.getElementById(type==='ppt'?'pptFile':type==='recording'?'recFile':'hwFile'); if(inp.files[0]) { const fd=new FormData(); fd.append('file', inp.files[0]); fd.append('materialType', type); fetch(`/api/sessions/${id}/upload`, {method:'POST', body:fd}).then(()=>alert('Uploaded')); } }

@@ -24,11 +24,14 @@
     .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .btn-primary { background: #667eea; color: white; width: 100%; }
     .btn-danger { background: #e53e3e; color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
     th { background: #f7fafc; color: #4a5568; font-weight: 600; }
     .zoom-btn { display: block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; text-decoration: none; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; }
     #studentSelector { margin-bottom: 20px; padding: 20px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; text-align: center; display: none; }
+    .makeup-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+    .makeup-card h3 { margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -60,6 +63,12 @@
         </div>
       </div>
 
+      <div id="makeupCreditCard" class="makeup-card" style="display: none;">
+        <h3>🎁 Makeup Credits Available</h3>
+        <div style="font-size: 2rem; font-weight: bold;" id="makeupCount">0</div>
+        <p style="opacity: 0.9;">Contact your teacher to schedule makeup classes</p>
+      </div>
+
       <div class="tabs">
         <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
         <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
@@ -70,11 +79,11 @@
       <div id="upcomingTab" class="tab-content active">
         <a id="zoomLink" target="_blank" class="zoom-btn" style="display:none;">🎥 Join Zoom Class</a>
         <div class="section"><h2>🚫 Cancel Class</h2><p style="color: #718096; margin-bottom: 20px;">Note: Cannot cancel less than 2 hours before class.</p><form id="cancelClassForm"><div class="form-group"><label>Select Class</label><select id="cancelClassSelect" required></select></div><button type="submit" class="btn btn-danger">Cancel Class</button></form></div>
-        <div class="section"><h2>📅 Schedule</h2><table id="upcomingTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th></tr></thead><tbody id="upcomingBody"><tr><td>Loading...</td></tr></tbody></table></div>
+        <div class="section"><h2>📅 Schedule</h2><table id="upcomingTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th></tr></thead><tbody id="upcomingBody"><tr><td colspan="3">Loading...</td></tr></tbody></table></div>
       </div>
 
       <div id="pastTab" class="tab-content">
-        <div class="section"><h2>📚 Completed Classes</h2><table id="pastTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th></tr></thead><tbody id="pastBody"><tr><td>Loading...</td></tr></tbody></table></div>
+        <div class="section"><h2>📚 Completed Classes</h2><table id="pastTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th></tr></thead><tbody id="pastBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div>
       </div>
 
       <div id="homeworkTab" class="tab-content">
@@ -82,7 +91,7 @@
       </div>
 
       <div id="eventsTab" class="tab-content">
-        <div class="section"><h2>🎉 Events</h2><div id="eventsContainer"></div></div>
+        <div class="section"><h2>🎉 Events</h2><div id="eventsContainer">Loading...</div></div>
       </div>
     </div>
   </div>
@@ -98,12 +107,53 @@
 
     function toLocalTime(dateStr, timeStr, tz) {
       try {
-        const d = new Date(`${dateStr}T${timeStr}Z`);
-        return {
-          date: d.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' }),
-          time: d.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true })
-        };
-      } catch(e) { return { date: dateStr, time: timeStr }; }
+        if (!dateStr || !timeStr) {
+          console.error('Missing date or time:', dateStr, timeStr);
+          return { date: 'Invalid Date', time: 'Invalid Time' };
+        }
+
+        // Handle date format
+        const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+        
+        // Handle time format - ensure it has seconds
+        let cleanTime = timeStr.trim();
+        if (cleanTime.length === 5) cleanTime += ':00';
+        if (cleanTime.length === 8 && !cleanTime.includes('.')) {
+          // Time is in HH:MM:SS format
+        } else if (cleanTime.includes('.')) {
+          // Time has microseconds, truncate them
+          cleanTime = cleanTime.split('.')[0];
+        }
+
+        // Create UTC ISO string
+        const isoString = `${cleanDate}T${cleanTime}Z`;
+        const utcDate = new Date(isoString);
+
+        if (isNaN(utcDate.getTime())) {
+          console.error('Invalid date created:', isoString);
+          return { date: cleanDate, time: cleanTime };
+        }
+
+        // Convert to local timezone
+        const localDate = utcDate.toLocaleDateString('en-US', { 
+          timeZone: tz || 'Asia/Kolkata', 
+          month: 'short', 
+          day: 'numeric', 
+          year: 'numeric' 
+        });
+
+        const localTime = utcDate.toLocaleTimeString('en-US', { 
+          timeZone: tz || 'Asia/Kolkata', 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          hour12: true 
+        });
+
+        return { date: localDate, time: localTime };
+      } catch(e) { 
+        console.error('Error in toLocalTime:', e, 'Date:', dateStr, 'Time:', timeStr);
+        return { date: dateStr, time: timeStr }; 
+      }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -135,10 +185,14 @@
         try {
           const res = await fetch('/api/parent/check-email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
           const data = await res.json();
+          if (!res.ok) {
+            alert(data.error || 'Email not found');
+            return;
+          }
           document.getElementById('emailForm').style.display = 'none';
           if (data.hasPassword) document.getElementById('passwordForm').style.display = 'block';
           else document.getElementById('otpForm').style.display = 'block';
-        } catch (err) { alert('Error'); }
+        } catch (err) { alert('Error checking email'); }
       });
 
       document.getElementById('passwordForm').addEventListener('submit', async (e) => {
@@ -150,7 +204,7 @@
           const data = await res.json();
           if (res.ok) handleMultipleStudents(data.students);
           else alert(data.error);
-        } catch (err) { alert('Error'); }
+        } catch (err) { alert('Login error'); }
       });
 
       document.getElementById('otpForm').addEventListener('submit', async (e) => {
@@ -162,14 +216,16 @@
           const data = await res.json();
           if (res.ok) handleMultipleStudents(data.students);
           else alert(data.error);
-        } catch (err) { alert('Error'); }
+        } catch (err) { alert('OTP verification error'); }
       });
     }
 
     function handleMultipleStudents(students) {
       allMyStudents = students;
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('dashboardSection').style.display = 'block';
+      
       if (students.length > 1) {
-        document.getElementById('loginSection').style.display = 'none';
         document.getElementById('studentSelector').style.display = 'block';
         const sel = document.getElementById('childSelect');
         sel.innerHTML = '<option value="">Select Child...</option>' + students.map(s => `<option value="${s.id}">${s.name} (${s.grade})</option>`).join('');
@@ -183,17 +239,20 @@
         });
       } else {
         currentStudent = students[0];
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('dashboardSection').style.display = 'block';
         showDashboard();
       }
     }
     
     async function sendOTP() {
       const email = document.getElementById('parentEmail').value.trim();
-      await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
-      document.getElementById('otpSendSection').style.display = 'none';
-      document.getElementById('otpVerifySection').style.display = 'block';
+      try {
+        await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+        document.getElementById('otpSendSection').style.display = 'none';
+        document.getElementById('otpVerifySection').style.display = 'block';
+        alert('OTP sent to your email');
+      } catch(e) {
+        alert('Error sending OTP');
+      }
     }
 
     function showTab(name, e) {
@@ -203,6 +262,7 @@
       document.getElementById(name+'Tab').classList.add('active');
       if(e) e.target.classList.add('active');
       if(name === 'homework') loadHomeworkSessions();
+      if(name === 'events') loadEvents();
     }
 
     function showDashboard() {
@@ -210,7 +270,27 @@
       document.getElementById('displayGrade').textContent = currentStudent.grade;
       document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
       document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
-      loadUpcoming(); loadPast(); loadEvents(); loadCancelDropdown();
+      loadMakeupCredits();
+      loadUpcoming(); 
+      loadPast(); 
+      loadCancelDropdown();
+    }
+
+    async function loadMakeupCredits() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/makeup-credits`, { headers: authHeaders() });
+        const credits = await res.json();
+        const count = credits.length || 0;
+        
+        if (count > 0) {
+          document.getElementById('makeupCreditCard').style.display = 'block';
+          document.getElementById('makeupCount').textContent = count;
+        } else {
+          document.getElementById('makeupCreditCard').style.display = 'none';
+        }
+      } catch(e) {
+        console.error('Error loading makeup credits:', e);
+      }
     }
 
     async function loadUpcoming() {
@@ -218,22 +298,31 @@
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
         const today = new Date().toISOString().split('T')[0];
-        const upcoming = sessions.filter(s => s.session_date >= today && s.status !== 'Cancelled');
-        const tbody = document.getElementById('upcomingBody');
+        const upcoming = sessions.filter(s => {
+          if (!s.session_date) return false;
+          return s.session_date >= today && !['Cancelled', 'Completed', 'Missed'].includes(s.status);
+        });
         
+        const tbody = document.getElementById('upcomingBody');
         const zoomBtn = document.getElementById('zoomLink');
-        if (upcoming.length > 0) {
-             zoomBtn.href = upcoming[0].zoom_link || 'https://zoom.us';
-             zoomBtn.style.display = 'block';
-        } else {
-             zoomBtn.style.display = 'none';
+        
+        if (upcoming.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
+          zoomBtn.style.display = 'none';
+          return;
         }
+
+        zoomBtn.href = upcoming[0].zoom_link || 'https://zoom.us';
+        zoomBtn.style.display = 'block';
 
         tbody.innerHTML = upcoming.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
           return `<tr><td>#${s.session_number}</td><td>${t.date}</td><td><strong style="color:#667eea">${t.time}</strong></td></tr>`;
         }).join('');
-      } catch(e) {}
+      } catch(e) {
+        console.error('Error loading upcoming:', e);
+        document.getElementById('upcomingBody').innerHTML = '<tr><td colspan="3">Error loading sessions</td></tr>';
+      }
     }
 
     async function loadPast() {
@@ -241,13 +330,25 @@
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
         const today = new Date().toISOString().split('T')[0];
-        const past = sessions.filter(s => s.session_date < today || ['Completed', 'Missed'].includes(s.status));
+        const past = sessions.filter(s => {
+          if (!s.session_date) return false;
+          return s.session_date < today || ['Completed', 'Missed'].includes(s.status);
+        });
+        
         const tbody = document.getElementById('pastBody');
+        
+        if (past.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #718096;">No past classes</td></tr>';
+          return;
+        }
+
         tbody.innerHTML = past.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-          return `<tr><td>#${s.session_number}</td><td>${t.date}</td><td>${t.time}</td><td>${s.attendance||'-'}</td><td>${s.ppt_file_path?'📊':''} ${s.recording_file_path?'🎥':''}</td></tr>`;
+          return `<tr><td>#${s.session_number}</td><td>${t.date}</td><td>${t.time}</td><td>${s.status||'-'}</td><td>${s.ppt_file_path?'📊':''} ${s.recording_file_path?'🎥':''} ${s.homework_file_path?'📝':''}</td></tr>`;
         }).join('');
-      } catch(e) {}
+      } catch(e) {
+        console.error('Error loading past:', e);
+      }
     }
 
     async function loadHomeworkSessions() {
@@ -256,8 +357,19 @@
         const sessions = await res.json();
         const completed = sessions.filter(s => s.status === 'Completed');
         const sel = document.getElementById('homeworkSessionSelect');
-        sel.innerHTML = '<option value="">Select Session...</option>' + completed.map(s => `<option value="${s.id}">Session #${s.session_number} - ${s.session_date}</option>`).join('');
-      } catch(e) {}
+        
+        if (completed.length === 0) {
+          sel.innerHTML = '<option value="">No completed sessions yet</option>';
+          return;
+        }
+
+        sel.innerHTML = '<option value="">Select Session...</option>' + completed.map(s => {
+          const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          return `<option value="${s.id}">Session #${s.session_number} - ${t.date}</option>`;
+        }).join('');
+      } catch(e) {
+        console.error('Error loading homework sessions:', e);
+      }
     }
 
     async function loadCancelDropdown() {
@@ -265,7 +377,11 @@
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
         const today = new Date().toISOString().split('T')[0];
-        const upcoming = sessions.filter(s => s.session_date >= today && s.status === 'Pending');
+        const upcoming = sessions.filter(s => {
+          if (!s.session_date) return false;
+          return s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled');
+        });
+        
         const sel = document.getElementById('cancelClassSelect');
         
         if (upcoming.length === 0) {
@@ -277,25 +393,46 @@
             const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
             return `<option value="${s.id}">Session #${s.session_number} - ${t.date} at ${t.time}</option>`;
         }).join('');
-      } catch(e) {}
+      } catch(e) {
+        console.error('Error loading cancel dropdown:', e);
+      }
     }
 
     document.getElementById('cancelClassForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const sid = document.getElementById('cancelClassSelect').value;
-      if(!sid) return alert('Select class');
+      if(!sid) return alert('Please select a class to cancel');
+      
+      if (!confirm('Are you sure you want to cancel this class? You will receive a makeup credit.')) return;
+      
       try {
-        const res = await fetch('/api/parent/cancel-class', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ student_id: currentStudent.id, session_id: sid }) });
-        if(res.ok) { alert('Cancelled'); loadUpcoming(); loadCancelDropdown(); }
-        else alert((await res.json()).error);
-      } catch(e) { alert('Error'); }
+        const res = await fetch('/api/parent/cancel-class', { 
+          method: 'POST', 
+          headers: {...authHeaders(), 'Content-Type':'application/json'}, 
+          body: JSON.stringify({ student_id: currentStudent.id, session_id: sid }) 
+        });
+        
+        const data = await res.json();
+        
+        if(res.ok) { 
+          alert(data.message || 'Class cancelled successfully! Makeup credit added.'); 
+          loadUpcoming(); 
+          loadCancelDropdown(); 
+          loadMakeupCredits();
+        } else {
+          alert(data.error || 'Cannot cancel this class');
+        }
+      } catch(e) { 
+        console.error('Cancel error:', e);
+        alert('Error cancelling class'); 
+      }
     });
 
     document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const sid = document.getElementById('homeworkSessionSelect').value;
       const file = document.getElementById('homeworkFile').files[0];
-      if(!sid || !file) return alert('Fill all fields');
+      if(!sid || !file) return alert('Please fill all fields');
       
       const fd = new FormData();
       fd.append('file', file);
@@ -303,38 +440,76 @@
       fd.append('uploadType', 'homework');
 
       try {
-        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, { method: 'POST', body: fd });
-        if(res.ok) { alert('Uploaded'); e.target.reset(); }
-        else alert('Error');
-      } catch(e) { alert('Error'); }
+        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, { 
+          method: 'POST', 
+          headers: authHeaders(),
+          body: fd 
+        });
+        
+        if(res.ok) { 
+          alert('Homework uploaded successfully!'); 
+          e.target.reset(); 
+        } else {
+          alert('Error uploading homework');
+        }
+      } catch(e) { 
+        console.error('Upload error:', e);
+        alert('Error uploading homework'); 
+      }
     });
 
     async function loadEvents() {
       try {
         const res = await fetch(`/api/events/student/${currentStudent.id}`, { headers: authHeaders() });
         const events = await res.json();
-        document.getElementById('eventsContainer').innerHTML = events.map(e => {
+        
+        const container = document.getElementById('eventsContainer');
+        
+        if (events.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No upcoming events</p>';
+          return;
+        }
+
+        container.innerHTML = events.map(e => {
           const t = toLocalTime(e.event_date, e.event_time, currentStudent.timezone);
           return `
           <div style="background:white; border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:8px;">
-            <h3>${e.event_name}</h3>
-            <p>Date: ${t.date} | Time: ${t.time}</p>
-            ${!e.is_registered ? `<button onclick="registerEvent(${e.id})" class="btn btn-primary" style="margin-top:5px;">Register</button>` : '<span style="color:green">Registered</span>'}
+            <h3 style="color: #667eea; margin-bottom: 10px;">${e.event_name}</h3>
+            <p style="margin-bottom: 10px;">${e.event_description || ''}</p>
+            <p><strong>📅 Date:</strong> ${t.date} | <strong>🕐 Time:</strong> ${t.time}</p>
+            ${!e.is_registered ? `<button onclick="registerEvent(${e.id})" class="btn btn-primary" style="margin-top:10px; width: auto; padding: 10px 20px;">Register Now</button>` : '<span style="color:green; font-weight: bold;">✓ Registered</span>'}
           </div>`;
         }).join('');
-      } catch(e) {}
+      } catch(e) {
+        console.error('Error loading events:', e);
+        document.getElementById('eventsContainer').innerHTML = '<p>Error loading events</p>';
+      }
     }
 
     async function registerEvent(eid) {
       try {
-        const res = await fetch(`/api/events/${eid}/register`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ student_id: currentStudent.id }) });
-        if(res.ok) { alert('Registered'); loadEvents(); }
-        else alert((await res.json()).error);
-      } catch(e) {}
+        const res = await fetch(`/api/events/${eid}/register`, { 
+          method: 'POST', 
+          headers: {...authHeaders(), 'Content-Type':'application/json'}, 
+          body: JSON.stringify({ student_id: currentStudent.id }) 
+        });
+        
+        const data = await res.json();
+        
+        if(res.ok) { 
+          alert(data.message || 'Successfully registered for event!'); 
+          loadEvents(); 
+        } else {
+          alert(data.error || 'Registration failed');
+        }
+      } catch(e) {
+        console.error('Registration error:', e);
+        alert('Error registering for event');
+      }
     }
 
     function logout() {
-      if(confirm('Logout?')) {
+      if(confirm('Are you sure you want to logout?')) {
         sessionStorage.removeItem('adminParentToken');
         sessionStorage.removeItem('parentViewStudent');
         sessionStorage.removeItem('parentViewMode');

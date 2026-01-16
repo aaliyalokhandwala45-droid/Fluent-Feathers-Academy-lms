@@ -421,8 +421,58 @@ app.post('/api/groups', async (req, res) => { const { group_name, program_name, 
 
 app.delete('/api/groups/:id', async (req, res) => { const client = await pool.connect(); try { await client.query('BEGIN'); await client.query('DELETE FROM session_attendance WHERE session_id IN (SELECT id FROM sessions WHERE group_id = $1)', [req.params.id]); await client.query('DELETE FROM sessions WHERE group_id = $1', [req.params.id]); await client.query('DELETE FROM groups WHERE id = $1', [req.params.id]); await client.query('COMMIT'); res.json({ success: true }); } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); } });
 
-app.post('/api/schedule/private-classes', async (req, res) => { const client = await pool.connect(); try { const { student_id, classes } = req.body; const student = (await client.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0]; if(!student) return res.status(404).json({ error: 'Student not found' }); if(student.remaining_sessions < classes.length) return res.status(400).json({ error: 'Not enough sessions' }); const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id])).rows[0].count; let sessionNumber = parseInt(count)+1; await client.query('BEGIN'); for(const cls of classes) { if(!cls.date || !cls.time) continue; const utc = istToUTC(cls.date, cls.time); await client.query(`INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, zoom_link, status) VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Pending')`, [student_id, sessionNumber, utc.date, utc.time, DEFAULT_ZOOM]); sessionNumber++; } await client.query('COMMIT'); res.json({ success: true }); } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); } });
-
+// Replace the existing /api/schedule/private-classes endpoint with this:
+app.post('/api/schedule/private-classes', async (req, res) => { 
+  const client = await pool.connect(); 
+  try { 
+    const { student_id, classes } = req.body; 
+    const student = (await client.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0]; 
+    if(!student) return res.status(404).json({ error: 'Student not found' }); 
+    if(student.remaining_sessions < classes.length) return res.status(400).json({ error: 'Not enough sessions' }); 
+    
+    const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id])).rows[0].count; 
+    let sessionNumber = parseInt(count)+1; 
+    
+    await client.query('BEGIN'); 
+    
+    const scheduledSessions = [];
+    for(const cls of classes) { 
+      if(!cls.date || !cls.time) continue; 
+      const utc = istToUTC(cls.date, cls.time); 
+      await client.query(`INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, zoom_link, status) VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Pending')`, [student_id, sessionNumber, utc.date, utc.time, DEFAULT_ZOOM]); 
+      
+      // Store for email
+      const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
+      scheduledSessions.push(`<tr style="border-bottom:1px solid #ddd;"><td style="padding:10px;">#${sessionNumber}</td><td style="padding:10px;">${display.date}</td><td style="padding:10px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+      
+      sessionNumber++; 
+    } 
+    
+    await client.query('COMMIT'); 
+    
+    // Send Schedule Email
+    const scheduleHTML = getScheduleEmail({
+      parent_name: student.parent_name,
+      student_name: student.name,
+      schedule_rows: scheduledSessions.join('')
+    });
+    
+    await sendEmail(
+      student.parent_email, 
+      `📅 Schedule for ${student.name}`, 
+      scheduleHTML, 
+      student.parent_name, 
+      'Schedule'
+    );
+    
+    res.json({ success: true, message: 'Classes scheduled and email sent!' }); 
+  } catch (err) { 
+    await client.query('ROLLBACK'); 
+    res.status(500).json({ error: err.message }); 
+  } finally { 
+    client.release(); 
+  } 
+});
 app.post('/api/schedule/group-classes', async (req, res) => { const client = await pool.connect(); try { const { group_id, classes } = req.body; const group = (await client.query('SELECT * FROM groups WHERE id = $1', [group_id])).rows[0]; if(!group) return res.status(404).json({ error: 'Group not found' }); if(group.current_students >= group.max_students) return res.status(400).json({ error: 'Group full' }); const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [group_id])).rows[0].count; let sessionNumber = parseInt(count)+1; await client.query('BEGIN'); for(const cls of classes) { if(!cls.date || !cls.time) continue; const utc = istToUTC(cls.date, cls.time); const r = await client.query(`INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, zoom_link, status) VALUES ($1, 'Group', $2, $3::date, $4::time, $5, 'Pending') RETURNING id`, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_ZOOM]); const sessionId = r.rows[0].id; const students = await client.query('SELECT id FROM students WHERE group_id = $1 AND is_active = true', [group_id]); for(const s of students.rows) await client.query('INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, \'Pending\')', [sessionId, s.id]); sessionNumber++; } await client.query('COMMIT'); res.json({ success: true }); } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); } });
 
 app.post('/api/admin/parent-view-token', async (req, res) => {
