@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - Fluent Feathers Academy</title>
+  <title>Admin Dashboard - Fluent Feathers Academy By Aaliya</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
     
     /* Header */
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
@@ -15,7 +15,7 @@
     header p { color: #718096; margin-top: 5px; }
     
     /* Stats Cards */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 30px; }
     .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid #667eea; }
     .stat-card h3 { color: #718096; font-size: 0.9rem; margin-bottom: 10px; }
     .stat-card .value { font-size: 2rem; font-weight: bold; color: #2d3748; }
@@ -58,7 +58,7 @@
     .modal.active { display: flex; }
     .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 900px; width: 90%; max-height: 90vh; overflow-y: auto; }
     .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
-    .modal-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .modal-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     .modal-tab { padding: 10px 20px; background: #f7fafc; border: none; cursor: pointer; border-radius: 5px; }
     .modal-tab.active { background: #667eea; color: white; }
     .modal-tab-content { display: none; }
@@ -68,21 +68,20 @@
     .schedule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
     .schedule-row input { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; }
     
-    /* Admin Banner */
-    #adminViewBanner { position: fixed; top: 0; left: 0; right: 0; background: #2d3748; color: white; padding: 15px 20px; display: none; align-items: center; justify-content: space-between; z-index: 2000; }
+    /* Upcoming Classes */
+    .upcoming-classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-bottom: 30px; }
+    .class-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }
+    .class-card h3 { margin-bottom: 10px; }
+    .class-card p { margin: 5px 0; opacity: 0.9; }
+    .class-card .zoom-btn { display: inline-block; margin-top: 10px; padding: 8px 16px; background: white; color: #667eea; text-decoration: none; border-radius: 5px; font-weight: 600; }
   </style>
 </head>
 <body>
-  <div id="adminViewBanner">
-    <span>🔐 Viewing Parent Portal for: <strong id="viewingStudentName"></strong></span>
-    <button onclick="exitParentView()" class="btn btn-danger btn-sm">Exit Parent View</button>
-  </div>
-
   <div class="container">
     <header>
       <div>
         <h1>🎓 Admin Dashboard</h1>
-        <p>Fluent Feathers Academy</p>
+        <p>Fluent Feathers Academy - Advanced LMS</p>
       </div>
       <button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button>
     </header>
@@ -101,18 +100,39 @@
         <h3>Total Revenue</h3>
         <div class="value" id="totalRevenue">₹0</div>
       </div>
+      <div class="stat-card">
+        <h3>Total Groups</h3>
+        <div class="value" id="totalGroups">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Active Events</h3>
+        <div class="value" id="activeEvents">0</div>
+      </div>
     </div>
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('students')">👥 Students</button>
-      <button class="tab-btn" onclick="showTab('schedule')">📅 Schedule</button>
-      <button class="tab-btn" onclick="showTab('attendance')">✅ Attendance</button>
+      <button class="tab-btn active" onclick="showTab('upcoming')">📅 Upcoming</button>
+      <button class="tab-btn" onclick="showTab('students')">👥 Students</button>
+      <button class="tab-btn" onclick="showTab('groups')">👨‍👩‍👧 Groups</button>
+      <button class="tab-btn" onclick="showTab('schedule')">📆 Schedule</button>
+      <button class="tab-btn" onclick="showTab('past')">📚 Past Classes</button>
+      <button class="tab-btn" onclick="showTab('events')">🎉 Events</button>
       <button class="tab-btn" onclick="showTab('emails')">📧 Email Logs</button>
     </div>
 
+    <!-- Upcoming Classes Tab -->
+    <div id="upcomingTab" class="tab-content active">
+      <div class="section">
+        <h2>📅 Upcoming Classes</h2>
+        <div id="upcomingClassesGrid" class="upcoming-classes-grid">
+          <p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 20px;">Loading...</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Students Tab -->
-    <div id="studentsTab" class="tab-content active">
+    <div id="studentsTab" class="tab-content">
       <div class="section">
         <h2>➕ Add New Student</h2>
         <form id="addStudentForm">
@@ -155,23 +175,35 @@
               <select id="timezone" required>
                 <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
                 <option value="America/New_York">America/New_York (EST)</option>
+                <option value="America/Chicago">America/Chicago (CST)</option>
+                <option value="America/Denver">America/Denver (MST)</option>
+                <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
                 <option value="Europe/London">Europe/London (GMT)</option>
+                <option value="Europe/Paris">Europe/Paris (CET)</option>
                 <option value="Asia/Dubai">Asia/Dubai (GST)</option>
                 <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
               </select>
             </div>
             <div class="form-group">
               <label>Program Name *</label>
-              <input type="text" id="programName" required>
+              <input type="text" id="programName" required placeholder="e.g., English Speaking">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label>Class Type *</label>
-              <select id="classType" required>
+              <select id="classType" required onchange="handleClassTypeChange()">
                 <option value="Private">Private</option>
                 <option value="Group">Group</option>
+              </select>
+            </div>
+            <div class="form-group" id="groupSelectGroup" style="display: none;">
+              <label>Select Group</label>
+              <select id="groupSelect">
+                <option value="">No Group</option>
               </select>
             </div>
             <div class="form-group">
@@ -180,6 +212,7 @@
                 <option value="25 mins">25 mins</option>
                 <option value="40 mins">40 mins</option>
                 <option value="60 mins">60 mins</option>
+                <option value="90 mins">90 mins</option>
               </select>
             </div>
           </div>
@@ -188,10 +221,15 @@
             <div class="form-group">
               <label>Currency *</label>
               <select id="currency" required>
-                <option value="₹">₹ (INR)</option>
-                <option value="$">$ (USD)</option>
-                <option value="€">€ (EUR)</option>
-                <option value="£">£ (GBP)</option>
+                <option value="₹">₹ (INR - Indian Rupee)</option>
+                <option value="$">$ (USD - US Dollar)</option>
+                <option value="€">€ (EUR - Euro)</option>
+                <option value="£">£ (GBP - British Pound)</option>
+                <option value="C$">C$ (CAD - Canadian Dollar)</option>
+                <option value="A$">A$ (AUD - Australian Dollar)</option>
+                <option value="AED">AED (UAE Dirham)</option>
+                <option value="SGD">SGD (Singapore Dollar)</option>
+                <option value="¥">¥ (JPY - Japanese Yen)</option>
               </select>
             </div>
             <div class="form-group">
@@ -216,14 +254,82 @@
               <th>Name</th>
               <th>Grade</th>
               <th>Program</th>
-              <th>Timezone</th>
+              <th>Type</th>
+              <th>Group</th>
               <th>Sessions (C/R)</th>
-              <th>Makeup Credits</th>
+              <th>Makeup</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="studentsBody">
-            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+            <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Continue in Part 2... -->
+     <!-- Groups Tab -->
+    <div id="groupsTab" class="tab-content">
+      <div class="section">
+        <h2>➕ Create New Group/Batch</h2>
+        <form id="createGroupForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Group Name *</label>
+              <input type="text" id="groupName" required placeholder="e.g., Batch A - Beginners">
+            </div>
+            <div class="form-group">
+              <label>Program Name *</label>
+              <input type="text" id="groupProgram" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Duration *</label>
+              <select id="groupDuration" required>
+                <option value="25 mins">25 mins</option>
+                <option value="40 mins">40 mins</option>
+                <option value="60 mins">60 mins</option>
+                <option value="90 mins">90 mins</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Timezone *</label>
+              <select id="groupTimezone" required>
+                <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                <option value="America/New_York">America/New_York (EST)</option>
+                <option value="Europe/London">Europe/London (GMT)</option>
+                <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Max Students *</label>
+              <input type="number" id="groupMaxStudents" required min="2" max="50" value="10">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Create Group</button>
+        </form>
+      </div>
+
+      <div class="section">
+        <h2>📋 All Groups</h2>
+        <table id="groupsTable">
+          <thead>
+            <tr>
+              <th>Group Name</th>
+              <th>Program</th>
+              <th>Duration</th>
+              <th>Students</th>
+              <th>Max</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="groupsBody">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -232,8 +338,18 @@
     <!-- Schedule Tab -->
     <div id="scheduleTab" class="tab-content">
       <div class="section">
-        <h2>📅 Schedule Classes (IST Timezone)</h2>
-        <form id="scheduleForm">
+        <h2>📅 Schedule Classes (IST Timezone for Input)</h2>
+        
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label>Schedule Type *</label>
+          <select id="scheduleType" onchange="handleScheduleTypeChange()">
+            <option value="private">Private Session</option>
+            <option value="group">Group Session</option>
+          </select>
+        </div>
+
+        <!-- Private Schedule Form -->
+        <form id="schedulePrivateForm">
           <div class="form-group">
             <label>Select Student *</label>
             <select id="scheduleStudent" required>
@@ -247,23 +363,130 @@
             <button type="button" onclick="addScheduleRow()" class="btn btn-secondary">+ Add Class</button>
           </div>
 
-          <button type="submit" class="btn btn-primary">Schedule Classes & Send Email</button>
+          <button type="submit" class="btn btn-primary">Schedule Private Classes & Send Email</button>
+        </form>
+
+        <!-- Group Schedule Form -->
+        <form id="scheduleGroupForm" style="display: none;">
+          <div class="form-group">
+            <label>Select Group *</label>
+            <select id="scheduleGroup" required>
+              <option value="">Select group...</option>
+            </select>
+          </div>
+
+          <div id="groupClassScheduleList"></div>
+
+          <div style="margin: 20px 0; display: flex; gap: 10px;">
+            <button type="button" onclick="addGroupScheduleRow()" class="btn btn-secondary">+ Add Class</button>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Schedule Group Classes & Send Emails</button>
         </form>
       </div>
     </div>
 
-    <!-- Attendance Tab -->
-    <div id="attendanceTab" class="tab-content">
+    <!-- Past Classes Tab -->
+    <div id="pastTab" class="tab-content">
       <div class="section">
-        <h2>✅ Mark Attendance & Upload Materials</h2>
-        <div class="form-group">
-          <label>Select Student</label>
-          <select id="attendanceStudent" onchange="loadStudentSessions(this.value)">
-            <option value="">Select student...</option>
-          </select>
-        </div>
+        <h2>📚 Past Classes & Materials</h2>
+        <table id="pastSessionsTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Student/Group</th>
+              <th>Type</th>
+              <th>Session #</th>
+              <th>Attendance</th>
+              <th>Materials</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pastSessionsBody">
+            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-        <div id="sessionsListContainer"></div>
+    <!-- Events Tab -->
+    <div id="eventsTab" class="tab-content">
+      <div class="section">
+        <h2>🎉 Create New Event</h2>
+        <form id="createEventForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Event Name *</label>
+              <input type="text" id="eventName" required placeholder="e.g., Poetry Competition">
+            </div>
+            <div class="form-group">
+              <label>Event Duration *</label>
+              <input type="text" id="eventDuration" required placeholder="e.g., 2 hours">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Event Description</label>
+            <textarea id="eventDescription" rows="3" placeholder="Describe the event..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Date *</label>
+              <input type="date" id="eventDate" required>
+            </div>
+            <div class="form-group">
+              <label>Time (IST) *</label>
+              <input type="time" id="eventTime" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Target Audience *</label>
+              <select id="targetAudience" onchange="handleTargetAudienceChange()">
+                <option value="All">All Students</option>
+                <option value="Specific Grades">Specific Grades</option>
+              </select>
+            </div>
+            <div class="form-group" id="specificGradesGroup" style="display: none;">
+              <label>Specific Grades (comma-separated)</label>
+              <input type="text" id="specificGrades" placeholder="e.g., 3, 4, 5">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Zoom Link</label>
+              <input type="url" id="eventZoomLink" placeholder="https://zoom.us/...">
+            </div>
+            <div class="form-group">
+              <label>Max Participants</label>
+              <input type="number" id="eventMaxParticipants" min="1" placeholder="Leave empty for unlimited">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Create Event & Send Invitations</button>
+        </form>
+      </div>
+
+      <div class="section">
+        <h2>📋 All Events</h2>
+        <table id="eventsTable">
+          <thead>
+            <tr>
+              <th>Event Name</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Registered</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="eventsBody">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -309,7 +532,7 @@
       <div id="infoTab" class="modal-tab-content active">
         <div id="studentInfoContent"></div>
         <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center;">
-          <h3 style="color: white; margin-bottom: 10px;">👤 Switch to Parent View</h3>
+          <h3 style="color: white; margin-bottom: 10px;">👤 Switch to Learner View</h3>
           <p style="color: white; margin-bottom: 15px; opacity: 0.9;">View this student's parent portal</p>
           <button onclick="switchToParentView()" class="btn btn-primary" style="background: white; color: #667eea;">Switch Now</button>
         </div>
@@ -333,6 +556,8 @@
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="UPI">UPI</option>
                   <option value="Card">Card</option>
+                  <option value="PayPal">PayPal</option>
+                  <option value="Stripe">Stripe</option>
                 </select>
               </div>
             </div>
@@ -394,14 +619,74 @@
     </div>
   </div>
 
-  <script>
+  <!-- Event Details Modal -->
+  <div id="eventModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalEventName">Event Details</h2>
+        <button onclick="closeEventModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+
+      <div id="eventDetailsContent"></div>
+
+      <div style="margin-top: 20px;">
+        <h3>Registered Students</h3>
+        <table id="eventRegistrationsTable">
+          <thead>
+            <tr>
+              <th>Student Name</th>
+              <th>Grade</th>
+              <th>Parent</th>
+              <th>Registration</th>
+              <th>Attendance</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="eventRegistrationsBody"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <h3>Manual Registration</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Select Student</label>
+            <select id="manualRegStudent">
+              <option value="">Select student...</option>
+            </select>
+          </div>
+          <button onclick="manualRegisterStudent()" class="btn btn-primary">Register Student</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Details Modal (for past classes) -->
+  <div id="sessionModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalSessionTitle">Session Details</h2>
+        <button onclick="closeSessionModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+
+      <div id="sessionDetailsContent"></div>
+    </div>
+  </div>
+
+  <!-- Continue in Part 3 for JavaScript... -->
+   <script>
     let allStudents = [];
+    let allGroups = [];
     let currentStudentId = null;
+    let currentEventId = null;
+    let currentSessionId = null;
 
     // Load initial data
     document.addEventListener('DOMContentLoaded', async () => {
       await loadDashboardStats();
+      await loadUpcomingClasses();
       await loadStudents();
+      await loadGroups();
       await loadEmailLogs();
     });
 
@@ -413,8 +698,38 @@
         document.getElementById('totalStudents').textContent = stats.totalStudents;
         document.getElementById('upcomingSessions').textContent = stats.upcomingSessions;
         document.getElementById('totalRevenue').textContent = '₹' + stats.totalRevenue.toFixed(2);
+        document.getElementById('totalGroups').textContent = stats.totalGroups;
+        document.getElementById('activeEvents').textContent = stats.activeEvents;
       } catch (err) {
         console.error('Failed to load stats:', err);
+      }
+    }
+
+    // Load upcoming classes
+    async function loadUpcomingClasses() {
+      try {
+        const res = await fetch('/api/dashboard/upcoming-classes');
+        const classes = await res.json();
+        
+        const grid = document.getElementById('upcomingClassesGrid');
+        
+        if (classes.length === 0) {
+          grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 20px;">No upcoming classes</p>';
+          return;
+        }
+
+        grid.innerHTML = classes.map(cls => `
+          <div class="class-card">
+            <h3>${cls.student_name}</h3>
+            <p>📚 ${cls.class_info}</p>
+            <p>📅 ${cls.session_date} at ${cls.session_time} UTC</p>
+            <p>🌍 ${cls.timezone}</p>
+            <p>📝 Session #${cls.session_number}</p>
+            <a href="${cls.zoom_link}" target="_blank" class="zoom-btn">🎥 Join Class</a>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load upcoming classes:', err);
       }
     }
 
@@ -426,7 +741,7 @@
         
         const tbody = document.getElementById('studentsBody');
         if (allStudents.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No students yet</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No students yet</td></tr>';
           return;
         }
 
@@ -435,25 +750,68 @@
             <td><strong>${s.name}</strong></td>
             <td>${s.grade}</td>
             <td>${s.program_name}</td>
-            <td>${s.timezone || 'Asia/Kolkata'}</td> 
+            <td>${s.class_type}</td>
+            <td>${s.group_display_name || '-'}</td>
             <td>${s.completed_sessions} / ${s.remaining_sessions}</td>
             <td><span style="background: #d4edda; padding: 4px 8px; border-radius: 12px;">${s.makeup_credits || 0}</span></td>
             <td>
               <button onclick="openStudentModal(${s.id})" class="btn btn-primary btn-sm">View</button>
+              <button onclick="editStudent(${s.id})" class="btn btn-secondary btn-sm">Edit</button>
               <button onclick="deleteStudent(${s.id})" class="btn btn-danger btn-sm">Delete</button>
             </td>
           </tr>
         `).join('');
 
         // Populate dropdowns
-        const dropdowns = ['scheduleStudent', 'attendanceStudent'];
-        dropdowns.forEach(id => {
-          const sel = document.getElementById(id);
-          sel.innerHTML = '<option value="">Select student...</option>' + 
-            allStudents.map(s => `<option value="${s.id}">${s.name} - ${s.program_name}</option>`).join('');
-        });
+        const scheduleSelect = document.getElementById('scheduleStudent');
+        const manualRegSelect = document.getElementById('manualRegStudent');
+        
+        scheduleSelect.innerHTML = '<option value="">Select student...</option>' + 
+          allStudents.map(s => `<option value="${s.id}">${s.name} - ${s.program_name}</option>`).join('');
+        
+        manualRegSelect.innerHTML = '<option value="">Select student...</option>' + 
+          allStudents.map(s => `<option value="${s.id}">${s.name} (${s.grade})</option>`).join('');
       } catch (err) {
         console.error('Failed to load students:', err);
+      }
+    }
+
+    // Load groups
+    async function loadGroups() {
+      try {
+        const res = await fetch('/api/groups');
+        allGroups = await res.json();
+        
+        const tbody = document.getElementById('groupsBody');
+        if (allGroups.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No groups yet</td></tr>';
+        } else {
+          tbody.innerHTML = allGroups.map(g => `
+            <tr>
+              <td><strong>${g.group_name}</strong></td>
+              <td>${g.program_name}</td>
+              <td>${g.duration}</td>
+              <td>${g.enrolled_students || 0}</td>
+              <td>${g.max_students}</td>
+              <td>
+                <button onclick="viewGroupStudents(${g.id})" class="btn btn-primary btn-sm">View Students</button>
+                <button onclick="deleteGroup(${g.id})" class="btn btn-danger btn-sm">Delete</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+
+        // Populate dropdowns
+        const groupSelect = document.getElementById('groupSelect');
+        const scheduleGroupSelect = document.getElementById('scheduleGroup');
+        
+        groupSelect.innerHTML = '<option value="">No Group</option>' + 
+          allGroups.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
+        
+        scheduleGroupSelect.innerHTML = '<option value="">Select group...</option>' + 
+          allGroups.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
+      } catch (err) {
+        console.error('Failed to load groups:', err);
       }
     }
 
@@ -474,7 +832,8 @@
         duration: document.getElementById('duration').value,
         currency: document.getElementById('currency').value,
         per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
-        total_sessions: parseInt(document.getElementById('totalSessions').value)
+        total_sessions: parseInt(document.getElementById('totalSessions').value),
+        group_id: document.getElementById('groupSelect').value || null
       };
 
       try {
@@ -498,23 +857,40 @@
       }
     });
 
-    // Delete student
-    async function deleteStudent(id) {
-      if (!confirm('Delete this student? This cannot be undone.')) return;
+    // Create group form
+    document.getElementById('createGroupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
       
+      const data = {
+        group_name: document.getElementById('groupName').value,
+        program_name: document.getElementById('groupProgram').value,
+        duration: document.getElementById('groupDuration').value,
+        timezone: document.getElementById('groupTimezone').value,
+        max_students: parseInt(document.getElementById('groupMaxStudents').value)
+      };
+
       try {
-        const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          alert('✅ Student deleted');
-          await loadStudents();
+        const res = await fetch('/api/groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+          alert('✅ ' + result.message);
+          e.target.reset();
+          await loadGroups();
           await loadDashboardStats();
+        } else {
+          alert('❌ ' + result.error);
         }
       } catch (err) {
-        alert('❌ Error deleting student');
+        alert('❌ Network error');
       }
-    }
+    });
 
-    // Schedule classes
+    // Schedule private classes
     function addScheduleRow() {
       const container = document.getElementById('classScheduleList');
       const row = document.createElement('div');
@@ -527,16 +903,15 @@
       container.appendChild(row);
     }
 
-    // Initialize with one row
-    addScheduleRow();
+    addScheduleRow(); // Initialize with one row
 
-    document.getElementById('scheduleForm').addEventListener('submit', async (e) => {
+    document.getElementById('schedulePrivateForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const studentId = document.getElementById('scheduleStudent').value;
       if (!studentId) return alert('Select a student');
 
-      const rows = document.querySelectorAll('.schedule-row');
+      const rows = document.querySelectorAll('#classScheduleList .schedule-row');
       const classes = [];
       
       rows.forEach(row => {
@@ -548,7 +923,7 @@
       if (classes.length === 0) return alert('Add at least one class');
 
       try {
-        const res = await fetch('/api/schedule/classes', {
+        const res = await fetch('/api/schedule/private-classes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ student_id: studentId, classes })
@@ -561,6 +936,7 @@
           document.getElementById('classScheduleList').innerHTML = '';
           addScheduleRow();
           await loadDashboardStats();
+          await loadUpcomingClasses();
         } else {
           alert('❌ ' + result.error);
         }
@@ -569,382 +945,87 @@
       }
     });
 
-    // Load student sessions for attendance
-    async function loadStudentSessions(studentId) {
-      if (!studentId) {
-        document.getElementById('sessionsListContainer').innerHTML = '';
-        return;
-      }
-
-      try {
-        const res = await fetch(`/api/sessions/${studentId}`);
-        const sessions = await res.json();
-        
-        const container = document.getElementById('sessionsListContainer');
-        
-        if (sessions.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No sessions scheduled</p>';
-          return;
-        }
-
-        container.innerHTML = sessions.map(s => `
-          <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid ${s.status === 'Completed' ? '#38a169' : '#667eea'};">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-              <div>
-                <h3 style="margin: 0;">Session #${s.session_number}</h3>
-                <p style="margin: 5px 0 0 0; color: #718096;">${s.session_date} at ${s.session_time} (UTC)</p>
-                <p style="margin: 5px 0 0 0;"><strong>Status:</strong> ${s.status}</p>
-              </div>
-              <div>
-                ${s.status === 'Pending' || s.status === 'Scheduled' ? `
-                  <button onclick="markAttendance(${s.id}, 'Present')" class="btn btn-success btn-sm">✓ Present</button>
-                  <button onclick="markAttendance(${s.id}, 'Absent')" class="btn btn-danger btn-sm">✗ Absent</button>
-                ` : ''}
-              </div>
-            </div>
-
-            ${s.status === 'Completed' ? `
-              <div style="margin-top: 15px;">
-                <div class="form-group" style="margin-bottom: 10px;">
-                  <label>Teacher Notes</label>
-                  <textarea id="notes-${s.id}" rows="2" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 5px;">${s.teacher_notes || ''}</textarea>
-                  <button onclick="saveNotes(${s.id})" class="btn btn-primary btn-sm" style="margin-top: 5px;">Save Notes</button>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
-                  <div>
-                    <label style="font-size: 0.9rem; font-weight: 600;">PPT</label>
-                    <input type="file" id="ppt-${s.id}" style="font-size: 0.85rem;">
-                    <button onclick="uploadMaterial(${s.id}, 'ppt')" class="btn btn-primary btn-sm" style="margin-top: 5px;">Upload PPT</button>
-                    ${s.ppt_file_path ? '<p style="color: #38a169; font-size: 0.85rem;">✓ Uploaded</p>' : ''}
-                  </div>
-                  <div>
-                    <label style="font-size: 0.9rem; font-weight: 600;">Recording</label>
-                    <input type="file" id="recording-${s.id}" style="font-size: 0.85rem;">
-                    <button onclick="uploadMaterial(${s.id}, 'recording')" class="btn btn-primary btn-sm" style="margin-top: 5px;">Upload Rec</button>
-                    ${s.recording_file_path ? '<p style="color: #38a169; font-size: 0.85rem;">✓ Uploaded</p>' : ''}
-                  </div>
-                  <div>
-                    <label style="font-size: 0.9rem; font-weight: 600;">Homework</label>
-                    <input type="file" id="homework-${s.id}" style="font-size: 0.85rem;">
-                    <button onclick="uploadMaterial(${s.id}, 'homework')" class="btn btn-primary btn-sm" style="margin-top: 5px;">Upload HW</button>
-                    ${s.homework_file_path ? '<p style="color: #38a169; font-size: 0.85rem;">✓ Uploaded</p>' : ''}
-                  </div>
-                </div>
-
-                ${s.homework_file_path ? `
-                  <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 8px;">
-                    <h4>Grade Homework</h4>
-                    <div style="display: flex; gap: 10px; align-items: end;">
-                      <div class="form-group" style="flex: 1;">
-                        <label>Grade</label>
-                        <input type="text" id="grade-${s.id}" value="${s.homework_grade || ''}" placeholder="e.g., A+, 95%">
-                      </div>
-                      <div class="form-group" style="flex: 2;">
-                        <label>Comments</label>
-                        <input type="text" id="comments-${s.id}" value="${s.homework_comments || ''}" placeholder="Great work!">
-                      </div>
-                      <button onclick="gradeHomework(${s.id})" class="btn btn-primary btn-sm">Save Grade</button>
-                    </div>
-                  </div>
-                ` : ''}
-              </div>
-            ` : ''}
-          </div>
-        `).join('');
-      } catch (err) {
-        console.error('Failed to load sessions:', err);
-      }
+    // Schedule group classes
+    function addGroupScheduleRow() {
+      const container = document.getElementById('groupClassScheduleList');
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      row.innerHTML = `
+        <input type="date" name="date" required>
+        <input type="time" name="time" required>
+        <button type="button" onclick="this.parentElement.remove()" class="btn btn-danger btn-sm">×</button>
+      `;
+      container.appendChild(row);
     }
 
-    // Mark attendance
-    async function markAttendance(sessionId, attendance) {
-      try {
-        const res = await fetch(`/api/sessions/${sessionId}/attendance`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ attendance })
-        });
-        
-        if (res.ok) {
-          alert('✅ Attendance marked');
-          const studentId = document.getElementById('attendanceStudent').value;
-          loadStudentSessions(studentId);
-          loadDashboardStats();
-        }
-      } catch (err) {
-        alert('❌ Error marking attendance');
-      }
-    }
-
-    // Save teacher notes
-    async function saveNotes(sessionId) {
-      const notes = document.getElementById(`notes-${sessionId}`).value;
-      
-      try {
-        const res = await fetch(`/api/sessions/${sessionId}/notes`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teacher_notes: notes })
-        });
-        
-        if (res.ok) {
-          alert('✅ Notes saved');
-        }
-      } catch (err) {
-        alert('❌ Error saving notes');
-      }
-    }
-
-    // Upload material
-    async function uploadMaterial(sessionId, materialType) {
-      const fileInput = document.getElementById(`${materialType}-${sessionId}`);
-      const file = fileInput.files[0];
-      
-      if (!file) return alert('Select a file first');
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('materialType', materialType);
-
-      try {
-        const res = await fetch(`/api/sessions/${sessionId}/upload`, {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (res.ok) {
-          alert('✅ Material uploaded');
-          const studentId = document.getElementById('attendanceStudent').value;
-          loadStudentSessions(studentId);
-        }
-      } catch (err) {
-        alert('❌ Upload failed');
-      }
-    }
-
-    // Grade homework
-    async function gradeHomework(sessionId) {
-      const grade = document.getElementById(`grade-${sessionId}`).value;
-      const comments = document.getElementById(`comments-${sessionId}`).value;
-
-      try {
-        const res = await fetch(`/api/sessions/${sessionId}/grade`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ grade, comments })
-        });
-        
-        if (res.ok) {
-          alert('✅ Homework graded');
-        }
-      } catch (err) {
-        alert('❌ Error grading homework');
-      }
-    }
-
-    // Load email logs
-    async function loadEmailLogs() {
-      try {
-        const res = await fetch('/api/email-logs');
-        const logs = await res.json();
-        
-        const tbody = document.getElementById('emailLogsBody');
-        
-        if (logs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No emails sent yet</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = logs.map(log => `
-          <tr>
-            <td>${new Date(log.sent_at).toLocaleString()}</td>
-            <td>${log.recipient_name}</td>
-            <td>${log.recipient_email}</td>
-            <td><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 12px;">${log.email_type}</span></td>
-            <td>${log.subject}</td>
-            <td><span style="color: ${log.status === 'Sent' ? '#38a169' : '#e53e3e'};">●</span> ${log.status}</td>
-          </tr>
-        `).join('');
-      } catch (err) {
-        console.error('Failed to load email logs:', err);
-      }
-    }
-
-    // Student modal functions
-    async function openStudentModal(id) {
-      currentStudentId = id;
-      document.getElementById('studentModal').classList.add('active');
-      
-      try {
-        const res = await fetch(`/api/students/${id}/details`);
-        const data = await res.json();
-        
-        document.getElementById('modalStudentName').textContent = data.student.name;
-        
-        // Info tab
-        document.getElementById('studentInfoContent').innerHTML = `
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-            <div><strong>Name:</strong> ${data.student.name}</div>
-            <div><strong>Grade:</strong> ${data.student.grade}</div>
-            <div><strong>Parent:</strong> ${data.student.parent_name}</div>
-            <div><strong>Email:</strong> ${data.student.parent_email}</div>
-            <div><strong>Phone:</strong> ${data.student.primary_contact}</div>
-            <div><strong>Timezone:</strong> ${data.student.timezone}</div>
-            <div><strong>Program:</strong> ${data.student.program_name}</div>
-            <div><strong>Class Type:</strong> ${data.student.class_type}</div>
-            <div><strong>Duration:</strong> ${data.student.duration}</div>
-            <div><strong>Total Sessions:</strong> ${data.student.total_sessions}</div>
-            <div><strong>Completed:</strong> ${data.student.completed_sessions}</div>
-            <div><strong>Remaining:</strong> ${data.student.remaining_sessions}</div>
-            <div><strong>Fees Paid:</strong> ${data.student.currency}${data.student.fees_paid}</div>
-          </div>
-        `;
-
-        // Payment history
-        const paymentBody = document.getElementById('paymentHistoryBody');
-        if (data.paymentHistory.length === 0) {
-          paymentBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No payments recorded</td></tr>';
-        } else {
-          paymentBody.innerHTML = data.paymentHistory.map(p => `
-            <tr>
-              <td>${p.payment_date}</td>
-              <td>${p.currency}${p.amount}</td>
-              <td>${p.payment_method}</td>
-              <td>${p.receipt_number || '-'}</td>
-              <td>${p.sessions_covered || '-'}</td>
-            </tr>
-          `).join('');
-        }
-
-        // Makeup classes
-        const makeupContent = document.getElementById('makeupClassesContent');
-        if (data.makeupClasses.length === 0) {
-          makeupContent.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No makeup credits</p>';
-        } else {
-          makeupContent.innerHTML = `
-            <table style="width: 100%;">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Reason</th>
-                  <th>Status</th>
-                  <th>Used Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.makeupClasses.map(m => `
-                  <tr>
-                    <td>${m.credit_date}</td>
-                    <td>${m.reason}</td>
-                    <td><span style="background: ${m.status === 'Available' ? '#d4edda' : '#f8d7da'}; padding: 4px 8px; border-radius: 12px;">${m.status}</span></td>
-                    <td>${m.used_date || '-'}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        }
-
-        // Sessions
-        const sessionsBody = document.getElementById('studentSessionsBody');
-        if (data.sessions.length === 0) {
-          sessionsBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No sessions yet</td></tr>';
-        } else {
-          sessionsBody.innerHTML = data.sessions.map(s => `
-            <tr>
-              <td>${s.session_number}</td>
-              <td>${s.session_date}</td>
-              <td>${s.session_time}</td>
-              <td>${s.status}</td>
-              <td>${s.attendance || '-'}</td>
-            </tr>
-          `).join('');
-        }
-
-        showModalTab('info');
-      } catch (err) {
-        console.error('Failed to load student details:', err);
-      }
-    }
-
-    function closeStudentModal() {
-      document.getElementById('studentModal').classList.remove('active');
-    }
-
-    function showModalTab(tabName) {
-      document.querySelectorAll('.modal-tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.modal-tab').forEach(el => el.classList.remove('active'));
-      
-      document.getElementById(tabName + 'Tab').classList.add('active');
-      event.target.classList.add('active');
-    }
-
-    function showPaymentForm() {
-      document.getElementById('paymentFormSection').style.display = 'block';
-    }
-
-    function hidePaymentForm() {
-      document.getElementById('paymentFormSection').style.display = 'none';
-    }
-
-    // Record payment form
-    document.getElementById('recordPaymentForm').addEventListener('submit', async (e) => {
+    document.getElementById('scheduleGroupForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const data = {
-        amount: document.getElementById('paymentAmount').value,
-        currency: allStudents.find(s => s.id === currentStudentId).currency,
-        payment_method: document.getElementById('paymentMethod').value,
-        receipt_number: document.getElementById('receiptNumber').value,
-        sessions_covered: document.getElementById('sessionsCovered').value,
-        notes: document.getElementById('paymentNotes').value
-      };
+      const groupId = document.getElementById('scheduleGroup').value;
+      if (!groupId) return alert('Select a group');
+
+      const rows = document.querySelectorAll('#groupClassScheduleList .schedule-row');
+      const classes = [];
+      
+      rows.forEach(row => {
+        const date = row.querySelector('input[name="date"]').value;
+        const time = row.querySelector('input[name="time"]').value;
+        if (date && time) classes.push({ date, time });
+      });
+
+      if (classes.length === 0) return alert('Add at least one class');
 
       try {
-        const res = await fetch(`/api/students/${currentStudentId}/payment`, {
+        const res = await fetch('/api/schedule/group-classes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify({ group_id: groupId, classes })
         });
+        const result = await res.json();
         
         if (res.ok) {
-          alert('✅ Payment recorded');
-          hidePaymentForm();
-          openStudentModal(currentStudentId);
-          loadDashboardStats();
+          alert('✅ ' + result.message);
+          e.target.reset();
+          document.getElementById('groupClassScheduleList').innerHTML = '';
+          await loadDashboardStats();
+          await loadUpcomingClasses();
+        } else {
+          alert('❌ ' + result.error);
         }
       } catch (err) {
-        alert('❌ Error recording payment');
+        alert('❌ Network error');
       }
     });
 
-    // Switch to parent view (without password)
-   function switchToParentView() {
-  const student = allStudents.find(s => s.id === currentStudentId);
-  if (!student) {
-    alert('❌ Student not found');
-    return;
-  }
+    // Handle form changes
+    function handleClassTypeChange() {
+      const classType = document.getElementById('classType').value;
+      const groupSelectGroup = document.getElementById('groupSelectGroup');
+      groupSelectGroup.style.display = classType === 'Group' ? 'block' : 'none';
+    }
 
-  // Confirm action
-  if (!confirm(`Switch to parent portal view for ${student.name}?`)) {
-    return;
-  }
+    function handleScheduleTypeChange() {
+      const scheduleType = document.getElementById('scheduleType').value;
+      const privateForm = document.getElementById('schedulePrivateForm');
+      const groupForm = document.getElementById('scheduleGroupForm');
+      
+      if (scheduleType === 'private') {
+        privateForm.style.display = 'block';
+        groupForm.style.display = 'none';
+      } else {
+        privateForm.style.display = 'none';
+        groupForm.style.display = 'block';
+        if (document.getElementById('groupClassScheduleList').children.length === 0) {
+          addGroupScheduleRow();
+        }
+      }
+    }
 
-  // Store student data in sessionStorage
-  sessionStorage.setItem('parentViewStudent', JSON.stringify(student));
-  sessionStorage.setItem('parentViewMode', 'true');
-
-  // Open parent portal in new tab
-  const parentWindow = window.open('parent.html', '_blank');
-  
-  if (!parentWindow) {
-    alert('❌ Popup blocked! Please allow popups and try again.');
-  } else {
-    alert('✅ Opening parent view in new tab...');
-  }
-}
+    function handleTargetAudienceChange() {
+      const target = document.getElementById('targetAudience').value;
+      const specificGradesGroup = document.getElementById('specificGradesGroup');
+      specificGradesGroup.style.display = target === 'Specific Grades' ? 'block' : 'none';
+    }
 
     // Tab switching
     function showTab(tabName) {
@@ -955,7 +1036,683 @@
       event.target.classList.add('active');
 
       if (tabName === 'emails') loadEmailLogs();
+      if (tabName === 'past') loadPastSessions();
+      if (tabName === 'events') loadEvents();
     }
+
+    // Continue with more functions in implementation...
+    // This is a demonstration of the core structure
+    // Load past sessions
+async function loadPastSessions() {
+  try {
+    const res = await fetch('/api/sessions/past/all');
+    const sessions = await res.json();
+    
+    const tbody = document.getElementById('pastSessionsBody');
+    
+    if (sessions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No past sessions yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = sessions.map(s => {
+      const isPending = s.status === 'Pending' || s.status === 'Scheduled';
+      const isGroup = s.session_type === 'Group';
+      
+      return `
+        <tr>
+          <td>${s.session_date}</td>
+          <td><strong>${s.student_name}</strong></td>
+          <td>${s.session_type}</td>
+          <td>#${s.session_number}</td>
+          <td>
+            ${isPending ? 
+              `<button onclick="markSessionAttendance(${s.id}, '${s.session_type}')" class="btn btn-primary btn-sm">Mark Attendance</button>` :
+              `<span style="background: ${s.status === 'Completed' ? '#d4edda' : '#f8d7da'}; padding: 4px 8px; border-radius: 12px;">${s.status}</span>`
+            }
+          </td>
+          <td>
+            ${s.ppt_file_path ? '📊 ' : ''}
+            ${s.recording_file_path ? '🎥 ' : ''}
+            ${s.homework_file_path ? '📝 ' : ''}
+            ${!s.ppt_file_path && !s.recording_file_path && !s.homework_file_path ? '-' : ''}
+          </td>
+          <td>
+            <button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-primary btn-sm">View/Edit</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Failed to load past sessions:', err);
+  }
+}
+
+// Mark attendance for private session
+async function markSessionAttendance(sessionId, sessionType) {
+  if (sessionType === 'Group') {
+    openGroupAttendanceModal(sessionId);
+  } else {
+    const attendance = confirm('Mark as Present? (Cancel for Absent)') ? 'Present' : 'Absent';
+    
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/attendance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attendance })
+      });
+      
+      if (res.ok) {
+        alert('✅ Attendance marked');
+        loadPastSessions();
+        loadDashboardStats();
+      }
+    } catch (err) {
+      alert('❌ Error marking attendance');
+    }
+  }
+}
+
+// Open session modal for materials
+async function openSessionModal(sessionId, sessionType) {
+  currentSessionId = sessionId;
+  
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/details`);
+    const session = await res.json();
+    
+    document.getElementById('modalSessionTitle').textContent = 
+      `Session #${session.session_number} - ${session.session_type}`;
+    
+    let content = `
+      <div style="margin-bottom: 20px;">
+        <p><strong>Date:</strong> ${session.session_date}</p>
+        <p><strong>Time:</strong> ${session.session_time} UTC</p>
+        <p><strong>Status:</strong> ${session.status}</p>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h3>Teacher Notes</h3>
+        <textarea id="sessionNotes" rows="3" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px;">${session.teacher_notes || ''}</textarea>
+        <button onclick="saveSessionNotes(${sessionId})" class="btn btn-primary btn-sm" style="margin-top: 10px;">Save Notes</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+        <div>
+          <h4>PPT / Slides</h4>
+          <input type="file" id="pptFile" accept=".ppt,.pptx,.pdf">
+          <button onclick="uploadSessionMaterial(${sessionId}, 'ppt')" class="btn btn-primary btn-sm" style="margin-top: 5px;">Upload</button>
+          ${session.ppt_file_path ? `<p style="color: #38a169; margin-top: 5px;">✓ Uploaded</p>` : ''}
+        </div>
+        <div>
+          <h4>Recording</h4>
+          <input type="file" id="recordingFile" accept=".mp4,.mov,.avi">
+          <button onclick="uploadSessionMaterial(${sessionId}, 'recording')" class="btn btn-primary btn-sm" style="margin-top: 5px;">Upload</button>
+          ${session.recording_file_path ? `<p style="color: #38a169; margin-top: 5px;">✓ Uploaded</p>` : ''}
+        </div>
+        <div>
+          <h4>Homework</h4>
+          <input type="file" id="homeworkFile" accept=".pdf,.doc,.docx">
+          <button onclick="uploadSessionMaterial(${sessionId}, 'homework')" class="btn btn-primary btn-sm" style="margin-top: 5px;">Upload</button>
+          ${session.homework_file_path ? `<p style="color: #38a169; margin-top: 5px;">✓ Uploaded</p>` : ''}
+        </div>
+      </div>
+    `;
+
+    if (sessionType === 'Group') {
+      const attendance = await fetch(`/api/sessions/${sessionId}/group-attendance`);
+      const students = await attendance.json();
+      
+      content += `
+        <div style="margin-top: 20px;">
+          <h3>Student Attendance & Homework Grading</h3>
+          <table style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Attendance</th>
+                <th>Homework Grade</th>
+                <th>Comments</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${students.map(s => `
+                <tr>
+                  <td>${s.student_name}</td>
+                  <td>
+                    <select id="attendance-${s.student_id}" style="padding: 5px;">
+                      <option value="Pending" ${s.attendance === 'Pending' ? 'selected' : ''}>Pending</option>
+                      <option value="Present" ${s.attendance === 'Present' ? 'selected' : ''}>Present</option>
+                      <option value="Absent" ${s.attendance === 'Absent' ? 'selected' : ''}>Absent</option>
+                    </select>
+                  </td>
+                  <td><input type="text" id="grade-${s.student_id}" value="${s.homework_grade || ''}" placeholder="A+" style="padding: 5px; width: 80px;"></td>
+                  <td><input type="text" id="comments-${s.student_id}" value="${s.homework_comments || ''}" placeholder="Great work!" style="padding: 5px; width: 200px;"></td>
+                  <td><button onclick="saveStudentData(${sessionId}, ${s.student_id})" class="btn btn-primary btn-sm">Save</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    document.getElementById('sessionDetailsContent').innerHTML = content;
+    document.getElementById('sessionModal').classList.add('active');
+  } catch (err) {
+    console.error('Failed to load session:', err);
+  }
+}
+
+async function saveSessionNotes(sessionId) {
+  const notes = document.getElementById('sessionNotes').value;
+  
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/notes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teacher_notes: notes })
+    });
+    
+    if (res.ok) alert('✅ Notes saved');
+  } catch (err) {
+    alert('❌ Error saving notes');
+  }
+}
+
+async function uploadSessionMaterial(sessionId, materialType) {
+  const fileInput = document.getElementById(`${materialType}File`);
+  const file = fileInput.files[0];
+  
+  if (!file) return alert('Select a file first');
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('materialType', materialType);
+
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (res.ok) {
+      alert('✅ Material uploaded');
+      openSessionModal(sessionId, 'Private'); // Refresh modal
+    }
+  } catch (err) {
+    alert('❌ Upload failed');
+  }
+}
+
+async function saveStudentData(sessionId, studentId) {
+  const attendance = document.getElementById(`attendance-${studentId}`).value;
+  const grade = document.getElementById(`grade-${studentId}`).value;
+  const comments = document.getElementById(`comments-${studentId}`).value;
+  
+  try {
+    // Save attendance
+    await fetch(`/api/sessions/${sessionId}/group-attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance }] })
+    });
+    
+    // Save homework grade
+    if (grade || comments) {
+      await fetch(`/api/sessions/${sessionId}/grade/${studentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grade, comments })
+      });
+    }
+    
+    alert('✅ Student data saved');
+  } catch (err) {
+    alert('❌ Error saving data');
+  }
+}
+
+function closeSessionModal() {
+  document.getElementById('sessionModal').classList.remove('active');
+}
+
+// Load events
+async function loadEvents() {
+  try {
+    const res = await fetch('/api/events');
+    const events = await res.json();
+    
+    const tbody = document.getElementById('eventsBody');
+    
+    if (events.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No events yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = events.map(e => `
+      <tr>
+        <td><strong>${e.event_name}</strong></td>
+        <td>${e.event_date}</td>
+        <td>${e.event_time}</td>
+        <td>${e.registered_count || 0} ${e.max_participants ? '/ ' + e.max_participants : ''}</td>
+        <td><span style="background: ${e.status === 'Active' ? '#d4edda' : '#f8d7da'}; padding: 4px 8px; border-radius: 12px;">${e.status}</span></td>
+        <td>
+          <button onclick="openEventModal(${e.id})" class="btn btn-primary btn-sm">View</button>
+          <button onclick="deleteEvent(${e.id})" class="btn btn-danger btn-sm">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load events:', err);
+  }
+}
+
+// Create event
+document.getElementById('createEventForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const data = {
+    event_name: document.getElementById('eventName').value,
+    event_description: document.getElementById('eventDescription').value,
+    event_date: document.getElementById('eventDate').value,
+    event_time: document.getElementById('eventTime').value,
+    event_duration: document.getElementById('eventDuration').value,
+    target_audience: document.getElementById('targetAudience').value,
+    specific_grades: document.getElementById('specificGrades').value,
+    zoom_link: document.getElementById('eventZoomLink').value,
+    max_participants: document.getElementById('eventMaxParticipants').value || null
+  };
+
+  try {
+    const res = await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    
+    if (result.success) {
+      alert('✅ ' + result.message);
+      e.target.reset();
+      loadEvents();
+      loadDashboardStats();
+    } else {
+      alert('❌ ' + result.error);
+    }
+  } catch (err) {
+    alert('❌ Network error');
+  }
+});
+
+// Open event modal
+async function openEventModal(eventId) {
+  currentEventId = eventId;
+  
+  try {
+    const [eventRes, regRes] = await Promise.all([
+      fetch(`/api/events/${eventId}`),
+      fetch(`/api/events/${eventId}/registrations`)
+    ]);
+    
+    const event = await eventRes.json();
+    const registrations = await regRes.json();
+    
+    document.getElementById('modalEventName').textContent = event.event_name;
+    
+    document.getElementById('eventDetailsContent').innerHTML = `
+      <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
+        <p><strong>Date:</strong> ${event.event_date}</p>
+        <p><strong>Time:</strong> ${event.event_time} (IST)</p>
+        <p><strong>Duration:</strong> ${event.event_duration}</p>
+        <p><strong>Description:</strong> ${event.event_description || '-'}</p>
+        <p><strong>Target:</strong> ${event.target_audience}</p>
+        ${event.zoom_link ? `<p><strong>Zoom:</strong> <a href="${event.zoom_link}" target="_blank">${event.zoom_link}</a></p>` : ''}
+      </div>
+    `;
+    
+    const tbody = document.getElementById('eventRegistrationsBody');
+    if (registrations.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No registrations yet</td></tr>';
+    } else {
+      tbody.innerHTML = registrations.map(r => `
+        <tr>
+          <td>${r.student_name}</td>
+          <td>${r.grade}</td>
+          <td>${r.parent_name}</td>
+          <td>${r.registration_method}</td>
+          <td>
+            <select id="event-attendance-${r.student_id}" style="padding: 5px;">
+              <option value="Pending" ${r.attendance === 'Pending' ? 'selected' : ''}>Pending</option>
+              <option value="Present" ${r.attendance === 'Present' ? 'selected' : ''}>Present</option>
+              <option value="Absent" ${r.attendance === 'Absent' ? 'selected' : ''}>Absent</option>
+            </select>
+          </td>
+          <td><button onclick="saveEventAttendance(${eventId}, ${r.student_id})" class="btn btn-primary btn-sm">Save</button></td>
+        </tr>
+      `).join('');
+    }
+    
+    document.getElementById('eventModal').classList.add('active');
+  } catch (err) {
+    console.error('Failed to load event:', err);
+  }
+}
+
+async function saveEventAttendance(eventId, studentId) {
+  const attendance = document.getElementById(`event-attendance-${studentId}`).value;
+  
+  try {
+    await fetch(`/api/events/${eventId}/attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance }] })
+    });
+    
+    alert('✅ Attendance saved');
+  } catch (err) {
+    alert('❌ Error saving attendance');
+  }
+}
+
+async function manualRegisterStudent() {
+  const studentId = document.getElementById('manualRegStudent').value;
+  if (!studentId) return alert('Select a student');
+  
+  try {
+    const res = await fetch(`/api/events/${currentEventId}/register-manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_id: studentId })
+    });
+    
+    if (res.ok) {
+      alert('✅ Student registered');
+      openEventModal(currentEventId); // Refresh
+    } else {
+      const result = await res.json();
+      alert('❌ ' + result.error);
+    }
+  } catch (err) {
+    alert('❌ Network error');
+  }
+}
+
+function closeEventModal() {
+  document.getElementById('eventModal').classList.remove('active');
+}
+
+async function deleteEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  
+  try {
+    const res = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      alert('✅ Event deleted');
+      loadEvents();
+      loadDashboardStats();
+    }
+  } catch (err) {
+    alert('❌ Error deleting event');
+  }
+}
+
+async function deleteStudent(id) {
+  if (!confirm('Delete this student? This cannot be undone.')) return;
+  
+  try {
+    const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      alert('✅ Student deleted');
+      loadStudents();
+      loadDashboardStats();
+    }
+  } catch (err) {
+    alert('❌ Error deleting student');
+  }
+}
+
+async function deleteGroup(id) {
+  if (!confirm('Delete this group?')) return;
+  
+  try {
+    const res = await fetch(`/api/groups/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      alert('✅ Group deleted');
+      loadGroups();
+      loadDashboardStats();
+    } else {
+      const result = await res.json();
+      alert('❌ ' + result.error);
+    }
+  } catch (err) {
+    alert('❌ Error deleting group');
+  }
+}
+
+async function viewGroupStudents(groupId) {
+  try {
+    const res = await fetch(`/api/groups/${groupId}/students`);
+    const students = await res.json();
+    
+    if (students.length === 0) {
+      alert('No students in this group yet');
+      return;
+    }
+    
+    const names = students.map(s => `• ${s.name} (${s.grade})`).join('\n');
+    alert(`Students in this group:\n\n${names}`);
+  } catch (err) {
+    alert('❌ Error loading students');
+  }
+}
+
+// Load email logs
+async function loadEmailLogs() {
+  try {
+    const res = await fetch('/api/email-logs');
+    const logs = await res.json();
+    
+    const tbody = document.getElementById('emailLogsBody');
+    
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No emails sent yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = logs.map(log => `
+      <tr>
+        <td>${new Date(log.sent_at).toLocaleString()}</td>
+        <td>${log.recipient_name}</td>
+        <td>${log.recipient_email}</td>
+        <td><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 12px;">${log.email_type}</span></td>
+        <td>${log.subject}</td>
+        <td><span style="color: ${log.status === 'Sent' ? '#38a169' : '#e53e3e'};">●</span> ${log.status}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load email logs:', err);
+  }
+}
+
+// Student modal functions
+async function openStudentModal(id) {
+  currentStudentId = id;
+  document.getElementById('studentModal').classList.add('active');
+  
+  try {
+    const res = await fetch(`/api/students/${id}/details`);
+    const data = await res.json();
+    
+    document.getElementById('modalStudentName').textContent = data.student.name;
+    
+    // Info tab
+    document.getElementById('studentInfoContent').innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+        <div><strong>Name:</strong> ${data.student.name}</div>
+        <div><strong>Grade:</strong> ${data.student.grade}</div>
+        <div><strong>Parent:</strong> ${data.student.parent_name}</div>
+        <div><strong>Email:</strong> ${data.student.parent_email}</div>
+        <div><strong>Phone:</strong> ${data.student.primary_contact}</div>
+        <div><strong>Timezone:</strong> ${data.student.timezone}</div>
+        <div><strong>Program:</strong> ${data.student.program_name}</div>
+        <div><strong>Class Type:</strong> ${data.student.class_type}</div>
+        <div><strong>Duration:</strong> ${data.student.duration}</div>
+        <div><strong>Total Sessions:</strong> ${data.student.total_sessions}</div>
+        <div><strong>Completed:</strong> ${data.student.completed_sessions}</div>
+        <div><strong>Remaining:</strong> ${data.student.remaining_sessions}</div>
+        <div><strong>Fees Paid:</strong> ${data.student.currency}${data.student.fees_paid}</div>
+      </div>
+    `;
+
+    // Payment history
+    const paymentBody = document.getElementById('paymentHistoryBody');
+    if (data.paymentHistory.length === 0) {
+      paymentBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No payments recorded</td></tr>';
+    } else {
+      paymentBody.innerHTML = data.paymentHistory.map(p => `
+        <tr>
+          <td>${p.payment_date}</td>
+          <td>${p.currency}${p.amount}</td>
+          <td>${p.payment_method}</td>
+          <td>${p.receipt_number || '-'}</td>
+          <td>${p.sessions_covered || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Makeup classes
+    const makeupContent = document.getElementById('makeupClassesContent');
+    if (data.makeupClasses.length === 0) {
+      makeupContent.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No makeup credits</p>';
+    } else {
+      makeupContent.innerHTML = `
+        <table style="width: 100%;">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Reason</th>
+              <th>Status</th>
+              <th>Used Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.makeupClasses.map(m => `
+              <tr>
+                <td>${m.credit_date}</td>
+                <td>${m.reason}</td>
+                <td><span style="background: ${m.status === 'Available' ? '#d4edda' : '#f8d7da'}; padding: 4px 8px; border-radius: 12px;">${m.status}</span></td>
+                <td>${m.used_date || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // Sessions
+    const sessionsBody = document.getElementById('studentSessionsBody');
+    if (data.sessions.length === 0) {
+      sessionsBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No sessions yet</td></tr>';
+    } else {
+      sessionsBody.innerHTML = data.sessions.map(s => `
+        <tr>
+          <td>${s.session_number}</td>
+          <td>${s.session_date}</td>
+          <td>${s.session_time}</td>
+          <td>${s.status}</td>
+          <td>${s.attendance || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    showModalTab('info');
+  } catch (err) {
+    console.error('Failed to load student details:', err);
+  }
+}
+
+function closeStudentModal() {
+  document.getElementById('studentModal').classList.remove('active');
+}
+
+function showModalTab(tabName) {
+  document.querySelectorAll('.modal-tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.modal-tab').forEach(el => el.classList.remove('active'));
+  
+  document.getElementById(tabName + 'Tab').classList.add('active');
+  event.target.classList.add('active');
+}
+
+function showPaymentForm() {
+  document.getElementById('paymentFormSection').style.display = 'block';
+}
+
+function hidePaymentForm() {
+  document.getElementById('paymentFormSection').style.display = 'none';
+}
+
+// Record payment
+document.getElementById('recordPaymentForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const data = {
+    amount: document.getElementById('paymentAmount').value,
+    currency: allStudents.find(s => s.id === currentStudentId).currency,
+    payment_method: document.getElementById('paymentMethod').value,
+    receipt_number: document.getElementById('receiptNumber').value,
+    sessions_covered: document.getElementById('sessionsCovered').value,
+    notes: document.getElementById('paymentNotes').value
+  };
+
+  try {
+    const res = await fetch(`/api/students/${currentStudentId}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    if (res.ok) {
+      alert('✅ Payment recorded');
+      hidePaymentForm();
+      openStudentModal(currentStudentId);
+      loadDashboardStats();
+    }
+  } catch (err) {
+    alert('❌ Error recording payment');
+  }
+});
+
+// Switch to parent view
+function switchToParentView() {
+  const student = allStudents.find(s => s.id === currentStudentId);
+  if (!student) {
+    alert('❌ Student not found');
+    return;
+  }
+
+  if (!confirm(`Switch to parent portal view for ${student.name}?`)) {
+    return;
+  }
+
+  sessionStorage.setItem('parentViewStudent', JSON.stringify(student));
+  sessionStorage.setItem('parentViewMode', 'true');
+
+  const parentWindow = window.open('parent.html', '_blank');
+  
+  if (!parentWindow) {
+    alert('❌ Popup blocked! Please allow popups and try again.');
+  } else {
+    alert('✅ Opening parent view in new tab...');
+  }
+}
+// Edit student (placeholder - you can implement full edit form)
+function editStudent(id) {
+  alert('Edit functionality: Implement a modal form to edit student details');
+  // TODO: Create edit modal similar to add student form, pre-filled with data
+}
+
   </script>
 </body>
 </html>
