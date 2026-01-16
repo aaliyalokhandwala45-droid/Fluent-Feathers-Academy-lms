@@ -9,6 +9,7 @@ const fs = require('fs');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const cron = require('node-cron');
 require('dotenv').config();
 
 const app = express();
@@ -105,21 +106,24 @@ async function initializeDatabase() {
   try {
     await client.query('BEGIN');
 
-    console.log('🔧 Dropping existing tables for clean setup...');
-    // Drop tables in correct order (reverse of creation due to foreign keys)
-    await client.query('DROP TABLE IF EXISTS email_log CASCADE');
-    await client.query('DROP TABLE IF EXISTS event_registrations CASCADE');
-    await client.query('DROP TABLE IF EXISTS events CASCADE');
-    await client.query('DROP TABLE IF EXISTS payment_history CASCADE');
-    await client.query('DROP TABLE IF EXISTS makeup_classes CASCADE');
-    await client.query('DROP TABLE IF EXISTS materials CASCADE');
-    await client.query('DROP TABLE IF EXISTS session_attendance CASCADE');
-    await client.query('DROP TABLE IF EXISTS sessions CASCADE');
-    await client.query('DROP TABLE IF EXISTS groups CASCADE');
-    await client.query('DROP TABLE IF EXISTS students CASCADE');
-    await client.query('DROP TABLE IF EXISTS parent_credentials CASCADE');
+    console.log('🔧 Checking database tables...');
 
-    console.log('✅ Old tables dropped');
+    // Check if tables already exist
+    const checkTable = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name = 'students'
+      );
+    `);
+
+    if (checkTable.rows[0].exists) {
+      console.log('✅ Database tables already exist. Skipping initialization to preserve data.');
+      await client.query('COMMIT');
+      return;
+    }
+
+    console.log('🔧 Creating new database tables...');
 
     // 1. Create Tables with ALL required columns from the start
     console.log('🔧 Creating students table...');
@@ -321,11 +325,58 @@ async function initializeDatabase() {
       )
     `);
 
+    console.log('🔧 Creating class_feedback table...');
+    await client.query(`
+      CREATE TABLE class_feedback (
+        id SERIAL PRIMARY KEY,
+        session_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+        feedback_text TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        UNIQUE(session_id, student_id)
+      )
+    `);
+
+    console.log('🔧 Creating student_badges table...');
+    await client.query(`
+      CREATE TABLE student_badges (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        badge_type TEXT NOT NULL,
+        badge_name TEXT NOT NULL,
+        badge_description TEXT,
+        earned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
+
+    console.log('🔧 Creating payment_renewals table...');
+    await client.query(`
+      CREATE TABLE payment_renewals (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        renewal_date DATE NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        currency TEXT NOT NULL,
+        sessions_added INTEGER NOT NULL,
+        payment_method TEXT,
+        notes TEXT,
+        status TEXT DEFAULT 'Paid',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
+
     // Create indexes
     console.log('🔧 Creating indexes...');
     await client.query('CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_student ON sessions(student_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
 
     await client.query('COMMIT');
     console.log('✅ Database initialized successfully with all tables and columns');
@@ -397,7 +448,7 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
       console.warn('⚠️ BREVO_API_KEY missing. Email not sent.');
       return false;
     }
-    await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: html }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
+    await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy By Aaliya', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: html }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
     await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status) VALUES ($1, $2, $3, $4, 'Sent')`, [recipientName || '', to, emailType, subject]);
     return true;
   } catch (e) {
@@ -414,7 +465,7 @@ function getWelcomeEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 32px;">🎓 Welcome to Fluent Feathers Academy!</h1>
+      <h1 style="color: white; margin: 0; font-size: 32px;">🎓 Welcome to Fluent Feathers Academy By Aaliya!</h1>
     </div>
     <div style="padding: 40px 30px;">
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${data.parent_name}</strong>,</p>
@@ -451,12 +502,12 @@ function getWelcomeEmail(data) {
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         Warm regards,<br>
-        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        © ${new Date().getFullYear()} Fluent Feathers Academy. All rights reserved.
+        Made with ❤️ By Aaliya
       </p>
     </div>
   </div>
@@ -514,12 +565,12 @@ function getScheduleEmail(data) {
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         Best regards,<br>
-        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        © ${new Date().getFullYear()} Fluent Feathers Academy. All rights reserved.
+        Made with ❤️ By Aaliya
       </p>
     </div>
   </div>
@@ -607,18 +658,192 @@ function getEventEmail(data) {
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         See you soon!<br>
-        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        © ${new Date().getFullYear()} Fluent Feathers Academy. All rights reserved.
+        Made with ❤️ By Aaliya
       </p>
     </div>
   </div>
 </body>
 </html>`;
 }
+
+function getClassReminderEmail(data) {
+  const { studentName, sessionNumber, localDate, localTime, localDay, zoomLink, hoursBeforeClass } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">⏰ Class Reminder</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Your class is starting ${hoursBeforeClass === 5 ? 'in 5 hours' : 'in 1 hour'}!</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Hi <strong>${studentName}</strong>,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        This is a friendly reminder that your upcoming class is ${hoursBeforeClass === 5 ? '<strong>starting in 5 hours</strong>' : '<strong>starting in 1 hour</strong>'}!
+      </p>
+
+      <div style="background: linear-gradient(135deg, #f6f9fc 0%, #e9f2ff 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; margin-bottom: 25px;">
+        <h2 style="margin: 0 0 15px; color: #667eea; font-size: 20px;">📅 Class Details</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Session:</strong></td>
+            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">#${sessionNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Date:</strong></td>
+            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">${localDay}, ${localDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Time:</strong></td>
+            <td style="padding: 8px 0; color: #667eea; font-size: 16px; font-weight: bold; text-align: right;">${localTime}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${zoomLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
+          🎥 Join Zoom Class
+        </a>
+      </div>
+
+      <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
+        <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
+          <strong>💡 Pro Tip:</strong> Make sure you're in a quiet place with good internet connection. Have your materials ready!
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        We're excited to see you in class!<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// ==================== CLASS REMINDER CRON JOB ====================
+// Runs every 15 minutes to check for upcoming classes
+cron.schedule('*/15 * * * *', async () => {
+  try {
+    console.log('🔔 Checking for upcoming classes to send reminders...');
+
+    const now = new Date();
+    const fiveHoursLater = new Date(now.getTime() + (5 * 60 * 60 * 1000));
+    const oneHourLater = new Date(now.getTime() + (1 * 60 * 60 * 1000));
+
+    // Find all upcoming sessions in the next 5 hours and 1 hour
+    const upcomingSessions = await pool.query(`
+      SELECT s.*, st.name as student_name, st.parent_email, st.parent_name, st.timezone,
+             CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
+      FROM sessions s
+      JOIN students st ON s.student_id = st.id
+      WHERE s.status IN ('Pending', 'Scheduled')
+        AND s.session_date >= CURRENT_DATE
+        AND st.is_active = true
+        AND st.parent_email IS NOT NULL
+    `);
+
+    for (const session of upcomingSessions.rows) {
+      try {
+        const sessionDateTime = new Date(session.full_datetime);
+        const timeDiff = sessionDateTime - now;
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+        // Check if we need to send 5-hour reminder
+        if (hoursDiff > 4.75 && hoursDiff <= 5.25) {
+          // Check if 5-hour reminder already sent for this specific session
+          const sentCheck = await pool.query(
+            `SELECT id FROM email_log
+             WHERE recipient_email = $1
+               AND email_type = 'Reminder-5hrs'
+               AND subject = $2`,
+            [session.parent_email, `⏰ Class Reminder - Session #${session.session_number} in 5 hours`]
+          );
+
+          if (sentCheck.rows.length === 0) {
+            const localTime = formatUTCToLocal(session.session_date, session.session_time, session.timezone);
+            const reminderEmailHTML = getClassReminderEmail({
+              studentName: session.student_name,
+              sessionNumber: session.session_number,
+              localDate: localTime.date,
+              localTime: localTime.time,
+              localDay: localTime.day,
+              zoomLink: session.zoom_link || DEFAULT_ZOOM,
+              hoursBeforeClass: 5
+            });
+
+            await sendEmail(
+              session.parent_email,
+              `⏰ Class Reminder - Session #${session.session_number} in 5 hours`,
+              reminderEmailHTML,
+              session.parent_name,
+              'Reminder-5hrs'
+            );
+            console.log(`✅ Sent 5-hour reminder to ${session.parent_email} for Session #${session.session_number}`);
+          }
+        }
+
+        // Check if we need to send 1-hour reminder
+        if (hoursDiff > 0.75 && hoursDiff <= 1.25) {
+          // Check if 1-hour reminder already sent for this specific session
+          const sentCheck = await pool.query(
+            `SELECT id FROM email_log
+             WHERE recipient_email = $1
+               AND email_type = 'Reminder-1hr'
+               AND subject = $2`,
+            [session.parent_email, `⏰ Class Reminder - Session #${session.session_number} in 1 hour`]
+          );
+
+          if (sentCheck.rows.length === 0) {
+            const localTime = formatUTCToLocal(session.session_date, session.session_time, session.timezone);
+            const reminderEmailHTML = getClassReminderEmail({
+              studentName: session.student_name,
+              sessionNumber: session.session_number,
+              localDate: localTime.date,
+              localTime: localTime.time,
+              localDay: localTime.day,
+              zoomLink: session.zoom_link || DEFAULT_ZOOM,
+              hoursBeforeClass: 1
+            });
+
+            await sendEmail(
+              session.parent_email,
+              `⏰ Class Reminder - Session #${session.session_number} in 1 hour`,
+              reminderEmailHTML,
+              session.parent_name,
+              'Reminder-1hr'
+            );
+            console.log(`✅ Sent 1-hour reminder to ${session.parent_email} for Session #${session.session_number}`);
+          }
+        }
+      } catch (sessionErr) {
+        console.error(`Error processing session ${session.id}:`, sessionErr);
+      }
+    }
+  } catch (err) {
+    console.error('❌ Error in class reminder cron job:', err);
+  }
+});
+
+console.log('✅ Class reminder system initialized - checking every 15 minutes');
 
 // ==================== API ROUTES ====================
 app.get('/api/dashboard/stats', async (req, res) => {
@@ -700,7 +925,7 @@ app.post('/api/students', async (req, res) => {
 
     const emailSent = await sendEmail(
       parent_email,
-      `🎓 Welcome to Fluent Feathers Academy - ${name}`,
+      `🎓 Welcome to Fluent Feathers Academy By Aaliya - ${name}`,
       getWelcomeEmail({ parent_name, student_name: name, program_name, zoom_link: DEFAULT_ZOOM }),
       parent_name,
       'Welcome'
@@ -1041,7 +1266,18 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
     if (attendance === 'Present') {
       const session = await pool.query('SELECT student_id FROM sessions WHERE id = $1', [req.params.sessionId]);
       if (session.rows[0] && session.rows[0].student_id) {
-        await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [session.rows[0].student_id]);
+        const studentId = session.rows[0].student_id;
+        await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [studentId]);
+
+        // Award attendance badges
+        const student = await pool.query('SELECT completed_sessions FROM students WHERE id = $1', [studentId]);
+        const completedCount = student.rows[0].completed_sessions;
+
+        if (completedCount === 1) await awardBadge(studentId, 'first_class', '🌟 First Class Star', 'Attended first class!');
+        if (completedCount === 5) await awardBadge(studentId, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
+        if (completedCount === 10) await awardBadge(studentId, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
+        if (completedCount === 25) await awardBadge(studentId, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
+        if (completedCount === 50) await awardBadge(studentId, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
       }
     }
 
@@ -1080,6 +1316,16 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
       if (prev.rows[0]?.attendance !== 'Present' && record.attendance === 'Present') {
         await client.query(`UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+
+        // Award badges for group class attendance
+        const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
+        const completedCount = student.rows[0].completed_sessions;
+
+        if (completedCount === 1) await awardBadge(record.student_id, 'first_class', '🌟 First Class Star', 'Attended first class!');
+        if (completedCount === 5) await awardBadge(record.student_id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
+        if (completedCount === 10) await awardBadge(record.student_id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
+        if (completedCount === 25) await awardBadge(record.student_id, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
+        if (completedCount === 50) await awardBadge(record.student_id, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
       }
     }
 
@@ -1163,6 +1409,18 @@ app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, r
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
       VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent')
     `, [req.params.studentId, req.body.sessionId, req.file.originalname, req.file.filename]);
+
+    // Award homework submission badge
+    await awardBadge(req.params.studentId, 'hw_submit', '📝 Homework Hero', 'Submitted homework on time');
+
+    // Check total homework submissions for milestone badges
+    const hwCount = await pool.query('SELECT COUNT(*) as count FROM materials WHERE student_id = $1 AND file_type = \'Homework\'', [req.params.studentId]);
+    const count = parseInt(hwCount.rows[0].count);
+
+    if (count === 5) await awardBadge(req.params.studentId, '5_homework', '📚 5 Homework Superstar', 'Submitted 5 homework assignments!');
+    if (count === 10) await awardBadge(req.params.studentId, '10_homework', '🎓 10 Homework Champion', 'Submitted 10 homework assignments!');
+    if (count === 25) await awardBadge(req.params.studentId, '25_homework', '🏅 25 Homework Master', 'Submitted 25 homework assignments!');
+
     res.json({ message: 'Homework uploaded successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1399,8 +1657,9 @@ app.post('/api/parent/cancel-class', async (req, res) => {
     const session = (await pool.query('SELECT * FROM sessions WHERE id = $1 AND student_id = $2', [req.body.session_id, id])).rows[0];
     if(!session) return res.status(404).json({ error: 'Session not found' });
     const sessionTime = new Date(`${session.session_date}T${session.session_time}Z`);
-    if((sessionTime - new Date()) < 2 * 60 * 60 * 1000) {
-      return res.status(400).json({ error: 'Cannot cancel class less than 2 hours before start.' });
+    const oneHour = 60 * 60 * 1000;
+    if((sessionTime - new Date()) < oneHour) {
+      return res.status(400).json({ error: 'Cannot cancel class less than 1 hour before start.' });
     }
     await pool.query('UPDATE sessions SET status = $1, cancelled_by = $2 WHERE id = $3', ['Cancelled by Parent', 'Parent', session.id]);
     await pool.query(`INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status) VALUES ($1, $2, $3, CURRENT_DATE, 'Available')`, [id, session.id, req.body.reason || 'Parent cancelled']);
@@ -1478,6 +1737,219 @@ app.post('/api/parent/verify-otp', async (req, res) => {
     res.json({ students: s });
   } catch(e) {
     res.status(500).json({error:e.message});
+  }
+});
+
+// ==================== PAYMENT RENEWALS ====================
+app.post('/api/students/:id/renewal', async (req, res) => {
+  const { amount, currency, sessions_added, payment_method, notes } = req.body;
+  try {
+    await pool.query(`
+      INSERT INTO payment_renewals (student_id, renewal_date, amount, currency, sessions_added, payment_method, notes)
+      VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
+    `, [req.params.id, amount, currency, sessions_added, payment_method, notes]);
+
+    await pool.query(`
+      UPDATE students SET
+        total_sessions = total_sessions + $1,
+        remaining_sessions = remaining_sessions + $1,
+        fees_paid = fees_paid + $2
+      WHERE id = $3
+    `, [sessions_added, amount, req.params.id]);
+
+    res.json({ success: true, message: 'Renewal added successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:id/renewals', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM payment_renewals WHERE student_id = $1 ORDER BY renewal_date DESC', [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:id/payments', async (req, res) => {
+  try {
+    const payments = await pool.query('SELECT * FROM payment_history WHERE student_id = $1 ORDER BY payment_date DESC', [req.params.id]);
+    const renewals = await pool.query('SELECT * FROM payment_renewals WHERE student_id = $1 ORDER BY renewal_date DESC', [req.params.id]);
+    res.json({ payments: payments.rows, renewals: renewals.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== EDIT & DELETE STUDENT ====================
+app.put('/api/students/:id', async (req, res) => {
+  const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency } = req.body;
+  try {
+    await pool.query(`
+      UPDATE students SET
+        name = $1, grade = $2, parent_name = $3, parent_email = $4,
+        primary_contact = $5, timezone = $6, program_name = $7,
+        duration = $8, per_session_fee = $9, currency = $10
+      WHERE id = $11
+    `, [name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, req.params.id]);
+    res.json({ success: true, message: 'Student updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:id/full', async (req, res) => {
+  try {
+    const student = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    res.json(student.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== EDIT & DELETE GROUP ====================
+app.put('/api/groups/:id', async (req, res) => {
+  const { group_name, program_name, duration, timezone, max_students } = req.body;
+  try {
+    await pool.query(`
+      UPDATE groups SET
+        group_name = $1, program_name = $2, duration = $3, timezone = $4, max_students = $5
+      WHERE id = $6
+    `, [group_name, program_name, duration, timezone, max_students, req.params.id]);
+    res.json({ success: true, message: 'Group updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/groups/:id/full', async (req, res) => {
+  try {
+    const group = await pool.query('SELECT * FROM groups WHERE id = $1', [req.params.id]);
+    if (group.rows.length === 0) return res.status(404).json({ error: 'Group not found' });
+    res.json(group.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== CLASS FEEDBACK ====================
+app.post('/api/sessions/:sessionId/feedback', async (req, res) => {
+  const { student_id, rating, feedback_text } = req.body;
+  try {
+    await pool.query(`
+      INSERT INTO class_feedback (session_id, student_id, rating, feedback_text)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (session_id, student_id) DO UPDATE
+      SET rating = $3, feedback_text = $4
+    `, [req.params.sessionId, student_id, rating, feedback_text]);
+
+    await awardBadge(student_id, 'feedback', '⭐ Feedback Star', 'Shared valuable feedback');
+
+    res.json({ success: true, message: 'Thank you for your feedback!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/sessions/:sessionId/feedbacks', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT cf.*, s.name as student_name
+      FROM class_feedback cf
+      JOIN students s ON cf.student_id = s.id
+      WHERE cf.session_id = $1
+      ORDER BY cf.created_at DESC
+    `, [req.params.sessionId]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/sessions/:sessionId/has-feedback/:studentId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id FROM class_feedback WHERE session_id = $1 AND student_id = $2',
+      [req.params.sessionId, req.params.studentId]
+    );
+    res.json({ hasFeedback: result.rows.length > 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== BADGES SYSTEM ====================
+async function awardBadge(studentId, badgeType, badgeName, badgeDescription) {
+  try {
+    const existing = await pool.query(
+      'SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2',
+      [studentId, badgeType]
+    );
+
+    if (existing.rows.length === 0) {
+      await pool.query(`
+        INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
+        VALUES ($1, $2, $3, $4)
+      `, [studentId, badgeType, badgeName, badgeDescription]);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Badge award error:', err);
+    return false;
+  }
+}
+
+app.get('/api/students/:id/badges', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM student_badges WHERE student_id = $1 ORDER BY earned_date DESC',
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== HOMEWORK GRADING ====================
+app.post('/api/materials/:id/grade', async (req, res) => {
+  const { grade, comments } = req.body;
+  try {
+    await pool.query(`
+      UPDATE materials SET
+        feedback_grade = $1,
+        feedback_comments = $2,
+        feedback_given = 1,
+        feedback_date = CURRENT_TIMESTAMP
+      WHERE id = $3
+    `, [grade, comments, req.params.id]);
+
+    const material = await pool.query('SELECT student_id FROM materials WHERE id = $1', [req.params.id]);
+    if (material.rows[0]) {
+      await awardBadge(material.rows[0].student_id, 'graded_hw', '📚 Homework Hero', 'Received homework feedback');
+    }
+
+    res.json({ success: true, message: 'Homework graded successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:id/homework', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT m.*, s.session_number
+      FROM materials m
+      LEFT JOIN sessions s ON m.session_id = s.id
+      WHERE m.student_id = $1 AND m.file_type = 'Homework'
+      ORDER BY m.uploaded_at DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
