@@ -68,9 +68,7 @@
       </div>
 
       <div id="upcomingTab" class="tab-content active">
-        <!-- 🔴 FIX: Dynamic Zoom Link -->
         <a id="zoomLink" target="_blank" class="zoom-btn" style="display:none;">🎥 Join Zoom Class</a>
-        
         <div class="section"><h2>🚫 Cancel Class</h2><p style="color: #718096; margin-bottom: 20px;">Note: Cannot cancel less than 2 hours before class.</p><form id="cancelClassForm"><div class="form-group"><label>Select Class</label><select id="cancelClassSelect" required></select></div><button type="submit" class="btn btn-danger">Cancel Class</button></form></div>
         <div class="section"><h2>📅 Schedule</h2><table id="upcomingTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th></tr></thead><tbody id="upcomingBody"><tr><td>Loading...</td></tr></tbody></table></div>
       </div>
@@ -93,7 +91,6 @@
     let currentStudent = null;
     let allMyStudents = [];
 
-    // 🔴 FIX: Auth Headers Helper
     const adminToken = sessionStorage.getItem('adminParentToken');
     function authHeaders() {
       return adminToken ? { 'x-admin-token': adminToken } : {};
@@ -110,7 +107,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      // 🔴 FIX: Secure Token Verification
       if (adminToken) {
         fetch('/api/parent/admin-view', { headers: authHeaders() })
         .then(res => {
@@ -192,8 +188,6 @@
         showDashboard();
       }
     }
-
-    function showOTPForm() { document.getElementById('passwordForm').style.display = 'none'; document.getElementById('otpForm').style.display = 'block'; }
     
     async function sendOTP() {
       const email = document.getElementById('parentEmail').value.trim();
@@ -221,14 +215,12 @@
 
     async function loadUpcoming() {
       try {
-        // 🔴 FIX: Attach Auth Headers
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
         const today = new Date().toISOString().split('T')[0];
         const upcoming = sessions.filter(s => s.session_date >= today && s.status !== 'Cancelled');
         const tbody = document.getElementById('upcomingBody');
         
-        // 🔴 FIX: Show/Hide Zoom Button & Set Link
         const zoomBtn = document.getElementById('zoomLink');
         if (upcoming.length > 0) {
              zoomBtn.href = upcoming[0].zoom_link || 'https://zoom.us';
@@ -293,7 +285,6 @@
       const sid = document.getElementById('cancelClassSelect').value;
       if(!sid) return alert('Select class');
       try {
-        // 🔴 FIX: Attach Headers
         const res = await fetch('/api/parent/cancel-class', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ student_id: currentStudent.id, session_id: sid }) });
         if(res.ok) { alert('Cancelled'); loadUpcoming(); loadCancelDropdown(); }
         else alert((await res.json()).error);
@@ -308,7 +299,6 @@
       
       const fd = new FormData();
       fd.append('file', file);
-      // 🔴 FIX: No Dummy Date
       fd.append('sessionId', sid);
       fd.append('uploadType', 'homework');
 
@@ -321,11 +311,9 @@
 
     async function loadEvents() {
       try {
-        // 🔴 FIX: Attach Headers
         const res = await fetch(`/api/events/student/${currentStudent.id}`, { headers: authHeaders() });
         const events = await res.json();
         document.getElementById('eventsContainer').innerHTML = events.map(e => {
-          // 🔴 FIX: Convert Event Time to Local
           const t = toLocalTime(e.event_date, e.event_time, currentStudent.timezone);
           return `
           <div style="background:white; border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:8px;">
@@ -339,7 +327,6 @@
 
     async function registerEvent(eid) {
       try {
-        // 🔴 FIX: Attach Headers
         const res = await fetch(`/api/events/${eid}/register`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ student_id: currentStudent.id }) });
         if(res.ok) { alert('Registered'); loadEvents(); }
         else alert((await res.json()).error);
@@ -348,7 +335,6 @@
 
     function logout() {
       if(confirm('Logout?')) {
-        // 🔴 FIX: Specific Cleanup
         sessionStorage.removeItem('adminParentToken');
         sessionStorage.removeItem('parentViewStudent');
         sessionStorage.removeItem('parentViewMode');

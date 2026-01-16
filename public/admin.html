@@ -189,13 +189,11 @@
         const tbody = document.getElementById('pastSessionsBody');
         tbody.innerHTML = sessions.map(s => {
           const isPending = s.status === 'Pending' || s.status === 'Scheduled';
-          // 🔴 FIX: Use actual session_type for modal logic
           return `<tr><td>${formatSessionTime(s)}</td><td><strong>${s.student_name}</strong></td><td>${s.session_type}</td><td>#${s.session_number}</td><td>${isPending ? `<button onclick="markSessionAttendance(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">Mark</button>` : `<span>${s.status}</span>`}</td><td>${s.ppt_file_path ? '📊' : ''} ${s.recording_file_path ? '🎥' : ''}</td><td><button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">View</button></td></tr>`;
         }).join('');
       } catch (err) { console.error(err); }
     }
 
-    // 🔴 FIX: markSessionAttendance implementation
     async function markSessionAttendance(sessionId, sessionType) {
        if (sessionType === 'Group') {
           openSessionModal(sessionId, 'Group');
@@ -210,7 +208,7 @@
 
     async function openSessionModal(sessionId, sessionType) {
       try {
-        const res = await fetch(`/api/sessions/${sessionId}/details`); // 🔴 Fixed route to match backend
+        const res = await fetch(`/api/sessions/${sessionId}/details`);
         const session = await res.json();
         document.getElementById('modalSessionTitle').textContent = `Session #${session.session_number} - ${session.session_type}`;
         
@@ -220,9 +218,8 @@
           <div><input type="file" id="hwFile" accept=".pdf"><button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm">HW</button></div>
         </div>`;
 
-        // 🔴 FIX: Correctly handle Group Attendance UI
         if (sessionType === 'Group') {
-           const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`); // 🔴 Fixed route
+           const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`);
            const students = await attRes.json();
            content += `<h3>Group Attendance</h3><table><thead><tr><th>Student</th><th>Action</th></tr></thead><tbody>` + students.map(s => `
              <tr><td>${s.student_name}</td><td>
@@ -248,7 +245,6 @@
 
     async function loadGroups() { 
        try { const res = await fetch('/api/groups'); allGroups = await res.json(); document.getElementById('groupsBody').innerHTML = allGroups.map(g => `<tr><td><strong>${g.group_name}</strong></td><td>${g.program_name}</td><td>${g.duration}</td><td>${g.enrolled_students||0}</td><td>${g.max_students}</td><td><button onclick="deleteGroup(${g.id})" class="btn btn-sm btn-danger">Del</button></td></tr>`).join(''); 
-       // 🔴 FIX: Disable full groups
        document.getElementById('scheduleGroup').innerHTML = '<option value="">Select group...</option>' + allGroups.map(g => `<option value="${g.id}" ${g.enrolled_students >= g.max_students ? 'disabled' : ''}>${g.group_name}</option>`).join('');
        } catch(e){}
     }
@@ -266,7 +262,6 @@
     function deleteEvent(id) { if(confirm('Delete?')) fetch(`/api/events/${id}`, {method:'DELETE'}).then(()=>loadEvents()); }
     document.getElementById('createEventForm').addEventListener('submit', async(e)=>{ e.preventDefault(); fetch('/api/events', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({event_name:document.getElementById('eventName').value, event_duration:document.getElementById('eventDuration').value, event_date:document.getElementById('eventDate').value, event_time:document.getElementById('eventTime').value})}).then(()=>loadEvents()); });
     
-    // 🔴 FIX: Secure Parent Switch
     async function switchToParentView() {
       const student = allStudents.find(s => s.id == currentStudentId);
       if (!student) return alert('Student not found');
