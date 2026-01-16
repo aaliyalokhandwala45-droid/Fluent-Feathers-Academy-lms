@@ -27,7 +27,11 @@
     .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
     .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5568d3; }
+    .btn-success { background: #38a169; color: white; }
+    .btn-success:hover { background: #2f855a; }
     .btn-danger { background: #e53e3e; color: white; }
+    .btn-danger:hover { background: #c53030; }
     .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
@@ -40,6 +44,7 @@
     .class-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }
     .schedule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
     .schedule-row input { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; }
+    .session-item { background: #f7fafc; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid #667eea; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
@@ -59,6 +64,7 @@
       <button class="tab-btn" onclick="showTab('students', event)">👥 Students</button>
       <button class="tab-btn" onclick="showTab('groups', event)">👨‍👩‍👧 Groups</button>
       <button class="tab-btn" onclick="showTab('schedule', event)">📆 Schedule</button>
+      <button class="tab-btn" onclick="showTab('scheduleManager', event)">📋 Manage Schedules</button>
       <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
       <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
       <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
@@ -127,7 +133,7 @@
           <button type="submit" class="btn btn-primary">Add Student</button>
         </form>
       </div>
-      <div class="section"><h2>📋 All Students</h2><table id="studentsTable"><thead><tr><th>Name</th><th>Grade</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📋 All Students</h2><table id="studentsTable"><thead><tr><th>Name</th><th>Grade</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="groupsTab" class="tab-content">
@@ -157,7 +163,7 @@
             </div>
             <div class="form-group"><label>Max Students *</label><input type="number" id="groupMaxStudents" value="10" required></div>
         </div><button type="submit" class="btn btn-primary">Create Group</button></form></div>
-      <div class="section"><h2>📋 All Groups</h2><table id="groupsTable"><thead><tr><th>Group Name</th><th>Program</th><th>Duration</th><th>Students</th><th>Max</th><th>Actions</th></tr></thead><tbody id="groupsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📋 All Groups</h2><table id="groupsTable"><thead><tr><th>Group Name</th><th>Program</th><th>Duration</th><th>Students</th><th>Max</th><th>Actions</th></tr></thead><tbody id="groupsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="scheduleTab" class="tab-content">
@@ -176,37 +182,69 @@
       </div>
     </div>
 
+    <div id="scheduleManagerTab" class="tab-content">
+      <div class="section">
+        <h2>📋 Manage Student Schedules</h2>
+        <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+          <label>Select Student</label>
+          <select id="manageScheduleStudent" onchange="loadStudentSchedule()">
+            <option value="">Select student...</option>
+          </select>
+        </div>
+        <div id="studentScheduleContainer"></div>
+      </div>
+    </div>
+
     <div id="pastTab" class="tab-content">
-      <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="eventsTab" class="tab-content">
       <div class="section"><h2>🎉 Create New Event</h2><form id="createEventForm">
-        <div class="form-row"><div class="form-group"><label>Event Name *</label><input type="text" id="eventName" required></div><div class="form-group"><label>Event Duration *</label>
+        <div class="form-row">
+          <div class="form-group"><label>Event Name *</label><input type="text" id="eventName" required></div>
+          <div class="form-group"><label>Event Duration *</label>
             <select id="eventDuration" required>
-                <option value="25 mins">25 mins</option>
-                <option value="30 mins">30 mins</option>
-                <option value="40 mins">40 mins</option>
-                <option value="45 mins">45 mins</option>
-                <option value="60 mins">60 mins</option>
+              <option value="25 mins">25 mins</option>
+              <option value="30 mins">30 mins</option>
+              <option value="40 mins">40 mins</option>
+              <option value="45 mins">45 mins</option>
+              <option value="60 mins">60 mins</option>
+              <option value="90 mins">90 mins</option>
+              <option value="120 mins">120 mins</option>
             </select>
-        </div></div>
-        <div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="eventDate" required></div><div class="form-group"><label>Time (IST) *</label><input type="time" id="eventTime" required></div></div><button type="submit" class="btn btn-primary">Create Event</button></form></div>
+          </div>
+        </div>
+        <div class="form-group"><label>Event Description</label><textarea id="eventDescription" rows="3" placeholder="Describe the event..."></textarea></div>
+        <div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="eventDate" required></div><div class="form-group"><label>Time (IST) *</label><input type="time" id="eventTime" required></div></div>
+        <div class="form-row">
+          <div class="form-group"><label>Zoom Link</label><input type="url" id="eventZoomLink" placeholder="https://zoom.us/j/..."></div>
+          <div class="form-group"><label>Max Participants</label><input type="number" id="eventMaxParticipants" placeholder="Leave empty for unlimited"></div>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Event & Send Emails</button>
+      </form></div>
       <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date</th><th>Time</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
     </div>
-    
+
     <div id="emailsTab" class="tab-content"><div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
   </div>
 
   <!-- Student Details Modal -->
-  <div id="studentModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalStudentName">Student Details</h2><button onclick="closeStudentModal()" class="btn btn-danger btn-sm">✕</button></div><div class="modal-tabs"><button class="modal-tab active" onclick="showModalTab('info', event)">📋 Info</button></div><div id="infoTab" class="modal-tab-content active"><div id="studentInfoContent"></div><div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center;"><h3 style="color: white; margin-bottom: 10px;">👤 Switch to Learner View</h3><p style="color: white; margin-bottom: 15px; opacity: 0.9;">View this student's parent portal</p><button onclick="switchToParentView()" class="btn btn-primary" style="background: white; color: #667eea;">Switch Now</button></div></div></div>
+  <div id="studentModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalStudentName">Student Details</h2><button onclick="closeStudentModal()" class="btn btn-danger btn-sm">✕</button></div><div class="modal-tabs"><button class="modal-tab active" onclick="showModalTab('info', event)">📋 Info</button></div><div id="infoTab" class="modal-tab-content active"><div id="studentInfoContent"></div><div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center;"><h3 style="color: white; margin-bottom: 10px;">👤 Switch to Learner View</h3><p style="color: white; margin-bottom: 15px; opacity: 0.9;">View this student's parent portal</p><button onclick="switchToParentView()" class="btn btn-primary" style="background: white; color: #667eea;">Switch Now</button></div></div></div></div>
 
   <!-- Session Modal -->
-  <div id="sessionModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalSessionTitle">Session Details</h2><button onclick="closeSessionModal()" class="btn btn-danger btn-sm">✕</button></div><div id="sessionDetailsContent"></div></div>
+  <div id="sessionModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalSessionTitle">Session Details</h2><button onclick="closeSessionModal()" class="btn btn-danger btn-sm">✕</button></div><div id="sessionDetailsContent"></div></div></div>
+
+  <!-- Group Enrollment Modal -->
+  <div id="enrollModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="enrollModalTitle">Enroll Students</h2><button onclick="closeEnrollModal()" class="btn btn-danger btn-sm">✕</button></div><div id="enrollModalContent"></div></div></div>
+
+  <!-- Edit Session Modal -->
+  <div id="editSessionModal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Edit Session</h2><button onclick="closeEditSessionModal()" class="btn btn-danger btn-sm">✕</button></div><form id="editSessionForm"><input type="hidden" id="editSessionId"><div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="editSessionDate" required></div><div class="form-group"><label>Time *</label><input type="time" id="editSessionTime" required></div></div><button type="submit" class="btn btn-primary">Save Changes</button></form></div></div>
 
   <script>
     let allStudents = [], allGroups = [];
     let currentStudentId = null;
+    let currentGroupId = null;
 
     document.addEventListener('DOMContentLoaded', async () => { await loadDashboardStats(); await loadUpcomingClasses(); await loadStudents(); await loadGroups(); await loadEmailLogs(); });
 
@@ -219,10 +257,39 @@
       if (tabName === 'emails') loadEmailLogs();
       if (tabName === 'past') loadPastSessions();
       if (tabName === 'events') loadEvents();
+      if (tabName === 'scheduleManager') loadScheduleManager();
     }
 
     function formatSessionTime(session) {
-      try { const d = new Date(`${session.session_date}T${session.session_time}Z`); return d.toLocaleString('en-US', { timeZone: session.timezone, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch(e) { return session.session_date + ' ' + session.session_time; }
+      try {
+        if (!session.session_date || !session.session_time) {
+          return 'Invalid Date';
+        }
+        const dateStr = session.session_date.includes('T') ? session.session_date.split('T')[0] : session.session_date;
+        let timeStr = session.session_time.toString().trim();
+        if (timeStr.length === 5) timeStr += ':00';
+        else if (timeStr.length === 8) { /* good */ }
+        else timeStr = timeStr.substring(0, 8);
+
+        const isoString = `${dateStr}T${timeStr}Z`;
+        const d = new Date(isoString);
+
+        if (isNaN(d.getTime())) {
+          console.error('Invalid date:', isoString);
+          return 'Invalid Date';
+        }
+
+        return d.toLocaleString('en-US', {
+          timeZone: session.timezone || 'Asia/Kolkata',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit'
+        });
+      } catch(e) {
+        console.error('Format error:', e, session);
+        return 'Invalid Date';
+      }
     }
 
     async function loadDashboardStats() {
@@ -230,29 +297,44 @@
     }
 
     async function loadUpcomingClasses() {
-      try { const res = await fetch('/api/dashboard/upcoming-classes'); const classes = await res.json(); const grid = document.getElementById('upcomingClassesGrid'); if (classes.length === 0) return grid.innerHTML = '<p>No upcoming classes</p>';
-        grid.innerHTML = classes.map(cls => `<div class="class-card"><h3>${cls.student_name}</h3><p>📚 ${cls.class_info}</p><p>📅 ${formatSessionTime(cls)}</p><p>🌍 ${cls.timezone}</p><a href="${cls.zoom_link}" target="_blank" class="btn btn-sm" style="background:white; color:#667eea; text-decoration:none; margin-top:10px; display:inline-block;">🎥 Join</a></div>`).join(''); } catch (err) { console.error(err); }
+      try {
+        const res = await fetch('/api/dashboard/upcoming-classes');
+        const classes = await res.json();
+        const grid = document.getElementById('upcomingClassesGrid');
+        if (classes.length === 0) return grid.innerHTML = '<p>No upcoming classes</p>';
+        grid.innerHTML = classes.map(cls => `<div class="class-card"><h3>${cls.student_name}</h3><p>📚 ${cls.class_info || 'N/A'}</p><p>📅 ${formatSessionTime(cls)}</p><p>🌍 ${cls.timezone}</p><a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#667eea; text-decoration:none; margin-top:10px; display:inline-block;">🎥 Join</a></div>`).join('');
+      } catch (err) {
+        console.error(err);
+        document.getElementById('upcomingClassesGrid').innerHTML = '<p>Error loading classes</p>';
+      }
     }
 
     async function loadStudents() {
-      try { const res = await fetch('/api/students'); allStudents = await res.json(); const tbody = document.getElementById('studentsBody'); tbody.innerHTML = allStudents.map(s => `<tr><td><strong>${s.name}</strong></td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button></td></tr>`).join(''); document.getElementById('scheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); } catch (err) { console.error(err); }
+      try {
+        const res = await fetch('/api/students');
+        allStudents = await res.json();
+        const tbody = document.getElementById('studentsBody');
+        tbody.innerHTML = allStudents.map(s => `<tr><td><strong>${s.name}</strong></td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button></td></tr>`).join('');
+        document.getElementById('scheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      } catch (err) { console.error(err); }
     }
 
     document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const data = { name: document.getElementById('studentName').value, grade: document.getElementById('grade').value, parent_name: document.getElementById('parentName').value, parent_email: document.getElementById('parentEmail').value, primary_contact: document.getElementById('primaryContact').value, timezone: document.getElementById('timezone').value, program_name: document.getElementById('programName').value, class_type: document.getElementById('classType').value, duration: document.getElementById('duration').value, currency: document.getElementById('currency').value.split(' ')[0], per_session_fee: parseFloat(document.getElementById('perSessionFee').value), total_sessions: parseInt(document.getElementById('totalSessions').value) };
-      try { 
-        const res = await fetch('/api/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); 
+      try {
+        const res = await fetch('/api/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         const result = await res.json();
-        if (res.ok) { 
-          alert(`✅ Student added. ${result.emailSent ? 'Welcome Email Sent.' : '⚠️ Email skipped (Check API Key).'}`); 
-          e.target.reset(); 
-          loadStudents(); 
-          loadDashboardStats(); 
-        } else { 
-          alert('❌ Failed: ' + (result.error || 'Unknown error')); 
-        } 
-      } catch (err) { alert('❌ Error'); }
+        if (res.ok) {
+          alert(`✅ Student added successfully! ${result.emailSent ? 'Welcome Email Sent.' : '⚠️ Email skipped (Check BREVO_API_KEY).'}`);
+          e.target.reset();
+          loadStudents();
+          loadDashboardStats();
+        } else {
+          alert('❌ Failed: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) { alert('❌ Error: ' + err.message); }
     });
 
     function addScheduleRow() {
@@ -271,9 +353,39 @@
       const rows = document.querySelectorAll('#classScheduleList .schedule-row');
       const classes = [];
       rows.forEach(row => { const date = row.querySelector('input[name="date"]').value; const time = row.querySelector('input[name="time"]').value; if (date && time) classes.push({ date, time }); });
-      if (classes.length === 0) return alert('Add classes');
+      if (classes.length === 0) return alert('Add at least one class');
       if (student.remaining_sessions < classes.length) return alert(`Not enough sessions. Student has ${student.remaining_sessions} remaining.`);
-      try { const res = await fetch('/api/schedule/private-classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ student_id: studentId, classes }) }); if (res.ok) { alert('✅ Scheduled'); e.target.reset(); document.getElementById('classScheduleList').innerHTML = ''; addScheduleRow(); loadUpcomingClasses(); } else alert('❌ Failed'); } catch (err) { alert('❌ Error'); }
+      try {
+        const res = await fetch('/api/schedule/private-classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ student_id: studentId, classes }) });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          e.target.reset();
+          document.getElementById('classScheduleList').innerHTML = '';
+          addScheduleRow();
+          loadUpcomingClasses();
+        } else alert('❌ Failed: ' + result.error);
+      } catch (err) { alert('❌ Error: ' + err.message); }
+    });
+
+    document.getElementById('scheduleGroupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const groupId = document.getElementById('scheduleGroup').value;
+      if (!groupId) return alert('Select a group');
+      const rows = document.querySelectorAll('#groupClassScheduleList .schedule-row');
+      const classes = [];
+      rows.forEach(row => { const date = row.querySelector('input[name="date"]').value; const time = row.querySelector('input[name="time"]').value; if (date && time) classes.push({ date, time }); });
+      if (classes.length === 0) return alert('Add at least one class');
+      try {
+        const res = await fetch('/api/schedule/group-classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ group_id: groupId, classes }) });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          e.target.reset();
+          document.getElementById('groupClassScheduleList').innerHTML = '';
+          loadUpcomingClasses();
+        } else alert('❌ Failed: ' + result.error);
+      } catch (err) { alert('❌ Error: ' + err.message); }
     });
 
     async function loadPastSessions() {
@@ -304,17 +416,17 @@
         const res = await fetch(`/api/sessions/${sessionId}/details`);
         const session = await res.json();
         document.getElementById('modalSessionTitle').textContent = `Session #${session.session_number} - ${session.session_type}`;
-        
+
         let content = `<p><strong>Date:</strong> ${formatSessionTime(session)}</p><h3>Uploads</h3><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
-          <div><input type="file" id="pptFile" accept=".ppt,.pdf"><button onclick="uploadMaterial(${sessionId}, 'ppt')" class="btn btn-sm">PPT</button></div>
-          <div><input type="file" id="recFile" accept=".mp4"><button onclick="uploadMaterial(${sessionId}, 'recording')" class="btn btn-sm">Rec</button></div>
-          <div><input type="file" id="hwFile" accept=".pdf"><button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm">HW</button></div>
+          <div><input type="file" id="pptFile" accept=".ppt,.pdf,.pptx"><button onclick="uploadMaterial(${sessionId}, 'ppt')" class="btn btn-sm">Upload PPT</button></div>
+          <div><input type="file" id="recFile" accept=".mp4"><button onclick="uploadMaterial(${sessionId}, 'recording')" class="btn btn-sm">Upload Recording</button></div>
+          <div><input type="file" id="hwFile" accept=".pdf"><button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm">Upload HW</button></div>
         </div>`;
 
         if (sessionType === 'Group') {
            const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`);
            const students = await attRes.json();
-           content += `<h3>Group Attendance</h3><table><thead><tr><th>Student</th><th>Action</th></tr></thead><tbody>` + students.map(s => `
+           content += `<h3 style="margin-top: 20px;">Group Attendance</h3><table><thead><tr><th>Student</th><th>Action</th></tr></thead><tbody>` + students.map(s => `
              <tr><td>${s.student_name}</td><td>
                <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>
                <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
@@ -323,93 +435,254 @@
         }
         document.getElementById('sessionDetailsContent').innerHTML = content;
         document.getElementById('sessionModal').classList.add('active');
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error(err); alert('Error loading session'); }
     }
 
     async function saveGroupAttendance(sessionId, studentId, status) {
-       if(status === 'Present' && !confirm('Already marked Present. Update again?')) return;
        try {
          const res = await fetch(`/api/sessions/${sessionId}/group-attendance`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance: status }] }) });
-         if(res.ok) { alert('Saved'); openSessionModal(sessionId, 'Group'); } else alert('Failed');
-       } catch(e) { alert('Error'); }
+         if(res.ok) { alert('✅ Attendance saved'); openSessionModal(sessionId, 'Group'); } else alert('❌ Failed');
+       } catch(e) { alert('❌ Error'); }
     }
 
     function showModalTab(tabName, e) { if(e) e.stopPropagation(); document.querySelectorAll('.modal-tab-content').forEach(el => el.classList.remove('active')); document.querySelectorAll('.modal-tab').forEach(el => el.classList.remove('active')); document.getElementById(tabName + 'Tab').classList.add('active'); if(e) e.target.classList.add('active'); }
 
-    async function loadGroups() { 
-       try { const res = await fetch('/api/groups'); allGroups = await res.json(); document.getElementById('groupsBody').innerHTML = allGroups.map(g => `<tr><td><strong>${g.group_name}</strong></td><td>${g.program_name}</td><td>${g.duration}</td><td>${g.enrolled_students||0}</td><td>${g.max_students}</td><td><button onclick="deleteGroup(${g.id})" class="btn btn-sm btn-danger">Del</button></td></tr>`).join(''); 
-       document.getElementById('scheduleGroup').innerHTML = '<option value="">Select group...</option>' + allGroups.map(g => `<option value="${g.id}" ${g.enrolled_students >= g.max_students ? 'disabled' : ''}>${g.group_name}</option>`).join('');
-       } catch(e){}
+    async function loadGroups() {
+       try {
+         const res = await fetch('/api/groups');
+         allGroups = await res.json();
+         document.getElementById('groupsBody').innerHTML = allGroups.map(g => `<tr><td><strong>${g.group_name}</strong></td><td>${g.program_name}</td><td>${g.duration}</td><td>${g.enrolled_students||0}</td><td>${g.max_students}</td><td><button onclick="openEnrollModal(${g.id})" class="btn btn-sm btn-success">Enroll Students</button> <button onclick="deleteGroup(${g.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join('');
+       document.getElementById('scheduleGroup').innerHTML = '<option value="">Select group...</option>' + allGroups.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
+       } catch(e){ console.error(e); }
     }
+
+    async function openEnrollModal(groupId) {
+      currentGroupId = groupId;
+      const group = allGroups.find(g => g.id === groupId);
+      document.getElementById('enrollModalTitle').textContent = `Enroll Students in ${group.group_name}`;
+
+      try {
+        const availableStudents = allStudents.filter(s => !s.group_id || s.group_id !== groupId);
+        const enrolledRes = await fetch(`/api/groups/${groupId}/students`);
+        const enrolledStudents = await enrolledRes.json();
+
+        let content = `<h3>Currently Enrolled (${enrolledStudents.length}/${group.max_students})</h3>`;
+        if (enrolledStudents.length > 0) {
+          content += `<ul style="list-style: none; padding: 0;">` + enrolledStudents.map(s => `<li style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px;">👤 ${s.name} (${s.grade})</li>`).join('') + `</ul>`;
+        } else {
+          content += `<p style="color: #718096;">No students enrolled yet</p>`;
+        }
+
+        content += `<h3 style="margin-top: 20px;">Available Students</h3>`;
+        if (availableStudents.length > 0) {
+          content += `<div style="max-height: 300px; overflow-y: auto;">` + availableStudents.map(s => `
+            <div style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
+              <span>👤 ${s.name} (${s.grade}) - ${s.program_name}</span>
+              <button onclick="enrollStudent(${groupId}, ${s.id})" class="btn btn-sm btn-success">Enroll</button>
+            </div>
+          `).join('') + `</div>`;
+        } else {
+          content += `<p style="color: #718096;">No available students</p>`;
+        }
+
+        document.getElementById('enrollModalContent').innerHTML = content;
+        document.getElementById('enrollModal').classList.add('active');
+      } catch (err) {
+        alert('Error loading enrollment data: ' + err.message);
+      }
+    }
+
+    async function enrollStudent(groupId, studentId) {
+      try {
+        const res = await fetch(`/api/groups/${groupId}/enroll`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_id: studentId })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          await loadStudents();
+          await loadGroups();
+          openEnrollModal(groupId);
+        } else {
+          alert('❌ ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    function closeEnrollModal() {
+      document.getElementById('enrollModal').classList.remove('active');
+    }
+
     function closeStudentModal() { document.getElementById('studentModal').classList.remove('active'); }
     function closeSessionModal() { document.getElementById('sessionModal').classList.remove('active'); }
-    function deleteGroup(id) { if(confirm('Delete group?')) fetch(`/api/groups/${id}`, {method:'DELETE'}).then(()=>loadGroups()); }
-    async function openStudentModal(id) { 
-  currentStudentId = id; 
-  const student = allStudents.find(s => s.id == id);
-  
-  if (!student) {
-    alert('Student not found');
-    return;
-  }
-  
-  document.getElementById('modalStudentName').textContent = student.name;
-  
-  // Build info display
-  const infoHTML = `
-    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3 style="color: #667eea; margin-bottom: 15px;">Basic Information</h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-        <div><strong>Name:</strong> ${student.name}</div>
-        <div><strong>Grade:</strong> ${student.grade}</div>
-        <div><strong>Parent:</strong> ${student.parent_name}</div>
-        <div><strong>Email:</strong> ${student.parent_email}</div>
-        <div><strong>Contact:</strong> ${student.primary_contact || 'N/A'}</div>
-        <div><strong>Timezone:</strong> ${student.timezone}</div>
-      </div>
-    </div>
-    
-    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3 style="color: #667eea; margin-bottom: 15px;">Program Details</h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-        <div><strong>Program:</strong> ${student.program_name}</div>
-        <div><strong>Type:</strong> ${student.class_type}</div>
-        <div><strong>Duration:</strong> ${student.duration}</div>
-        <div><strong>Fee per Session:</strong> ${student.currency} ${student.per_session_fee}</div>
-      </div>
-    </div>
-    
-    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3 style="color: #667eea; margin-bottom: 15px;">Session Statistics</h3>
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
-        <div><strong>Total:</strong> ${student.total_sessions}</div>
-        <div><strong>Completed:</strong> <span style="color: #38a169;">${student.completed_sessions}</span></div>
-        <div><strong>Remaining:</strong> <span style="color: #e53e3e;">${student.remaining_sessions}</span></div>
-        <div><strong>Makeup Credits:</strong> ${student.makeup_credits || 0}</div>
-      </div>
-    </div>
-    
-    <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
-      <h3 style="color: #667eea; margin-bottom: 15px;">Financial Summary</h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-        <div><strong>Total Paid:</strong> ${student.currency} ${student.fees_paid || 0}</div>
-        <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
-      </div>
-    </div>
-  `;
-  
-  document.getElementById('studentInfoContent').innerHTML = infoHTML;
-  document.getElementById('studentModal').classList.add('active'); 
-}
-    function handleScheduleTypeChange() { const type = document.getElementById('scheduleType').value; document.getElementById('schedulePrivateForm').style.display = type === 'private' ? 'block' : 'none'; document.getElementById('scheduleGroupForm').style.display = type === 'group' ? 'block' : 'none'; if(type==='group' && document.getElementById('groupClassScheduleList').children.length===0) addGroupScheduleRow(); }
-    function addGroupScheduleRow() { const container = document.getElementById('groupClassScheduleList'); const row = document.createElement('div'); row.className = 'schedule-row'; row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>`; container.appendChild(row); }
-    function uploadMaterial(id, type) { const inp = document.getElementById(type==='ppt'?'pptFile':type==='recording'?'recFile':'hwFile'); if(inp.files[0]) { const fd=new FormData(); fd.append('file', inp.files[0]); fd.append('materialType', type); fetch(`/api/sessions/${id}/upload`, {method:'POST', body:fd}).then(()=>alert('Uploaded')); } }
-    function loadEmailLogs() { fetch('/api/email-logs').then(r=>r.json()).then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map(l=>`<tr><td>${l.sent_at.split('T')[0]}</td><td>${l.recipient_name}</td><td>${l.email_type}</td><td>${l.subject}</td><td>${l.status}</td></tr>`).join('')); }
-    function loadEvents() { fetch('/api/events').then(r=>r.json()).then(ev=>document.getElementById('eventsBody').innerHTML=ev.map(e=>`<tr><td>${e.event_name}</td><td>${e.event_date}</td><td>${e.event_time}</td><td>${e.registered_count||0}</td><td>${e.status}</td><td><button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-danger">Del</button></td></tr>`).join('')); }
-    document.getElementById('createGroupForm').addEventListener('submit', async(e)=>{ e.preventDefault(); fetch('/api/groups', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({group_name:document.getElementById('groupName').value, program_name:document.getElementById('groupProgram').value, duration:document.getElementById('groupDuration').value, timezone:document.getElementById('groupTimezone').value, max_students:document.getElementById('groupMaxStudents').value})}).then(()=>loadGroups()); });
-    function deleteEvent(id) { if(confirm('Delete?')) fetch(`/api/events/${id}`, {method:'DELETE'}).then(()=>loadEvents()); }
-    document.getElementById('createEventForm').addEventListener('submit', async(e)=>{ e.preventDefault(); fetch('/api/events', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify({event_name:document.getElementById('eventName').value, event_duration:document.getElementById('eventDuration').value, event_date:document.getElementById('eventDate').value, event_time:document.getElementById('eventTime').value})}).then(()=>loadEvents()); });
-    
+    function deleteGroup(id) { if(confirm('Delete group? This will remove all group sessions.')) fetch(`/api/groups/${id}`, {method:'DELETE'}).then(()=>loadGroups()); }
+
+    async function openStudentModal(id) {
+      currentStudentId = id;
+      const student = allStudents.find(s => s.id == id);
+
+      if (!student) {
+        alert('Student not found');
+        return;
+      }
+
+      document.getElementById('modalStudentName').textContent = student.name;
+
+      const infoHTML = `
+        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #667eea; margin-bottom: 15px;">Basic Information</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div><strong>Name:</strong> ${student.name}</div>
+            <div><strong>Grade:</strong> ${student.grade}</div>
+            <div><strong>Parent:</strong> ${student.parent_name}</div>
+            <div><strong>Email:</strong> ${student.parent_email}</div>
+            <div><strong>Contact:</strong> ${student.primary_contact || 'N/A'}</div>
+            <div><strong>Timezone:</strong> ${student.timezone}</div>
+          </div>
+        </div>
+
+        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #667eea; margin-bottom: 15px;">Program Details</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div><strong>Program:</strong> ${student.program_name}</div>
+            <div><strong>Type:</strong> ${student.class_type}</div>
+            <div><strong>Duration:</strong> ${student.duration}</div>
+            <div><strong>Fee per Session:</strong> ${student.currency} ${student.per_session_fee}</div>
+          </div>
+        </div>
+
+        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #667eea; margin-bottom: 15px;">Session Statistics</h3>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+            <div><strong>Total:</strong> ${student.total_sessions}</div>
+            <div><strong>Completed:</strong> <span style="color: #38a169;">${student.completed_sessions}</span></div>
+            <div><strong>Remaining:</strong> <span style="color: #e53e3e;">${student.remaining_sessions}</span></div>
+            <div><strong>Makeup Credits:</strong> ${student.makeup_credits || 0}</div>
+          </div>
+        </div>
+
+        <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
+          <h3 style="color: #667eea; margin-bottom: 15px;">Financial Summary</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div><strong>Total Paid:</strong> ${student.currency} ${student.fees_paid || 0}</div>
+            <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('studentInfoContent').innerHTML = infoHTML;
+      document.getElementById('studentModal').classList.add('active');
+    }
+
+    function handleScheduleTypeChange() {
+      const type = document.getElementById('scheduleType').value;
+      document.getElementById('schedulePrivateForm').style.display = type === 'private' ? 'block' : 'none';
+      document.getElementById('scheduleGroupForm').style.display = type === 'group' ? 'block' : 'none';
+      if(type==='group' && document.getElementById('groupClassScheduleList').children.length===0) addGroupScheduleRow();
+    }
+
+    function addGroupScheduleRow() {
+      const container = document.getElementById('groupClassScheduleList');
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>`;
+      container.appendChild(row);
+    }
+
+    function uploadMaterial(id, type) {
+      const inp = document.getElementById(type==='ppt'?'pptFile':type==='recording'?'recFile':'hwFile');
+      if(inp.files[0]) {
+        const fd=new FormData();
+        fd.append('file', inp.files[0]);
+        fd.append('materialType', type);
+        fetch(`/api/sessions/${id}/upload`, {method:'POST', body:fd})
+          .then(r => r.json())
+          .then(data => alert('✅ ' + data.message))
+          .catch(err => alert('❌ Upload failed'));
+      } else {
+        alert('Please select a file first');
+      }
+    }
+
+    function loadEmailLogs() {
+      fetch('/api/email-logs')
+        .then(r=>r.json())
+        .then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map(l=>`<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}</td><td>${l.email_type}</td><td>${l.subject}</td><td><span style="color: ${l.status === 'Sent' ? '#38a169' : '#e53e3e'};">${l.status}</span></td></tr>`).join(''))
+        .catch(err => console.error(err));
+    }
+
+    function loadEvents() {
+      fetch('/api/events')
+        .then(r=>r.json())
+        .then(ev=>document.getElementById('eventsBody').innerHTML=ev.map(e=>`<tr><td>${e.event_name}</td><td>${e.event_date}</td><td>${e.event_time}</td><td>${e.registered_count||0}${e.max_participants ? '/' + e.max_participants : ''}</td><td>${e.status}</td><td><button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join(''))
+        .catch(err => console.error(err));
+    }
+
+    document.getElementById('createGroupForm').addEventListener('submit', async(e)=>{
+      e.preventDefault();
+      const data = {
+        group_name: document.getElementById('groupName').value,
+        program_name: document.getElementById('groupProgram').value,
+        duration: document.getElementById('groupDuration').value,
+        timezone: document.getElementById('groupTimezone').value,
+        max_students: document.getElementById('groupMaxStudents').value
+      };
+      try {
+        const res = await fetch('/api/groups', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Group created successfully!');
+          e.target.reset();
+          loadGroups();
+          loadDashboardStats();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function deleteEvent(id) {
+      if(confirm('Delete this event? Registrations will also be removed.')) {
+        fetch(`/api/events/${id}`, {method:'DELETE'})
+          .then(()=>{alert('✅ Event deleted'); loadEvents();})
+          .catch(err => alert('❌ Error'));
+      }
+    }
+
+    document.getElementById('createEventForm').addEventListener('submit', async(e)=>{
+      e.preventDefault();
+      const data = {
+        event_name: document.getElementById('eventName').value,
+        event_description: document.getElementById('eventDescription').value,
+        event_duration: document.getElementById('eventDuration').value,
+        event_date: document.getElementById('eventDate').value,
+        event_time: document.getElementById('eventTime').value,
+        zoom_link: document.getElementById('eventZoomLink').value,
+        max_participants: document.getElementById('eventMaxParticipants').value || null
+      };
+
+      try {
+        const res = await fetch('/api/events', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          e.target.reset();
+          loadEvents();
+          loadDashboardStats();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
     async function switchToParentView() {
       const student = allStudents.find(s => s.id == currentStudentId);
       if (!student) return alert('Student not found');
@@ -428,6 +701,107 @@
         sessionStorage.setItem('adminParentToken', token);
         window.open('/parent.html', '_blank');
       } catch (err) { console.error(err); alert('Error switching view'); }
+    }
+
+    // Schedule Manager Functions
+    async function loadScheduleManager() {
+      document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+
+    async function loadStudentSchedule() {
+      const studentId = document.getElementById('manageScheduleStudent').value;
+      const container = document.getElementById('studentScheduleContainer');
+
+      if (!studentId) {
+        container.innerHTML = '';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/sessions/${studentId}`);
+        const sessions = await res.json();
+        const student = allStudents.find(s => s.id == studentId);
+
+        if (sessions.length === 0) {
+          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No sessions scheduled for this student</p>';
+          return;
+        }
+
+        container.innerHTML = `
+          <h3 style="margin-bottom: 20px;">Schedule for ${student.name}</h3>
+          ${sessions.map(s => `
+            <div class="session-item">
+              <div>
+                <strong>Session #${s.session_number}</strong> - ${s.session_type}
+                <br>
+                <span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: ${s.status}</span>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button onclick="editSession(${s.id}, '${s.session_date}', '${s.session_time}')" class="btn btn-sm btn-primary">Edit</button>
+                <button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button>
+              </div>
+            </div>
+          `).join('')}
+        `;
+      } catch (err) {
+        container.innerHTML = '<p style="color: #e53e3e;">Error loading schedule</p>';
+        console.error(err);
+      }
+    }
+
+    function editSession(sessionId, date, time) {
+      document.getElementById('editSessionId').value = sessionId;
+      document.getElementById('editSessionDate').value = date.split('T')[0];
+      document.getElementById('editSessionTime').value = time.substring(0, 5);
+      document.getElementById('editSessionModal').classList.add('active');
+    }
+
+    function closeEditSessionModal() {
+      document.getElementById('editSessionModal').classList.remove('active');
+    }
+
+    document.getElementById('editSessionForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const sessionId = document.getElementById('editSessionId').value;
+      const date = document.getElementById('editSessionDate').value;
+      const time = document.getElementById('editSessionTime').value;
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, time })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          closeEditSessionModal();
+          loadStudentSchedule();
+          loadUpcomingClasses();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    async function deleteSession(sessionId) {
+      if (!confirm('Are you sure you want to delete this session?')) return;
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          loadStudentSchedule();
+          loadUpcomingClasses();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
     }
   </script>
 </body>

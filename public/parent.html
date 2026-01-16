@@ -25,6 +25,8 @@
     .btn-primary { background: #667eea; color: white; width: 100%; }
     .btn-danger { background: #e53e3e; color: white; }
     .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+    .btn-zoom { background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; display: inline-block; }
+    .btn-zoom:hover { background: linear-gradient(135deg, #319795 0%, #285e61 100%); }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
     th { background: #f7fafc; color: #4a5568; font-weight: 600; }
@@ -47,7 +49,7 @@
     <!-- DASHBOARD SECTION -->
     <div id="dashboardSection" style="display: none;">
       <header><div><h1>👨‍👩‍👧 Parent Portal</h1></div><button onclick="logout()" class="btn btn-danger btn-sm">Logout</button></header>
-      
+
       <div id="studentSelector">
         <h3>👋 Welcome! Select a child:</h3>
         <select id="childSelect" style="max-width: 300px; margin: 10px auto; padding: 10px;"><option value="">Select Child...</option></select>
@@ -77,9 +79,21 @@
       </div>
 
       <div id="upcomingTab" class="tab-content active">
-        <a id="zoomLink" target="_blank" class="zoom-btn" style="display:none;">🎥 Join Zoom Class</a>
-        <div class="section"><h2>🚫 Cancel Class</h2><p style="color: #718096; margin-bottom: 20px;">Note: Cannot cancel less than 2 hours before class.</p><form id="cancelClassForm"><div class="form-group"><label>Select Class</label><select id="cancelClassSelect" required></select></div><button type="submit" class="btn btn-danger">Cancel Class</button></form></div>
-        <div class="section"><h2>📅 Schedule</h2><table id="upcomingTable"><thead><tr><th>Session #</th><th>Date</th><th>Time</th></tr></thead><tbody id="upcomingBody"><tr><td colspan="3">Loading...</td></tr></tbody></table></div>
+        <div class="section">
+          <h2>🚫 Cancel Class</h2>
+          <p style="color: #718096; margin-bottom: 20px;">Note: Cannot cancel less than 2 hours before class.</p>
+          <form id="cancelClassForm">
+            <div class="form-group"><label>Select Class</label><select id="cancelClassSelect" required></select></div>
+            <button type="submit" class="btn btn-danger">Cancel Class</button>
+          </form>
+        </div>
+        <div class="section">
+          <h2>📅 Schedule</h2>
+          <table id="upcomingTable">
+            <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Join</th></tr></thead>
+            <tbody id="upcomingBody"><tr><td colspan="4">Loading...</td></tr></tbody>
+          </table>
+        </div>
       </div>
 
       <div id="pastTab" class="tab-content">
@@ -114,7 +128,7 @@
 
         // Handle date format
         const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-        
+
         // Handle time format - ensure it has seconds
         let cleanTime = timeStr.trim();
         if (cleanTime.length === 5) cleanTime += ':00';
@@ -135,24 +149,24 @@
         }
 
         // Convert to local timezone
-        const localDate = utcDate.toLocaleDateString('en-US', { 
-          timeZone: tz || 'Asia/Kolkata', 
-          month: 'short', 
-          day: 'numeric', 
-          year: 'numeric' 
+        const localDate = utcDate.toLocaleDateString('en-US', {
+          timeZone: tz || 'Asia/Kolkata',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
         });
 
-        const localTime = utcDate.toLocaleTimeString('en-US', { 
-          timeZone: tz || 'Asia/Kolkata', 
-          hour: 'numeric', 
-          minute: '2-digit', 
-          hour12: true 
+        const localTime = utcDate.toLocaleTimeString('en-US', {
+          timeZone: tz || 'Asia/Kolkata',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
         });
 
         return { date: localDate, time: localTime };
-      } catch(e) { 
+      } catch(e) {
         console.error('Error in toLocalTime:', e, 'Date:', dateStr, 'Time:', timeStr);
-        return { date: dateStr, time: timeStr }; 
+        return { date: dateStr, time: timeStr };
       }
     }
 
@@ -224,7 +238,7 @@
       allMyStudents = students;
       document.getElementById('loginSection').style.display = 'none';
       document.getElementById('dashboardSection').style.display = 'block';
-      
+
       if (students.length > 1) {
         document.getElementById('studentSelector').style.display = 'block';
         const sel = document.getElementById('childSelect');
@@ -242,7 +256,7 @@
         showDashboard();
       }
     }
-    
+
     async function sendOTP() {
       const email = document.getElementById('parentEmail').value.trim();
       try {
@@ -271,8 +285,8 @@
       document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
       document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
       loadMakeupCredits();
-      loadUpcoming(); 
-      loadPast(); 
+      loadUpcoming();
+      loadPast();
       loadCancelDropdown();
     }
 
@@ -281,7 +295,7 @@
         const res = await fetch(`/api/students/${currentStudent.id}/makeup-credits`, { headers: authHeaders() });
         const credits = await res.json();
         const count = credits.length || 0;
-        
+
         if (count > 0) {
           document.getElementById('makeupCreditCard').style.display = 'block';
           document.getElementById('makeupCount').textContent = count;
@@ -302,26 +316,27 @@
           if (!s.session_date) return false;
           return s.session_date >= today && !['Cancelled', 'Completed', 'Missed'].includes(s.status);
         });
-        
+
         const tbody = document.getElementById('upcomingBody');
-        const zoomBtn = document.getElementById('zoomLink');
-        
+
         if (upcoming.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
-          zoomBtn.style.display = 'none';
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
           return;
         }
 
-        zoomBtn.href = upcoming[0].zoom_link || 'https://zoom.us';
-        zoomBtn.style.display = 'block';
-
         tbody.innerHTML = upcoming.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-          return `<tr><td>#${s.session_number}</td><td>${t.date}</td><td><strong style="color:#667eea">${t.time}</strong></td></tr>`;
+          const zoomLink = s.zoom_link || 'https://zoom.us';
+          return `<tr>
+            <td>#${s.session_number}</td>
+            <td>${t.date}</td>
+            <td><strong style="color:#667eea">${t.time}</strong></td>
+            <td><a href="${zoomLink}" target="_blank" class="btn-zoom">🎥 Join Zoom</a></td>
+          </tr>`;
         }).join('');
       } catch(e) {
         console.error('Error loading upcoming:', e);
-        document.getElementById('upcomingBody').innerHTML = '<tr><td colspan="3">Error loading sessions</td></tr>';
+        document.getElementById('upcomingBody').innerHTML = '<tr><td colspan="4">Error loading sessions</td></tr>';
       }
     }
 
@@ -334,9 +349,9 @@
           if (!s.session_date) return false;
           return s.session_date < today || ['Completed', 'Missed'].includes(s.status);
         });
-        
+
         const tbody = document.getElementById('pastBody');
-        
+
         if (past.length === 0) {
           tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #718096;">No past classes</td></tr>';
           return;
@@ -357,7 +372,7 @@
         const sessions = await res.json();
         const completed = sessions.filter(s => s.status === 'Completed');
         const sel = document.getElementById('homeworkSessionSelect');
-        
+
         if (completed.length === 0) {
           sel.innerHTML = '<option value="">No completed sessions yet</option>';
           return;
@@ -381,9 +396,9 @@
           if (!s.session_date) return false;
           return s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled');
         });
-        
+
         const sel = document.getElementById('cancelClassSelect');
-        
+
         if (upcoming.length === 0) {
            sel.innerHTML = '<option>No cancellable classes</option>';
            return;
@@ -402,29 +417,29 @@
       e.preventDefault();
       const sid = document.getElementById('cancelClassSelect').value;
       if(!sid) return alert('Please select a class to cancel');
-      
+
       if (!confirm('Are you sure you want to cancel this class? You will receive a makeup credit.')) return;
-      
+
       try {
-        const res = await fetch('/api/parent/cancel-class', { 
-          method: 'POST', 
-          headers: {...authHeaders(), 'Content-Type':'application/json'}, 
-          body: JSON.stringify({ student_id: currentStudent.id, session_id: sid }) 
+        const res = await fetch('/api/parent/cancel-class', {
+          method: 'POST',
+          headers: {...authHeaders(), 'Content-Type':'application/json'},
+          body: JSON.stringify({ student_id: currentStudent.id, session_id: sid })
         });
-        
+
         const data = await res.json();
-        
-        if(res.ok) { 
-          alert(data.message || 'Class cancelled successfully! Makeup credit added.'); 
-          loadUpcoming(); 
-          loadCancelDropdown(); 
+
+        if(res.ok) {
+          alert(data.message || 'Class cancelled successfully! Makeup credit added.');
+          loadUpcoming();
+          loadCancelDropdown();
           loadMakeupCredits();
         } else {
           alert(data.error || 'Cannot cancel this class');
         }
-      } catch(e) { 
+      } catch(e) {
         console.error('Cancel error:', e);
-        alert('Error cancelling class'); 
+        alert('Error cancelling class');
       }
     });
 
@@ -433,38 +448,42 @@
       const sid = document.getElementById('homeworkSessionSelect').value;
       const file = document.getElementById('homeworkFile').files[0];
       if(!sid || !file) return alert('Please fill all fields');
-      
+
       const fd = new FormData();
       fd.append('file', file);
       fd.append('sessionId', sid);
       fd.append('uploadType', 'homework');
 
       try {
-        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, { 
-          method: 'POST', 
+        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
+          method: 'POST',
           headers: authHeaders(),
-          body: fd 
+          body: fd
         });
-        
-        if(res.ok) { 
-          alert('Homework uploaded successfully!'); 
-          e.target.reset(); 
+
+        if(res.ok) {
+          alert('Homework uploaded successfully!');
+          e.target.reset();
         } else {
           alert('Error uploading homework');
         }
-      } catch(e) { 
+      } catch(e) {
         console.error('Upload error:', e);
-        alert('Error uploading homework'); 
+        alert('Error uploading homework');
       }
     });
 
     async function loadEvents() {
       try {
         const res = await fetch(`/api/events/student/${currentStudent.id}`, { headers: authHeaders() });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
         const events = await res.json();
-        
         const container = document.getElementById('eventsContainer');
-        
+
         if (events.length === 0) {
           container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No upcoming events</p>';
           return;
@@ -482,23 +501,23 @@
         }).join('');
       } catch(e) {
         console.error('Error loading events:', e);
-        document.getElementById('eventsContainer').innerHTML = '<p>Error loading events</p>';
+        document.getElementById('eventsContainer').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading events. Please try again later.</p>';
       }
     }
 
     async function registerEvent(eid) {
       try {
-        const res = await fetch(`/api/events/${eid}/register`, { 
-          method: 'POST', 
-          headers: {...authHeaders(), 'Content-Type':'application/json'}, 
-          body: JSON.stringify({ student_id: currentStudent.id }) 
+        const res = await fetch(`/api/events/${eid}/register`, {
+          method: 'POST',
+          headers: {...authHeaders(), 'Content-Type':'application/json'},
+          body: JSON.stringify({ student_id: currentStudent.id })
         });
-        
+
         const data = await res.json();
-        
-        if(res.ok) { 
-          alert(data.message || 'Successfully registered for event!'); 
-          loadEvents(); 
+
+        if(res.ok) {
+          alert(data.message || 'Successfully registered for event!');
+          loadEvents();
         } else {
           alert(data.error || 'Registration failed');
         }
