@@ -500,8 +500,20 @@
     }
 
     tbody.innerHTML = upcoming.map(s => {
-      // ✅ FIXED: Proper timezone conversion
-      const utcDateTime = new Date(s.session_date + 'T' + s.session_time + 'Z');
+      // ✅ CRITICAL FIX: Proper UTC datetime string with 'Z' suffix
+      const utcDateTimeStr = `${s.session_date}T${s.session_time}Z`;
+      const utcDateTime = new Date(utcDateTimeStr);
+      
+      // ✅ VALIDATION: Check if date is valid
+      if (isNaN(utcDateTime.getTime())) {
+        console.error('Invalid date:', s.session_date, s.session_time);
+        return `
+          <tr>
+            <td><strong>Session ${s.session_number}</strong></td>
+            <td colspan="3" style="color: #e53e3e;">Invalid date/time data</td>
+          </tr>
+        `;
+      }
       
       const displayTime = utcDateTime.toLocaleTimeString('en-US', {
         timeZone: currentStudent.timezone,
@@ -537,30 +549,57 @@
       '<tr><td colspan="4" style="text-align: center; color: #e53e3e;">Error loading sessions</td></tr>';
   }
 }
-
     // Load cancel dropdown
+   async function loadCancelDropdown() {
+  try {
+    const res = await fetch(`/api/sessions/${currentStudent.id}`);
+    const sessions = await res.json();
+
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = sessions.filter(s => 
+      s.session_date >= today && 
+      (s.status === 'Pending' || s.status === 'Scheduled')
+    );
+
+    const select = document.getElementById('cancelClassSelect');
+
+    if (upcoming.length === 0) {
+      select.innerHTML = '<option value="">No upcoming classes</option>';
+      return;
+    }
+
     select.innerHTML = '<option value="">Select a class...</option>' + upcoming.map(s => {
-  // ✅ FIXED: Proper timezone conversion
-  const utcDateTime = new Date(s.session_date + 'T' + s.session_time + 'Z');
-  
-  const displayTime = utcDateTime.toLocaleTimeString('en-US', {
-    timeZone: currentStudent.timezone,
-    hour12: true,
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+      // ✅ FIXED: Proper UTC datetime string
+      const utcDateTimeStr = `${s.session_date}T${s.session_time}Z`;
+      const utcDateTime = new Date(utcDateTimeStr);
+      
+      // ✅ VALIDATION
+      if (isNaN(utcDateTime.getTime())) {
+        return '';
+      }
+      
+      const displayTime = utcDateTime.toLocaleTimeString('en-US', {
+        timeZone: currentStudent.timezone,
+        hour12: true,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
 
-  const displayDate = utcDateTime.toLocaleDateString('en-US', {
-    timeZone: currentStudent.timezone,
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  });
+      const displayDate = utcDateTime.toLocaleDateString('en-US', {
+        timeZone: currentStudent.timezone,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
 
-  return `<option value="${s.id}" data-date="${s.session_date}" data-time="${s.session_time}">
-    Session ${s.session_number} - ${displayDate} at ${displayTime} (${currentStudent.timezone})
-  </option>`;
-}).join('');
+      return `<option value="${s.id}" data-date="${s.session_date}" data-time="${s.session_time}">
+        Session ${s.session_number} - ${displayDate} at ${displayTime} (${currentStudent.timezone})
+      </option>`;
+    }).join('');
+  } catch (err) {
+    console.error('Failed to load cancel options:', err);
+  }
+}
 
     // Cancel class form
     document.getElementById('cancelClassForm').addEventListener('submit', async (e) => {
@@ -603,41 +642,66 @@
     });
 
     // Load past sessions
+    async function loadPastSessions() {
+  try {
+    const res = await fetch(`/api/sessions/${currentStudent.id}`);
+    const sessions = await res.json();
+
+    const past = sessions.filter(s => s.status === 'Completed' || s.status === 'Missed');
+
+    const tbody = document.getElementById('pastBody');
+
+    if (past.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No completed classes yet</td></tr>';
+      return;
+    }
+
     tbody.innerHTML = past.map(s => {
-  // ✅ FIXED: Proper timezone conversion
-  const utcDateTime = new Date(s.session_date + 'T' + s.session_time + 'Z');
-  
-  const displayTime = utcDateTime.toLocaleTimeString('en-US', {
-    timeZone: currentStudent.timezone,
-    hour12: true,
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+      // ✅ FIXED: Proper UTC datetime string
+      const utcDateTimeStr = `${s.session_date}T${s.session_time}Z`;
+      const utcDateTime = new Date(utcDateTimeStr);
+      
+      let displayTime = 'Invalid';
+      let displayDate = 'Invalid Date';
+      
+      // ✅ VALIDATION
+      if (!isNaN(utcDateTime.getTime())) {
+        displayTime = utcDateTime.toLocaleTimeString('en-US', {
+          timeZone: currentStudent.timezone,
+          hour12: true,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
 
-  const displayDate = utcDateTime.toLocaleDateString('en-US', {
-    timeZone: currentStudent.timezone,
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+        displayDate = utcDateTime.toLocaleDateString('en-US', {
+          timeZone: currentStudent.timezone,
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
 
-  return `
-    <tr>
-      <td><strong>${s.session_number}</strong></td>
-      <td>${displayDate}</td>
-      <td>${displayTime}</td>
-      <td>
-        <span style="padding: 4px 12px; border-radius: 12px; background: ${s.attendance === 'Present' ? '#d4edda' : '#f8d7da'};">
-          ${s.attendance || '-'}
-        </span>
-      </td>
-      <td>${s.ppt_file_path ? '<a href="/uploads/materials/' + s.ppt_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📥 PPT</a>' : '-'}</td>
-      <td>${s.recording_file_path ? '<a href="/uploads/materials/' + s.recording_file_path + '" target="_blank" class="btn btn-primary btn-sm">🎥 Video</a>' : '-'}</td>
-      <td>${s.homework_file_path ? '<a href="/uploads/materials/' + s.homework_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📝 HW</a>' : '-'}</td>
-      <td><strong style="color: #667eea;">${s.homework_grade || '-'}</strong></td>
-    </tr>
-  `;
-}).join('');
+      return `
+        <tr>
+          <td><strong>${s.session_number}</strong></td>
+          <td>${displayDate}</td>
+          <td>${displayTime}</td>
+          <td>
+            <span style="padding: 4px 12px; border-radius: 12px; background: ${s.attendance === 'Present' ? '#d4edda' : '#f8d7da'};">
+              ${s.attendance || '-'}
+            </span>
+          </td>
+          <td>${s.ppt_file_path ? '<a href="/uploads/materials/' + s.ppt_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📥 PPT</a>' : '-'}</td>
+          <td>${s.recording_file_path ? '<a href="/uploads/materials/' + s.recording_file_path + '" target="_blank" class="btn btn-primary btn-sm">🎥 Video</a>' : '-'}</td>
+          <td>${s.homework_file_path ? '<a href="/uploads/materials/' + s.homework_file_path + '" target="_blank" download class="btn btn-primary btn-sm">📝 HW</a>' : '-'}</td>
+          <td><strong style="color: #667eea;">${s.homework_grade || '-'}</strong></td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Failed to load past sessions:', err);
+  }
+}
 
     // Load materials
     async function loadMaterials() {

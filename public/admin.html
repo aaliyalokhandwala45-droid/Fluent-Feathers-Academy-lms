@@ -435,8 +435,7 @@
             <td><strong>${s.name}</strong></td>
             <td>${s.grade}</td>
             <td>${s.program_name}</td>
-            <td>${s.group_name || '-'}</td>
-            <td>${s.timezone}</td>
+            <td>${s.timezone || 'Asia/Kolkata'}</td> 
             <td>${s.completed_sessions} / ${s.remaining_sessions}</td>
             <td><span style="background: #d4edda; padding: 4px 8px; border-radius: 12px;">${s.makeup_credits || 0}</span></td>
             <td>

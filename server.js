@@ -223,22 +223,47 @@ function bypassValidation(req, res, next) {
 // Convert IST (admin input) to UTC (database storage)
 function istToUTC(dateStr, timeStr) {
   try {
+    // ✅ Validate inputs
+    if (!dateStr || !timeStr) {
+      throw new Error('Date or time is missing');
+    }
+    
     const isoString = `${dateStr}T${timeStr}:00+05:30`;
     const date = new Date(isoString);
+    
+    // ✅ Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.error('❌ Invalid IST datetime:', dateStr, timeStr);
+      return { date: dateStr, time: timeStr };
+    }
+    
     const utcDate = date.toISOString().split('T')[0];
     const utcTime = date.toISOString().split('T')[1].substring(0, 5);
+    
+    console.log(`🌍 IST->UTC: ${dateStr} ${timeStr} -> ${utcDate} ${utcTime}`);
+    
     return { date: utcDate, time: utcTime };
   } catch (error) {
-    console.error('IST to UTC conversion error:', error);
+    console.error('❌ IST to UTC conversion error:', error);
     return { date: dateStr, time: timeStr };
   }
 }
 
-// Convert UTC (database) to specific timezone (display)
 function utcToTimezone(utcDate, utcTime, timezone) {
   try {
+    // ✅ Validate inputs
+    if (!utcDate || !utcTime || !timezone) {
+      throw new Error('Missing UTC date, time, or timezone');
+    }
+    
     const isoString = `${utcDate}T${utcTime}:00Z`;
     const date = new Date(isoString);
+    
+    // ✅ Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.error('❌ Invalid UTC datetime:', utcDate, utcTime);
+      return { time: utcTime, date: utcDate, day: '' };
+    }
     
     const time = date.toLocaleTimeString('en-US', {
       timeZone: timezone,
@@ -259,9 +284,11 @@ function utcToTimezone(utcDate, utcTime, timezone) {
       weekday: 'short'
     });
     
+    console.log(`🌍 UTC->TZ: ${utcDate} ${utcTime} -> ${dateStr} ${time} (${timezone})`);
+    
     return { time, date: dateStr, day };
   } catch (error) {
-    console.error('UTC to timezone conversion error:', error);
+    console.error('❌ UTC to timezone conversion error:', error);
     return { time: utcTime, date: utcDate, day: '' };
   }
 }
@@ -561,6 +588,11 @@ app.post('/api/schedule/classes', async (req, res) => {
 
   try {
     const student = (await pool.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0];
+    
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    
     const count = (await pool.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id])).rows[0].count;
     let sessionNumber = parseInt(count) + 1;
 
@@ -568,8 +600,16 @@ app.post('/api/schedule/classes', async (req, res) => {
     const scheduledClasses = [];
 
     for (const cls of classes) {
+      // ✅ FIXED: Validate date and time format
+      if (!cls.date || !cls.time) {
+        console.error('Invalid class data:', cls);
+        continue;
+      }
+      
       // Convert IST to UTC for storage
       const utc = istToUTC(cls.date, cls.time);
+      
+      console.log(`📅 Scheduling: IST ${cls.date} ${cls.time} -> UTC ${utc.date} ${utc.time}`);
       
       await pool.query(
         `INSERT INTO sessions (
@@ -582,27 +622,31 @@ app.post('/api/schedule/classes', async (req, res) => {
       sessionNumber++;
     }
 
+    if (scheduledClasses.length === 0) {
+      return res.status(400).json({ error: 'No valid classes to schedule' });
+    }
+
     // Generate email schedule rows
     const rows = scheduledClasses.map((cls, i) => {
-  const utc = istToUTC(cls.date, cls.time);
-  const display = utcToTimezone(utc.date, utc.time, student.timezone);
-  
-  return `
-    <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
-      <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
-        <strong>Session ${parseInt(count) + i + 1}</strong>
-      </td>
-      <td style="padding: 10px; border: 1px solid #ddd;">
-        ${display.day}, ${display.date}
-      </td>
-      <td style="padding: 10px; border: 1px solid #ddd;">
-        <strong style="color: #667eea; font-size: 1.1rem;">${display.time}</strong>
-        <br>
-        <small style="color: #718096;">(${student.timezone})</small>
-      </td>
-    </tr>
-  `;
-}).join('');
+      const utc = istToUTC(cls.date, cls.time);
+      const display = utcToTimezone(utc.date, utc.time, student.timezone);
+      
+      return `
+        <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'};">
+          <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+            <strong>Session ${parseInt(count) + i + 1}</strong>
+          </td>
+          <td style="padding: 10px; border: 1px solid #ddd;">
+            ${display.day}, ${display.date}
+          </td>
+          <td style="padding: 10px; border: 1px solid #ddd;">
+            <strong style="color: #667eea; font-size: 1.1rem;">${display.time}</strong>
+            <br>
+            <small style="color: #718096;">(${student.timezone})</small>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
     // Send schedule email
     await sendEmail(
@@ -618,8 +662,9 @@ app.post('/api/schedule/classes', async (req, res) => {
       'Schedule'
     );
 
-    res.json({ message: `${classes.length} classes scheduled. Email sent to ${student.parent_email}.` });
+    res.json({ message: `${scheduledClasses.length} classes scheduled. Email sent to ${student.parent_email}.` });
   } catch (err) {
+    console.error('Schedule error:', err);
     res.status(500).json({ error: err.message });
   }
 });
