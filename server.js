@@ -568,55 +568,51 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
 // ==================== API ROUTES - STUDENTS ====================
 
 // Get all students
+// Get all students - FIXED VERSION
 app.get('/api/students', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT s.*, 
-        COUNT(m.id) as makeup_credits,
-        g.group_name as group_display_name
+        COUNT(m.id) as makeup_credits
        FROM students s 
        LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available'
-       LEFT JOIN groups g ON s.group_id = g.id
        WHERE s.is_active = true
-       GROUP BY s.id, g.group_name
+       GROUP BY s.id
        ORDER BY s.created_at DESC`
     );
     res.json(result.rows);
   } catch (err) {
+    console.error('Error fetching students:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // Add new student
+// Add new student - FIXED VERSION (no group_id required)
+
+// Add new student - SIMPLIFIED (no group_id needed)
 app.post('/api/students', async (req, res) => {
   const { 
     name, grade, parent_name, parent_email, primary_contact, alternate_contact, 
-    timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions,
-    group_id
+    timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions
   } = req.body;
 
+  console.log('📝 Adding student:', { name, class_type, program_name });
+
   try {
+    // Simple insert WITHOUT group_id
     const result = await pool.query(
       `INSERT INTO students (
         name, grade, parent_name, parent_email, primary_contact, alternate_contact, 
         timezone, program_name, class_type, duration, currency, per_session_fee, 
-        total_sessions, completed_sessions, remaining_sessions, fees_paid, group_id,
-        is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0, $14, true) 
+        total_sessions, completed_sessions, remaining_sessions, fees_paid, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0, true) 
       RETURNING id`,
       [name, grade, parent_name, parent_email, primary_contact, alternate_contact, 
-       timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, group_id]
+       timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions]
     );
 
     const studentId = result.rows[0].id;
-
-    // Update group student count if enrolled in group
-    if (group_id) {
-      await pool.query(
-        'UPDATE groups SET current_students = current_students + 1 WHERE id = $1',
-        [group_id]
-      );
-    }
 
     // Send welcome email
     const emailData = {
@@ -641,72 +637,52 @@ app.post('/api/students', async (req, res) => {
 
     res.json({ success: true, message: `Student added successfully! Welcome email sent.`, studentId });
   } catch (err) {
+    console.error('Error adding student:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 // Continue to Part 3...
 // ==================== API ROUTES - STUDENTS (CONTINUED) ====================
 
 // Update student
+// Update student - SIMPLIFIED (no group_id)
 app.put('/api/students/:id', async (req, res) => {
   const studentId = req.params.id;
   const { 
     name, grade, parent_name, parent_email, primary_contact, alternate_contact,
     timezone, program_name, class_type, duration, currency, 
-    per_session_fee, total_sessions, group_id
+    per_session_fee, total_sessions
   } = req.body;
 
   try {
-    // Get current group_id
-    const currentStudent = await pool.query('SELECT group_id FROM students WHERE id = $1', [studentId]);
-    const oldGroupId = currentStudent.rows[0]?.group_id;
-
     await pool.query(
       `UPDATE students SET 
         name = $1, grade = $2, parent_name = $3, parent_email = $4,
         primary_contact = $5, alternate_contact = $6, timezone = $7,
         program_name = $8, class_type = $9, duration = $10, currency = $11,
-        per_session_fee = $12, total_sessions = $13, group_id = $14
-       WHERE id = $15`,
+        per_session_fee = $12, total_sessions = $13
+       WHERE id = $14`,
       [name, grade, parent_name, parent_email, primary_contact, alternate_contact,
        timezone, program_name, class_type, duration, currency,
-       per_session_fee, total_sessions, group_id, studentId]
+       per_session_fee, total_sessions, studentId]
     );
-
-    // Update group counts if group changed
-    if (oldGroupId !== group_id) {
-      if (oldGroupId) {
-        await pool.query('UPDATE groups SET current_students = current_students - 1 WHERE id = $1', [oldGroupId]);
-      }
-      if (group_id) {
-        await pool.query('UPDATE groups SET current_students = current_students + 1 WHERE id = $1', [group_id]);
-      }
-    }
     
     res.json({ message: 'Student updated successfully!' });
   } catch (err) {
+    console.error('Error updating student:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Delete student (soft delete)
+
+// Delete student - SIMPLIFIED (no group_id)
 app.delete('/api/students/:id', async (req, res) => {
   try {
-    // Get student's group_id
-    const student = await pool.query('SELECT group_id FROM students WHERE id = $1', [req.params.id]);
-    const groupId = student.rows[0]?.group_id;
-
-    // Soft delete
+    // Simple soft delete
     await pool.query('UPDATE students SET is_active = false WHERE id = $1', [req.params.id]);
-
-    // Update group count
-    if (groupId) {
-      await pool.query('UPDATE groups SET current_students = current_students - 1 WHERE id = $1', [groupId]);
-    }
-
     res.json({ message: 'Student deleted successfully' });
   } catch (err) {
+    console.error('Error deleting student:', err);
     res.status(500).json({ error: err.message });
   }
 });

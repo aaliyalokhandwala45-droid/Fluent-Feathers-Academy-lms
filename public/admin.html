@@ -192,20 +192,14 @@
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label>Class Type *</label>
-              <select id="classType" required onchange="handleClassTypeChange()">
-                <option value="Private">Private</option>
-                <option value="Group">Group</option>
-              </select>
-            </div>
-            <div class="form-group" id="groupSelectGroup" style="display: none;">
-              <label>Select Group</label>
-              <select id="groupSelect">
-                <option value="">No Group</option>
-              </select>
-            </div>
+          <div class="form-group">
+  <label>Class Type *</label>
+  <select id="classType" required>
+    <option value="Private">Private</option>
+    <option value="Group">Group</option>
+  </select>
+</div>
+<!-- Group selection removed for now -->
             <div class="form-group">
               <label>Duration *</label>
               <select id="duration" required>
@@ -255,7 +249,7 @@
               <th>Grade</th>
               <th>Program</th>
               <th>Type</th>
-              <th>Group</th>
+              <th>Type</th>
               <th>Sessions (C/R)</th>
               <th>Makeup</th>
               <th>Actions</th>
@@ -751,7 +745,7 @@
             <td>${s.grade}</td>
             <td>${s.program_name}</td>
             <td>${s.class_type}</td>
-            <td>${s.group_display_name || '-'}</td>
+            <td>${s.class_type}</td>
             <td>${s.completed_sessions} / ${s.remaining_sessions}</td>
             <td><span style="background: #d4edda; padding: 4px 8px; border-radius: 12px;">${s.makeup_credits || 0}</span></td>
             <td>
@@ -998,12 +992,7 @@
     });
 
     // Handle form changes
-    function handleClassTypeChange() {
-      const classType = document.getElementById('classType').value;
-      const groupSelectGroup = document.getElementById('groupSelectGroup');
-      groupSelectGroup.style.display = classType === 'Group' ? 'block' : 'none';
-    }
-
+  
     function handleScheduleTypeChange() {
       const scheduleType = document.getElementById('scheduleType').value;
       const privateForm = document.getElementById('schedulePrivateForm');
