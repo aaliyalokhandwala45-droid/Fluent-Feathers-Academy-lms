@@ -26,9 +26,19 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-pool.connect((err, client, release) => {
-  if (err) { console.error('❌ Database connection error:', err); }
-  else { console.log('✅ Connected to PostgreSQL'); release(); initializeDatabase(); }
+pool.connect(async (err, client, release) => {
+  if (err) { 
+    console.error('❌ Database connection error:', err); 
+  } else { 
+    console.log('✅ Connected to PostgreSQL'); 
+    release(); 
+    
+    // Run initialization first (creates tables if they don't exist)
+    await initializeDatabase();
+    
+    // Then run migrations (adds missing columns to existing tables)
+    await runMigrations();
+  }
 });
 
 // ==================== MIDDLEWARE ====================
@@ -438,7 +448,110 @@ async function initializeDatabase() {
     client.release();
   }
 }
+// ==================== DATABASE MIGRATION ====================
+async function runMigrations() {
+  const client = await pool.connect();
+  try {
+    console.log('🔧 Running database migrations...');
 
+    // Migration 1: Add date_of_birth to students
+    try {
+      await client.query(`
+        ALTER TABLE students 
+        ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+      `);
+      console.log('✅ Added date_of_birth column');
+    } catch (err) {
+      if (err.code === '42701') {
+        console.log('ℹ️  date_of_birth column already exists');
+      } else {
+        console.error('❌ Error adding date_of_birth:', err.message);
+      }
+    }
+
+    // Migration 2: Add payment_method to students
+    try {
+      await client.query(`
+        ALTER TABLE students 
+        ADD COLUMN IF NOT EXISTS payment_method TEXT;
+      `);
+      console.log('✅ Added payment_method column');
+    } catch (err) {
+      if (err.code === '42701') {
+        console.log('ℹ️  payment_method column already exists');
+      } else {
+        console.error('❌ Error adding payment_method:', err.message);
+      }
+    }
+
+    // Migration 3: Ensure announcements table exists
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS announcements (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          announcement_type TEXT DEFAULT 'General',
+          priority TEXT DEFAULT 'Normal',
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      console.log('✅ Announcements table checked/created');
+    } catch (err) {
+      console.error('❌ Error with announcements table:', err.message);
+    }
+
+    // Migration 4: Ensure student_certificates table exists
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS student_certificates (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL,
+          certificate_type TEXT NOT NULL,
+          award_title TEXT NOT NULL,
+          month INTEGER NOT NULL,
+          year INTEGER NOT NULL,
+          issued_date DATE DEFAULT CURRENT_DATE,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+      `);
+      console.log('✅ Student certificates table checked/created');
+    } catch (err) {
+      console.error('❌ Error with certificates table:', err.message);
+    }
+
+    // Migration 5: Ensure monthly_assessments table exists
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS monthly_assessments (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL,
+          month INTEGER NOT NULL,
+          year INTEGER NOT NULL,
+          skills TEXT,
+          certificate_title TEXT,
+          performance_summary TEXT,
+          areas_of_improvement TEXT,
+          teacher_comments TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+      `);
+      console.log('✅ Monthly assessments table checked/created');
+    } catch (err) {
+      console.error('❌ Error with assessments table:', err.message);
+    }
+
+    console.log('✅ All database migrations completed successfully!');
+  } catch (err) {
+    console.error('❌ Migration error:', err);
+  } finally {
+    client.release();
+  }
+}
 // ==================== HELPERS ====================
 function istToUTC(dateStr, timeStr) {
   try {
