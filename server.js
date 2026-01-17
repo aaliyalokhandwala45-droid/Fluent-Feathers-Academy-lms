@@ -1,5 +1,5 @@
-// ==================== ADVANCED LMS - SERVER.JS (PRODUCTION READY) ====================
-console.log("🚀 Starting Advanced LMS Server...");
+// ==================== ADVANCED LMS - SERVER.JS (PRODUCTION READY V2.0) ====================
+console.log("🚀 Starting Advanced LMS Server v2.0 - Full Feature Update...");
 
 const express = require('express');
 const { Pool } = require('pg');
