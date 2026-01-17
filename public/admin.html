@@ -9,14 +9,14 @@
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
     .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-    header h1 { color: #667eea; font-size: 28px; }
+    header h1 { color: #B05D9E; font-size: 28px; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 30px; }
-    .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid #667eea; }
+    .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid #B05D9E; }
     .stat-card h3 { color: #718096; font-size: 0.9rem; margin-bottom: 10px; }
     .stat-card .value { font-size: 2rem; font-weight: bold; color: #2d3748; }
     .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     .tab-btn { padding: 12px 24px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-    .tab-btn.active { background: #667eea; color: white; border-color: #667eea; }
+    .tab-btn.active { background: #B05D9E; color: white; border-color: #B05D9E; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
@@ -26,8 +26,8 @@
     .form-group label { margin-bottom: 5px; font-weight: 600; color: #4a5568; }
     .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
     .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-primary:hover { background: #5568d3; }
+    .btn-primary { background: #B05D9E; color: white; }
+    .btn-primary:hover { background: #9A4D88; }
     .btn-success { background: #38a169; color: white; }
     .btn-success:hover { background: #2f855a; }
     .btn-warning { background: #ed8936; color: white; }
@@ -44,14 +44,14 @@
     .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
     .modal-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     .modal-tab { padding: 10px 20px; background: #f7fafc; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .modal-tab.active { background: #667eea; color: white; }
+    .modal-tab.active { background: #B05D9E; color: white; }
     .modal-tab-content { display: none; }
     .modal-tab-content.active { display: block; }
     .upcoming-classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-bottom: 30px; }
-    .class-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }
+    .class-card { background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }
     .schedule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
     .schedule-row input { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; }
-    .session-item { background: #f7fafc; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid #667eea; display: flex; justify-content: space-between; align-items: center; }
+    .session-item { background: #f7fafc; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid #B05D9E; display: flex; justify-content: space-between; align-items: center; }
     .star-rating { display: flex; gap: 5px; font-size: 24px; }
     .star { cursor: default; color: #fbbf24; }
     .badge-item { display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 8px 16px; border-radius: 20px; margin: 5px; font-size: 0.9rem; }
@@ -73,7 +73,7 @@
     <div class="stats-grid">
       <div class="stat-card"><h3>Total Students</h3><div class="value" id="totalStudents">0</div></div>
       <div class="stat-card"><h3>Upcoming Sessions</h3><div class="value" id="upcomingSessions">0</div></div>
-      <div class="stat-card"><h3>Total Revenue</h3><div class="value" id="totalRevenue">0 (Mixed)</div></div>
+      <div class="stat-card" onclick="toggleRevenue()" style="cursor: pointer;"><h3>Total Revenue <span style="font-size: 0.7rem; color: #718096;">(click to show)</span></h3><div class="value" id="totalRevenue">*****</div></div>
       <div class="stat-card"><h3>Total Groups</h3><div class="value" id="totalGroups">0</div></div>
       <div class="stat-card"><h3>Active Events</h3><div class="value" id="activeEvents">0</div></div>
     </div>
@@ -85,6 +85,7 @@
       <button class="tab-btn" onclick="showTab('schedule', event)">📆 Schedule</button>
       <button class="tab-btn" onclick="showTab('scheduleManager', event)">📋 Manage Schedules</button>
       <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
+      <button class="tab-btn" onclick="showTab('homework', event)">📝 Homework</button>
       <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
       <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
       <button class="tab-btn" onclick="showTab('announcements', event)">📢 Announcements</button>
@@ -241,6 +242,35 @@
       <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date (IST)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
     </div>
 
+    <!-- Homework Submissions Tab -->
+    <div id="homeworkTab" class="tab-content">
+      <div class="section">
+        <h2>📝 Student Homework Submissions</h2>
+        <p style="color: #718096; margin-bottom: 20px;">View and grade homework submitted by students from the Parent Portal</p>
+        <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+          <label>Filter by Student</label>
+          <select id="homeworkFilterStudent" onchange="loadHomeworkSubmissions()">
+            <option value="">All Students</option>
+          </select>
+        </div>
+        <table id="homeworkTable">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Session #</th>
+              <th>File</th>
+              <th>Submitted</th>
+              <th>Grade</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="homeworkBody">
+            <tr><td colspan="6" style="text-align: center; color: #718096;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div id="eventsTab" class="tab-content">
       <div class="section"><h2>🎉 Create New Event</h2><form id="createEventForm">
         <div class="form-row">
@@ -338,47 +368,186 @@
           </div>
 
           <h3 style="margin-top: 20px; color: #4a5568;">📝 Skills Assessment (Tick applicable areas)</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; padding: 20px; background: #f7fafc; border-radius: 8px;">
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_speaking" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">🗣️ Speaking & Communication</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_confidence" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">💪 Confidence Building</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_grammar" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">📖 Grammar & Structure</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_vocabulary" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">📚 Vocabulary Enhancement</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_reading" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">📕 Reading Comprehension</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_writing" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">✍️ Creative Writing</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_listening" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">👂 Active Listening</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_spelling" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">🔤 Spelling Mastery</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_public_speaking" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">🎤 Public Speaking</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="skill_presentation" style="width: 18px; height: 18px; cursor: pointer;">
-              <span style="font-weight: 600;">📊 Presentation Skills</span>
-            </label>
+
+          <!-- Phonics Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">🔤 PHONICS</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #fef5e7; border-radius: 8px; border-left: 4px solid #f6ad55;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_letter_sounds" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🔊 Letter Sounds Recognition</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_blending" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🔗 Blending Sounds</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_segmenting" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">✂️ Segmenting Words</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_sight_words" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">👁️ Sight Words</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_phonemic_awareness" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">👂 Phonemic Awareness</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_decoding" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🔓 Decoding Skills</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Reading Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">📖 READING</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #e6fffa; border-radius: 8px; border-left: 4px solid #38b2ac;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_reading_fluency" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📚 Reading Fluency</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_reading_comprehension" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🧠 Reading Comprehension</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_reading_expression" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🎭 Reading with Expression</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_story_understanding" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📕 Story Understanding</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Spoken English Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">🗣️ SPOKEN ENGLISH</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #ebf8ff; border-radius: 8px; border-left: 4px solid #B05D9E;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_speaking" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🗣️ Speaking & Communication</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_pronunciation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🎯 Pronunciation</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_confidence" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">💪 Confidence Building</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_listening" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">👂 Active Listening</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_conversation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">💬 Conversation Skills</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_sentence_formation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📝 Sentence Formation</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Grammar Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">📖 GRAMMAR</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #faf5ff; border-radius: 8px; border-left: 4px solid #9f7aea;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_grammar" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📖 Grammar & Structure</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_tenses" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">⏰ Tenses</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_punctuation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">❗ Punctuation</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_parts_of_speech" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🏷️ Parts of Speech</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Vocabulary Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">📚 VOCABULARY</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #fff5f5; border-radius: 8px; border-left: 4px solid #fc8181;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_vocabulary" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📚 Vocabulary Enhancement</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_spelling" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🔤 Spelling Mastery</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_word_meanings" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📖 Word Meanings</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_synonyms_antonyms" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🔄 Synonyms & Antonyms</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Creative Writing Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">✍️ CREATIVE WRITING</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #f0fff4; border-radius: 8px; border-left: 4px solid #48bb78;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_writing" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">✍️ Creative Writing</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_story_writing" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📝 Story Writing</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_essay_writing" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📄 Essay Writing</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_handwriting" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">✏️ Handwriting</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Public Speaking Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">🎤 PUBLIC SPEAKING</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #fffaf0; border-radius: 8px; border-left: 4px solid #ed8936;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_public_speaking" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🎤 Public Speaking</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_presentation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📊 Presentation Skills</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_storytelling" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📖 Storytelling</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_debate" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">💭 Debate Skills</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_stage_presence" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🌟 Stage Presence</span>
+              </label>
+            </div>
           </div>
 
           <h3 style="margin-top: 20px; color: #4a5568;">🏆 Award Certificate (Optional)</h3>
@@ -386,17 +555,48 @@
             <div class="form-group"><label>Certificate Title</label>
               <select id="certificateTitle">
                 <option value="">No Certificate</option>
-                <option value="Superb Speaker">🗣️ Superb Speaker</option>
-                <option value="Confident Performer">💫 Confident Performer</option>
-                <option value="Avid Reader">📚 Avid Reader</option>
-                <option value="Spelling Champion">🔤 Spelling Champion</option>
-                <option value="Creative Writing Star">✨ Creative Writing Star</option>
-                <option value="Public Speaking Pro">🎤 Public Speaking Pro</option>
-                <option value="Excellent Listener">👂 Excellent Listener</option>
-                <option value="Grammar Guru">📖 Grammar Guru</option>
-                <option value="Vocabulary Virtuoso">📕 Vocabulary Virtuoso</option>
-                <option value="Star Student">⭐ Star Student</option>
-                <option value="Most Improved">🚀 Most Improved</option>
+                <optgroup label="🔤 Phonics">
+                  <option value="Phonics Star">🔤 Phonics Star</option>
+                  <option value="Sound Master">🔊 Sound Master</option>
+                  <option value="Blending Champion">🔗 Blending Champion</option>
+                </optgroup>
+                <optgroup label="📖 Reading">
+                  <option value="Avid Reader">📚 Avid Reader</option>
+                  <option value="Reading Rockstar">📖 Reading Rockstar</option>
+                  <option value="Fluent Reader">🌟 Fluent Reader</option>
+                </optgroup>
+                <optgroup label="🗣️ Spoken English">
+                  <option value="Superb Speaker">🗣️ Superb Speaker</option>
+                  <option value="Confident Communicator">💬 Confident Communicator</option>
+                  <option value="Excellent Listener">👂 Excellent Listener</option>
+                  <option value="Pronunciation Pro">🎯 Pronunciation Pro</option>
+                </optgroup>
+                <optgroup label="📖 Grammar">
+                  <option value="Grammar Guru">📖 Grammar Guru</option>
+                  <option value="Grammar Champion">🏆 Grammar Champion</option>
+                </optgroup>
+                <optgroup label="📚 Vocabulary">
+                  <option value="Vocabulary Virtuoso">📕 Vocabulary Virtuoso</option>
+                  <option value="Spelling Champion">🔤 Spelling Champion</option>
+                  <option value="Word Wizard">✨ Word Wizard</option>
+                </optgroup>
+                <optgroup label="✍️ Creative Writing">
+                  <option value="Creative Writing Star">✍️ Creative Writing Star</option>
+                  <option value="Story Teller">📝 Story Teller</option>
+                  <option value="Writing Wizard">✨ Writing Wizard</option>
+                </optgroup>
+                <optgroup label="🎤 Public Speaking">
+                  <option value="Public Speaking Pro">🎤 Public Speaking Pro</option>
+                  <option value="Confident Performer">💫 Confident Performer</option>
+                  <option value="Stage Star">🌟 Stage Star</option>
+                  <option value="Debate Champion">💭 Debate Champion</option>
+                </optgroup>
+                <optgroup label="⭐ General">
+                  <option value="Star Student">⭐ Star Student</option>
+                  <option value="Most Improved">🚀 Most Improved</option>
+                  <option value="Outstanding Performer">🏅 Outstanding Performer</option>
+                  <option value="Best Effort">💪 Best Effort</option>
+                </optgroup>
                 <option value="Custom">✏️ Custom Title...</option>
               </select>
             </div>
@@ -443,7 +643,7 @@
         </div>
         <div id="paymentStudentDetails" style="display: none; margin-top: 20px;">
           <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="color: #667eea; margin-bottom: 15px;">Student Payment Summary</h3>
+            <h3 style="color: #B05D9E; margin-bottom: 15px;">Student Payment Summary</h3>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
               <div><strong>Name:</strong> <span id="payStudentName">-</span></div>
               <div><strong>Total Sessions:</strong> <span id="payTotalSessions">-</span></div>
@@ -517,7 +717,7 @@
 
           <!-- Payment History Table -->
           <div class="section">
-            <h3 style="color: #667eea; margin-bottom: 15px;">📋 Payment History</h3>
+            <h3 style="color: #B05D9E; margin-bottom: 15px;">📋 Payment History</h3>
             <table id="paymentHistoryTable">
               <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th><th>Notes</th></tr></thead>
               <tbody id="paymentHistoryBody"><tr><td colspan="6" style="text-align: center; color: #718096;">Select a student to view payment history</td></tr></tbody>
@@ -550,7 +750,7 @@
   <div id="eventModal" class="modal">
     <div class="modal-content" style="max-width: 700px;">
       <div class="modal-header">
-        <h2 id="eventModalTitle" style="color: #667eea;">Event Details</h2>
+        <h2 id="eventModalTitle" style="color: #B05D9E;">Event Details</h2>
         <button onclick="closeEventModal()" class="btn btn-danger btn-sm">✕</button>
       </div>
       <div id="eventModalContent">Loading...</div>
@@ -688,6 +888,18 @@
     let allStudents = [], allGroups = [];
     let currentStudentId = null;
     let currentGroupId = null;
+    let actualRevenue = 0;
+    let revenueVisible = false;
+
+    function toggleRevenue() {
+      revenueVisible = !revenueVisible;
+      const revenueEl = document.getElementById('totalRevenue');
+      if (revenueVisible) {
+        revenueEl.textContent = actualRevenue.toFixed(2) + ' (Mixed)';
+      } else {
+        revenueEl.textContent = '*****';
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', async () => {
       await loadDashboardStats();
@@ -707,6 +919,7 @@
       if (tabName === 'past') loadPastSessions();
       if (tabName === 'events') loadEvents();
       if (tabName === 'scheduleManager') loadScheduleManager();
+      if (tabName === 'homework') loadHomeworkSubmissions();
     }
 
     function showModalTab(tabName, e) {
@@ -750,7 +963,9 @@
         const stats = await res.json();
         document.getElementById('totalStudents').textContent = stats.totalStudents;
         document.getElementById('upcomingSessions').textContent = stats.upcomingSessions;
-        document.getElementById('totalRevenue').textContent = stats.totalRevenue.toFixed(2) + ' (Mixed)';
+        // Store revenue but keep hidden by default
+        actualRevenue = stats.totalRevenue;
+        document.getElementById('totalRevenue').textContent = revenueVisible ? (actualRevenue.toFixed(2) + ' (Mixed)') : '*****';
         document.getElementById('totalGroups').textContent = stats.totalGroups;
         document.getElementById('activeEvents').textContent = stats.activeEvents;
       } catch (err) {
@@ -770,7 +985,7 @@
           <p>📅 ${formatSessionTime(cls)} (IST)</p>
           <p>🌍 Student TZ: ${cls.timezone}</p>
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
-            <a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#667eea; text-decoration:none;">🎥 Join</a>
+            <a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join</a>
             <button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
           </div>
         </div>`).join('');
@@ -974,7 +1189,7 @@
           e.target.reset();
           loadStudents();
           loadDashboardStats();
-          loadCertificateStudents();
+          loadAssessmentStudents();
         } else {
           alert('❌ Failed: ' + result.error);
         }
@@ -1041,7 +1256,7 @@
           return `<tr>
             <td>${formatSessionTime(s)}</td>
             <td><strong>${s.student_name}</strong></td>
-            <td><span style="background: ${s.session_type === 'Private' ? '#667eea' : '#9f7aea'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.session_type}</span></td>
+            <td><span style="background: ${s.session_type === 'Private' ? '#B05D9E' : '#9f7aea'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.session_type}</span></td>
             <td>#${s.session_number}</td>
             <td>${attendanceBtn}</td>
             <td>${materials || '-'}</td>
@@ -1059,32 +1274,123 @@
     async function viewFeedback(sessionId) {
       try {
         const res = await fetch(`/api/sessions/${sessionId}/feedbacks`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch feedback');
+        }
         const feedbacks = await res.json();
         const container = document.getElementById('feedbackModalContent');
 
-        if(feedbacks.length === 0) {
-          container.innerHTML = '<p style="text-align:center; color:#718096;">No feedback received yet</p>';
+        if(!feedbacks || feedbacks.length === 0) {
+          container.innerHTML = '<p style="text-align:center; color:#718096; padding: 20px;">No feedback received yet for this session.</p><p style="text-align:center; color:#a0aec0; font-size:0.9rem;">Feedback is submitted by parents/students after completing a class.</p>';
         } else {
           container.innerHTML = feedbacks.map(f => `
-            <div style="background:#f7fafc; padding:15px; border-radius:8px; margin-bottom:10px;">
+            <div style="background:#f7fafc; padding:15px; border-radius:8px; margin-bottom:10px; border-left: 4px solid #fbbf24;">
               <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                <strong>${f.student_name}</strong>
-                <div class="star-rating">${'⭐'.repeat(f.rating)}</div>
+                <strong style="color:#2d3748;">${f.student_name || 'Student'}</strong>
+                <div class="star-rating">${'⭐'.repeat(f.rating || 0)}</div>
               </div>
-              <p>${f.feedback_text || 'No comment provided'}</p>
-              <p style="color:#718096; font-size:0.85rem; margin-top:5px;">${new Date(f.created_at).toLocaleString()}</p>
+              <p style="color:#4a5568;">${f.feedback_text || 'No comment provided'}</p>
+              <p style="color:#718096; font-size:0.85rem; margin-top:10px;">📅 ${f.created_at ? new Date(f.created_at).toLocaleString() : 'N/A'}</p>
             </div>
           `).join('');
         }
 
         document.getElementById('feedbackModal').classList.add('active');
       } catch(err) {
-        alert('Error loading feedback');
+        console.error('Error loading feedback:', err);
+        document.getElementById('feedbackModalContent').innerHTML = '<p style="text-align:center; color:#718096; padding: 20px;">No feedback received yet for this session.</p>';
+        document.getElementById('feedbackModal').classList.add('active');
       }
     }
 
     function closeFeedbackModal() {
       document.getElementById('feedbackModal').classList.remove('active');
+    }
+
+    // ==================== HOMEWORK SUBMISSIONS ====================
+    async function loadHomeworkSubmissions() {
+      try {
+        // Populate filter dropdown
+        const filterSelect = document.getElementById('homeworkFilterStudent');
+        if (filterSelect.options.length <= 1) {
+          filterSelect.innerHTML = '<option value="">All Students</option>' +
+            allStudents.filter(s => s.is_active).map(s =>
+              `<option value="${s.id}">${s.name} (${s.grade})</option>`
+            ).join('');
+        }
+
+        const studentId = filterSelect.value;
+        const url = studentId ? `/api/homework/all?student_id=${studentId}` : '/api/homework/all';
+        const res = await fetch(url);
+        const submissions = await res.json();
+        const tbody = document.getElementById('homeworkBody');
+
+        if (!submissions || submissions.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #718096; padding: 30px;">No homework submissions yet. Students can upload homework from the Parent Portal.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = submissions.map(hw => {
+          const gradeDisplay = hw.feedback_grade
+            ? `<span style="background: #38a169; color: white; padding: 3px 10px; border-radius: 4px;">${hw.feedback_grade}</span>`
+            : '<span style="color: #718096;">Not graded</span>';
+
+          const fileExt = hw.file_name ? hw.file_name.split('.').pop().toLowerCase() : '';
+          const fileIcon = ['mp4', 'mov', 'avi'].includes(fileExt) ? '🎥' :
+                          ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt) ? '🖼️' :
+                          ['pdf'].includes(fileExt) ? '📄' :
+                          ['doc', 'docx'].includes(fileExt) ? '📝' :
+                          ['ppt', 'pptx'].includes(fileExt) ? '📊' : '📁';
+
+          return `<tr>
+            <td><strong>${hw.student_name || 'Unknown'}</strong></td>
+            <td>#${hw.session_number || 'N/A'}</td>
+            <td>
+              <a href="/uploads/homework/${hw.file_path}" target="_blank" style="color: #B05D9E; text-decoration: none;">
+                ${fileIcon} ${hw.file_name || 'Download'}
+              </a>
+            </td>
+            <td>${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
+            <td>${gradeDisplay}</td>
+            <td>
+              <button onclick="openGradeHomeworkModal(${hw.id}, '${hw.student_name}', '${hw.file_name}')" class="btn btn-sm btn-primary">Grade</button>
+              <a href="/uploads/homework/${hw.file_path}" download class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">Download</a>
+            </td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        console.error('Error loading homework:', err);
+        document.getElementById('homeworkBody').innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e53e3e;">Error loading homework submissions</td></tr>';
+      }
+    }
+
+    function openGradeHomeworkModal(homeworkId, studentName, fileName) {
+      const grade = prompt(`Grade homework for ${studentName}\n\nFile: ${fileName}\n\nEnter grade (e.g., A+, A, B+, B, C, Excellent, Good):`);
+      if (grade === null) return;
+
+      const comments = prompt('Enter feedback comments (optional):') || '';
+
+      gradeHomework(homeworkId, grade, comments);
+    }
+
+    async function gradeHomework(homeworkId, grade, comments) {
+      try {
+        const res = await fetch(`/api/materials/${homeworkId}/grade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ grade, comments })
+        });
+
+        if (res.ok) {
+          alert('✅ Homework graded successfully!');
+          loadHomeworkSubmissions();
+        } else {
+          alert('❌ Failed to grade homework');
+        }
+      } catch (err) {
+        console.error('Error grading homework:', err);
+        alert('❌ Error grading homework');
+      }
     }
 
     async function markSessionAttendance(sessionId, sessionType) {
@@ -1250,7 +1556,7 @@
 
       const infoHTML = `
         <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h3 style="color: #667eea; margin-bottom: 15px;">Basic Information</h3>
+          <h3 style="color: #B05D9E; margin-bottom: 15px;">Basic Information</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div><strong>Name:</strong> ${student.name}</div>
             <div><strong>Grade:</strong> ${student.grade}</div>
@@ -1262,7 +1568,7 @@
         </div>
 
         <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h3 style="color: #667eea; margin-bottom: 15px;">Program Details</h3>
+          <h3 style="color: #B05D9E; margin-bottom: 15px;">Program Details</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div><strong>Program:</strong> ${student.program_name}</div>
             <div><strong>Type:</strong> ${student.class_type}</div>
@@ -1272,7 +1578,7 @@
         </div>
 
         <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h3 style="color: #667eea; margin-bottom: 15px;">Session Statistics</h3>
+          <h3 style="color: #B05D9E; margin-bottom: 15px;">Session Statistics</h3>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
             <div><strong>Total:</strong> ${student.total_sessions}</div>
             <div><strong>Completed:</strong> <span style="color: #38a169;">${student.completed_sessions}</span></div>
@@ -1282,7 +1588,7 @@
         </div>
 
         <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
-          <h3 style="color: #667eea; margin-bottom: 15px;">Financial Summary</h3>
+          <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div><strong>Total Paid:</strong> ${student.currency} ${student.fees_paid || 0}</div>
             <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
@@ -1383,7 +1689,7 @@
             <td>${e.registered_count||0}${e.max_participants ? '/' + e.max_participants : ''}</td>
             <td><span style="background: ${e.status === 'Active' ? '#38a169' : '#e53e3e'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${e.status}</span></td>
             <td>
-              <button onclick="viewEvent(${e.id})" class="btn btn-sm" style="background:#4299e1; color:white;">View</button>
+              <button onclick="viewEvent(${e.id})" class="btn btn-sm" style="background:#B05D9E; color:white;">View</button>
               <button onclick="editEvent(${e.id})" class="btn btn-sm btn-warning">Edit</button>
               <button onclick="markEventAttendance(${e.id}, '${e.event_name}')" class="btn btn-sm btn-success">Attendance</button>
               <button onclick="viewEventRegistrations(${e.id}, '${e.event_name}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Registrations</button>
@@ -1727,7 +2033,7 @@
             <td><span class="badge ${a.priority === 'Urgent' ? 'badge-danger' : a.priority === 'High' ? 'badge-warning' : ''}">${a.priority}</span></td>
             <td>${new Date(a.created_at).toLocaleDateString()}</td>
             <td>
-              <button onclick="viewAnnouncement(${a.id}, '${a.title.replace(/'/g, "\\'")}', '${a.content.replace(/'/g, "\\'")}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#4299e1;color:white;">View</button>
+              <button onclick="viewAnnouncement(${a.id}, '${a.title.replace(/'/g, "\\'")}', '${a.content.replace(/'/g, "\\'")}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
               <button onclick="deleteAnnouncement(${a.id})" class="btn btn-danger btn-sm">Delete</button>
             </td>
           </tr>
@@ -1814,7 +2120,7 @@
             <td>${skillsText}</td>
             <td>${new Date(a.created_at).toLocaleDateString()}</td>
             <td>
-              <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#4299e1;color:white;">View</button>
+              <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
               <button onclick="deleteAssessment(${a.id})" class="btn btn-danger btn-sm">Delete</button>
             </td>
           </tr>
@@ -1844,18 +2150,63 @@
 
       // Collect checked skills
       const skills = [];
-      const skillIds = ['speaking', 'confidence', 'grammar', 'vocabulary', 'reading', 'writing', 'listening', 'spelling', 'public_speaking', 'presentation'];
+      const skillIds = [
+        // Phonics
+        'letter_sounds', 'blending', 'segmenting', 'sight_words', 'phonemic_awareness', 'decoding',
+        // Reading
+        'reading_fluency', 'reading_comprehension', 'reading_expression', 'story_understanding',
+        // Spoken English
+        'speaking', 'pronunciation', 'confidence', 'listening', 'conversation', 'sentence_formation',
+        // Grammar
+        'grammar', 'tenses', 'punctuation', 'parts_of_speech',
+        // Vocabulary
+        'vocabulary', 'spelling', 'word_meanings', 'synonyms_antonyms',
+        // Creative Writing
+        'writing', 'story_writing', 'essay_writing', 'handwriting',
+        // Public Speaking
+        'public_speaking', 'presentation', 'storytelling', 'debate', 'stage_presence'
+      ];
       const skillNames = {
+        // Phonics
+        'letter_sounds': 'Letter Sounds Recognition',
+        'blending': 'Blending Sounds',
+        'segmenting': 'Segmenting Words',
+        'sight_words': 'Sight Words',
+        'phonemic_awareness': 'Phonemic Awareness',
+        'decoding': 'Decoding Skills',
+        // Reading
+        'reading_fluency': 'Reading Fluency',
+        'reading_comprehension': 'Reading Comprehension',
+        'reading_expression': 'Reading with Expression',
+        'story_understanding': 'Story Understanding',
+        // Spoken English
         'speaking': 'Speaking & Communication',
+        'pronunciation': 'Pronunciation',
         'confidence': 'Confidence Building',
-        'grammar': 'Grammar & Structure',
-        'vocabulary': 'Vocabulary Enhancement',
-        'reading': 'Reading Comprehension',
-        'writing': 'Creative Writing',
         'listening': 'Active Listening',
+        'conversation': 'Conversation Skills',
+        'sentence_formation': 'Sentence Formation',
+        // Grammar
+        'grammar': 'Grammar & Structure',
+        'tenses': 'Tenses',
+        'punctuation': 'Punctuation',
+        'parts_of_speech': 'Parts of Speech',
+        // Vocabulary
+        'vocabulary': 'Vocabulary Enhancement',
         'spelling': 'Spelling Mastery',
+        'word_meanings': 'Word Meanings',
+        'synonyms_antonyms': 'Synonyms & Antonyms',
+        // Creative Writing
+        'writing': 'Creative Writing',
+        'story_writing': 'Story Writing',
+        'essay_writing': 'Essay Writing',
+        'handwriting': 'Handwriting',
+        // Public Speaking
         'public_speaking': 'Public Speaking',
-        'presentation': 'Presentation Skills'
+        'presentation': 'Presentation Skills',
+        'storytelling': 'Storytelling',
+        'debate': 'Debate Skills',
+        'stage_presence': 'Stage Presence'
       };
 
       skillIds.forEach(skill => {
@@ -2175,7 +2526,7 @@
               <div><strong>Target Audience:</strong> ${event.target_audience || 'All'}</div>
               <div><strong>Max Participants:</strong> ${event.max_participants || 'Unlimited'}</div>
               <div><strong>Current Registrations:</strong> ${event.current_participants || 0}</div>
-              <div><strong>Zoom Link:</strong> <a href="${event.zoom_link}" target="_blank" style="color: #667eea;">Open</a></div>
+              <div><strong>Zoom Link:</strong> <a href="${event.zoom_link}" target="_blank" style="color: #B05D9E;">Open</a></div>
             </div>
             ${event.event_description ? `<div style="margin-top: 15px;"><strong>Description:</strong><p style="margin-top: 5px; color: #4a5568;">${event.event_description}</p></div>` : ''}
           </div>
@@ -2373,7 +2724,7 @@
 
   <!-- Footer -->
   <footer style="background: white; padding: 20px; text-align: center; margin: 30px 20px 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-    <p style="margin: 0; color: #667eea; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
+    <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
   </footer>
 </body>
 </html>

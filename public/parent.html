@@ -9,12 +9,12 @@
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
     .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-    header h1 { color: #667eea; font-size: 24px; }
+    header h1 { color: #B05D9E; font-size: 24px; }
     .login-section { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 500px; margin: 50px auto; text-align: center; }
-    .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #667eea; }
+    .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #B05D9E; }
     .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     .tab-btn { padding: 12px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-    .tab-btn.active { background: #667eea; color: white; border-color: #667eea; }
+    .tab-btn.active { background: #B05D9E; color: white; border-color: #B05D9E; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
@@ -22,13 +22,13 @@
     .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568; }
     .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
     .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-primary:hover { background: #5568d3; }
+    .btn-primary { background: #B05D9E; color: white; }
+    .btn-primary:hover { background: #9A4D88; }
     .btn-danger { background: #e53e3e; color: white; }
     .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
     .btn-zoom { background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; display: inline-block; }
     .btn-zoom:hover { background: linear-gradient(135deg, #319795 0%, #285e61 100%); }
-    .btn-download { background: #4299e1; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; display: inline-block; margin: 2px; }
+    .btn-download { background: #B05D9E; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; display: inline-block; margin: 2px; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
     th { background: #f7fafc; color: #4a5568; font-weight: 600; }
@@ -71,12 +71,12 @@
     .modal-content { background: white; margin: 5% auto; padding: 30px; border-radius: 15px; max-width: 600px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideDown 0.3s ease; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-50px); } to { opacity: 1; transform: translateY(0); } }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; }
-    .modal-header h2 { color: #667eea; font-size: 24px; }
+    .modal-header h2 { color: #B05D9E; font-size: 24px; }
     .close-modal { background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
     .star-rating { display: flex; justify-content: center; gap: 10px; font-size: 48px; margin: 20px 0; }
     .star { cursor: pointer; color: #ddd; transition: all 0.2s; }
     .star.active, .star:hover { color: #FFD700; transform: scale(1.2); }
-    .payment-history-item { background: #f7fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; margin-bottom: 15px; }
+    .payment-history-item { background: #f7fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #B05D9E; margin-bottom: 15px; }
     .payment-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
   </style>
 </head>
@@ -84,7 +84,7 @@
   <div class="container">
     <!-- LOGIN SECTION -->
     <div id="loginSection" class="login-section">
-      <h1 style="color: #667eea; margin-bottom: 20px;">🔐 Parent Login</h1>
+      <h1 style="color: #B05D9E; margin-bottom: 20px;">🔐 Parent Login</h1>
       <form id="emailForm"><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div><button type="submit" class="btn btn-primary">Continue</button></form>
 
       <!-- First Time User - Create Password -->
@@ -99,7 +99,7 @@
           <button type="submit" class="btn btn-primary" style="width: 100%;">Create Password & Login</button>
         </form>
         <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
-          Or <a href="#" onclick="showOTPLogin(); return false;" style="color: #667eea;">login with OTP</a> instead
+          Or <a href="#" onclick="showOTPLogin(); return false;" style="color: #B05D9E;">login with OTP</a> instead
         </p>
       </div>
 
@@ -119,7 +119,7 @@
         <div style="margin-top: 15px; text-align: center;">
           <a href="#" onclick="showForgotPassword(); return false;" style="color: #e53e3e; font-size: 14px;">Forgot Password?</a>
           <span style="color: #cbd5e0; margin: 0 10px;">|</span>
-          <a href="#" onclick="showOTPLogin(); return false;" style="color: #667eea; font-size: 14px;">Login with OTP</a>
+          <a href="#" onclick="showOTPLogin(); return false;" style="color: #B05D9E; font-size: 14px;">Login with OTP</a>
         </div>
       </form>
 
@@ -142,7 +142,7 @@
           <button type="button" onclick="resetPassword()" class="btn btn-primary" style="width: 100%;">Reset Password & Login</button>
         </div>
         <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
-          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #667eea;">← Back to Login</a>
+          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #B05D9E;">← Back to Login</a>
         </p>
       </div>
 
@@ -156,11 +156,11 @@
           <div class="form-group"><label>Enter OTP *</label><input type="text" id="otpCode" required maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit OTP"></div>
           <button type="submit" class="btn btn-primary" style="width: 100%;">Verify OTP</button>
           <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
-            <a href="#" onclick="sendOTP(); return false;" style="color: #667eea;">Resend OTP</a>
+            <a href="#" onclick="sendOTP(); return false;" style="color: #B05D9E;">Resend OTP</a>
           </p>
         </div>
         <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
-          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #667eea;">← Back to Login Options</a>
+          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #B05D9E;">← Back to Login Options</a>
         </p>
       </form>
     </div>
@@ -181,7 +181,7 @@
       </div>
 
       <div class="info-card">
-        <h2 style="color: #667eea; margin-bottom: 15px;">👤 Student Information</h2>
+        <h2 style="color: #B05D9E; margin-bottom: 15px;">👤 Student Information</h2>
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
           <div><strong>Name:</strong> <span id="displayName">-</span></div>
           <div><strong>Grade:</strong> <span id="displayGrade">-</span></div>
@@ -198,7 +198,7 @@
 
       <!-- Badges Section -->
       <div class="section">
-        <h2 style="color: #667eea; margin-bottom: 10px;">🏆 Achievement Badges</h2>
+        <h2 style="color: #B05D9E; margin-bottom: 10px;">🏆 Achievement Badges</h2>
         <p style="color: #718096; margin-bottom: 15px;">Keep learning to unlock more badges!</p>
         <div id="badgesContainer" class="badges-grid">
           <p style="text-align: center; color: #718096;">Loading badges...</p>
@@ -244,7 +244,28 @@
       </div>
 
       <div id="homeworkTab" class="tab-content">
-        <div class="section"><h2>📤 Upload Homework</h2><form id="uploadHomeworkForm"><div class="form-group"><label>Select Session *</label><select id="homeworkSessionSelect" required><option value="">Loading...</option></select></div><div class="form-group"><label>File *</label><input type="file" id="homeworkFile" required accept=".pdf,.doc,.docx,.jpg,.png"></div><button type="submit" class="btn btn-primary">Upload</button></form></div>
+        <div class="section">
+          <h2>📤 Upload Homework</h2>
+          <form id="uploadHomeworkForm">
+            <div class="form-group">
+              <label>Select Session *</label>
+              <select id="homeworkSessionSelect" required><option value="">Loading...</option></select>
+            </div>
+            <div class="form-group">
+              <label>File * (Images, Videos, PDFs, Documents, Presentations)</label>
+              <input type="file" id="homeworkFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp4,.mov,.avi,.mp3,.ppt,.pptx,.zip,.rar">
+              <p style="color: #718096; font-size: 0.85rem; margin-top: 5px;">
+                Supported formats: Images (JPG, PNG, GIF), Videos (MP4, MOV, AVI), Audio (MP3), Documents (PDF, DOC, DOCX), Presentations (PPT, PPTX), Archives (ZIP, RAR) - Max 50MB
+              </p>
+            </div>
+            <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
+          </form>
+
+          <h3 style="margin-top: 30px; color: #B05D9E;">📚 My Submitted Homework</h3>
+          <div id="submittedHomeworkList" style="margin-top: 15px;">
+            <p style="color: #718096;">Loading your submissions...</p>
+          </div>
+        </div>
       </div>
 
       <div id="paymentsTab" class="tab-content">
@@ -699,11 +720,11 @@
 
         tbody.innerHTML = upcoming.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-          const zoomLink = s.zoom_link || 'https://zoom.us';
+          const zoomLink = s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
           return `<tr>
             <td>#${s.session_number}</td>
             <td>${t.date}</td>
-            <td><strong style="color:#667eea">${t.time}</strong></td>
+            <td><strong style="color:#B05D9E">${t.time}</strong></td>
             <td><a href="${zoomLink}" target="_blank" class="btn-zoom">🎥 Join Zoom</a></td>
           </tr>`;
         }).join('');
@@ -777,8 +798,62 @@
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
           return `<option value="${s.id}">Session #${s.session_number} - ${t.date}</option>`;
         }).join('');
+
+        // Also load submitted homework
+        loadSubmittedHomework();
       } catch(e) {
         console.error('Error loading homework sessions:', e);
+      }
+    }
+
+    async function loadSubmittedHomework() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/homework`, { headers: authHeaders() });
+        const submissions = await res.json();
+        const container = document.getElementById('submittedHomeworkList');
+
+        if (!submissions || submissions.length === 0) {
+          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No homework submitted yet. Upload your first homework above!</p>';
+          return;
+        }
+
+        container.innerHTML = submissions.map(hw => {
+          const fileExt = hw.file_name ? hw.file_name.split('.').pop().toLowerCase() : '';
+          const fileIcon = ['mp4', 'mov', 'avi'].includes(fileExt) ? '🎥' :
+                          ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt) ? '🖼️' :
+                          ['pdf'].includes(fileExt) ? '📄' :
+                          ['doc', 'docx'].includes(fileExt) ? '📝' :
+                          ['ppt', 'pptx'].includes(fileExt) ? '📊' : '📁';
+
+          const gradeDisplay = hw.feedback_grade
+            ? `<span style="background: #38a169; color: white; padding: 3px 10px; border-radius: 4px; font-size: 0.85rem;">${hw.feedback_grade}</span>`
+            : '<span style="color: #f6ad55; font-size: 0.85rem;">⏳ Pending Review</span>';
+
+          const feedbackDisplay = hw.feedback_comments
+            ? `<p style="color: #4a5568; font-size: 0.9rem; margin-top: 8px; padding: 10px; background: #f0fff4; border-radius: 6px;"><strong>Teacher's Feedback:</strong> ${hw.feedback_comments}</p>`
+            : '';
+
+          return `
+            <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <strong style="color: #2d3748;">${fileIcon} Session #${hw.session_number || 'N/A'}</strong>
+                  <p style="color: #718096; font-size: 0.85rem; margin: 5px 0;">
+                    ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                  </p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  ${gradeDisplay}
+                  <a href="/uploads/homework/${hw.file_path}" target="_blank" style="color: #B05D9E; font-size: 0.85rem;">View</a>
+                </div>
+              </div>
+              ${feedbackDisplay}
+            </div>
+          `;
+        }).join('');
+      } catch(e) {
+        console.error('Error loading submitted homework:', e);
+        document.getElementById('submittedHomeworkList').innerHTML = '<p style="color: #e53e3e;">Error loading submissions</p>';
       }
     }
 
@@ -830,7 +905,7 @@
           <div class="payment-history-item">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <strong style="color: #667eea; font-size: 18px;">${r.currency} ${r.amount}</strong>
+                <strong style="color: #B05D9E; font-size: 18px;">${r.currency} ${r.amount}</strong>
                 <p style="color: #4a5568; margin-top: 5px;">+${r.sessions_added} sessions added</p>
                 <p style="color: #718096; font-size: 0.9rem; margin-top: 5px;">Payment Method: ${r.payment_method || 'N/A'}</p>
                 ${r.notes ? `<p style="color: #718096; font-size: 0.9rem; font-style: italic;">${r.notes}</p>` : ''}
@@ -1001,6 +1076,7 @@
           e.target.reset();
           loadPast(); // Refresh past classes to show submission
           loadBadges(); // Reload badges as homework might award one
+          loadSubmittedHomework(); // Refresh submitted homework list
         } else {
           alert('Error uploading homework');
         }
@@ -1030,7 +1106,7 @@
           const t = toLocalTime(e.event_date, e.event_time, currentStudent.timezone);
           return `
           <div style="background:white; border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:8px;">
-            <h3 style="color: #667eea; margin-bottom: 10px;">${e.event_name}</h3>
+            <h3 style="color: #B05D9E; margin-bottom: 10px;">${e.event_name}</h3>
             <p style="margin-bottom: 10px;">${e.event_description || ''}</p>
             <p><strong>📅 Date:</strong> ${t.date} | <strong>🕐 Time:</strong> ${t.time}</p>
             ${!e.is_registered ? `<button onclick="registerEvent(${e.id})" class="btn btn-primary" style="margin-top:10px; width: auto; padding: 10px 20px;">Register Now</button>` : '<span style="color:green; font-weight: bold;">✓ Registered</span>'}
@@ -1083,7 +1159,7 @@
           return `
           <div style="background: white; border: 1px solid #e2e8f0; padding: 25px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
             <!-- Header -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; margin: -25px -25px 20px -25px; border-radius: 12px 12px 0 0; text-align: center;">
+            <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 20px; margin: -25px -25px 20px -25px; border-radius: 12px 12px 0 0; text-align: center;">
               <div style="font-size: 40px; margin-bottom: 8px;">📊</div>
               <h3 style="margin: 0; color: white; font-size: 22px;">Monthly Progress Report</h3>
               <p style="margin: 5px 0 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 600;">${monthNames[a.month - 1]} ${a.year}</p>
@@ -1106,7 +1182,7 @@
               </h4>
               <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 ${skills.map(skill => `
-                <span style="background: #f7fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #667eea; font-size: 12px; color: #4a5568; font-weight: 600;">
+                <span style="background: #f7fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #B05D9E; font-size: 12px; color: #4a5568; font-weight: 600;">
                   ✓ ${skill}
                 </span>
                 `).join('')}
@@ -1152,7 +1228,7 @@
 
             <!-- Footer -->
             <div style="text-align: center; padding: 15px; background: #f7fafc; border-radius: 8px; margin-top: 20px;">
-              <p style="margin: 0; color: #667eea; font-size: 13px; font-weight: 600;">
+              <p style="margin: 0; color: #B05D9E; font-size: 13px; font-weight: 600;">
                 📅 Issued: ${new Date(a.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
             </div>
@@ -1177,7 +1253,7 @@
         }
 
         container.innerHTML = announcements.map(a => {
-          const priorityColor = a.priority === 'Urgent' ? '#e53e3e' : a.priority === 'High' ? '#f6ad55' : '#667eea';
+          const priorityColor = a.priority === 'Urgent' ? '#e53e3e' : a.priority === 'High' ? '#f6ad55' : '#B05D9E';
           const typeIcon = a.announcement_type === 'Holiday' ? '🎉' : a.announcement_type === 'Reminder' ? '⏰' : a.announcement_type === 'Update' ? '📢' : '📰';
 
           return `
@@ -1209,7 +1285,7 @@
 
   <!-- Footer -->
   <footer style="background: white; padding: 20px; text-align: center; margin-top: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-    <p style="margin: 0; color: #667eea; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
+    <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
   </footer>
 </body>
 </html>

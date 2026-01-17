@@ -66,15 +66,16 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const forbidden = ['.exe', '.sh', '.bat', '.js', '.cmd'];
+    const forbidden = ['.exe', '.sh', '.bat', '.js', '.cmd', '.php', '.py', '.rb'];
     if (forbidden.includes(ext)) return cb(new Error('Executable files not allowed'));
     if (file.originalname.includes('..')) return cb(new Error('Invalid filename'));
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|ppt|pptx|mp4|mp3|zip|rar/;
+    // Allow images, videos, documents, presentations, audio, and archives
+    const allowedTypes = /jpeg|jpg|png|gif|webp|pdf|doc|docx|ppt|pptx|xls|xlsx|mp4|mov|avi|mkv|mp3|wav|zip|rar|7z|txt|rtf/;
     if (allowedTypes.test(ext)) return cb(null, true);
-    cb(new Error('Invalid file type'));
+    cb(new Error('Invalid file type. Allowed: Images, Videos, Documents, Presentations, Audio, Archives'));
   }
 });
 
@@ -1410,13 +1411,18 @@ app.get('/api/dashboard/stats', async (req, res) => {
 app.get('/api/dashboard/upcoming-classes', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
+    // Get tomorrow's date for limiting to today + tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
     const priv = await pool.query(`
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
       CONCAT(st.program_name, ' - ', st.duration) as class_info
       FROM sessions s
       JOIN students st ON s.student_id = st.id
       WHERE s.session_date >= $1 AND s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
-      ORDER BY s.session_date ASC, s.session_time ASC LIMIT 10
+      ORDER BY s.session_date ASC, s.session_time ASC LIMIT 15
     `, [today]);
 
     const grp = await pool.query(`
@@ -1425,14 +1431,22 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.session_date >= $1 AND s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
-      ORDER BY s.session_date ASC, s.session_time ASC LIMIT 10
+      ORDER BY s.session_date ASC, s.session_time ASC LIMIT 15
     `, [today]);
 
+    // Combine and sort by date/time properly
     const all = [...priv.rows, ...grp.rows].sort((a, b) => {
-      const dateA = new Date(`${a.session_date}T${a.session_time}Z`);
-      const dateB = new Date(`${b.session_date}T${b.session_time}Z`);
+      // Clean date and time strings
+      const dateA_str = typeof a.session_date === 'string' && a.session_date.includes('T') ? a.session_date.split('T')[0] : a.session_date;
+      const dateB_str = typeof b.session_date === 'string' && b.session_date.includes('T') ? b.session_date.split('T')[0] : b.session_date;
+
+      const timeA = a.session_time ? a.session_time.substring(0, 8) : '00:00:00';
+      const timeB = b.session_time ? b.session_time.substring(0, 8) : '00:00:00';
+
+      const dateA = new Date(`${dateA_str}T${timeA}Z`);
+      const dateB = new Date(`${dateB_str}T${timeB}Z`);
       return dateA - dateB;
-    }).slice(0, 10);
+    }).slice(0, 7); // Limit to 7 upcoming classes
 
     res.json(all);
   } catch (err) {
@@ -1872,13 +1886,47 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
 
 app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
   try {
-    const result = await pool.query(`
+    // First try to get from session_attendance table
+    let result = await pool.query(`
       SELECT sa.*, s.name as student_name
       FROM session_attendance sa
       JOIN students s ON sa.student_id = s.id
       WHERE sa.session_id = $1
       ORDER BY s.name
     `, [req.params.sessionId]);
+
+    // If no records exist, get the group_id and fetch all enrolled students
+    if (result.rows.length === 0) {
+      const session = await pool.query('SELECT group_id FROM sessions WHERE id = $1', [req.params.sessionId]);
+      if (session.rows[0]?.group_id) {
+        const groupId = session.rows[0].group_id;
+        // Get enrolled students for this group
+        const students = await pool.query(`
+          SELECT s.id as student_id, s.name as student_name, 'Pending' as attendance
+          FROM students s
+          WHERE s.group_id = $1 AND s.is_active = true
+          ORDER BY s.name
+        `, [groupId]);
+
+        // Create session_attendance records for each student
+        for (const student of students.rows) {
+          await pool.query(
+            'INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+            [req.params.sessionId, student.student_id, 'Pending']
+          );
+        }
+
+        // Re-fetch the records
+        result = await pool.query(`
+          SELECT sa.*, s.name as student_name
+          FROM session_attendance sa
+          JOIN students s ON sa.student_id = s.id
+          WHERE sa.session_id = $1
+          ORDER BY s.name
+        `, [req.params.sessionId]);
+      }
+    }
+
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2648,6 +2696,33 @@ app.get('/api/students/:id/homework', async (req, res) => {
       WHERE m.student_id = $1 AND m.file_type = 'Homework'
       ORDER BY m.uploaded_at DESC
     `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all homework submissions (for admin panel)
+app.get('/api/homework/all', async (req, res) => {
+  try {
+    const studentId = req.query.student_id;
+    let query = `
+      SELECT m.*, s.session_number, st.name as student_name
+      FROM materials m
+      LEFT JOIN sessions s ON m.session_id = s.id
+      LEFT JOIN students st ON m.student_id = st.id
+      WHERE m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
+    `;
+
+    const params = [];
+    if (studentId) {
+      query += ` AND m.student_id = $1`;
+      params.push(studentId);
+    }
+
+    query += ` ORDER BY m.uploaded_at DESC`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
