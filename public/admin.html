@@ -30,6 +30,8 @@
     .btn-primary:hover { background: #5568d3; }
     .btn-success { background: #38a169; color: white; }
     .btn-success:hover { background: #2f855a; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-warning:hover { background: #d97706; }
     .btn-danger { background: #e53e3e; color: white; }
     .btn-danger:hover { background: #c53030; }
     .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
@@ -40,16 +42,30 @@
     .modal.active { display: flex; }
     .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 900px; width: 90%; max-height: 90vh; overflow-y: auto; }
     .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
+    .modal-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .modal-tab { padding: 10px 20px; background: #f7fafc; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .modal-tab.active { background: #667eea; color: white; }
+    .modal-tab-content { display: none; }
+    .modal-tab-content.active { display: block; }
     .upcoming-classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-bottom: 30px; }
     .class-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }
     .schedule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
     .schedule-row input { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; }
     .session-item { background: #f7fafc; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid #667eea; display: flex; justify-content: space-between; align-items: center; }
+    .star-rating { display: flex; gap: 5px; font-size: 24px; }
+    .star { cursor: default; color: #fbbf24; }
+    .badge-item { display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 8px 16px; border-radius: 20px; margin: 5px; font-size: 0.9rem; }
   </style>
 </head>
 <body>
   <div class="container">
-    <header><h1>🎓 Admin Dashboard</h1><button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button></header>
+    <header>
+      <div>
+        <h1 style="margin: 0; font-size: 28px;">🎓 Fluent Feathers Academy By Aaliya</h1>
+        <p style="margin: 5px 0 0; color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
+      </div>
+      <button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button>
+    </header>
 
     <div class="stats-grid">
       <div class="stat-card"><h3>Total Students</h3><div class="value" id="totalStudents">0</div></div>
@@ -67,6 +83,8 @@
       <button class="tab-btn" onclick="showTab('scheduleManager', event)">📋 Manage Schedules</button>
       <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
       <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
+      <button class="tab-btn" onclick="showTab('announcements', event)">📢 Announcements</button>
+      <button class="tab-btn" onclick="showTab('monthlyAssessment', event)">📊 Monthly Assessment</button>
       <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
     </div>
 
@@ -79,24 +97,26 @@
         <form id="addStudentForm">
           <div class="form-row"><div class="form-group"><label>Student Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label>Grade *</label><input type="text" id="grade" required></div></div>
           <div class="form-row"><div class="form-group"><label>Parent Name *</label><input type="text" id="parentName" required></div><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div></div>
-          <div class="form-row"><div class="form-group"><label>Primary Contact *</label><input type="tel" id="primaryContact" required></div>
+          <div class="form-row">
+            <div class="form-group"><label>Primary Contact *</label><input type="tel" id="primaryContact" required></div>
+            <div class="form-group"><label>Date of Birth (Optional)</label><input type="date" id="dateOfBirth"></div>
             <div class="form-group"><label>Timezone *</label>
               <select id="timezone" required>
-                <option value="UTC">UTC (Universal Coordinated Time)</option>
                 <option value="Asia/Kolkata">India (IST)</option>
-                <option value="Asia/Dhaka">Bangladesh (BST)</option>
-                <option value="America/New_York">USA (EST)</option>
-                <option value="America/Los_Angeles">USA (PST)</option>
-                <option value="America/Chicago">USA (CST)</option>
-                <option value="Europe/London">UK (GMT)</option>
-                <option value="Europe/Paris">France (CET)</option>
-                <option value="Europe/Berlin">Germany (CET)</option>
-                <option value="Asia/Tokyo">Japan (JST)</option>
-                <option value="Asia/Singapore">Singapore (SGT)</option>
-                <option value="Australia/Sydney">Australia (AEDT)</option>
+                <option value="America/New_York">USA East (EST/EDT)</option>
+                <option value="America/Chicago">USA Central (CST/CDT)</option>
+                <option value="America/Denver">USA Mountain (MST/MDT)</option>
+                <option value="America/Los_Angeles">USA West (PST/PDT)</option>
+                <option value="America/Toronto">Canada (EST/EDT)</option>
+                <option value="Europe/London">UK (GMT/BST)</option>
+                <option value="Europe/Paris">France/Germany (CET/CEST)</option>
+                <option value="Europe/Moscow">Russia (MSK)</option>
                 <option value="Asia/Dubai">UAE (GST)</option>
-                <option value="Asia/Riyadh">Saudi Arabia (AST)</option>
-                <option value="Africa/Cairo">Egypt (EET)</option>
+                <option value="Asia/Singapore">Singapore (SGT)</option>
+                <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                <option value="Asia/Tokyo">Japan (JST)</option>
+                <option value="Australia/Sydney">Australia East (AEST/AEDT)</option>
+                <option value="Pacific/Auckland">New Zealand (NZST/NZDT)</option>
               </select>
             </div>
           </div>
@@ -106,29 +126,43 @@
               <select id="duration" required>
                 <option value="25 mins">25 mins</option>
                 <option value="30 mins">30 mins</option>
-                <option value="40 mins">40 mins</option>
                 <option value="45 mins">45 mins</option>
                 <option value="60 mins">60 mins</option>
               </select>
             </div>
-          </div>
-          <div class="form-row">
             <div class="form-group"><label>Currency *</label>
               <select id="currency" required>
-                <option value="USD ($)">USD ($)</option>
-                <option value="EUR (€)">EUR (€)</option>
-                <option value="GBP (£)">GBP (£)</option>
-                <option value="INR (₹)">INR (₹)</option>
-                <option value="BDT (৳)">BDT (৳)</option>
-                <option value="CAD ($)">CAD ($)</option>
-                <option value="AUD ($)">AUD ($)</option>
-                <option value="JPY (¥)">JPY (¥)</option>
-                <option value="CNY (¥)">CNY (¥)</option>
-                <option value="AED (د.إ)">AED (د.إ)</option>
-                <option value="SAR (﷼)">SAR (﷼)</option>
+                <option value="USD">USD ($)</option>
+                <option value="INR">INR (₹)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="AED">AED (د.إ)</option>
+                <option value="AUD">AUD ($)</option>
+                <option value="CAD">CAD ($)</option>
+                <option value="SGD">SGD ($)</option>
+                <option value="HKD">HKD ($)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="NZD">NZD ($)</option>
+                <option value="RUB">RUB (₽)</option>
               </select>
             </div>
-            <div class="form-group"><label>Per Session Fee *</label><input type="number" id="perSessionFee" required step="0.01"></div><div class="form-group"><label>Total Sessions *</label><input type="number" id="totalSessions" required min="1"></div>
+            <div class="form-group"><label>Per Session Fee *</label><input type="number" id="perSessionFee" required step="0.01"></div>
+            <div class="form-group"><label>Total Sessions *</label><input type="number" id="totalSessions" required min="1"></div>
+            <div class="form-group"><label>Payment Method</label>
+              <select id="paymentMethod">
+                <option value="">Select Method</option>
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Online Payment">Online Payment</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="sendWelcomeEmail" checked style="width: auto; margin: 0;">
+              <label style="margin: 0;">Send Welcome Email</label>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary">Add Student</button>
         </form>
@@ -142,23 +176,16 @@
         <div class="form-row">
             <div class="form-group"><label>Duration *</label>
                 <select id="groupDuration" required>
-                    <option value="25 mins">25 mins</option>
                     <option value="30 mins">30 mins</option>
-                    <option value="40 mins">40 mins</option>
                     <option value="45 mins">45 mins</option>
                     <option value="60 mins">60 mins</option>
                 </select>
             </div>
             <div class="form-group"><label>Timezone *</label>
                 <select id="groupTimezone" required>
-                    <option value="UTC">UTC</option>
                     <option value="Asia/Kolkata">India (IST)</option>
-                    <option value="Asia/Dhaka">Bangladesh (BST)</option>
                     <option value="America/New_York">USA (EST)</option>
                     <option value="Europe/London">UK (GMT)</option>
-                    <option value="Asia/Tokyo">Japan (JST)</option>
-                    <option value="Australia/Sydney">Australia (AEDT)</option>
-                    <option value="Asia/Dubai">UAE (GST)</option>
                 </select>
             </div>
             <div class="form-group"><label>Max Students *</label><input type="number" id="groupMaxStudents" value="10" required></div>
@@ -172,11 +199,19 @@
         <form id="schedulePrivateForm">
           <div class="form-group"><label>Select Student *</label><select id="scheduleStudent" required><option value="">Select student...</option></select></div>
           <div id="classScheduleList"></div><button type="button" onclick="addScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Class</button>
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 15px;">
+            <input type="checkbox" id="sendPrivateScheduleEmail" checked style="width: auto; margin: 0;">
+            <label style="margin: 0;">Send Schedule Confirmation Email</label>
+          </div>
           <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule</button>
         </form>
         <form id="scheduleGroupForm" style="display: none;">
           <div class="form-group"><label>Select Group *</label><select id="scheduleGroup" required><option value="">Select group...</option></select></div>
           <div id="groupClassScheduleList"></div><button type="button" onclick="addGroupScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Class</button>
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 15px;">
+            <input type="checkbox" id="sendGroupScheduleEmail" checked style="width: auto; margin: 0;">
+            <label style="margin: 0;">Send Schedule Confirmation Email</label>
+          </div>
           <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule</button>
         </form>
       </div>
@@ -196,7 +231,7 @@
     </div>
 
     <div id="pastTab" class="tab-content">
-      <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="eventsTab" class="tab-content">
@@ -205,32 +240,224 @@
           <div class="form-group"><label>Event Name *</label><input type="text" id="eventName" required></div>
           <div class="form-group"><label>Event Duration *</label>
             <select id="eventDuration" required>
-              <option value="25 mins">25 mins</option>
               <option value="30 mins">30 mins</option>
-              <option value="40 mins">40 mins</option>
               <option value="45 mins">45 mins</option>
               <option value="60 mins">60 mins</option>
               <option value="90 mins">90 mins</option>
-              <option value="120 mins">120 mins</option>
             </select>
           </div>
         </div>
-        <div class="form-group"><label>Event Description</label><textarea id="eventDescription" rows="3" placeholder="Describe the event..."></textarea></div>
+        <div class="form-group"><label>Event Description</label><textarea id="eventDescription" rows="3"></textarea></div>
         <div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="eventDate" required></div><div class="form-group"><label>Time (IST) *</label><input type="time" id="eventTime" required></div></div>
         <div class="form-row">
-          <div class="form-group"><label>Zoom Link</label><input type="url" id="eventZoomLink" placeholder="https://zoom.us/j/..."></div>
-          <div class="form-group"><label>Max Participants</label><input type="number" id="eventMaxParticipants" placeholder="Leave empty for unlimited"></div>
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+            <input type="checkbox" id="sendEventEmail" checked style="width: auto; margin: 0;">
+            <label style="margin: 0;">Send Event Notification Email</label>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary">Create Event & Send Emails</button>
+        <button type="submit" class="btn btn-primary">Create Event</button>
       </form></div>
       <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date</th><th>Time</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="emailsTab" class="tab-content"><div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
+
+    <div id="announcementsTab" class="tab-content">
+      <div class="section">
+        <h2>📢 Create Announcement</h2>
+        <form id="createAnnouncementForm">
+          <div class="form-row">
+            <div class="form-group"><label>Title *</label><input type="text" id="announcementTitle" required></div>
+            <div class="form-group"><label>Type</label>
+              <select id="announcementType">
+                <option value="General">General</option>
+                <option value="Holiday">Holiday</option>
+                <option value="Reminder">Reminder</option>
+                <option value="Update">Update</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Priority</label>
+              <select id="announcementPriority">
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>Content *</label><textarea id="announcementContent" rows="4" required placeholder="Write your announcement here..."></textarea></div>
+          <button type="submit" class="btn btn-primary">Create Announcement</button>
+        </form>
+      </div>
+      <div class="section">
+        <h2>📋 All Announcements</h2>
+        <table id="announcementsTable">
+          <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="announcementsBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="monthlyAssessmentTab" class="tab-content">
+      <div class="section">
+        <h2>📊 Monthly Assessment & Certificate</h2>
+        <form id="monthlyAssessmentForm">
+          <div class="form-row">
+            <div class="form-group"><label>Student *</label>
+              <select id="assessmentStudent" required>
+                <option value="">Select Student...</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Month *</label>
+              <select id="assessmentMonth" required>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Year *</label>
+              <input type="number" id="assessmentYear" required value="2026" min="2020" max="2030">
+            </div>
+          </div>
+
+          <h3 style="margin-top: 20px; color: #4a5568;">📝 Skills Assessment (Tick applicable areas)</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; padding: 20px; background: #f7fafc; border-radius: 8px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_speaking" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">🗣️ Speaking & Communication</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_confidence" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">💪 Confidence Building</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_grammar" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📖 Grammar & Structure</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_vocabulary" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📚 Vocabulary Enhancement</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_reading" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📕 Reading Comprehension</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_writing" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">✍️ Creative Writing</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_listening" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">👂 Active Listening</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_spelling" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">🔤 Spelling Mastery</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_public_speaking" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">🎤 Public Speaking</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_presentation" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📊 Presentation Skills</span>
+            </label>
+          </div>
+
+          <h3 style="margin-top: 20px; color: #4a5568;">🏆 Award Certificate (Optional)</h3>
+          <div class="form-row">
+            <div class="form-group"><label>Certificate Title</label>
+              <select id="certificateTitle">
+                <option value="">No Certificate</option>
+                <option value="Superb Speaker">🗣️ Superb Speaker</option>
+                <option value="Confident Performer">💫 Confident Performer</option>
+                <option value="Avid Reader">📚 Avid Reader</option>
+                <option value="Spelling Champion">🔤 Spelling Champion</option>
+                <option value="Creative Writing Star">✨ Creative Writing Star</option>
+                <option value="Public Speaking Pro">🎤 Public Speaking Pro</option>
+                <option value="Excellent Listener">👂 Excellent Listener</option>
+                <option value="Grammar Guru">📖 Grammar Guru</option>
+                <option value="Vocabulary Virtuoso">📕 Vocabulary Virtuoso</option>
+                <option value="Star Student">⭐ Star Student</option>
+                <option value="Most Improved">🚀 Most Improved</option>
+                <option value="Custom">✏️ Custom Title...</option>
+              </select>
+            </div>
+            <div class="form-group" id="customTitleGroup" style="display: none;">
+              <label>Custom Title</label>
+              <input type="text" id="customCertificateTitle" placeholder="Enter custom certificate title">
+            </div>
+          </div>
+
+          <div class="form-group"><label>Overall Performance Summary</label><textarea id="performanceSummary" rows="4" placeholder="Write a brief summary of the student's progress this month..."></textarea></div>
+
+          <div class="form-group"><label>Areas of Improvement</label><textarea id="areasOfImprovement" rows="3" placeholder="Mention areas where the student can focus for better results..."></textarea></div>
+
+          <div class="form-group"><label>Teacher's Comments</label><textarea id="teacherComments" rows="3" placeholder="Any additional comments or encouragement..."></textarea></div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="sendAssessmentEmail" checked style="width: auto; margin: 0;">
+              <label style="margin: 0;">Send Report Card & Certificate via Email</label>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Generate & Send Report Card</button>
+        </form>
+      </div>
+      <div class="section">
+        <h2>📋 All Monthly Assessments</h2>
+        <table id="assessmentsTable">
+          <thead><tr><th>Student</th><th>Month/Year</th><th>Certificate</th><th>Skills</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="assessmentsBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
-  <!-- Student Details Modal -->
-  <div id="studentModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalStudentName">Student Details</h2><button onclick="closeStudentModal()" class="btn btn-danger btn-sm">✕</button></div><div class="modal-tabs"><button class="modal-tab active" onclick="showModalTab('info', event)">📋 Info</button></div><div id="infoTab" class="modal-tab-content active"><div id="studentInfoContent"></div><div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center;"><h3 style="color: white; margin-bottom: 10px;">👤 Switch to Learner View</h3><p style="color: white; margin-bottom: 15px; opacity: 0.9;">View this student's parent portal</p><button onclick="switchToParentView()" class="btn btn-primary" style="background: white; color: #667eea;">Switch Now</button></div></div></div></div>
+  <!-- Complete Student Modal with ALL tabs -->
+  <div id="studentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h2 id="modalStudentName">Student Details</h2><button onclick="closeStudentModal()" class="btn btn-danger btn-sm">✕</button></div>
+
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="showModalTab('info', event)">📋 Info</button>
+        <button class="modal-tab" onclick="showModalTab('payments', event)">💰 Payments</button>
+        <button class="modal-tab" onclick="showModalTab('homework', event)">📚 Homework</button>
+        <button class="modal-tab" onclick="showModalTab('badges', event)">🏆 Badges</button>
+      </div>
+
+      <div id="infoTab" class="modal-tab-content active"><div id="studentInfoContent"></div></div>
+
+      <div id="paymentsTab" class="modal-tab-content">
+        <button onclick="showRenewalForm()" class="btn btn-primary" style="margin-bottom: 20px;">➕ Add Monthly Renewal</button>
+        <div id="renewalForm" style="display:none; background:#f7fafc; padding:20px; border-radius:8px; margin-bottom:20px;">
+          <h3>Add Monthly Renewal</h3>
+          <div class="form-row">
+            <div class="form-group"><label>Amount *</label><input type="number" id="renewalAmount" step="0.01" required></div>
+            <div class="form-group"><label>Sessions Added *</label><input type="number" id="renewalSessions" required></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Payment Method</label><input type="text" id="renewalMethod" placeholder="Cash, Card, UPI, etc."></div>
+          </div>
+          <div class="form-group"><label>Notes</label><textarea id="renewalNotes" rows="2"></textarea></div>
+          <button onclick="submitRenewal()" class="btn btn-success">Add Renewal</button>
+          <button onclick="document.getElementById('renewalForm').style.display='none'" class="btn btn-danger">Cancel</button>
+        </div>
+        <div id="paymentsContent">Loading...</div>
+      </div>
+
+      <div id="homeworkTab" class="modal-tab-content"><div id="homeworkContent">Loading...</div></div>
+      <div id="badgesTab" class="modal-tab-content"><div id="badgesContent">Loading...</div></div>
+    </div>
+  </div>
 
   <!-- Session Modal -->
   <div id="sessionModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalSessionTitle">Session Details</h2><button onclick="closeSessionModal()" class="btn btn-danger btn-sm">✕</button></div><div id="sessionDetailsContent"></div></div></div>
@@ -241,12 +468,77 @@
   <!-- Edit Session Modal -->
   <div id="editSessionModal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Edit Session</h2><button onclick="closeEditSessionModal()" class="btn btn-danger btn-sm">✕</button></div><form id="editSessionForm"><input type="hidden" id="editSessionId"><div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="editSessionDate" required></div><div class="form-group"><label>Time *</label><input type="time" id="editSessionTime" required></div></div><button type="submit" class="btn btn-primary">Save Changes</button></form></div></div>
 
+  <!-- Edit Student Modal -->
+  <div id="editStudentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h2>Edit Student</h2><button onclick="closeEditStudentModal()" class="btn btn-danger btn-sm">✕</button></div>
+      <form id="updateStudentForm">
+        <input type="hidden" id="editStudentId">
+        <div class="form-row">
+          <div class="form-group"><label>Student Name *</label><input type="text" id="editStudentName" required></div>
+          <div class="form-group"><label>Grade *</label><input type="text" id="editGrade" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Parent Name *</label><input type="text" id="editParentName" required></div>
+          <div class="form-group"><label>Parent Email *</label><input type="email" id="editParentEmail" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Primary Contact *</label><input type="tel" id="editPrimaryContact" required></div>
+          <div class="form-group"><label>Timezone *</label><select id="editTimezone" required><option value="Asia/Kolkata">India (IST)</option><option value="America/New_York">USA (EST)</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Program Name *</label><input type="text" id="editProgramName" required></div>
+          <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="30 mins">30 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Currency *</label><select id="editCurrency" required><option value="USD">USD</option><option value="INR">INR</option><option value="GBP">GBP</option></select></div>
+          <div class="form-group"><label>Per Session Fee *</label><input type="number" id="editPerSessionFee" required step="0.01"></div>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Student</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Group Modal -->
+  <div id="editGroupModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h2>Edit Group</h2><button onclick="closeEditGroupModal()" class="btn btn-danger btn-sm">✕</button></div>
+      <form id="updateGroupForm">
+        <input type="hidden" id="editGroupId">
+        <div class="form-row">
+          <div class="form-group"><label>Group Name *</label><input type="text" id="editGroupName" required></div>
+          <div class="form-group"><label>Program Name *</label><input type="text" id="editGroupProgram" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Duration *</label><select id="editGroupDuration" required><option value="30 mins">30 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
+          <div class="form-group"><label>Timezone *</label><select id="editGroupTimezone" required><option value="Asia/Kolkata">India (IST)</option><option value="America/New_York">USA (EST)</option></select></div>
+          <div class="form-group"><label>Max Students *</label><input type="number" id="editGroupMaxStudents" required></div>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Group</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Feedback View Modal -->
+  <div id="feedbackModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h2>Class Feedback</h2><button onclick="closeFeedbackModal()" class="btn btn-danger btn-sm">✕</button></div>
+      <div id="feedbackModalContent">Loading...</div>
+    </div>
+  </div>
+
   <script>
     let allStudents = [], allGroups = [];
     let currentStudentId = null;
     let currentGroupId = null;
 
-    document.addEventListener('DOMContentLoaded', async () => { await loadDashboardStats(); await loadUpcomingClasses(); await loadStudents(); await loadGroups(); await loadEmailLogs(); });
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadDashboardStats();
+      await loadUpcomingClasses();
+      await loadStudents();
+      await loadGroups();
+      await loadEmailLogs();
+    });
 
     async function showTab(tabName, e) {
       if(e) e.stopPropagation();
@@ -260,25 +552,27 @@
       if (tabName === 'scheduleManager') loadScheduleManager();
     }
 
+    function showModalTab(tabName, e) {
+      if(e) e.stopPropagation();
+      document.querySelectorAll('.modal-tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.modal-tab').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabName + 'Tab').classList.add('active');
+      if(e) e.target.classList.add('active');
+
+      if(tabName === 'payments') loadPayments();
+      if(tabName === 'homework') loadHomework();
+      if(tabName === 'badges') loadBadges();
+    }
+
     function formatSessionTime(session) {
       try {
-        if (!session.session_date || !session.session_time) {
-          return 'Invalid Date';
-        }
+        if (!session.session_date || !session.session_time) return 'Invalid Date';
         const dateStr = session.session_date.includes('T') ? session.session_date.split('T')[0] : session.session_date;
         let timeStr = session.session_time.toString().trim();
         if (timeStr.length === 5) timeStr += ':00';
-        else if (timeStr.length === 8) { /* good */ }
-        else timeStr = timeStr.substring(0, 8);
-
         const isoString = `${dateStr}T${timeStr}Z`;
         const d = new Date(isoString);
-
-        if (isNaN(d.getTime())) {
-          console.error('Invalid date:', isoString);
-          return 'Invalid Date';
-        }
-
+        if (isNaN(d.getTime())) return 'Invalid Date';
         return d.toLocaleString('en-US', {
           timeZone: session.timezone || 'Asia/Kolkata',
           month: 'short',
@@ -287,13 +581,22 @@
           minute: '2-digit'
         });
       } catch(e) {
-        console.error('Format error:', e, session);
         return 'Invalid Date';
       }
     }
 
     async function loadDashboardStats() {
-      try { const res = await fetch('/api/dashboard/stats'); const stats = await res.json(); document.getElementById('totalStudents').textContent = stats.totalStudents; document.getElementById('upcomingSessions').textContent = stats.upcomingSessions; document.getElementById('totalRevenue').textContent = stats.totalRevenue.toFixed(2) + ' (Mixed)'; document.getElementById('totalGroups').textContent = stats.totalGroups; document.getElementById('activeEvents').textContent = stats.activeEvents; } catch (err) { console.error(err); }
+      try {
+        const res = await fetch('/api/dashboard/stats');
+        const stats = await res.json();
+        document.getElementById('totalStudents').textContent = stats.totalStudents;
+        document.getElementById('upcomingSessions').textContent = stats.upcomingSessions;
+        document.getElementById('totalRevenue').textContent = stats.totalRevenue.toFixed(2) + ' (Mixed)';
+        document.getElementById('totalGroups').textContent = stats.totalGroups;
+        document.getElementById('activeEvents').textContent = stats.activeEvents;
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     async function loadUpcomingClasses() {
@@ -305,7 +608,6 @@
         grid.innerHTML = classes.map(cls => `<div class="class-card"><h3>${cls.student_name}</h3><p>📚 ${cls.class_info || 'N/A'}</p><p>📅 ${formatSessionTime(cls)}</p><p>🌍 ${cls.timezone}</p><a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#667eea; text-decoration:none; margin-top:10px; display:inline-block;">🎥 Join</a></div>`).join('');
       } catch (err) {
         console.error(err);
-        document.getElementById('upcomingClassesGrid').innerHTML = '<p>Error loading classes</p>';
       }
     }
 
@@ -314,32 +616,209 @@
         const res = await fetch('/api/students');
         allStudents = await res.json();
         const tbody = document.getElementById('studentsBody');
-        tbody.innerHTML = allStudents.map(s => `<tr><td><strong>${s.name}</strong></td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button></td></tr>`).join('');
+        tbody.innerHTML = allStudents.map(s => `<tr><td><strong>${s.name}</strong></td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join('');
         document.getElementById('scheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
         document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // EDIT STUDENT
+    async function editStudent(id) {
+      try {
+        const res = await fetch(`/api/students/${id}/full`);
+        const student = await res.json();
+        document.getElementById('editStudentId').value = student.id;
+        document.getElementById('editStudentName').value = student.name;
+        document.getElementById('editGrade').value = student.grade;
+        document.getElementById('editParentName').value = student.parent_name;
+        document.getElementById('editParentEmail').value = student.parent_email;
+        document.getElementById('editPrimaryContact').value = student.primary_contact;
+        document.getElementById('editTimezone').value = student.timezone;
+        document.getElementById('editProgramName').value = student.program_name;
+        document.getElementById('editDuration').value = student.duration;
+        document.getElementById('editCurrency').value = student.currency;
+        document.getElementById('editPerSessionFee').value = student.per_session_fee;
+        document.getElementById('editStudentModal').classList.add('active');
+      } catch(err) {
+        alert('Error loading student: ' + err.message);
+      }
+    }
+
+    document.getElementById('updateStudentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editStudentId').value;
+      const data = {
+        name: document.getElementById('editStudentName').value,
+        grade: document.getElementById('editGrade').value,
+        parent_name: document.getElementById('editParentName').value,
+        parent_email: document.getElementById('editParentEmail').value,
+        primary_contact: document.getElementById('editPrimaryContact').value,
+        timezone: document.getElementById('editTimezone').value,
+        program_name: document.getElementById('editProgramName').value,
+        duration: document.getElementById('editDuration').value,
+        currency: document.getElementById('editCurrency').value,
+        per_session_fee: parseFloat(document.getElementById('editPerSessionFee').value)
+      };
+
+      try {
+        const res = await fetch(`/api/students/${id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message);
+          closeEditStudentModal();
+          loadStudents();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function closeEditStudentModal() {
+      document.getElementById('editStudentModal').classList.remove('active');
+    }
+
+    async function deleteStudent(id) {
+      if(!confirm('Are you sure you want to delete this student? This will also delete all related data.')) return;
+      try {
+        const res = await fetch(`/api/students/${id}`, {method:'DELETE'});
+        if(res.ok) {
+          alert('✅ Student deleted successfully!');
+          loadStudents();
+          loadDashboardStats();
+        } else {
+          alert('❌ Failed to delete student');
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // EDIT GROUP
+    async function editGroup(id) {
+      try {
+        const res = await fetch(`/api/groups/${id}/full`);
+        const group = await res.json();
+        document.getElementById('editGroupId').value = group.id;
+        document.getElementById('editGroupName').value = group.group_name;
+        document.getElementById('editGroupProgram').value = group.program_name;
+        document.getElementById('editGroupDuration').value = group.duration;
+        document.getElementById('editGroupTimezone').value = group.timezone;
+        document.getElementById('editGroupMaxStudents').value = group.max_students;
+        document.getElementById('editGroupModal').classList.add('active');
+      } catch(err) {
+        alert('Error loading group: ' + err.message);
+      }
+    }
+
+    document.getElementById('updateGroupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editGroupId').value;
+      const data = {
+        group_name: document.getElementById('editGroupName').value,
+        program_name: document.getElementById('editGroupProgram').value,
+        duration: document.getElementById('editGroupDuration').value,
+        timezone: document.getElementById('editGroupTimezone').value,
+        max_students: parseInt(document.getElementById('editGroupMaxStudents').value)
+      };
+
+      try {
+        const res = await fetch(`/api/groups/${id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message);
+          closeEditGroupModal();
+          loadGroups();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function closeEditGroupModal() {
+      document.getElementById('editGroupModal').classList.remove('active');
+    }
+
+    async function viewGroupDetails(id) {
+      try {
+        const studentsRes = await fetch(`/api/groups/${id}/students`);
+        const students = await studentsRes.json();
+        const group = allGroups.find(g => g.id === id);
+
+        const content = `
+          <h3>${group.group_name}</h3>
+          <p><strong>Program:</strong> ${group.program_name}</p>
+          <p><strong>Enrolled Students (${students.length}/${group.max_students}):</strong></p>
+          <ul style="list-style: none; padding: 0;">
+            ${students.map(s => `<li style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px;">👤 ${s.name} (${s.grade})</li>`).join('')}
+          </ul>
+        `;
+
+        alert(content); // Simple view - you can enhance this with a modal
+      } catch(err) {
+        alert('Error loading group details');
+      }
     }
 
     document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const data = { name: document.getElementById('studentName').value, grade: document.getElementById('grade').value, parent_name: document.getElementById('parentName').value, parent_email: document.getElementById('parentEmail').value, primary_contact: document.getElementById('primaryContact').value, timezone: document.getElementById('timezone').value, program_name: document.getElementById('programName').value, class_type: document.getElementById('classType').value, duration: document.getElementById('duration').value, currency: document.getElementById('currency').value.split(' ')[0], per_session_fee: parseFloat(document.getElementById('perSessionFee').value), total_sessions: parseInt(document.getElementById('totalSessions').value) };
+      const sendEmail = document.getElementById('sendWelcomeEmail').checked;
+      const data = {
+        name: document.getElementById('studentName').value,
+        grade: document.getElementById('grade').value,
+        parent_name: document.getElementById('parentName').value,
+        parent_email: document.getElementById('parentEmail').value,
+        primary_contact: document.getElementById('primaryContact').value,
+        timezone: document.getElementById('timezone').value,
+        program_name: document.getElementById('programName').value,
+        class_type: document.getElementById('classType').value,
+        duration: document.getElementById('duration').value,
+        currency: document.getElementById('currency').value,
+        per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
+        total_sessions: parseInt(document.getElementById('totalSessions').value),
+        date_of_birth: document.getElementById('dateOfBirth').value || null,
+        payment_method: document.getElementById('paymentMethod').value || null,
+        send_email: sendEmail
+      };
+
       try {
-        const res = await fetch('/api/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        const res = await fetch('/api/students', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
         const result = await res.json();
-        if (res.ok) {
-          alert(`✅ Student added successfully! ${result.emailSent ? 'Welcome Email Sent.' : '⚠️ Email skipped (Check BREVO_API_KEY).'}`);
+        if(res.ok) {
+          alert(`✅ Student added! ${sendEmail && result.emailSent ? 'Welcome email sent.' : ''}`);
           e.target.reset();
           loadStudents();
           loadDashboardStats();
+          loadCertificateStudents();
         } else {
-          alert('❌ Failed: ' + (result.error || 'Unknown error'));
+          alert('❌ Failed: ' + result.error);
         }
-      } catch (err) { alert('❌ Error: ' + err.message); }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
     });
 
     function addScheduleRow() {
       const container = document.getElementById('classScheduleList');
-      const row = document.createElement('div'); row.className = 'schedule-row';
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
       row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>`;
       container.appendChild(row);
     }
@@ -349,66 +828,104 @@
       e.preventDefault();
       const studentId = document.getElementById('scheduleStudent').value;
       if (!studentId) return alert('Select a student');
-      const student = allStudents.find(s => s.id == studentId);
       const rows = document.querySelectorAll('#classScheduleList .schedule-row');
       const classes = [];
-      rows.forEach(row => { const date = row.querySelector('input[name="date"]').value; const time = row.querySelector('input[name="time"]').value; if (date && time) classes.push({ date, time }); });
+      rows.forEach(row => {
+        const date = row.querySelector('input[name="date"]').value;
+        const time = row.querySelector('input[name="time"]').value;
+        if (date && time) classes.push({ date, time });
+      });
       if (classes.length === 0) return alert('Add at least one class');
-      if (student.remaining_sessions < classes.length) return alert(`Not enough sessions. Student has ${student.remaining_sessions} remaining.`);
+      const sendEmail = document.getElementById('sendPrivateScheduleEmail').checked;
+
       try {
-        const res = await fetch('/api/schedule/private-classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ student_id: studentId, classes }) });
+        const res = await fetch('/api/schedule/private-classes', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ student_id: studentId, classes, send_email: sendEmail })
+        });
         const result = await res.json();
-        if (res.ok) {
+        if(res.ok) {
           alert('✅ ' + result.message);
           e.target.reset();
           document.getElementById('classScheduleList').innerHTML = '';
           addScheduleRow();
           loadUpcomingClasses();
-        } else alert('❌ Failed: ' + result.error);
-      } catch (err) { alert('❌ Error: ' + err.message); }
-    });
-
-    document.getElementById('scheduleGroupForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const groupId = document.getElementById('scheduleGroup').value;
-      if (!groupId) return alert('Select a group');
-      const rows = document.querySelectorAll('#groupClassScheduleList .schedule-row');
-      const classes = [];
-      rows.forEach(row => { const date = row.querySelector('input[name="date"]').value; const time = row.querySelector('input[name="time"]').value; if (date && time) classes.push({ date, time }); });
-      if (classes.length === 0) return alert('Add at least one class');
-      try {
-        const res = await fetch('/api/schedule/group-classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ group_id: groupId, classes }) });
-        const result = await res.json();
-        if (res.ok) {
-          alert('✅ ' + result.message);
-          e.target.reset();
-          document.getElementById('groupClassScheduleList').innerHTML = '';
-          loadUpcomingClasses();
-        } else alert('❌ Failed: ' + result.error);
-      } catch (err) { alert('❌ Error: ' + err.message); }
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
     });
 
     async function loadPastSessions() {
       try {
-        const res = await fetch('/api/sessions/past/all'); const sessions = await res.json();
+        const res = await fetch('/api/sessions/past/all');
+        const sessions = await res.json();
         const tbody = document.getElementById('pastSessionsBody');
         tbody.innerHTML = sessions.map(s => {
           const isPending = s.status === 'Pending' || s.status === 'Scheduled';
-          return `<tr><td>${formatSessionTime(s)}</td><td><strong>${s.student_name}</strong></td><td>${s.session_type}</td><td>#${s.session_number}</td><td>${isPending ? `<button onclick="markSessionAttendance(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">Mark</button>` : `<span>${s.status}</span>`}</td><td>${s.ppt_file_path ? '📊' : ''} ${s.recording_file_path ? '🎥' : ''}</td><td><button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">View</button></td></tr>`;
+          return `<tr><td>${formatSessionTime(s)}</td><td><strong>${s.student_name}</strong></td><td>${s.session_type}</td><td>#${s.session_number}</td><td>${isPending ? `<button onclick="markSessionAttendance(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">Mark</button>` : `<span>${s.status}</span>`}</td><td>${s.ppt_file_path ? '📊' : ''} ${s.recording_file_path ? '🎥' : ''}</td><td><button onclick="viewFeedback(${s.id})" class="btn btn-sm" style="background:#fbbf24; color:white;">⭐ View</button></td><td><button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">View</button></td></tr>`;
         }).join('');
-      } catch (err) { console.error(err); }
+      } catch(err) {
+        console.error(err);
+      }
+    }
+
+    async function viewFeedback(sessionId) {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/feedbacks`);
+        const feedbacks = await res.json();
+        const container = document.getElementById('feedbackModalContent');
+
+        if(feedbacks.length === 0) {
+          container.innerHTML = '<p style="text-align:center; color:#718096;">No feedback received yet</p>';
+        } else {
+          container.innerHTML = feedbacks.map(f => `
+            <div style="background:#f7fafc; padding:15px; border-radius:8px; margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <strong>${f.student_name}</strong>
+                <div class="star-rating">${'⭐'.repeat(f.rating)}</div>
+              </div>
+              <p>${f.feedback_text || 'No comment provided'}</p>
+              <p style="color:#718096; font-size:0.85rem; margin-top:5px;">${new Date(f.created_at).toLocaleString()}</p>
+            </div>
+          `).join('');
+        }
+
+        document.getElementById('feedbackModal').classList.add('active');
+      } catch(err) {
+        alert('Error loading feedback');
+      }
+    }
+
+    function closeFeedbackModal() {
+      document.getElementById('feedbackModal').classList.remove('active');
     }
 
     async function markSessionAttendance(sessionId, sessionType) {
-       if (sessionType === 'Group') {
-          openSessionModal(sessionId, 'Group');
-       } else {
-         const attendance = confirm('Mark as Present? (Cancel for Absent)') ? 'Present' : 'Absent';
-         try {
-           const res = await fetch(`/api/sessions/${sessionId}/attendance`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attendance }) });
-           if (res.ok) { alert('✅ Attendance marked'); loadPastSessions(); loadDashboardStats(); } else alert('❌ Error marking attendance');
-         } catch (err) { alert('❌ Error'); }
-       }
+      if (sessionType === 'Group') {
+        openSessionModal(sessionId, 'Group');
+      } else {
+        const attendance = confirm('Mark as Present? (Cancel for Absent)') ? 'Present' : 'Absent';
+        try {
+          const res = await fetch(`/api/sessions/${sessionId}/attendance`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ attendance })
+          });
+          if(res.ok) {
+            alert('✅ Attendance marked');
+            loadPastSessions();
+            loadDashboardStats();
+          } else {
+            alert('❌ Error');
+          }
+        } catch(err) {
+          alert('❌ Error');
+        }
+      }
     }
 
     async function openSessionModal(sessionId, sessionType) {
@@ -424,36 +941,54 @@
         </div>`;
 
         if (sessionType === 'Group') {
-           const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`);
-           const students = await attRes.json();
-           content += `<h3 style="margin-top: 20px;">Group Attendance</h3><table><thead><tr><th>Student</th><th>Action</th></tr></thead><tbody>` + students.map(s => `
-             <tr><td>${s.student_name}</td><td>
-               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>
-               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
-             </td></tr>
-           `).join('') + `</tbody></table>`;
+          const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`);
+          const students = await attRes.json();
+          content += `<h3 style="margin-top:20px;">Group Attendance</h3><table><thead><tr><th>Student</th><th>Action</th></tr></thead><tbody>` + students.map(s => `
+            <tr><td>${s.student_name}</td><td>
+              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>
+              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
+            </td></tr>
+          `).join('') + `</tbody></table>`;
         }
+
         document.getElementById('sessionDetailsContent').innerHTML = content;
         document.getElementById('sessionModal').classList.add('active');
-      } catch (err) { console.error(err); alert('Error loading session'); }
+      } catch(err) {
+        alert('Error loading session');
+      }
     }
 
     async function saveGroupAttendance(sessionId, studentId, status) {
-       try {
-         const res = await fetch(`/api/sessions/${sessionId}/group-attendance`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance: status }] }) });
-         if(res.ok) { alert('✅ Attendance saved'); openSessionModal(sessionId, 'Group'); } else alert('❌ Failed');
-       } catch(e) { alert('❌ Error'); }
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/group-attendance`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance: status }] })
+        });
+        if(res.ok) {
+          alert('✅ Attendance saved');
+          openSessionModal(sessionId, 'Group');
+        } else {
+          alert('❌ Failed');
+        }
+      } catch(e) {
+        alert('❌ Error');
+      }
     }
 
-    function showModalTab(tabName, e) { if(e) e.stopPropagation(); document.querySelectorAll('.modal-tab-content').forEach(el => el.classList.remove('active')); document.querySelectorAll('.modal-tab').forEach(el => el.classList.remove('active')); document.getElementById(tabName + 'Tab').classList.add('active'); if(e) e.target.classList.add('active'); }
+    function closeSessionModal() {
+      document.getElementById('sessionModal').classList.remove('active');
+    }
 
     async function loadGroups() {
-       try {
-         const res = await fetch('/api/groups');
-         allGroups = await res.json();
-         document.getElementById('groupsBody').innerHTML = allGroups.map(g => `<tr><td><strong>${g.group_name}</strong></td><td>${g.program_name}</td><td>${g.duration}</td><td>${g.enrolled_students||0}</td><td>${g.max_students}</td><td><button onclick="openEnrollModal(${g.id})" class="btn btn-sm btn-success">Enroll Students</button> <button onclick="deleteGroup(${g.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join('');
-       document.getElementById('scheduleGroup').innerHTML = '<option value="">Select group...</option>' + allGroups.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
-       } catch(e){ console.error(e); }
+      try {
+        const res = await fetch('/api/groups');
+        allGroups = await res.json();
+        document.getElementById('groupsBody').innerHTML = allGroups.map(g => `<tr><td><strong>${g.group_name}</strong></td><td>${g.program_name}</td><td>${g.duration}</td><td>${g.enrolled_students||0}</td><td>${g.max_students}</td><td><button onclick="viewGroupDetails(${g.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editGroup(${g.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="openEnrollModal(${g.id})" class="btn btn-sm btn-success">Enroll</button> <button onclick="deleteGroup(${g.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join('');
+        document.getElementById('scheduleGroup').innerHTML = '<option value="">Select group...</option>' + allGroups.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
+      } catch(e) {
+        console.error(e);
+      }
     }
 
     async function openEnrollModal(groupId) {
@@ -487,7 +1022,7 @@
 
         document.getElementById('enrollModalContent').innerHTML = content;
         document.getElementById('enrollModal').classList.add('active');
-      } catch (err) {
+      } catch(err) {
         alert('Error loading enrollment data: ' + err.message);
       }
     }
@@ -496,11 +1031,11 @@
       try {
         const res = await fetch(`/api/groups/${groupId}/enroll`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ student_id: studentId })
         });
         const result = await res.json();
-        if (res.ok) {
+        if(res.ok) {
           alert('✅ ' + result.message);
           await loadStudents();
           await loadGroups();
@@ -508,7 +1043,7 @@
         } else {
           alert('❌ ' + result.error);
         }
-      } catch (err) {
+      } catch(err) {
         alert('❌ Error: ' + err.message);
       }
     }
@@ -517,18 +1052,16 @@
       document.getElementById('enrollModal').classList.remove('active');
     }
 
-    function closeStudentModal() { document.getElementById('studentModal').classList.remove('active'); }
-    function closeSessionModal() { document.getElementById('sessionModal').classList.remove('active'); }
-    function deleteGroup(id) { if(confirm('Delete group? This will remove all group sessions.')) fetch(`/api/groups/${id}`, {method:'DELETE'}).then(()=>loadGroups()); }
+    function deleteGroup(id) {
+      if(confirm('Delete group? This will remove all group sessions.')) {
+        fetch(`/api/groups/${id}`, {method:'DELETE'}).then(()=>loadGroups());
+      }
+    }
 
     async function openStudentModal(id) {
       currentStudentId = id;
       const student = allStudents.find(s => s.id == id);
-
-      if (!student) {
-        alert('Student not found');
-        return;
-      }
+      if (!student) return alert('Student not found');
 
       document.getElementById('modalStudentName').textContent = student.name;
 
@@ -578,6 +1111,10 @@
       document.getElementById('studentModal').classList.add('active');
     }
 
+    function closeStudentModal() {
+      document.getElementById('studentModal').classList.remove('active');
+    }
+
     function handleScheduleTypeChange() {
       const type = document.getElementById('scheduleType').value;
       document.getElementById('schedulePrivateForm').style.display = type === 'private' ? 'block' : 'none';
@@ -592,6 +1129,40 @@
       row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>`;
       container.appendChild(row);
     }
+
+    document.getElementById('scheduleGroupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const groupId = document.getElementById('scheduleGroup').value;
+      if (!groupId) return alert('Select a group');
+      const rows = document.querySelectorAll('#groupClassScheduleList .schedule-row');
+      const classes = [];
+      rows.forEach(row => {
+        const date = row.querySelector('input[name="date"]').value;
+        const time = row.querySelector('input[name="time"]').value;
+        if (date && time) classes.push({ date, time });
+      });
+      if (classes.length === 0) return alert('Add at least one class');
+      const sendEmail = document.getElementById('sendGroupScheduleEmail').checked;
+
+      try {
+        const res = await fetch('/api/schedule/group-classes', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ group_id: groupId, classes, send_email: sendEmail })
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message);
+          e.target.reset();
+          document.getElementById('groupClassScheduleList').innerHTML = '';
+          loadUpcomingClasses();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
 
     function uploadMaterial(id, type) {
       const inp = document.getElementById(type==='ppt'?'pptFile':type==='recording'?'recFile':'hwFile');
@@ -631,10 +1202,11 @@
         timezone: document.getElementById('groupTimezone').value,
         max_students: document.getElementById('groupMaxStudents').value
       };
+
       try {
         const res = await fetch('/api/groups', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
         const result = await res.json();
-        if (res.ok) {
+        if(res.ok) {
           alert('✅ Group created successfully!');
           e.target.reset();
           loadGroups();
@@ -642,7 +1214,7 @@
         } else {
           alert('❌ Failed: ' + result.error);
         }
-      } catch (err) {
+      } catch(err) {
         alert('❌ Error: ' + err.message);
       }
     });
@@ -657,20 +1229,20 @@
 
     document.getElementById('createEventForm').addEventListener('submit', async(e)=>{
       e.preventDefault();
+      const sendEmail = document.getElementById('sendEventEmail').checked;
       const data = {
         event_name: document.getElementById('eventName').value,
         event_description: document.getElementById('eventDescription').value,
         event_duration: document.getElementById('eventDuration').value,
         event_date: document.getElementById('eventDate').value,
         event_time: document.getElementById('eventTime').value,
-        zoom_link: document.getElementById('eventZoomLink').value,
-        max_participants: document.getElementById('eventMaxParticipants').value || null
+        send_email: sendEmail
       };
 
       try {
         const res = await fetch('/api/events', {method:'POST', headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
         const result = await res.json();
-        if (res.ok) {
+        if(res.ok) {
           alert('✅ ' + result.message);
           e.target.reset();
           loadEvents();
@@ -678,32 +1250,11 @@
         } else {
           alert('❌ Failed: ' + result.error);
         }
-      } catch (err) {
+      } catch(err) {
         alert('❌ Error: ' + err.message);
       }
     });
 
-    async function switchToParentView() {
-      const student = allStudents.find(s => s.id == currentStudentId);
-      if (!student) return alert('Student not found');
-      if (!confirm(`Switch to parent view for ${student.name}?`)) return;
-
-      try {
-        const res = await fetch('/api/admin/parent-view-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ student_id: student.id })
-        });
-
-        const { token } = await res.json();
-        if (!token) return alert('Failed to generate access token');
-
-        sessionStorage.setItem('adminParentToken', token);
-        window.open('/parent.html', '_blank');
-      } catch (err) { console.error(err); alert('Error switching view'); }
-    }
-
-    // Schedule Manager Functions
     async function loadScheduleManager() {
       document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
     }
@@ -743,7 +1294,7 @@
             </div>
           `).join('')}
         `;
-      } catch (err) {
+      } catch(err) {
         container.innerHTML = '<p style="color: #e53e3e;">Error loading schedule</p>';
         console.error(err);
       }
@@ -769,11 +1320,11 @@
       try {
         const res = await fetch(`/api/sessions/${sessionId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ date, time })
         });
         const result = await res.json();
-        if (res.ok) {
+        if(res.ok) {
           alert('✅ ' + result.message);
           closeEditSessionModal();
           loadStudentSchedule();
@@ -781,7 +1332,7 @@
         } else {
           alert('❌ Failed: ' + result.error);
         }
-      } catch (err) {
+      } catch(err) {
         alert('❌ Error: ' + err.message);
       }
     });
@@ -792,17 +1343,410 @@
       try {
         const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
         const result = await res.json();
-        if (res.ok) {
+        if(res.ok) {
           alert('✅ ' + result.message);
           loadStudentSchedule();
           loadUpcomingClasses();
         } else {
           alert('❌ Failed: ' + result.error);
         }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // PAYMENT & RENEWAL FUNCTIONS
+    function showRenewalForm() {
+      document.getElementById('renewalForm').style.display = 'block';
+    }
+
+    async function submitRenewal() {
+      const amount = document.getElementById('renewalAmount').value;
+      const sessions = document.getElementById('renewalSessions').value;
+      const method = document.getElementById('renewalMethod').value;
+      const notes = document.getElementById('renewalNotes').value;
+
+      if(!amount || !sessions) return alert('Please fill required fields');
+
+      const student = allStudents.find(s => s.id === currentStudentId);
+
+      try {
+        const res = await fetch(`/api/students/${currentStudentId}/renewal`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            amount: parseFloat(amount),
+            currency: student.currency,
+            sessions_added: parseInt(sessions),
+            payment_method: method,
+            notes: notes
+          })
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message);
+          document.getElementById('renewalForm').style.display = 'none';
+          document.getElementById('renewalForm').reset();
+          loadPayments();
+          loadStudents();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function loadPayments() {
+      try {
+        const res = await fetch(`/api/students/${currentStudentId}/payments`);
+        const data = await res.json();
+        const container = document.getElementById('paymentsContent');
+
+        let html = '<h3>Payment History</h3>';
+        if(data.payments.length === 0 && data.renewals.length === 0) {
+          html += '<p style="color:#718096;">No payment records yet</p>';
+        } else {
+          html += '<table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th></tr></thead><tbody>';
+
+          data.renewals.forEach(r => {
+            html += `<tr><td>${r.renewal_date}</td><td>Renewal</td><td>${r.currency} ${r.amount}</td><td>+${r.sessions_added}</td><td>${r.payment_method||'-'}</td></tr>`;
+          });
+
+          data.payments.forEach(p => {
+            html += `<tr><td>${p.payment_date}</td><td>Payment</td><td>${p.currency} ${p.amount}</td><td>${p.sessions_covered||'-'}</td><td>${p.payment_method}</td></tr>`;
+          });
+
+          html += '</tbody></table>';
+        }
+
+        container.innerHTML = html;
+      } catch(err) {
+        console.error(err);
+        document.getElementById('paymentsContent').innerHTML = '<p style="color:#e53e3e;">Error loading payments</p>';
+      }
+    }
+
+    async function loadHomework() {
+      try {
+        const res = await fetch(`/api/students/${currentStudentId}/homework`);
+        const homework = await res.json();
+        const container = document.getElementById('homeworkContent');
+
+        if(homework.length === 0) {
+          container.innerHTML = '<p style="color:#718096; text-align:center;">No homework submitted yet</p>';
+        } else {
+          container.innerHTML = homework.map(hw => `
+            <div style="background:#f7fafc; padding:15px; border-radius:8px; margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <div>
+                  <strong>Session #${hw.session_number || 'N/A'}</strong>
+                  <p style="color:#718096; font-size:0.9rem;">${hw.file_name}</p>
+                  <p style="color:#718096; font-size:0.85rem;">${new Date(hw.uploaded_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  ${hw.feedback_given ? `<span style="color:#38a169;">✓ Graded: ${hw.feedback_grade}</span>` : '<button onclick="gradeHomework('+hw.id+')" class="btn btn-sm btn-primary">Grade</button>'}
+                </div>
+              </div>
+              ${hw.feedback_comments ? `<p><strong>Feedback:</strong> ${hw.feedback_comments}</p>` : ''}
+            </div>
+          `).join('');
+        }
+      } catch(err) {
+        console.error(err);
+        document.getElementById('homeworkContent').innerHTML = '<p style="color:#e53e3e;">Error loading homework</p>';
+      }
+    }
+
+    async function gradeHomework(materialId) {
+      const grade = prompt('Enter grade (A+, A, B+, B, C, etc):');
+      if(!grade) return;
+      const comments = prompt('Enter feedback comments:');
+
+      try {
+        const res = await fetch(`/api/materials/${materialId}/grade`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ grade, comments })
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message);
+          loadHomework();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function loadBadges() {
+      try {
+        const res = await fetch(`/api/students/${currentStudentId}/badges`);
+        const badges = await res.json();
+        const container = document.getElementById('badgesContent');
+
+        if(badges.length === 0) {
+          container.innerHTML = '<p style="color:#718096; text-align:center; padding:40px;">No badges earned yet. Keep learning!</p>';
+        } else {
+          container.innerHTML = `
+            <h3 style="margin-bottom:20px;">🏆 Badges Earned: ${badges.length}</h3>
+            <div>
+              ${badges.map(b => `
+                <span class="badge-item" title="${b.badge_description}">
+                  ${b.badge_name}
+                </span>
+              `).join('')}
+            </div>
+          `;
+        }
+      } catch(err) {
+        console.error(err);
+        document.getElementById('badgesContent').innerHTML = '<p style="color:#e53e3e;">Error loading badges</p>';
+      }
+    }
+
+    // ==================== ANNOUNCEMENTS ====================
+    async function loadAnnouncements() {
+      try {
+        const res = await fetch('/api/announcements');
+        const announcements = await res.json();
+        const tbody = document.getElementById('announcementsBody');
+
+        if (announcements.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No announcements</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = announcements.map(a => `
+          <tr>
+            <td><strong>${a.title}</strong></td>
+            <td><span class="badge">${a.announcement_type}</span></td>
+            <td><span class="badge ${a.priority === 'Urgent' ? 'badge-danger' : a.priority === 'High' ? 'badge-warning' : ''}">${a.priority}</span></td>
+            <td>${new Date(a.created_at).toLocaleDateString()}</td>
+            <td>
+              <button onclick="viewAnnouncement(${a.id}, '${a.title.replace(/'/g, "\\'")}', '${a.content.replace(/'/g, "\\'")}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#4299e1;color:white;">View</button>
+              <button onclick="deleteAnnouncement(${a.id})" class="btn btn-danger btn-sm">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById('createAnnouncementForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        title: document.getElementById('announcementTitle').value,
+        content: document.getElementById('announcementContent').value,
+        announcement_type: document.getElementById('announcementType').value,
+        priority: document.getElementById('announcementPriority').value
+      };
+
+      try {
+        const res = await fetch('/api/announcements', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('✅ Announcement created!');
+          e.target.reset();
+          loadAnnouncements();
+        } else {
+          alert('❌ Failed to create announcement');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function viewAnnouncement(id, title, content, type, priority) {
+      alert(`📢 ${title}\n\nType: ${type}\nPriority: ${priority}\n\n${content}`);
+    }
+
+    async function deleteAnnouncement(id) {
+      if (!confirm('Delete this announcement?')) return;
+
+      try {
+        const res = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('✅ Announcement deleted');
+          loadAnnouncements();
+        }
       } catch (err) {
         alert('❌ Error: ' + err.message);
       }
     }
+
+    // ==================== MONTHLY ASSESSMENTS ====================
+    // Show/hide custom certificate title field
+    document.getElementById('certificateTitle').addEventListener('change', function() {
+      const customGroup = document.getElementById('customTitleGroup');
+      customGroup.style.display = this.value === 'Custom' ? 'block' : 'none';
+    });
+
+    async function loadAssessments() {
+      try {
+        const res = await fetch('/api/assessments');
+        const assessments = await res.json();
+        const tbody = document.getElementById('assessmentsBody');
+
+        if (assessments.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#718096;">No assessments created</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = assessments.map(a => {
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const skills = a.skills ? JSON.parse(a.skills) : [];
+          const skillsText = skills.length > 0 ? skills.join(', ') : 'N/A';
+
+          return `
+          <tr>
+            <td><strong>${a.student_name}</strong></td>
+            <td>${monthNames[a.month - 1]} ${a.year}</td>
+            <td>${a.certificate_title ? '🏆 ' + a.certificate_title : '-'}</td>
+            <td>${skillsText}</td>
+            <td>${new Date(a.created_at).toLocaleDateString()}</td>
+            <td>
+              <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#4299e1;color:white;">View</button>
+              <button onclick="deleteAssessment(${a.id})" class="btn btn-danger btn-sm">Delete</button>
+            </td>
+          </tr>
+        `}).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadAssessmentStudents() {
+      try {
+        const res = await fetch('/api/students');
+        const students = await res.json();
+        const select = document.getElementById('assessmentStudent');
+
+        select.innerHTML = '<option value="">Select Student...</option>' +
+          students.filter(s => s.is_active).map(s =>
+            `<option value="${s.id}">${s.name} (${s.grade})</option>`
+          ).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById('monthlyAssessmentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Collect checked skills
+      const skills = [];
+      const skillIds = ['speaking', 'confidence', 'grammar', 'vocabulary', 'reading', 'writing', 'listening', 'spelling', 'public_speaking', 'presentation'];
+      const skillNames = {
+        'speaking': 'Speaking & Communication',
+        'confidence': 'Confidence Building',
+        'grammar': 'Grammar & Structure',
+        'vocabulary': 'Vocabulary Enhancement',
+        'reading': 'Reading Comprehension',
+        'writing': 'Creative Writing',
+        'listening': 'Active Listening',
+        'spelling': 'Spelling Mastery',
+        'public_speaking': 'Public Speaking',
+        'presentation': 'Presentation Skills'
+      };
+
+      skillIds.forEach(skill => {
+        if (document.getElementById(`skill_${skill}`).checked) {
+          skills.push(skillNames[skill]);
+        }
+      });
+
+      // Get certificate title
+      let certificateTitle = document.getElementById('certificateTitle').value;
+      if (certificateTitle === 'Custom') {
+        certificateTitle = document.getElementById('customCertificateTitle').value;
+      }
+      // Remove emoji from certificate title before saving
+      if (certificateTitle && certificateTitle.includes(' ')) {
+        certificateTitle = certificateTitle.split(' ').slice(1).join(' ');
+      }
+
+      const sendEmail = document.getElementById('sendAssessmentEmail').checked;
+      const data = {
+        student_id: parseInt(document.getElementById('assessmentStudent').value),
+        month: parseInt(document.getElementById('assessmentMonth').value),
+        year: parseInt(document.getElementById('assessmentYear').value),
+        skills: JSON.stringify(skills),
+        certificate_title: certificateTitle || null,
+        performance_summary: document.getElementById('performanceSummary').value,
+        areas_of_improvement: document.getElementById('areasOfImprovement').value,
+        teacher_comments: document.getElementById('teacherComments').value,
+        send_email: sendEmail
+      };
+
+      try {
+        const res = await fetch('/api/assessments', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert(`✅ Monthly assessment created! ${sendEmail ? 'Report card sent to parent.' : ''}`);
+          e.target.reset();
+          loadAssessments();
+        } else {
+          alert('❌ Failed to create assessment');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    async function viewAssessment(id) {
+      try {
+        const res = await fetch(`/api/assessments/${id}`);
+        const a = await res.json();
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const skills = a.skills ? JSON.parse(a.skills).join('\n• ') : 'None';
+
+        alert(`📊 Monthly Assessment Report\n\nStudent: ${a.student_name}\nMonth/Year: ${monthNames[a.month-1]} ${a.year}\n\n🏆 Certificate: ${a.certificate_title || 'None'}\n\n📝 Skills Assessed:\n• ${skills}\n\n📈 Performance Summary:\n${a.performance_summary || 'N/A'}\n\n📌 Areas of Improvement:\n${a.areas_of_improvement || 'N/A'}\n\n💬 Teacher's Comments:\n${a.teacher_comments || 'N/A'}`);
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function deleteAssessment(id) {
+      if (!confirm('Delete this assessment?')) return;
+
+      try {
+        const res = await fetch(`/api/assessments/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('✅ Assessment deleted');
+          loadAssessments();
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // Load data when tabs are switched
+    const originalShowTab = showTab;
+    showTab = function(name, event) {
+      originalShowTab(name, event);
+      if (name === 'announcements') loadAnnouncements();
+      if (name === 'monthlyAssessment') {
+        loadAssessments();
+        loadAssessmentStudents();
+      }
+    };
   </script>
+
+  <!-- Footer -->
+  <footer style="background: white; padding: 20px; text-align: center; margin: 30px 20px 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+    <p style="margin: 0; color: #667eea; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
+  </footer>
 </body>
 </html>
