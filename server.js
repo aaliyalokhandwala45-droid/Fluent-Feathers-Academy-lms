@@ -148,6 +148,8 @@ async function initializeDatabase() {
         fees_paid DECIMAL(10,2) DEFAULT 0,
         group_id INTEGER,
         group_name TEXT,
+        date_of_birth DATE,
+        payment_method TEXT,
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -370,6 +372,52 @@ async function initializeDatabase() {
       )
     `);
 
+    console.log('🔧 Creating announcements table...');
+    await client.query(`
+      CREATE TABLE announcements (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        announcement_type TEXT DEFAULT 'General',
+        priority TEXT DEFAULT 'Normal',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log('🔧 Creating student_certificates table...');
+    await client.query(`
+      CREATE TABLE student_certificates (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        certificate_type TEXT NOT NULL,
+        award_title TEXT NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        issued_date DATE DEFAULT CURRENT_DATE,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
+
+    console.log('🔧 Creating monthly_assessments table...');
+    await client.query(`
+      CREATE TABLE monthly_assessments (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        skills TEXT,
+        certificate_title TEXT,
+        performance_summary TEXT,
+        areas_of_improvement TEXT,
+        teacher_comments TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
+
     // Create indexes
     console.log('🔧 Creating indexes...');
     await client.query('CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)');
@@ -377,6 +425,8 @@ async function initializeDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_certificates_student ON student_certificates(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_students_birthday ON students(date_of_birth)');
 
     await client.query('COMMIT');
     console.log('✅ Database initialized successfully with all tables and columns');
@@ -448,7 +498,7 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
       console.warn('⚠️ BREVO_API_KEY missing. Email not sent.');
       return false;
     }
-    await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy By Aaliya', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: html }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
+    await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: html }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
     await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status) VALUES ($1, $2, $3, $4, 'Sent')`, [recipientName || '', to, emailType, subject]);
     return true;
   } catch (e) {
@@ -465,7 +515,7 @@ function getWelcomeEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 32px;">🎓 Welcome to Fluent Feathers Academy By Aaliya!</h1>
+      <h1 style="color: white; margin: 0; font-size: 32px;">🎓 Welcome to Fluent Feathers Academy!</h1>
     </div>
     <div style="padding: 40px 30px;">
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${data.parent_name}</strong>,</p>
@@ -502,7 +552,7 @@ function getWelcomeEmail(data) {
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         Warm regards,<br>
-        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
@@ -565,7 +615,7 @@ function getScheduleEmail(data) {
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         Best regards,<br>
-        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
@@ -658,7 +708,7 @@ function getEventEmail(data) {
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         See you soon!<br>
-        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
@@ -726,9 +776,238 @@ function getClassReminderEmail(data) {
 
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
         We're excited to see you in class!<br>
-        <strong style="color: #667eea;">Team Fluent Feathers Academy By Aaliya</strong>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
     </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getBirthdayEmail(data) {
+  const { studentName, age } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #FF6B9D 0%, #C06FF9 100%); padding: 50px 30px; text-align: center; position: relative;">
+      <div style="font-size: 60px; margin-bottom: 10px;">🎉🎂🎈</div>
+      <h1 style="margin: 0; color: white; font-size: 36px; font-weight: bold;">Happy Birthday!</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 18px;">Wishing you a fantastic day!</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 18px; color: #2d3748; text-align: center;">
+        Dear <strong>${studentName}</strong>,
+      </p>
+      <div style="text-align: center; font-size: 50px; margin: 20px 0;">🎊🎁🌟</div>
+      <p style="margin: 0 0 25px; font-size: 16px; color: #4a5568; line-height: 1.8; text-align: center;">
+        Everyone at <strong style="color: #667eea;">Fluent Feathers Academy</strong><br>
+        wishes you a very <strong>Happy Birthday</strong>!<br><br>
+        May this special day bring you lots of happiness,<br>
+        joy, and wonderful memories! 🎈
+      </p>
+
+      <div style="background: linear-gradient(135deg, #FFF5E1 0%, #FFE4E1 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #FF6B9D; margin: 30px 0;">
+        <p style="margin: 0; color: #4a5568; font-size: 16px; line-height: 1.6; text-align: center;">
+          <span style="font-size: 24px;">🌟</span><br>
+          <strong style="color: #C06FF9;">You are amazing!</strong><br>
+          Keep shining and learning!
+        </p>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0; font-size: 40px;">
+        🎵 🎶 🎉 🎂 🎁 🎈 🎊
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6; text-align: center;">
+        With lots of love,<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getCertificateEmail(data) {
+  const { studentName, awardTitle, month, year, description } = data;
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 50px 30px; text-align: center;">
+      <div style="font-size: 60px; margin-bottom: 10px;">🏆</div>
+      <h1 style="margin: 0; color: #2d3748; font-size: 32px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">Certificate of Achievement</h1>
+      <p style="margin: 10px 0 0; color: #4a5568; font-size: 16px; font-weight: 600;">${monthNames[month - 1]} ${year}</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #4a5568; text-align: center;">
+        This certificate is proudly presented to
+      </p>
+      <h2 style="margin: 0 0 30px; font-size: 32px; color: #667eea; text-align: center; font-weight: bold;">${studentName}</h2>
+
+      <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4); margin: 30px 0;">
+        <p style="margin: 0 0 10px; color: #2d3748; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Award</p>
+        <h3 style="margin: 0; color: #2d3748; font-size: 28px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">🌟 ${awardTitle} 🌟</h3>
+      </div>
+
+      ${description ? `
+      <div style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #667eea; margin: 25px 0;">
+        <p style="margin: 0; color: #4a5568; font-size: 15px; line-height: 1.6;">
+          ${description}
+        </p>
+      </div>
+      ` : ''}
+
+      <div style="text-align: center; margin: 30px 0; font-size: 36px;">
+        ⭐ 🏆 🎖️ 👑 💎
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6; text-align: center;">
+        Congratulations on your outstanding achievement!<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getMonthlyReportCardEmail(data) {
+  const { studentName, month, year, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const skillsList = skills && skills.length > 0 ? skills : [];
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 700px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">📊</div>
+      <h1 style="margin: 0; color: white; font-size: 32px; font-weight: bold;">Monthly Progress Report</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 18px; font-weight: 600;">${monthNames[month - 1]} ${year}</p>
+    </div>
+
+    <!-- Student Info -->
+    <div style="padding: 30px;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
+        <p style="margin: 0 0 5px; color: rgba(255,255,255,0.9); font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Student Name</p>
+        <h2 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">${studentName}</h2>
+      </div>
+
+      ${certificateTitle ? `
+      <!-- Certificate Award -->
+      <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);">
+        <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+        <p style="margin: 0 0 8px; color: #2d3748; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Achievement Award</p>
+        <h3 style="margin: 0; color: #2d3748; font-size: 26px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">🌟 ${certificateTitle} 🌟</h3>
+      </div>
+      ` : ''}
+
+      ${skillsList.length > 0 ? `
+      <!-- Skills Assessment -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>📝</span> Skills Assessed This Month
+        </h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${skillsList.map(skill => `
+          <div style="background: #f7fafc; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea; font-size: 14px; color: #4a5568; font-weight: 600;">
+            ✓ ${skill}
+          </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      ${performanceSummary ? `
+      <!-- Performance Summary -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>📈</span> Overall Performance Summary
+        </h3>
+        <div style="background: #e6fffa; padding: 20px; border-radius: 10px; border-left: 4px solid #38b2ac;">
+          <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.7;">
+            ${performanceSummary}
+          </p>
+        </div>
+      </div>
+      ` : ''}
+
+      ${areasOfImprovement ? `
+      <!-- Areas of Improvement -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>📌</span> Areas of Improvement
+        </h3>
+        <div style="background: #fff5f5; padding: 20px; border-radius: 10px; border-left: 4px solid #fc8181;">
+          <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.7;">
+            ${areasOfImprovement}
+          </p>
+        </div>
+      </div>
+      ` : ''}
+
+      ${teacherComments ? `
+      <!-- Teacher's Comments -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>💬</span> Teacher's Comments
+        </h3>
+        <div style="background: #fef5e7; padding: 20px; border-radius: 10px; border-left: 4px solid #f6ad55;">
+          <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.7; font-style: italic;">
+            "${teacherComments}"
+          </p>
+        </div>
+      </div>
+      ` : ''}
+
+      <!-- Motivational Footer -->
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px;">
+        <p style="margin: 0; color: white; font-size: 16px; line-height: 1.6; font-weight: 500;">
+          🌟 Keep up the great work, ${studentName}! 🌟<br>
+          <span style="font-size: 14px; opacity: 0.95;">We're proud of your progress and look forward to seeing you continue to grow!</span>
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; text-align: center; line-height: 1.6;">
+        With love and encouragement,<br>
+        <strong style="color: #667eea; font-size: 16px;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+
+    <!-- Footer -->
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
         Made with ❤️ By Aaliya
@@ -845,6 +1124,60 @@ cron.schedule('*/15 * * * *', async () => {
 
 console.log('✅ Class reminder system initialized - checking every 15 minutes');
 
+// ==================== BIRTHDAY REMINDER CRON JOB ====================
+// Runs daily at 8:00 AM to check for birthdays
+cron.schedule('0 8 * * *', async () => {
+  try {
+    console.log('🎂 Checking for birthdays today...');
+
+    const today = new Date();
+    const month = today.getMonth() + 1; // JavaScript months are 0-indexed
+    const day = today.getDate();
+
+    // Find students with birthday today
+    const birthdayStudents = await pool.query(`
+      SELECT id, name, parent_email, parent_name, date_of_birth
+      FROM students
+      WHERE EXTRACT(MONTH FROM date_of_birth) = $1
+        AND EXTRACT(DAY FROM date_of_birth) = $2
+        AND is_active = true
+        AND date_of_birth IS NOT NULL
+    `, [month, day]);
+
+    for (const student of birthdayStudents.rows) {
+      try {
+        const birthYear = new Date(student.date_of_birth).getFullYear();
+        const age = today.getFullYear() - birthYear;
+
+        const birthdayEmailHTML = getBirthdayEmail({
+          studentName: student.name,
+          age: age
+        });
+
+        await sendEmail(
+          student.parent_email,
+          `🎉 Happy Birthday ${student.name}! 🎂`,
+          birthdayEmailHTML,
+          student.parent_name,
+          'Birthday'
+        );
+
+        console.log(`✅ Sent birthday email to ${student.name} (${student.parent_email})`);
+      } catch (emailErr) {
+        console.error(`Error sending birthday email to ${student.name}:`, emailErr);
+      }
+    }
+
+    if (birthdayStudents.rows.length === 0) {
+      console.log('No birthdays today');
+    }
+  } catch (err) {
+    console.error('❌ Error in birthday cron job:', err);
+  }
+});
+
+console.log('✅ Birthday reminder system initialized - checking daily at 8:00 AM');
+
 // ==================== API ROUTES ====================
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
@@ -915,21 +1248,24 @@ app.get('/api/students', async (req, res) => {
 });
 
 app.post('/api/students', async (req, res) => {
-  const { name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions } = req.body;
+  const { name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, date_of_birth, payment_method, send_email } = req.body;
   try {
     const r = await pool.query(`
-      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0, true)
+      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, date_of_birth, payment_method, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0, $14, $15, true)
       RETURNING id
-    `, [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions]);
+    `, [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, date_of_birth, payment_method]);
 
-    const emailSent = await sendEmail(
-      parent_email,
-      `🎓 Welcome to Fluent Feathers Academy By Aaliya - ${name}`,
-      getWelcomeEmail({ parent_name, student_name: name, program_name, zoom_link: DEFAULT_ZOOM }),
-      parent_name,
-      'Welcome'
-    );
+    let emailSent = false;
+    if (send_email !== false) {  // Send email by default unless explicitly set to false
+      emailSent = await sendEmail(
+        parent_email,
+        `🎓 Welcome to Fluent Feathers Academy - ${name}`,
+        getWelcomeEmail({ parent_name, student_name: name, program_name, zoom_link: DEFAULT_ZOOM }),
+        parent_name,
+        'Welcome'
+      );
+    }
 
     res.json({ success: true, studentId: r.rows[0].id, emailSent: emailSent });
   } catch (err) {
@@ -1043,7 +1379,7 @@ app.delete('/api/groups/:id', async (req, res) => {
 app.post('/api/schedule/private-classes', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { student_id, classes } = req.body;
+    const { student_id, classes, send_email } = req.body;
     const student = (await client.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0];
     if(!student) return res.status(404).json({ error: 'Student not found' });
     if(student.remaining_sessions < classes.length) return res.status(400).json({ error: 'Not enough sessions' });
@@ -1071,22 +1407,27 @@ app.post('/api/schedule/private-classes', async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Send Schedule Email
-    const scheduleHTML = getScheduleEmail({
-      parent_name: student.parent_name,
-      student_name: student.name,
-      schedule_rows: scheduledSessions.join('')
-    });
+    // Send Schedule Email (if enabled)
+    if (send_email !== false) {
+      const scheduleHTML = getScheduleEmail({
+        parent_name: student.parent_name,
+        student_name: student.name,
+        schedule_rows: scheduledSessions.join('')
+      });
 
-    await sendEmail(
-      student.parent_email,
-      `📅 Class Schedule for ${student.name}`,
-      scheduleHTML,
-      student.parent_name,
-      'Schedule'
-    );
+      await sendEmail(
+        student.parent_email,
+        `📅 Class Schedule for ${student.name}`,
+        scheduleHTML,
+        student.parent_name,
+        'Schedule'
+      );
+    }
 
-    res.json({ success: true, message: 'Classes scheduled and email sent!' });
+    const message = send_email !== false
+      ? 'Classes scheduled and email sent!'
+      : 'Classes scheduled successfully!';
+    res.json({ success: true, message });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -1099,7 +1440,7 @@ app.post('/api/schedule/private-classes', async (req, res) => {
 app.post('/api/schedule/group-classes', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { group_id, classes } = req.body;
+    const { group_id, classes, send_email } = req.body;
     const group = (await client.query('SELECT * FROM groups WHERE id = $1', [group_id])).rows[0];
     if(!group) return res.status(404).json({ error: 'Group not found' });
 
@@ -1135,25 +1476,32 @@ app.post('/api/schedule/group-classes', async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Send schedule email to all students in the group
-    const students = await client.query('SELECT * FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
-    for (const student of students.rows) {
-      const scheduleHTML = getScheduleEmail({
-        parent_name: student.parent_name,
-        student_name: student.name,
-        schedule_rows: scheduledSessions.join('')
-      });
+    // Send schedule email to all students in the group (if enabled)
+    let emailsSent = 0;
+    if (send_email !== false) {
+      const students = await client.query('SELECT * FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
+      for (const student of students.rows) {
+        const scheduleHTML = getScheduleEmail({
+          parent_name: student.parent_name,
+          student_name: student.name,
+          schedule_rows: scheduledSessions.join('')
+        });
 
-      await sendEmail(
-        student.parent_email,
-        `📅 Group Class Schedule for ${student.name}`,
-        scheduleHTML,
-        student.parent_name,
-        'Schedule'
-      );
+        await sendEmail(
+          student.parent_email,
+          `📅 Group Class Schedule for ${student.name}`,
+          scheduleHTML,
+          student.parent_name,
+          'Schedule'
+        );
+        emailsSent++;
+      }
     }
 
-    res.json({ success: true, message: 'Group classes scheduled and emails sent!' });
+    const message = send_email !== false
+      ? `Group classes scheduled and emails sent to ${emailsSent} students!`
+      : 'Group classes scheduled successfully!';
+    res.json({ success: true, message });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -1443,7 +1791,7 @@ app.get('/api/events', async (req, res) => {
 });
 
 app.post('/api/events', async (req, res) => {
-  const { event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, zoom_link, max_participants } = req.body;
+  const { event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, zoom_link, max_participants, send_email } = req.body;
   try {
     const utc = istToUTC(event_date, event_time);
     const result = await pool.query(`
@@ -1461,7 +1809,8 @@ app.post('/api/events', async (req, res) => {
       students = await pool.query('SELECT * FROM students WHERE is_active = true AND grade = ANY($1)', [specific_grades.split(',').map(g=>g.trim())]);
     }
 
-    if (students?.rows?.length > 0) {
+    let emailsSent = 0;
+    if (students?.rows?.length > 0 && send_email !== false) {
       for(const student of students.rows) {
         const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
         const registrationLink = `${req.protocol}://${req.get('host')}/parent.html?event=${eventId}&student=${student.id}`;
@@ -1484,10 +1833,14 @@ app.post('/api/events', async (req, res) => {
           student.parent_name,
           'Event'
         );
+        emailsSent++;
       }
     }
 
-    res.json({ success: true, message: `Event created and emails sent to ${students?.rows?.length || 0} students!`, eventId });
+    const message = send_email !== false
+      ? `Event created and emails sent to ${emailsSent} students!`
+      : `Event created successfully!`;
+    res.json({ success: true, message, eventId });
   } catch (err) {
     console.error('Event creation error:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -1948,6 +2301,222 @@ app.get('/api/students/:id/homework', async (req, res) => {
       ORDER BY m.uploaded_at DESC
     `, [req.params.id]);
     res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== ANNOUNCEMENTS API ====================
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM announcements WHERE is_active = true ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/announcements', async (req, res) => {
+  const { title, content, announcement_type, priority } = req.body;
+  try {
+    const result = await pool.query(`
+      INSERT INTO announcements (title, content, announcement_type, priority, is_active)
+      VALUES ($1, $2, $3, $4, true)
+      RETURNING *
+    `, [title, content, announcement_type || 'General', priority || 'Normal']);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/announcements/:id', async (req, res) => {
+  const { title, content, announcement_type, priority } = req.body;
+  try {
+    const result = await pool.query(`
+      UPDATE announcements
+      SET title = $1, content = $2, announcement_type = $3, priority = $4
+      WHERE id = $5
+      RETURNING *
+    `, [title, content, announcement_type, priority, req.params.id]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/announcements/:id', async (req, res) => {
+  try {
+    await pool.query('UPDATE announcements SET is_active = false WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== CERTIFICATES API ====================
+app.get('/api/certificates', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*, s.name as student_name, s.parent_email, s.parent_name
+      FROM student_certificates c
+      JOIN students s ON c.student_id = s.id
+      ORDER BY c.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:id/certificates', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM student_certificates
+      WHERE student_id = $1
+      ORDER BY year DESC, month DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/certificates', async (req, res) => {
+  const { student_id, certificate_type, award_title, month, year, description, send_email } = req.body;
+  try {
+    const result = await pool.query(`
+      INSERT INTO student_certificates (student_id, certificate_type, award_title, month, year, description)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [student_id, certificate_type, award_title, month, year, description]);
+
+    // Send email if requested
+    if (send_email) {
+      const student = await pool.query('SELECT name, parent_email, parent_name FROM students WHERE id = $1', [student_id]);
+      if (student.rows[0]) {
+        const certificateEmailHTML = getCertificateEmail({
+          studentName: student.rows[0].name,
+          awardTitle: award_title,
+          month: month,
+          year: year,
+          description: description
+        });
+
+        await sendEmail(
+          student.rows[0].parent_email,
+          `🏆 Certificate of Achievement - ${award_title}`,
+          certificateEmailHTML,
+          student.rows[0].parent_name,
+          'Certificate'
+        );
+      }
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/certificates/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM student_certificates WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== MONTHLY ASSESSMENTS API ====================
+app.get('/api/assessments', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.*, s.name as student_name
+      FROM monthly_assessments a
+      JOIN students s ON a.student_id = s.id
+      ORDER BY a.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/assessments/:id', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.*, s.name as student_name
+      FROM monthly_assessments a
+      JOIN students s ON a.student_id = s.id
+      WHERE a.id = $1
+    `, [req.params.id]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:id/assessments', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM monthly_assessments
+      WHERE student_id = $1
+      ORDER BY year DESC, month DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/assessments', async (req, res) => {
+  const { student_id, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments, send_email } = req.body;
+  try {
+    // Insert assessment into database
+    const result = await pool.query(`
+      INSERT INTO monthly_assessments (student_id, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [student_id, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments]);
+
+    // Send email if requested
+    if (send_email) {
+      const student = await pool.query('SELECT name, parent_email, parent_name FROM students WHERE id = $1', [student_id]);
+      if (student.rows[0]) {
+        const skillsArray = skills ? JSON.parse(skills) : [];
+        const reportCardEmailHTML = getMonthlyReportCardEmail({
+          studentName: student.rows[0].name,
+          month: month,
+          year: year,
+          skills: skillsArray,
+          certificateTitle: certificate_title,
+          performanceSummary: performance_summary,
+          areasOfImprovement: areas_of_improvement,
+          teacherComments: teacher_comments
+        });
+
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        await sendEmail(
+          student.rows[0].parent_email,
+          `📊 Monthly Progress Report - ${monthNames[month - 1]} ${year}`,
+          reportCardEmailHTML,
+          student.rows[0].parent_name,
+          'Report Card'
+        );
+      }
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/assessments/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM monthly_assessments WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

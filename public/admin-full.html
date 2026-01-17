@@ -59,7 +59,13 @@
 </head>
 <body>
   <div class="container">
-    <header><h1>🎓 Admin Dashboard - Complete Edition</h1><button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button></header>
+    <header>
+      <div>
+        <h1 style="margin: 0; font-size: 28px;">🎓 Fluent Feathers Academy By Aaliya</h1>
+        <p style="margin: 5px 0 0; color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
+      </div>
+      <button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button>
+    </header>
 
     <div class="stats-grid">
       <div class="stat-card"><h3>Total Students</h3><div class="value" id="totalStudents">0</div></div>
@@ -77,6 +83,8 @@
       <button class="tab-btn" onclick="showTab('scheduleManager', event)">📋 Manage Schedules</button>
       <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
       <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
+      <button class="tab-btn" onclick="showTab('announcements', event)">📢 Announcements</button>
+      <button class="tab-btn" onclick="showTab('monthlyAssessment', event)">📊 Monthly Assessment</button>
       <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
     </div>
 
@@ -89,13 +97,26 @@
         <form id="addStudentForm">
           <div class="form-row"><div class="form-group"><label>Student Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label>Grade *</label><input type="text" id="grade" required></div></div>
           <div class="form-row"><div class="form-group"><label>Parent Name *</label><input type="text" id="parentName" required></div><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div></div>
-          <div class="form-row"><div class="form-group"><label>Primary Contact *</label><input type="tel" id="primaryContact" required></div>
+          <div class="form-row">
+            <div class="form-group"><label>Primary Contact *</label><input type="tel" id="primaryContact" required></div>
+            <div class="form-group"><label>Date of Birth (Optional)</label><input type="date" id="dateOfBirth"></div>
             <div class="form-group"><label>Timezone *</label>
               <select id="timezone" required>
                 <option value="Asia/Kolkata">India (IST)</option>
-                <option value="America/New_York">USA (EST)</option>
-                <option value="Europe/London">UK (GMT)</option>
+                <option value="America/New_York">USA East (EST/EDT)</option>
+                <option value="America/Chicago">USA Central (CST/CDT)</option>
+                <option value="America/Denver">USA Mountain (MST/MDT)</option>
+                <option value="America/Los_Angeles">USA West (PST/PDT)</option>
+                <option value="America/Toronto">Canada (EST/EDT)</option>
+                <option value="Europe/London">UK (GMT/BST)</option>
+                <option value="Europe/Paris">France/Germany (CET/CEST)</option>
+                <option value="Europe/Moscow">Russia (MSK)</option>
                 <option value="Asia/Dubai">UAE (GST)</option>
+                <option value="Asia/Singapore">Singapore (SGT)</option>
+                <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                <option value="Asia/Tokyo">Japan (JST)</option>
+                <option value="Australia/Sydney">Australia East (AEST/AEDT)</option>
+                <option value="Pacific/Auckland">New Zealand (NZST/NZDT)</option>
               </select>
             </div>
           </div>
@@ -115,9 +136,33 @@
                 <option value="INR">INR (₹)</option>
                 <option value="GBP">GBP (£)</option>
                 <option value="EUR">EUR (€)</option>
+                <option value="AED">AED (د.إ)</option>
+                <option value="AUD">AUD ($)</option>
+                <option value="CAD">CAD ($)</option>
+                <option value="SGD">SGD ($)</option>
+                <option value="HKD">HKD ($)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="NZD">NZD ($)</option>
+                <option value="RUB">RUB (₽)</option>
               </select>
             </div>
-            <div class="form-group"><label>Per Session Fee *</label><input type="number" id="perSessionFee" required step="0.01"></div><div class="form-group"><label>Total Sessions *</label><input type="number" id="totalSessions" required min="1"></div>
+            <div class="form-group"><label>Per Session Fee *</label><input type="number" id="perSessionFee" required step="0.01"></div>
+            <div class="form-group"><label>Total Sessions *</label><input type="number" id="totalSessions" required min="1"></div>
+            <div class="form-group"><label>Payment Method</label>
+              <select id="paymentMethod">
+                <option value="">Select Method</option>
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Online Payment">Online Payment</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="sendWelcomeEmail" checked style="width: auto; margin: 0;">
+              <label style="margin: 0;">Send Welcome Email</label>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary">Add Student</button>
         </form>
@@ -154,11 +199,19 @@
         <form id="schedulePrivateForm">
           <div class="form-group"><label>Select Student *</label><select id="scheduleStudent" required><option value="">Select student...</option></select></div>
           <div id="classScheduleList"></div><button type="button" onclick="addScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Class</button>
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 15px;">
+            <input type="checkbox" id="sendPrivateScheduleEmail" checked style="width: auto; margin: 0;">
+            <label style="margin: 0;">Send Schedule Confirmation Email</label>
+          </div>
           <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule</button>
         </form>
         <form id="scheduleGroupForm" style="display: none;">
           <div class="form-group"><label>Select Group *</label><select id="scheduleGroup" required><option value="">Select group...</option></select></div>
           <div id="groupClassScheduleList"></div><button type="button" onclick="addGroupScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Class</button>
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 15px;">
+            <input type="checkbox" id="sendGroupScheduleEmail" checked style="width: auto; margin: 0;">
+            <label style="margin: 0;">Send Schedule Confirmation Email</label>
+          </div>
           <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule</button>
         </form>
       </div>
@@ -196,12 +249,177 @@
         </div>
         <div class="form-group"><label>Event Description</label><textarea id="eventDescription" rows="3"></textarea></div>
         <div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="eventDate" required></div><div class="form-group"><label>Time (IST) *</label><input type="time" id="eventTime" required></div></div>
-        <button type="submit" class="btn btn-primary">Create Event & Send Emails</button>
+        <div class="form-row">
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+            <input type="checkbox" id="sendEventEmail" checked style="width: auto; margin: 0;">
+            <label style="margin: 0;">Send Event Notification Email</label>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Event</button>
       </form></div>
       <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date</th><th>Time</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="emailsTab" class="tab-content"><div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
+
+    <div id="announcementsTab" class="tab-content">
+      <div class="section">
+        <h2>📢 Create Announcement</h2>
+        <form id="createAnnouncementForm">
+          <div class="form-row">
+            <div class="form-group"><label>Title *</label><input type="text" id="announcementTitle" required></div>
+            <div class="form-group"><label>Type</label>
+              <select id="announcementType">
+                <option value="General">General</option>
+                <option value="Holiday">Holiday</option>
+                <option value="Reminder">Reminder</option>
+                <option value="Update">Update</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Priority</label>
+              <select id="announcementPriority">
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>Content *</label><textarea id="announcementContent" rows="4" required placeholder="Write your announcement here..."></textarea></div>
+          <button type="submit" class="btn btn-primary">Create Announcement</button>
+        </form>
+      </div>
+      <div class="section">
+        <h2>📋 All Announcements</h2>
+        <table id="announcementsTable">
+          <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="announcementsBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="monthlyAssessmentTab" class="tab-content">
+      <div class="section">
+        <h2>📊 Monthly Assessment & Certificate</h2>
+        <form id="monthlyAssessmentForm">
+          <div class="form-row">
+            <div class="form-group"><label>Student *</label>
+              <select id="assessmentStudent" required>
+                <option value="">Select Student...</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Month *</label>
+              <select id="assessmentMonth" required>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Year *</label>
+              <input type="number" id="assessmentYear" required value="2026" min="2020" max="2030">
+            </div>
+          </div>
+
+          <h3 style="margin-top: 20px; color: #4a5568;">📝 Skills Assessment (Tick applicable areas)</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; padding: 20px; background: #f7fafc; border-radius: 8px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_speaking" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">🗣️ Speaking & Communication</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_confidence" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">💪 Confidence Building</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_grammar" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📖 Grammar & Structure</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_vocabulary" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📚 Vocabulary Enhancement</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_reading" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📕 Reading Comprehension</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_writing" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">✍️ Creative Writing</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_listening" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">👂 Active Listening</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_spelling" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">🔤 Spelling Mastery</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_public_speaking" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">🎤 Public Speaking</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="skill_presentation" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">📊 Presentation Skills</span>
+            </label>
+          </div>
+
+          <h3 style="margin-top: 20px; color: #4a5568;">🏆 Award Certificate (Optional)</h3>
+          <div class="form-row">
+            <div class="form-group"><label>Certificate Title</label>
+              <select id="certificateTitle">
+                <option value="">No Certificate</option>
+                <option value="Superb Speaker">🗣️ Superb Speaker</option>
+                <option value="Confident Performer">💫 Confident Performer</option>
+                <option value="Avid Reader">📚 Avid Reader</option>
+                <option value="Spelling Champion">🔤 Spelling Champion</option>
+                <option value="Creative Writing Star">✨ Creative Writing Star</option>
+                <option value="Public Speaking Pro">🎤 Public Speaking Pro</option>
+                <option value="Excellent Listener">👂 Excellent Listener</option>
+                <option value="Grammar Guru">📖 Grammar Guru</option>
+                <option value="Vocabulary Virtuoso">📕 Vocabulary Virtuoso</option>
+                <option value="Star Student">⭐ Star Student</option>
+                <option value="Most Improved">🚀 Most Improved</option>
+                <option value="Custom">✏️ Custom Title...</option>
+              </select>
+            </div>
+            <div class="form-group" id="customTitleGroup" style="display: none;">
+              <label>Custom Title</label>
+              <input type="text" id="customCertificateTitle" placeholder="Enter custom certificate title">
+            </div>
+          </div>
+
+          <div class="form-group"><label>Overall Performance Summary</label><textarea id="performanceSummary" rows="4" placeholder="Write a brief summary of the student's progress this month..."></textarea></div>
+
+          <div class="form-group"><label>Areas of Improvement</label><textarea id="areasOfImprovement" rows="3" placeholder="Mention areas where the student can focus for better results..."></textarea></div>
+
+          <div class="form-group"><label>Teacher's Comments</label><textarea id="teacherComments" rows="3" placeholder="Any additional comments or encouragement..."></textarea></div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="sendAssessmentEmail" checked style="width: auto; margin: 0;">
+              <label style="margin: 0;">Send Report Card & Certificate via Email</label>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Generate & Send Report Card</button>
+        </form>
+      </div>
+      <div class="section">
+        <h2>📋 All Monthly Assessments</h2>
+        <table id="assessmentsTable">
+          <thead><tr><th>Student</th><th>Month/Year</th><th>Certificate</th><th>Skills</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="assessmentsBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- Complete Student Modal with ALL tabs -->
@@ -557,6 +775,7 @@
 
     document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const sendEmail = document.getElementById('sendWelcomeEmail').checked;
       const data = {
         name: document.getElementById('studentName').value,
         grade: document.getElementById('grade').value,
@@ -569,7 +788,10 @@
         duration: document.getElementById('duration').value,
         currency: document.getElementById('currency').value,
         per_session_fee: parseFloat(document.getElementById('perSessionFee').value),
-        total_sessions: parseInt(document.getElementById('totalSessions').value)
+        total_sessions: parseInt(document.getElementById('totalSessions').value),
+        date_of_birth: document.getElementById('dateOfBirth').value || null,
+        payment_method: document.getElementById('paymentMethod').value || null,
+        send_email: sendEmail
       };
 
       try {
@@ -580,10 +802,11 @@
         });
         const result = await res.json();
         if(res.ok) {
-          alert(`✅ Student added! ${result.emailSent ? 'Welcome email sent.' : ''}`);
+          alert(`✅ Student added! ${sendEmail && result.emailSent ? 'Welcome email sent.' : ''}`);
           e.target.reset();
           loadStudents();
           loadDashboardStats();
+          loadCertificateStudents();
         } else {
           alert('❌ Failed: ' + result.error);
         }
@@ -613,12 +836,13 @@
         if (date && time) classes.push({ date, time });
       });
       if (classes.length === 0) return alert('Add at least one class');
+      const sendEmail = document.getElementById('sendPrivateScheduleEmail').checked;
 
       try {
         const res = await fetch('/api/schedule/private-classes', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ student_id: studentId, classes })
+          body: JSON.stringify({ student_id: studentId, classes, send_email: sendEmail })
         });
         const result = await res.json();
         if(res.ok) {
@@ -918,12 +1142,13 @@
         if (date && time) classes.push({ date, time });
       });
       if (classes.length === 0) return alert('Add at least one class');
+      const sendEmail = document.getElementById('sendGroupScheduleEmail').checked;
 
       try {
         const res = await fetch('/api/schedule/group-classes', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ group_id: groupId, classes })
+          body: JSON.stringify({ group_id: groupId, classes, send_email: sendEmail })
         });
         const result = await res.json();
         if(res.ok) {
@@ -1004,12 +1229,14 @@
 
     document.getElementById('createEventForm').addEventListener('submit', async(e)=>{
       e.preventDefault();
+      const sendEmail = document.getElementById('sendEventEmail').checked;
       const data = {
         event_name: document.getElementById('eventName').value,
         event_description: document.getElementById('eventDescription').value,
         event_duration: document.getElementById('eventDuration').value,
         event_date: document.getElementById('eventDate').value,
-        event_time: document.getElementById('eventTime').value
+        event_time: document.getElementById('eventTime').value,
+        send_email: sendEmail
       };
 
       try {
@@ -1279,6 +1506,242 @@
         document.getElementById('badgesContent').innerHTML = '<p style="color:#e53e3e;">Error loading badges</p>';
       }
     }
+
+    // ==================== ANNOUNCEMENTS ====================
+    async function loadAnnouncements() {
+      try {
+        const res = await fetch('/api/announcements');
+        const announcements = await res.json();
+        const tbody = document.getElementById('announcementsBody');
+
+        if (announcements.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No announcements</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = announcements.map(a => `
+          <tr>
+            <td><strong>${a.title}</strong></td>
+            <td><span class="badge">${a.announcement_type}</span></td>
+            <td><span class="badge ${a.priority === 'Urgent' ? 'badge-danger' : a.priority === 'High' ? 'badge-warning' : ''}">${a.priority}</span></td>
+            <td>${new Date(a.created_at).toLocaleDateString()}</td>
+            <td>
+              <button onclick="viewAnnouncement(${a.id}, '${a.title.replace(/'/g, "\\'")}', '${a.content.replace(/'/g, "\\'")}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#4299e1;color:white;">View</button>
+              <button onclick="deleteAnnouncement(${a.id})" class="btn btn-danger btn-sm">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById('createAnnouncementForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        title: document.getElementById('announcementTitle').value,
+        content: document.getElementById('announcementContent').value,
+        announcement_type: document.getElementById('announcementType').value,
+        priority: document.getElementById('announcementPriority').value
+      };
+
+      try {
+        const res = await fetch('/api/announcements', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('✅ Announcement created!');
+          e.target.reset();
+          loadAnnouncements();
+        } else {
+          alert('❌ Failed to create announcement');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function viewAnnouncement(id, title, content, type, priority) {
+      alert(`📢 ${title}\n\nType: ${type}\nPriority: ${priority}\n\n${content}`);
+    }
+
+    async function deleteAnnouncement(id) {
+      if (!confirm('Delete this announcement?')) return;
+
+      try {
+        const res = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('✅ Announcement deleted');
+          loadAnnouncements();
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // ==================== MONTHLY ASSESSMENTS ====================
+    // Show/hide custom certificate title field
+    document.getElementById('certificateTitle').addEventListener('change', function() {
+      const customGroup = document.getElementById('customTitleGroup');
+      customGroup.style.display = this.value === 'Custom' ? 'block' : 'none';
+    });
+
+    async function loadAssessments() {
+      try {
+        const res = await fetch('/api/assessments');
+        const assessments = await res.json();
+        const tbody = document.getElementById('assessmentsBody');
+
+        if (assessments.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#718096;">No assessments created</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = assessments.map(a => {
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const skills = a.skills ? JSON.parse(a.skills) : [];
+          const skillsText = skills.length > 0 ? skills.join(', ') : 'N/A';
+
+          return `
+          <tr>
+            <td><strong>${a.student_name}</strong></td>
+            <td>${monthNames[a.month - 1]} ${a.year}</td>
+            <td>${a.certificate_title ? '🏆 ' + a.certificate_title : '-'}</td>
+            <td>${skillsText}</td>
+            <td>${new Date(a.created_at).toLocaleDateString()}</td>
+            <td>
+              <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#4299e1;color:white;">View</button>
+              <button onclick="deleteAssessment(${a.id})" class="btn btn-danger btn-sm">Delete</button>
+            </td>
+          </tr>
+        `}).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadAssessmentStudents() {
+      try {
+        const res = await fetch('/api/students');
+        const students = await res.json();
+        const select = document.getElementById('assessmentStudent');
+
+        select.innerHTML = '<option value="">Select Student...</option>' +
+          students.filter(s => s.is_active).map(s =>
+            `<option value="${s.id}">${s.name} (${s.grade})</option>`
+          ).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById('monthlyAssessmentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Collect checked skills
+      const skills = [];
+      const skillIds = ['speaking', 'confidence', 'grammar', 'vocabulary', 'reading', 'writing', 'listening', 'spelling', 'public_speaking', 'presentation'];
+      const skillNames = {
+        'speaking': 'Speaking & Communication',
+        'confidence': 'Confidence Building',
+        'grammar': 'Grammar & Structure',
+        'vocabulary': 'Vocabulary Enhancement',
+        'reading': 'Reading Comprehension',
+        'writing': 'Creative Writing',
+        'listening': 'Active Listening',
+        'spelling': 'Spelling Mastery',
+        'public_speaking': 'Public Speaking',
+        'presentation': 'Presentation Skills'
+      };
+
+      skillIds.forEach(skill => {
+        if (document.getElementById(`skill_${skill}`).checked) {
+          skills.push(skillNames[skill]);
+        }
+      });
+
+      // Get certificate title
+      let certificateTitle = document.getElementById('certificateTitle').value;
+      if (certificateTitle === 'Custom') {
+        certificateTitle = document.getElementById('customCertificateTitle').value;
+      }
+      // Remove emoji from certificate title before saving
+      if (certificateTitle && certificateTitle.includes(' ')) {
+        certificateTitle = certificateTitle.split(' ').slice(1).join(' ');
+      }
+
+      const sendEmail = document.getElementById('sendAssessmentEmail').checked;
+      const data = {
+        student_id: parseInt(document.getElementById('assessmentStudent').value),
+        month: parseInt(document.getElementById('assessmentMonth').value),
+        year: parseInt(document.getElementById('assessmentYear').value),
+        skills: JSON.stringify(skills),
+        certificate_title: certificateTitle || null,
+        performance_summary: document.getElementById('performanceSummary').value,
+        areas_of_improvement: document.getElementById('areasOfImprovement').value,
+        teacher_comments: document.getElementById('teacherComments').value,
+        send_email: sendEmail
+      };
+
+      try {
+        const res = await fetch('/api/assessments', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert(`✅ Monthly assessment created! ${sendEmail ? 'Report card sent to parent.' : ''}`);
+          e.target.reset();
+          loadAssessments();
+        } else {
+          alert('❌ Failed to create assessment');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    async function viewAssessment(id) {
+      try {
+        const res = await fetch(`/api/assessments/${id}`);
+        const a = await res.json();
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const skills = a.skills ? JSON.parse(a.skills).join('\n• ') : 'None';
+
+        alert(`📊 Monthly Assessment Report\n\nStudent: ${a.student_name}\nMonth/Year: ${monthNames[a.month-1]} ${a.year}\n\n🏆 Certificate: ${a.certificate_title || 'None'}\n\n📝 Skills Assessed:\n• ${skills}\n\n📈 Performance Summary:\n${a.performance_summary || 'N/A'}\n\n📌 Areas of Improvement:\n${a.areas_of_improvement || 'N/A'}\n\n💬 Teacher's Comments:\n${a.teacher_comments || 'N/A'}`);
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function deleteAssessment(id) {
+      if (!confirm('Delete this assessment?')) return;
+
+      try {
+        const res = await fetch(`/api/assessments/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('✅ Assessment deleted');
+          loadAssessments();
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // Load data when tabs are switched
+    const originalShowTab = showTab;
+    showTab = function(name, event) {
+      originalShowTab(name, event);
+      if (name === 'announcements') loadAnnouncements();
+      if (name === 'monthlyAssessment') {
+        loadAssessments();
+        loadAssessmentStudents();
+      }
+    };
   </script>
 
   <!-- Footer -->

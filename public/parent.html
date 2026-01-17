@@ -92,7 +92,13 @@
 
     <!-- DASHBOARD SECTION -->
     <div id="dashboardSection" style="display: none;">
-      <header><div><h1>👨‍👩‍👧 Parent Portal</h1></div><button onclick="logout()" class="btn btn-danger btn-sm">Logout</button></header>
+      <header>
+        <div>
+          <h1 style="margin: 0; font-size: 26px;">🎓 Fluent Feathers Academy By Aaliya</h1>
+          <p style="margin: 5px 0 0; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
+        </div>
+        <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+      </header>
 
       <div id="studentSelector">
         <h3>👋 Welcome! Select a child:</h3>
@@ -129,6 +135,8 @@
         <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
         <button class="tab-btn" onclick="showTab('homework', event)">📝 Homework</button>
         <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
+        <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
+        <button class="tab-btn" onclick="showTab('announcements', event)">📢 News</button>
         <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
       </div>
 
@@ -176,6 +184,24 @@
           <h3 style="margin-top: 30px; margin-bottom: 15px;">📋 Payment History</h3>
           <div id="paymentHistoryContainer">
             <p style="text-align: center; color: #718096;">Loading payment history...</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="assessmentsTab" class="tab-content">
+        <div class="section">
+          <h2>📊 Monthly Report Cards</h2>
+          <div id="assessmentsContainer">
+            <p style="text-align: center; color: #718096;">Loading report cards...</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="announcementsTab" class="tab-content">
+        <div class="section">
+          <h2>📢 Latest News & Announcements</h2>
+          <div id="announcementsContainer">
+            <p style="text-align: center; color: #718096;">Loading announcements...</p>
           </div>
         </div>
       </div>
@@ -377,6 +403,8 @@
       if(name === 'homework') loadHomeworkSessions();
       if(name === 'events') loadEvents();
       if(name === 'payments') loadPayments();
+      if(name === 'assessments') loadAssessments();
+      if(name === 'announcements') loadAnnouncements();
     }
 
     function showDashboard() {
@@ -814,6 +842,139 @@
       } catch(e) {
         console.error('Registration error:', e);
         alert('Error registering for event');
+      }
+    }
+
+    async function loadAssessments() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/assessments`, { headers: authHeaders() });
+        const assessments = await res.json();
+        const container = document.getElementById('assessmentsContainer');
+
+        if (assessments.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No monthly assessments yet. Your teacher will share progress reports soon! 📊</p>';
+          return;
+        }
+
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+        container.innerHTML = assessments.map(a => {
+          const skills = a.skills ? JSON.parse(a.skills) : [];
+
+          return `
+          <div style="background: white; border: 1px solid #e2e8f0; padding: 25px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; margin: -25px -25px 20px -25px; border-radius: 12px 12px 0 0; text-align: center;">
+              <div style="font-size: 40px; margin-bottom: 8px;">📊</div>
+              <h3 style="margin: 0; color: white; font-size: 22px;">Monthly Progress Report</h3>
+              <p style="margin: 5px 0 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 600;">${monthNames[a.month - 1]} ${a.year}</p>
+            </div>
+
+            ${a.certificate_title ? `
+            <!-- Certificate Award -->
+            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; box-shadow: 0 6px 15px rgba(255, 215, 0, 0.3);">
+              <div style="font-size: 35px; margin-bottom: 8px;">🏆</div>
+              <p style="margin: 0 0 5px; color: #2d3748; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Achievement Award</p>
+              <h4 style="margin: 0; color: #2d3748; font-size: 20px; font-weight: bold;">🌟 ${a.certificate_title} 🌟</h4>
+            </div>
+            ` : ''}
+
+            ${skills.length > 0 ? `
+            <!-- Skills -->
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 12px; display: flex; align-items: center; gap: 6px;">
+                <span>📝</span> Skills Assessed
+              </h4>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                ${skills.map(skill => `
+                <span style="background: #f7fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #667eea; font-size: 12px; color: #4a5568; font-weight: 600;">
+                  ✓ ${skill}
+                </span>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+
+            ${a.performance_summary ? `
+            <!-- Performance -->
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 6px;">
+                <span>📈</span> Performance Summary
+              </h4>
+              <div style="background: #e6fffa; padding: 15px; border-radius: 8px; border-left: 3px solid #38b2ac;">
+                <p style="margin: 0; color: #2d3748; font-size: 14px; line-height: 1.6;">${a.performance_summary}</p>
+              </div>
+            </div>
+            ` : ''}
+
+            ${a.areas_of_improvement ? `
+            <!-- Improvement Areas -->
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 6px;">
+                <span>📌</span> Areas to Focus On
+              </h4>
+              <div style="background: #fff5f5; padding: 15px; border-radius: 8px; border-left: 3px solid #fc8181;">
+                <p style="margin: 0; color: #2d3748; font-size: 14px; line-height: 1.6;">${a.areas_of_improvement}</p>
+              </div>
+            </div>
+            ` : ''}
+
+            ${a.teacher_comments ? `
+            <!-- Teacher Comments -->
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 6px;">
+                <span>💬</span> Teacher's Comments
+              </h4>
+              <div style="background: #fef5e7; padding: 15px; border-radius: 8px; border-left: 3px solid #f6ad55;">
+                <p style="margin: 0; color: #2d3748; font-size: 14px; line-height: 1.6; font-style: italic;">"${a.teacher_comments}"</p>
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- Footer -->
+            <div style="text-align: center; padding: 15px; background: #f7fafc; border-radius: 8px; margin-top: 20px;">
+              <p style="margin: 0; color: #667eea; font-size: 13px; font-weight: 600;">
+                📅 Issued: ${new Date(a.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+          `;
+        }).join('');
+      } catch(e) {
+        console.error('Error loading assessments:', e);
+        document.getElementById('assessmentsContainer').innerHTML = '<p style="color: #e53e3e;">Error loading assessments</p>';
+      }
+    }
+
+    async function loadAnnouncements() {
+      try {
+        const res = await fetch('/api/announcements');
+        const announcements = await res.json();
+        const container = document.getElementById('announcementsContainer');
+
+        if (announcements.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No announcements at this time</p>';
+          return;
+        }
+
+        container.innerHTML = announcements.map(a => {
+          const priorityColor = a.priority === 'Urgent' ? '#e53e3e' : a.priority === 'High' ? '#f6ad55' : '#667eea';
+          const typeIcon = a.announcement_type === 'Holiday' ? '🎉' : a.announcement_type === 'Reminder' ? '⏰' : a.announcement_type === 'Update' ? '📢' : '📰';
+
+          return `
+          <div style="background: white; border: 1px solid #e2e8f0; border-left: 4px solid ${priorityColor}; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+              <h3 style="margin: 0; color: ${priorityColor}; font-size: 18px;">${typeIcon} ${a.title}</h3>
+              <span style="background: ${priorityColor}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">${a.priority}</span>
+            </div>
+            <p style="margin: 0; color: #4a5568; line-height: 1.6; white-space: pre-wrap;">${a.content}</p>
+            <p style="margin: 10px 0 0; color: #718096; font-size: 13px;">📅 ${new Date(a.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+          </div>
+          `;
+        }).join('');
+      } catch(e) {
+        console.error('Error loading announcements:', e);
+        document.getElementById('announcementsContainer').innerHTML = '<p style="color: #e53e3e;">Error loading announcements</p>';
       }
     }
 
