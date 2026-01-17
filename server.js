@@ -834,6 +834,103 @@ function getEventEmail(data) {
 </html>`;
 }
 
+function getPaymentConfirmationEmail(data) {
+  const { parentName, studentName, amount, currency, paymentType, sessionsAdded, paymentMethod, receiptNumber } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #38a169 0%, #276749 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">✅ Payment Confirmed</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Thank you for your payment!</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        We have received your payment for <strong>${studentName}</strong>. Here are the details:
+      </p>
+
+      <div style="background: #f7fafc; padding: 25px; border-radius: 12px; border-left: 4px solid #38a169; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td style="padding: 10px 0; color: #4a5568;">Payment Type:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${paymentType}</td></tr>
+          <tr><td style="padding: 10px 0; color: #4a5568;">Amount:</td><td style="padding: 10px 0; font-weight: bold; color: #38a169; font-size: 1.2rem;">${currency} ${amount}</td></tr>
+          ${sessionsAdded ? `<tr><td style="padding: 10px 0; color: #4a5568;">Sessions:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${paymentType === 'Renewal' ? '+' : ''}${sessionsAdded} sessions</td></tr>` : ''}
+          ${paymentMethod ? `<tr><td style="padding: 10px 0; color: #4a5568;">Payment Method:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${paymentMethod}</td></tr>` : ''}
+          ${receiptNumber ? `<tr><td style="padding: 10px 0; color: #4a5568;">Receipt Number:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${receiptNumber}</td></tr>` : ''}
+        </table>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        If you have any questions about this payment, please feel free to reach out to us.<br><br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getOTPEmail(data) {
+  const { parentName, otp } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">🔐 Login OTP</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Fluent Feathers Academy Parent Portal</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        You have requested to login to the Fluent Feathers Academy Parent Portal. Please use the OTP below to complete your login:
+      </p>
+
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; text-align: center; margin: 30px 0;">
+        <p style="margin: 0 0 10px; color: rgba(255,255,255,0.9); font-size: 14px;">Your One-Time Password</p>
+        <h2 style="margin: 0; color: white; font-size: 42px; font-weight: bold; letter-spacing: 8px;">${otp}</h2>
+      </div>
+
+      <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
+        <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
+          <strong>⚠️ Important:</strong> This OTP is valid for <strong>10 minutes</strong> only. Do not share this code with anyone.
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        If you didn't request this OTP, please ignore this email.<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function getClassReminderEmail(data) {
   const { studentName, sessionNumber, localDate, localTime, localDay, zoomLink, hoursBeforeClass } = data;
 
@@ -1396,13 +1493,38 @@ app.delete('/api/students/:id', async (req, res) => {
 });
 
 app.post('/api/students/:id/payment', async (req, res) => {
-  const { amount, currency, payment_method, receipt_number, sessions_covered, notes } = req.body;
+  const { amount, currency, payment_method, receipt_number, sessions_covered, notes, send_email } = req.body;
   try {
     await pool.query(`
       INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, receipt_number, sessions_covered, notes, payment_status)
       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, 'Paid')
     `, [req.params.id, amount, currency, payment_method, receipt_number, sessions_covered, notes]);
     await pool.query('UPDATE students SET fees_paid = fees_paid + $1 WHERE id = $2', [amount, req.params.id]);
+
+    // Send payment confirmation email if requested
+    if (send_email) {
+      const student = await pool.query('SELECT name, parent_name, parent_email FROM students WHERE id = $1', [req.params.id]);
+      if (student.rows[0]) {
+        const emailHTML = getPaymentConfirmationEmail({
+          parentName: student.rows[0].parent_name,
+          studentName: student.rows[0].name,
+          amount: amount,
+          currency: currency,
+          paymentType: 'Initial Payment',
+          sessionsAdded: sessions_covered,
+          paymentMethod: payment_method,
+          receiptNumber: receipt_number
+        });
+        await sendEmail(
+          student.rows[0].parent_email,
+          `✅ Payment Confirmation - Fluent Feathers Academy`,
+          emailHTML,
+          student.rows[0].parent_name,
+          'Payment Confirmation'
+        );
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -2025,8 +2147,28 @@ app.post('/api/events/:eventId/attendance', async (req, res) => {
   }
 });
 
+app.put('/api/events/:id', async (req, res) => {
+  const { event_name, event_description, event_duration, status, max_participants, zoom_link } = req.body;
+  try {
+    await pool.query(`
+      UPDATE events SET
+        event_name = $1,
+        event_description = $2,
+        event_duration = $3,
+        status = $4,
+        max_participants = $5,
+        zoom_link = $6
+      WHERE id = $7
+    `, [event_name, event_description, event_duration, status, max_participants, zoom_link, req.params.id]);
+    res.json({ success: true, message: 'Event updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/events/:id', async (req, res) => {
   try {
+    await pool.query('DELETE FROM event_registrations WHERE event_id = $1', [req.params.id]);
     await pool.query('DELETE FROM events WHERE id = $1', [req.params.id]);
     res.json({ message: 'Event deleted successfully' });
   } catch (err) {
@@ -2186,7 +2328,23 @@ app.post('/api/parent/send-otp', async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const exp = new Date(Date.now() + 10 * 60 * 1000);
     await pool.query(`INSERT INTO parent_credentials (parent_email, otp, otp_expiry, otp_attempts) VALUES ($1, $2, $3, 0) ON CONFLICT(parent_email) DO UPDATE SET otp = $2, otp_expiry = $3, otp_attempts = 0`, [req.body.email, otp, exp]);
-    res.json({ success: true });
+
+    // Send OTP via email
+    const parentName = students[0].parent_name || 'Parent';
+    const otpEmailHTML = getOTPEmail({ parentName, otp });
+    const emailSent = await sendEmail(
+      req.body.email,
+      `🔐 Your OTP for Fluent Feathers Academy Login`,
+      otpEmailHTML,
+      parentName,
+      'OTP'
+    );
+
+    if (emailSent) {
+      res.json({ success: true, message: 'OTP sent to your email!' });
+    } else {
+      res.json({ success: true, message: 'OTP generated. Check your email.' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2206,9 +2364,40 @@ app.post('/api/parent/verify-otp', async (req, res) => {
   }
 });
 
+// Verify OTP for password reset (doesn't log in, just verifies)
+app.post('/api/parent/verify-reset-otp', async (req, res) => {
+  try {
+    const c = (await pool.query('SELECT otp, otp_expiry FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
+    if (!c) return res.status(404).json({ error: 'Email not found' });
+    if (c.otp !== req.body.otp) return res.status(400).json({ error: 'Invalid OTP' });
+    if (new Date() > new Date(c.otp_expiry)) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+    res.json({ success: true, message: 'OTP verified. You can now set a new password.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reset password after OTP verification
+app.post('/api/parent/reset-password', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await pool.query(`
+      UPDATE parent_credentials SET password = $1, otp = NULL, otp_expiry = NULL
+      WHERE parent_email = $2
+    `, [hashedPassword, email]);
+    res.json({ success: true, message: 'Password reset successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== PAYMENT RENEWALS ====================
 app.post('/api/students/:id/renewal', async (req, res) => {
-  const { amount, currency, sessions_added, payment_method, notes } = req.body;
+  const { amount, currency, sessions_added, payment_method, notes, send_email } = req.body;
   try {
     await pool.query(`
       INSERT INTO payment_renewals (student_id, renewal_date, amount, currency, sessions_added, payment_method, notes)
@@ -2222,6 +2411,30 @@ app.post('/api/students/:id/renewal', async (req, res) => {
         fees_paid = fees_paid + $2
       WHERE id = $3
     `, [sessions_added, amount, req.params.id]);
+
+    // Send renewal confirmation email if requested
+    if (send_email) {
+      const student = await pool.query('SELECT name, parent_name, parent_email FROM students WHERE id = $1', [req.params.id]);
+      if (student.rows[0]) {
+        const emailHTML = getPaymentConfirmationEmail({
+          parentName: student.rows[0].parent_name,
+          studentName: student.rows[0].name,
+          amount: amount,
+          currency: currency,
+          paymentType: 'Renewal',
+          sessionsAdded: sessions_added,
+          paymentMethod: payment_method,
+          receiptNumber: null
+        });
+        await sendEmail(
+          student.rows[0].parent_email,
+          `✅ Renewal Confirmation - Fluent Feathers Academy`,
+          emailHTML,
+          student.rows[0].parent_name,
+          'Renewal Confirmation'
+        );
+      }
+    }
 
     res.json({ success: true, message: 'Renewal added successfully!' });
   } catch (err) {
@@ -2375,6 +2588,28 @@ app.get('/api/students/:id/badges', async (req, res) => {
       [req.params.id]
     );
     res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/students/:id/badges', async (req, res) => {
+  const { badge_type, badge_name, badge_description } = req.body;
+  try {
+    await pool.query(`
+      INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
+      VALUES ($1, $2, $3, $4)
+    `, [req.params.id, badge_type, badge_name, badge_description]);
+    res.json({ success: true, message: 'Badge awarded!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/badges/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM student_badges WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

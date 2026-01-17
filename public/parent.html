@@ -86,8 +86,83 @@
     <div id="loginSection" class="login-section">
       <h1 style="color: #667eea; margin-bottom: 20px;">🔐 Parent Login</h1>
       <form id="emailForm"><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div><button type="submit" class="btn btn-primary">Continue</button></form>
-      <form id="passwordForm" style="display: none;"><div class="form-group"><label>Password *</label><input type="password" id="loginPassword" required></div><button type="submit" class="btn btn-primary">Login</button></form>
-      <form id="otpForm" style="display: none;"><div id="otpSendSection"><button type="button" onclick="sendOTP()" class="btn btn-primary">📧 Send OTP</button></div><div id="otpVerifySection" style="display: none;"><div class="form-group"><label>Enter OTP *</label><input type="text" id="otpCode" required></div><button type="submit" class="btn btn-primary">Verify</button></div></form>
+
+      <!-- First Time User - Create Password -->
+      <div id="firstTimeUserSection" style="display: none; margin-top: 20px;">
+        <div style="background: #e6fffa; border: 2px solid #38b2ac; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="color: #2c7a7b; margin: 0; font-weight: 600;">👋 Welcome! This is your first login.</p>
+          <p style="color: #4a5568; margin: 5px 0 0; font-size: 14px;">Please create a password to access your account.</p>
+        </div>
+        <form id="setupPasswordForm">
+          <div class="form-group"><label>Create Password *</label><input type="password" id="newPassword" required minlength="6" placeholder="At least 6 characters"></div>
+          <div class="form-group"><label>Confirm Password *</label><input type="password" id="confirmPassword" required minlength="6"></div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Create Password & Login</button>
+        </form>
+        <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
+          Or <a href="#" onclick="showOTPLogin(); return false;" style="color: #667eea;">login with OTP</a> instead
+        </p>
+      </div>
+
+      <!-- Existing User - Login Options -->
+      <div id="existingUserSection" style="display: none; margin-top: 20px;">
+        <p style="color: #4a5568; margin-bottom: 15px; text-align: center;">Welcome back! Choose how to login:</p>
+        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+          <button type="button" onclick="showPasswordLogin()" class="btn btn-primary">🔑 Use Password</button>
+          <button type="button" onclick="showOTPLogin()" class="btn" style="background: #38b2ac; color: white;">📧 Use OTP</button>
+        </div>
+      </div>
+
+      <!-- Password Login Form -->
+      <form id="passwordForm" style="display: none; margin-top: 20px;">
+        <div class="form-group"><label>Password *</label><input type="password" id="loginPassword" required></div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+        <div style="margin-top: 15px; text-align: center;">
+          <a href="#" onclick="showForgotPassword(); return false;" style="color: #e53e3e; font-size: 14px;">Forgot Password?</a>
+          <span style="color: #cbd5e0; margin: 0 10px;">|</span>
+          <a href="#" onclick="showOTPLogin(); return false;" style="color: #667eea; font-size: 14px;">Login with OTP</a>
+        </div>
+      </form>
+
+      <!-- Forgot Password Section -->
+      <div id="forgotPasswordSection" style="display: none; margin-top: 20px;">
+        <div style="background: #fef5e7; border: 2px solid #f6ad55; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="color: #c05621; margin: 0; font-weight: 600;">🔄 Reset Your Password</p>
+          <p style="color: #4a5568; margin: 5px 0 0; font-size: 14px;">We'll send an OTP to verify your identity, then you can set a new password.</p>
+        </div>
+        <div id="forgotOtpSendSection">
+          <button type="button" onclick="sendForgotPasswordOTP()" class="btn btn-primary" style="width: 100%;">📧 Send Reset OTP</button>
+        </div>
+        <div id="forgotOtpVerifySection" style="display: none;">
+          <div class="form-group"><label>Enter OTP *</label><input type="text" id="forgotOtpCode" required maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit OTP"></div>
+          <button type="button" onclick="verifyForgotOTP()" class="btn btn-primary" style="width: 100%;">Verify OTP</button>
+        </div>
+        <div id="newPasswordSection" style="display: none;">
+          <div class="form-group"><label>New Password *</label><input type="password" id="resetNewPassword" required minlength="6"></div>
+          <div class="form-group"><label>Confirm New Password *</label><input type="password" id="resetConfirmPassword" required minlength="6"></div>
+          <button type="button" onclick="resetPassword()" class="btn btn-primary" style="width: 100%;">Reset Password & Login</button>
+        </div>
+        <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
+          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #667eea;">← Back to Login</a>
+        </p>
+      </div>
+
+      <!-- OTP Login Form -->
+      <form id="otpForm" style="display: none; margin-top: 20px;">
+        <div id="otpSendSection">
+          <p style="color: #4a5568; margin-bottom: 15px;">We'll send a 6-digit OTP to your email</p>
+          <button type="button" onclick="sendOTP()" class="btn btn-primary" style="width: 100%;">📧 Send OTP</button>
+        </div>
+        <div id="otpVerifySection" style="display: none;">
+          <div class="form-group"><label>Enter OTP *</label><input type="text" id="otpCode" required maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit OTP"></div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Verify OTP</button>
+          <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
+            <a href="#" onclick="sendOTP(); return false;" style="color: #667eea;">Resend OTP</a>
+          </p>
+        </div>
+        <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
+          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #667eea;">← Back to Login Options</a>
+        </p>
+      </form>
     </div>
 
     <!-- DASHBOARD SECTION -->
@@ -317,6 +392,9 @@
       setupLoginHandlers();
     });
 
+    let hasExistingPassword = false;
+    let forgotPasswordOtpVerified = false;
+
     function setupLoginHandlers() {
       document.getElementById('emailForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -325,12 +403,18 @@
           const res = await fetch('/api/parent/check-email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
           const data = await res.json();
           if (!res.ok) {
-            alert(data.error || 'Email not found');
+            alert(data.error || 'Email not found. Please contact your teacher.');
             return;
           }
+          hasExistingPassword = data.hasPassword;
           document.getElementById('emailForm').style.display = 'none';
-          if (data.hasPassword) document.getElementById('passwordForm').style.display = 'block';
-          else document.getElementById('otpForm').style.display = 'block';
+
+          // Show appropriate section based on whether user has password
+          if (hasExistingPassword) {
+            document.getElementById('existingUserSection').style.display = 'block';
+          } else {
+            document.getElementById('firstTimeUserSection').style.display = 'block';
+          }
         } catch (err) { alert('Error checking email'); }
       });
 
@@ -342,8 +426,35 @@
           const res = await fetch('/api/parent/login-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd }) });
           const data = await res.json();
           if (res.ok) handleMultipleStudents(data.students);
-          else alert(data.error);
+          else alert(data.error || 'Invalid password');
         } catch (err) { alert('Login error'); }
+      });
+
+      document.getElementById('setupPasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('parentEmail').value.trim();
+        const pwd = document.getElementById('newPassword').value;
+        const confirmPwd = document.getElementById('confirmPassword').value;
+
+        if (pwd !== confirmPwd) {
+          alert('Passwords do not match!');
+          return;
+        }
+        if (pwd.length < 6) {
+          alert('Password must be at least 6 characters!');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/parent/setup-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd }) });
+          const data = await res.json();
+          if (res.ok) {
+            alert('Password created successfully! Welcome to Fluent Feathers Academy!');
+            handleMultipleStudents(data.students);
+          } else {
+            alert(data.error);
+          }
+        } catch (err) { alert('Error creating password'); }
       });
 
       document.getElementById('otpForm').addEventListener('submit', async (e) => {
@@ -354,9 +465,117 @@
           const res = await fetch('/api/parent/verify-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, otp }) });
           const data = await res.json();
           if (res.ok) handleMultipleStudents(data.students);
-          else alert(data.error);
+          else alert(data.error || 'Invalid OTP');
         } catch (err) { alert('OTP verification error'); }
       });
+    }
+
+    function hideAllLoginForms() {
+      document.getElementById('firstTimeUserSection').style.display = 'none';
+      document.getElementById('existingUserSection').style.display = 'none';
+      document.getElementById('passwordForm').style.display = 'none';
+      document.getElementById('forgotPasswordSection').style.display = 'none';
+      document.getElementById('otpForm').style.display = 'none';
+      document.getElementById('otpSendSection').style.display = 'block';
+      document.getElementById('otpVerifySection').style.display = 'none';
+      document.getElementById('forgotOtpSendSection').style.display = 'block';
+      document.getElementById('forgotOtpVerifySection').style.display = 'none';
+      document.getElementById('newPasswordSection').style.display = 'none';
+    }
+
+    function backToLoginOptions() {
+      hideAllLoginForms();
+      if (hasExistingPassword) {
+        document.getElementById('existingUserSection').style.display = 'block';
+      } else {
+        document.getElementById('firstTimeUserSection').style.display = 'block';
+      }
+    }
+
+    function showPasswordLogin() {
+      hideAllLoginForms();
+      document.getElementById('passwordForm').style.display = 'block';
+    }
+
+    function showOTPLogin() {
+      hideAllLoginForms();
+      document.getElementById('otpForm').style.display = 'block';
+    }
+
+    function showForgotPassword() {
+      hideAllLoginForms();
+      forgotPasswordOtpVerified = false;
+      document.getElementById('forgotPasswordSection').style.display = 'block';
+    }
+
+    async function sendForgotPasswordOTP() {
+      const email = document.getElementById('parentEmail').value.trim();
+      try {
+        const res = await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+        const data = await res.json();
+        if (res.ok) {
+          alert('OTP sent to your email!');
+          document.getElementById('forgotOtpSendSection').style.display = 'none';
+          document.getElementById('forgotOtpVerifySection').style.display = 'block';
+        } else {
+          alert(data.error || 'Error sending OTP');
+        }
+      } catch(e) {
+        alert('Error sending OTP');
+      }
+    }
+
+    async function verifyForgotOTP() {
+      const email = document.getElementById('parentEmail').value.trim();
+      const otp = document.getElementById('forgotOtpCode').value;
+      try {
+        const res = await fetch('/api/parent/verify-reset-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, otp }) });
+        const data = await res.json();
+        if (res.ok) {
+          forgotPasswordOtpVerified = true;
+          document.getElementById('forgotOtpVerifySection').style.display = 'none';
+          document.getElementById('newPasswordSection').style.display = 'block';
+        } else {
+          alert(data.error || 'Invalid OTP');
+        }
+      } catch(e) {
+        alert('Error verifying OTP');
+      }
+    }
+
+    async function resetPassword() {
+      if (!forgotPasswordOtpVerified) {
+        alert('Please verify OTP first');
+        return;
+      }
+
+      const email = document.getElementById('parentEmail').value.trim();
+      const pwd = document.getElementById('resetNewPassword').value;
+      const confirmPwd = document.getElementById('resetConfirmPassword').value;
+
+      if (pwd !== confirmPwd) {
+        alert('Passwords do not match!');
+        return;
+      }
+      if (pwd.length < 6) {
+        alert('Password must be at least 6 characters!');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/parent/reset-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd }) });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Password reset successfully! Please login with your new password.');
+          hideAllLoginForms();
+          document.getElementById('existingUserSection').style.display = 'block';
+          hasExistingPassword = true;
+        } else {
+          alert(data.error || 'Error resetting password');
+        }
+      } catch(e) {
+        alert('Error resetting password');
+      }
     }
 
     function handleMultipleStudents(students) {

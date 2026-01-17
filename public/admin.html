@@ -30,7 +30,7 @@
     .btn-primary:hover { background: #5568d3; }
     .btn-success { background: #38a169; color: white; }
     .btn-success:hover { background: #2f855a; }
-    .btn-warning { background: #f59e0b; color: white; }
+    .btn-warning { background: #ed8936; color: white; }
     .btn-warning:hover { background: #d97706; }
     .btn-danger { background: #e53e3e; color: white; }
     .btn-danger:hover { background: #c53030; }
@@ -64,7 +64,10 @@
         <h1 style="margin: 0; font-size: 28px;">🎓 Fluent Feathers Academy By Aaliya</h1>
         <p style="margin: 5px 0 0; color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
       </div>
-      <button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button>
+      <div style="display: flex; gap: 10px;">
+        <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: #38b2ac; color: white;">👁️ Switch to Learner View</button>
+        <button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button>
+      </div>
     </header>
 
     <div class="stats-grid">
@@ -82,6 +85,7 @@
       <button class="tab-btn" onclick="showTab('schedule', event)">📆 Schedule</button>
       <button class="tab-btn" onclick="showTab('scheduleManager', event)">📋 Manage Schedules</button>
       <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
+      <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
       <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
       <button class="tab-btn" onclick="showTab('announcements', event)">📢 Announcements</button>
       <button class="tab-btn" onclick="showTab('monthlyAssessment', event)">📊 Monthly Assessment</button>
@@ -126,6 +130,7 @@
               <select id="duration" required>
                 <option value="25 mins">25 mins</option>
                 <option value="30 mins">30 mins</option>
+                <option value="40 mins">40 mins</option>
                 <option value="45 mins">45 mins</option>
                 <option value="60 mins">60 mins</option>
               </select>
@@ -176,7 +181,9 @@
         <div class="form-row">
             <div class="form-group"><label>Duration *</label>
                 <select id="groupDuration" required>
+                    <option value="25 mins">25 mins</option>
                     <option value="30 mins">30 mins</option>
+                    <option value="40 mins">40 mins</option>
                     <option value="45 mins">45 mins</option>
                     <option value="60 mins">60 mins</option>
                 </select>
@@ -231,7 +238,7 @@
     </div>
 
     <div id="pastTab" class="tab-content">
-      <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date (IST)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="eventsTab" class="tab-content">
@@ -240,7 +247,9 @@
           <div class="form-group"><label>Event Name *</label><input type="text" id="eventName" required></div>
           <div class="form-group"><label>Event Duration *</label>
             <select id="eventDuration" required>
+              <option value="25 mins">25 mins</option>
               <option value="30 mins">30 mins</option>
+              <option value="40 mins">40 mins</option>
               <option value="45 mins">45 mins</option>
               <option value="60 mins">60 mins</option>
               <option value="90 mins">90 mins</option>
@@ -257,7 +266,7 @@
         </div>
         <button type="submit" class="btn btn-primary">Create Event</button>
       </form></div>
-      <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date</th><th>Time</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date (IST)</th><th>Time (IST)</th><th>Duration</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
     </div>
 
     <div id="emailsTab" class="tab-content"><div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
@@ -420,6 +429,154 @@
         </table>
       </div>
     </div>
+
+    <!-- Payments Tab -->
+    <div id="paymentsTab" class="tab-content">
+      <div class="section">
+        <h2>💳 Payment Management</h2>
+        <div class="form-row">
+          <div class="form-group"><label>Select Student</label>
+            <select id="paymentStudent" onchange="loadStudentPaymentDetails()">
+              <option value="">Select Student...</option>
+            </select>
+          </div>
+        </div>
+        <div id="paymentStudentDetails" style="display: none; margin-top: 20px;">
+          <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #667eea; margin-bottom: 15px;">Student Payment Summary</h3>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+              <div><strong>Name:</strong> <span id="payStudentName">-</span></div>
+              <div><strong>Total Sessions:</strong> <span id="payTotalSessions">-</span></div>
+              <div><strong>Remaining:</strong> <span id="payRemainingSessions" style="color: #e53e3e;">-</span></div>
+              <div><strong>Total Paid:</strong> <span id="payTotalPaid" style="color: #38a169;">-</span></div>
+            </div>
+          </div>
+
+          <!-- Add First Payment Form -->
+          <div class="section" style="background: #e6fffa; border: 2px solid #38b2ac;">
+            <h3 style="color: #2c7a7b; margin-bottom: 15px;">💰 Record First Payment</h3>
+            <form id="firstPaymentForm">
+              <div class="form-row">
+                <div class="form-group"><label>Amount *</label><input type="number" id="firstPaymentAmount" step="0.01" required></div>
+                <div class="form-group"><label>Currency</label><select id="firstPaymentCurrency"><option value="INR">INR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="EUR">EUR</option><option value="AED">AED</option></select></div>
+                <div class="form-group"><label>Sessions Covered</label><input type="number" id="firstPaymentSessions"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label>Payment Method</label>
+                  <select id="firstPaymentMethod">
+                    <option value="UPI">UPI</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="PayPal">PayPal</option>
+                    <option value="Card">Card</option>
+                    <option value="Cash">Cash</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Receipt Number</label><input type="text" id="firstPaymentReceipt"></div>
+              </div>
+              <div class="form-group"><label>Notes</label><textarea id="firstPaymentNotes" rows="2"></textarea></div>
+              <div class="form-row" style="align-items: center; gap: 20px;">
+                <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+                  <input type="checkbox" id="sendFirstPaymentEmail" style="width: auto; margin: 0;">
+                  <label style="margin: 0;">Send Payment Confirmation Email</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Record Payment</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Add Renewal Payment Form -->
+          <div class="section" style="background: #fef5e7; border: 2px solid #f6ad55;">
+            <h3 style="color: #c05621; margin-bottom: 15px;">🔄 Record Renewal Payment</h3>
+            <form id="renewalPaymentForm">
+              <div class="form-row">
+                <div class="form-group"><label>Amount *</label><input type="number" id="renewalPaymentAmount" step="0.01" required></div>
+                <div class="form-group"><label>Sessions to Add *</label><input type="number" id="renewalPaymentSessions" required></div>
+                <div class="form-group"><label>Currency</label><select id="renewalPaymentCurrency"><option value="INR">INR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="EUR">EUR</option><option value="AED">AED</option></select></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label>Payment Method</label>
+                  <select id="renewalPaymentMethod">
+                    <option value="UPI">UPI</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="PayPal">PayPal</option>
+                    <option value="Card">Card</option>
+                    <option value="Cash">Cash</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Notes</label><input type="text" id="renewalPaymentNotes"></div>
+              </div>
+              <div class="form-row" style="align-items: center; gap: 20px;">
+                <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+                  <input type="checkbox" id="sendRenewalPaymentEmail" style="width: auto; margin: 0;">
+                  <label style="margin: 0;">Send Payment Confirmation Email</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Record Renewal</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Payment History Table -->
+          <div class="section">
+            <h3 style="color: #667eea; margin-bottom: 15px;">📋 Payment History</h3>
+            <table id="paymentHistoryTable">
+              <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th><th>Notes</th></tr></thead>
+              <tbody id="paymentHistoryBody"><tr><td colspan="6" style="text-align: center; color: #718096;">Select a student to view payment history</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Switch to Learner View Modal -->
+  <div id="switchToLearnerModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 style="color: #38b2ac;">👁️ Switch to Learner View</h2>
+        <button onclick="closeSwitchToLearnerModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <p style="color: #4a5568; margin-bottom: 20px;">Select a student to view their parent portal as admin (no password required):</p>
+      <div class="form-group">
+        <label>Select Student</label>
+        <select id="learnerViewStudent">
+          <option value="">Select Student...</option>
+        </select>
+      </div>
+      <button onclick="switchToLearnerView()" class="btn btn-primary" style="width: 100%;">🚀 Open Parent Portal</button>
+    </div>
+  </div>
+
+  <!-- Event View/Edit Modal -->
+  <div id="eventModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2 id="eventModalTitle" style="color: #667eea;">Event Details</h2>
+        <button onclick="closeEventModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <div id="eventModalContent">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Event Attendance Modal -->
+  <div id="eventAttendanceModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h2 id="eventAttendanceTitle" style="color: #38a169;">Mark Event Attendance</h2>
+        <button onclick="closeEventAttendanceModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <div id="eventAttendanceContent">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Event Registrations Modal -->
+  <div id="eventRegistrationsModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h2 id="eventRegistrationsTitle" style="color: #9f7aea;">Event Registrations</h2>
+        <button onclick="closeEventRegistrationsModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <div id="eventRegistrationsContent">Loading...</div>
+    </div>
   </div>
 
   <!-- Complete Student Modal with ALL tabs -->
@@ -488,7 +645,7 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>Program Name *</label><input type="text" id="editProgramName" required></div>
-          <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="30 mins">30 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
+          <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Currency *</label><select id="editCurrency" required><option value="USD">USD</option><option value="INR">INR</option><option value="GBP">GBP</option></select></div>
@@ -510,7 +667,7 @@
           <div class="form-group"><label>Program Name *</label><input type="text" id="editGroupProgram" required></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Duration *</label><select id="editGroupDuration" required><option value="30 mins">30 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
+          <div class="form-group"><label>Duration *</label><select id="editGroupDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
           <div class="form-group"><label>Timezone *</label><select id="editGroupTimezone" required><option value="Asia/Kolkata">India (IST)</option><option value="America/New_York">USA (EST)</option></select></div>
           <div class="form-group"><label>Max Students *</label><input type="number" id="editGroupMaxStudents" required></div>
         </div>
@@ -564,7 +721,8 @@
       if(tabName === 'badges') loadBadges();
     }
 
-    function formatSessionTime(session) {
+    // Admin always sees IST timezone
+    function formatSessionTime(session, forceIST = true) {
       try {
         if (!session.session_date || !session.session_time) return 'Invalid Date';
         const dateStr = session.session_date.includes('T') ? session.session_date.split('T')[0] : session.session_date;
@@ -573,8 +731,9 @@
         const isoString = `${dateStr}T${timeStr}Z`;
         const d = new Date(isoString);
         if (isNaN(d.getTime())) return 'Invalid Date';
+        // Admin dashboard always shows IST
         return d.toLocaleString('en-US', {
-          timeZone: session.timezone || 'Asia/Kolkata',
+          timeZone: 'Asia/Kolkata',
           month: 'short',
           day: 'numeric',
           hour: 'numeric',
@@ -605,7 +764,16 @@
         const classes = await res.json();
         const grid = document.getElementById('upcomingClassesGrid');
         if (classes.length === 0) return grid.innerHTML = '<p>No upcoming classes</p>';
-        grid.innerHTML = classes.map(cls => `<div class="class-card"><h3>${cls.student_name}</h3><p>📚 ${cls.class_info || 'N/A'}</p><p>📅 ${formatSessionTime(cls)}</p><p>🌍 ${cls.timezone}</p><a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#667eea; text-decoration:none; margin-top:10px; display:inline-block;">🎥 Join</a></div>`).join('');
+        grid.innerHTML = classes.map(cls => `<div class="class-card">
+          <h3>${cls.student_name}</h3>
+          <p>📚 ${cls.class_info || 'N/A'}</p>
+          <p>📅 ${formatSessionTime(cls)} (IST)</p>
+          <p>🌍 Student TZ: ${cls.timezone}</p>
+          <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+            <a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#667eea; text-decoration:none;">🎥 Join</a>
+            <button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
+          </div>
+        </div>`).join('');
       } catch (err) {
         console.error(err);
       }
@@ -866,7 +1034,22 @@
         const tbody = document.getElementById('pastSessionsBody');
         tbody.innerHTML = sessions.map(s => {
           const isPending = s.status === 'Pending' || s.status === 'Scheduled';
-          return `<tr><td>${formatSessionTime(s)}</td><td><strong>${s.student_name}</strong></td><td>${s.session_type}</td><td>#${s.session_number}</td><td>${isPending ? `<button onclick="markSessionAttendance(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">Mark</button>` : `<span>${s.status}</span>`}</td><td>${s.ppt_file_path ? '📊' : ''} ${s.recording_file_path ? '🎥' : ''}</td><td><button onclick="viewFeedback(${s.id})" class="btn btn-sm" style="background:#fbbf24; color:white;">⭐ View</button></td><td><button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">View</button></td></tr>`;
+          const attendanceBtn = isPending ?
+            `<button onclick="markSessionAttendance(${s.id}, '${s.session_type}')" class="btn btn-sm btn-success">Mark Attendance</button>` :
+            `<span style="background: ${s.status === 'Present' ? '#38a169' : s.status === 'Absent' ? '#e53e3e' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.status}</span>`;
+          const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
+          return `<tr>
+            <td>${formatSessionTime(s)}</td>
+            <td><strong>${s.student_name}</strong></td>
+            <td><span style="background: ${s.session_type === 'Private' ? '#667eea' : '#9f7aea'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.session_type}</span></td>
+            <td>#${s.session_number}</td>
+            <td>${attendanceBtn}</td>
+            <td>${materials || '-'}</td>
+            <td><button onclick="viewFeedback(${s.id})" class="btn btn-sm" style="background:#fbbf24; color:white;">⭐</button></td>
+            <td>
+              <button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">Manage</button>
+            </td>
+          </tr>`;
         }).join('');
       } catch(err) {
         console.error(err);
@@ -1189,7 +1372,25 @@
     function loadEvents() {
       fetch('/api/events')
         .then(r=>r.json())
-        .then(ev=>document.getElementById('eventsBody').innerHTML=ev.map(e=>`<tr><td>${e.event_name}</td><td>${e.event_date}</td><td>${e.event_time}</td><td>${e.registered_count||0}${e.max_participants ? '/' + e.max_participants : ''}</td><td>${e.status}</td><td><button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join(''))
+        .then(ev=>document.getElementById('eventsBody').innerHTML=ev.map(e=>{
+          // Format date and time to IST
+          const eventDateTime = formatSessionTime({ session_date: e.event_date, session_time: e.event_time });
+          return `<tr>
+            <td><strong>${e.event_name}</strong></td>
+            <td>${eventDateTime.split(',')[0] || e.event_date}</td>
+            <td>${eventDateTime.split(',')[1] || e.event_time}</td>
+            <td>${e.event_duration || '-'}</td>
+            <td>${e.registered_count||0}${e.max_participants ? '/' + e.max_participants : ''}</td>
+            <td><span style="background: ${e.status === 'Active' ? '#38a169' : '#e53e3e'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${e.status}</span></td>
+            <td>
+              <button onclick="viewEvent(${e.id})" class="btn btn-sm" style="background:#4299e1; color:white;">View</button>
+              <button onclick="editEvent(${e.id})" class="btn btn-sm btn-warning">Edit</button>
+              <button onclick="markEventAttendance(${e.id}, '${e.event_name}')" class="btn btn-sm btn-success">Attendance</button>
+              <button onclick="viewEventRegistrations(${e.id}, '${e.event_name}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Registrations</button>
+              <button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-danger">Delete</button>
+            </td>
+          </tr>`;
+        }).join(''))
         .catch(err => console.error(err));
     }
 
@@ -1741,7 +1942,433 @@
         loadAssessments();
         loadAssessmentStudents();
       }
+      if (name === 'payments') {
+        loadPaymentStudentDropdown();
+      }
+      if (name === 'events') {
+        loadEvents();
+      }
     };
+
+    // ==================== SWITCH TO LEARNER VIEW ====================
+    function openSwitchToLearnerModal() {
+      const select = document.getElementById('learnerViewStudent');
+      select.innerHTML = '<option value="">Select Student...</option>' +
+        allStudents.map(s => `<option value="${s.id}">${s.name} (${s.grade}) - ${s.parent_email}</option>`).join('');
+      document.getElementById('switchToLearnerModal').classList.add('active');
+    }
+
+    function closeSwitchToLearnerModal() {
+      document.getElementById('switchToLearnerModal').classList.remove('active');
+    }
+
+    async function switchToLearnerView() {
+      const studentId = document.getElementById('learnerViewStudent').value;
+      if (!studentId) {
+        alert('Please select a student');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/admin/parent-view-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_id: studentId })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.token) {
+          // Store the admin token and open parent portal
+          sessionStorage.setItem('adminParentToken', data.token);
+          window.open('parent.html', '_blank');
+          closeSwitchToLearnerModal();
+        } else {
+          alert('Failed to generate access token');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // ==================== PAYMENTS MANAGEMENT ====================
+    let selectedPaymentStudentId = null;
+
+    function loadPaymentStudentDropdown() {
+      const select = document.getElementById('paymentStudent');
+      select.innerHTML = '<option value="">Select Student...</option>' +
+        allStudents.map(s => `<option value="${s.id}">${s.name} (${s.grade})</option>`).join('');
+    }
+
+    async function loadStudentPaymentDetails() {
+      const studentId = document.getElementById('paymentStudent').value;
+      if (!studentId) {
+        document.getElementById('paymentStudentDetails').style.display = 'none';
+        return;
+      }
+
+      selectedPaymentStudentId = studentId;
+      const student = allStudents.find(s => s.id == studentId);
+
+      if (student) {
+        document.getElementById('payStudentName').textContent = student.name;
+        document.getElementById('payTotalSessions').textContent = student.total_sessions;
+        document.getElementById('payRemainingSessions').textContent = student.remaining_sessions;
+        document.getElementById('payTotalPaid').textContent = `${student.currency} ${student.fees_paid || 0}`;
+        document.getElementById('firstPaymentCurrency').value = student.currency || 'INR';
+        document.getElementById('renewalPaymentCurrency').value = student.currency || 'INR';
+        document.getElementById('paymentStudentDetails').style.display = 'block';
+
+        // Load payment history
+        await loadPaymentHistory(studentId);
+      }
+    }
+
+    async function loadPaymentHistory(studentId) {
+      try {
+        const res = await fetch(`/api/students/${studentId}/payments`);
+        const data = await res.json();
+        const tbody = document.getElementById('paymentHistoryBody');
+
+        const allPayments = [];
+
+        // Add initial payments
+        if (data.payments) {
+          data.payments.forEach(p => {
+            allPayments.push({
+              date: p.payment_date,
+              type: 'Initial',
+              amount: `${p.currency} ${p.amount}`,
+              sessions: p.sessions_covered || '-',
+              method: p.payment_method || '-',
+              notes: p.notes || '-'
+            });
+          });
+        }
+
+        // Add renewals
+        if (data.renewals) {
+          data.renewals.forEach(r => {
+            allPayments.push({
+              date: r.renewal_date,
+              type: 'Renewal',
+              amount: `${r.currency} ${r.amount}`,
+              sessions: `+${r.sessions_added}`,
+              method: r.payment_method || '-',
+              notes: r.notes || '-'
+            });
+          });
+        }
+
+        // Sort by date descending
+        allPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (allPayments.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #718096;">No payment records yet</td></tr>';
+        } else {
+          tbody.innerHTML = allPayments.map(p => `
+            <tr>
+              <td>${new Date(p.date).toLocaleDateString()}</td>
+              <td><span style="background: ${p.type === 'Initial' ? '#38b2ac' : '#f6ad55'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${p.type}</span></td>
+              <td><strong>${p.amount}</strong></td>
+              <td>${p.sessions}</td>
+              <td>${p.method}</td>
+              <td>${p.notes}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('paymentHistoryBody').innerHTML = '<tr><td colspan="6" style="color: #e53e3e;">Error loading payment history</td></tr>';
+      }
+    }
+
+    // First Payment Form
+    document.getElementById('firstPaymentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!selectedPaymentStudentId) return alert('No student selected');
+
+      const data = {
+        amount: parseFloat(document.getElementById('firstPaymentAmount').value),
+        currency: document.getElementById('firstPaymentCurrency').value,
+        sessions_covered: document.getElementById('firstPaymentSessions').value || null,
+        payment_method: document.getElementById('firstPaymentMethod').value,
+        receipt_number: document.getElementById('firstPaymentReceipt').value,
+        notes: document.getElementById('firstPaymentNotes').value,
+        send_email: document.getElementById('sendFirstPaymentEmail').checked
+      };
+
+      try {
+        const res = await fetch(`/api/students/${selectedPaymentStudentId}/payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('✅ Payment recorded successfully!');
+          e.target.reset();
+          await loadStudents();
+          await loadStudentPaymentDetails();
+        } else {
+          const err = await res.json();
+          alert('❌ Failed: ' + err.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    // Renewal Payment Form
+    document.getElementById('renewalPaymentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!selectedPaymentStudentId) return alert('No student selected');
+
+      const data = {
+        amount: parseFloat(document.getElementById('renewalPaymentAmount').value),
+        sessions_added: parseInt(document.getElementById('renewalPaymentSessions').value),
+        currency: document.getElementById('renewalPaymentCurrency').value,
+        payment_method: document.getElementById('renewalPaymentMethod').value,
+        notes: document.getElementById('renewalPaymentNotes').value,
+        send_email: document.getElementById('sendRenewalPaymentEmail').checked
+      };
+
+      try {
+        const res = await fetch(`/api/students/${selectedPaymentStudentId}/renewal`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('✅ Renewal recorded successfully!');
+          e.target.reset();
+          await loadStudents();
+          await loadStudentPaymentDetails();
+        } else {
+          const err = await res.json();
+          alert('❌ Failed: ' + err.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    // ==================== EVENT MANAGEMENT ====================
+    let currentEventId = null;
+
+    async function viewEvent(eventId) {
+      try {
+        const res = await fetch(`/api/events/${eventId}`);
+        const event = await res.json();
+        currentEventId = eventId;
+
+        const eventDate = formatSessionTime({ session_date: event.event_date, session_time: event.event_time });
+
+        document.getElementById('eventModalTitle').textContent = `📋 ${event.event_name}`;
+        document.getElementById('eventModalContent').innerHTML = `
+          <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <div><strong>Event Name:</strong> ${event.event_name}</div>
+              <div><strong>Status:</strong> <span style="color: ${event.status === 'Active' ? '#38a169' : '#e53e3e'};">${event.status}</span></div>
+              <div><strong>Date & Time (IST):</strong> ${eventDate}</div>
+              <div><strong>Duration:</strong> ${event.event_duration || 'N/A'}</div>
+              <div><strong>Target Audience:</strong> ${event.target_audience || 'All'}</div>
+              <div><strong>Max Participants:</strong> ${event.max_participants || 'Unlimited'}</div>
+              <div><strong>Current Registrations:</strong> ${event.current_participants || 0}</div>
+              <div><strong>Zoom Link:</strong> <a href="${event.zoom_link}" target="_blank" style="color: #667eea;">Open</a></div>
+            </div>
+            ${event.event_description ? `<div style="margin-top: 15px;"><strong>Description:</strong><p style="margin-top: 5px; color: #4a5568;">${event.event_description}</p></div>` : ''}
+          </div>
+        `;
+        document.getElementById('eventModal').classList.add('active');
+      } catch (err) {
+        alert('Error loading event: ' + err.message);
+      }
+    }
+
+    function closeEventModal() {
+      document.getElementById('eventModal').classList.remove('active');
+    }
+
+    async function editEvent(eventId) {
+      try {
+        const res = await fetch(`/api/events/${eventId}`);
+        const event = await res.json();
+        currentEventId = eventId;
+
+        document.getElementById('eventModalTitle').textContent = `✏️ Edit Event`;
+        document.getElementById('eventModalContent').innerHTML = `
+          <form id="editEventForm">
+            <div class="form-row">
+              <div class="form-group"><label>Event Name *</label><input type="text" id="editEventName" value="${event.event_name}" required></div>
+              <div class="form-group"><label>Duration</label>
+                <select id="editEventDuration">
+                  <option value="25 mins" ${event.event_duration === '25 mins' ? 'selected' : ''}>25 mins</option>
+                  <option value="30 mins" ${event.event_duration === '30 mins' ? 'selected' : ''}>30 mins</option>
+                  <option value="40 mins" ${event.event_duration === '40 mins' ? 'selected' : ''}>40 mins</option>
+                  <option value="45 mins" ${event.event_duration === '45 mins' ? 'selected' : ''}>45 mins</option>
+                  <option value="60 mins" ${event.event_duration === '60 mins' ? 'selected' : ''}>60 mins</option>
+                  <option value="90 mins" ${event.event_duration === '90 mins' ? 'selected' : ''}>90 mins</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group"><label>Description</label><textarea id="editEventDescription" rows="3">${event.event_description || ''}</textarea></div>
+            <div class="form-row">
+              <div class="form-group"><label>Status</label>
+                <select id="editEventStatus">
+                  <option value="Active" ${event.status === 'Active' ? 'selected' : ''}>Active</option>
+                  <option value="Cancelled" ${event.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                  <option value="Completed" ${event.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Max Participants</label><input type="number" id="editEventMaxParticipants" value="${event.max_participants || ''}"></div>
+            </div>
+            <div class="form-group"><label>Zoom Link</label><input type="text" id="editEventZoomLink" value="${event.zoom_link || ''}"></div>
+            <button type="submit" class="btn btn-primary">Update Event</button>
+          </form>
+        `;
+
+        document.getElementById('editEventForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          await updateEvent(eventId);
+        });
+
+        document.getElementById('eventModal').classList.add('active');
+      } catch (err) {
+        alert('Error loading event: ' + err.message);
+      }
+    }
+
+    async function updateEvent(eventId) {
+      const data = {
+        event_name: document.getElementById('editEventName').value,
+        event_description: document.getElementById('editEventDescription').value,
+        event_duration: document.getElementById('editEventDuration').value,
+        status: document.getElementById('editEventStatus').value,
+        max_participants: document.getElementById('editEventMaxParticipants').value || null,
+        zoom_link: document.getElementById('editEventZoomLink').value
+      };
+
+      try {
+        const res = await fetch(`/api/events/${eventId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('✅ Event updated successfully!');
+          closeEventModal();
+          loadEvents();
+        } else {
+          const err = await res.json();
+          alert('❌ Failed: ' + err.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function viewEventRegistrations(eventId, eventName) {
+      try {
+        const res = await fetch(`/api/events/${eventId}/registrations`);
+        const registrations = await res.json();
+
+        document.getElementById('eventRegistrationsTitle').textContent = `👥 ${eventName} - Registrations`;
+
+        if (registrations.length === 0) {
+          document.getElementById('eventRegistrationsContent').innerHTML = '<p style="text-align: center; color: #718096; padding: 40px;">No registrations yet</p>';
+        } else {
+          document.getElementById('eventRegistrationsContent').innerHTML = `
+            <p style="margin-bottom: 15px; color: #4a5568;"><strong>Total Registered:</strong> ${registrations.length}</p>
+            <table>
+              <thead><tr><th>Student Name</th><th>Grade</th><th>Parent Name</th><th>Parent Email</th><th>Registered At</th><th>Attendance</th></tr></thead>
+              <tbody>
+                ${registrations.map(r => `
+                  <tr>
+                    <td><strong>${r.student_name}</strong></td>
+                    <td>${r.grade}</td>
+                    <td>${r.parent_name}</td>
+                    <td>${r.parent_email}</td>
+                    <td>${new Date(r.registered_at).toLocaleDateString()}</td>
+                    <td><span style="background: ${r.attendance === 'Present' ? '#38a169' : r.attendance === 'Absent' ? '#e53e3e' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${r.attendance || 'Pending'}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+        document.getElementById('eventRegistrationsModal').classList.add('active');
+      } catch (err) {
+        alert('Error loading registrations: ' + err.message);
+      }
+    }
+
+    function closeEventRegistrationsModal() {
+      document.getElementById('eventRegistrationsModal').classList.remove('active');
+    }
+
+    async function markEventAttendance(eventId, eventName) {
+      try {
+        const res = await fetch(`/api/events/${eventId}/registrations`);
+        const registrations = await res.json();
+        currentEventId = eventId;
+
+        document.getElementById('eventAttendanceTitle').textContent = `✅ ${eventName} - Mark Attendance`;
+
+        if (registrations.length === 0) {
+          document.getElementById('eventAttendanceContent').innerHTML = '<p style="text-align: center; color: #718096; padding: 40px;">No registrations to mark attendance</p>';
+        } else {
+          document.getElementById('eventAttendanceContent').innerHTML = `
+            <p style="margin-bottom: 15px; color: #4a5568;">Mark attendance for registered students:</p>
+            <table>
+              <thead><tr><th>Student Name</th><th>Grade</th><th>Current Status</th><th>Mark Attendance</th></tr></thead>
+              <tbody>
+                ${registrations.map(r => `
+                  <tr>
+                    <td><strong>${r.student_name}</strong></td>
+                    <td>${r.grade}</td>
+                    <td><span style="background: ${r.attendance === 'Present' ? '#38a169' : r.attendance === 'Absent' ? '#e53e3e' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${r.attendance || 'Pending'}</span></td>
+                    <td>
+                      <button onclick="saveEventAttendance(${eventId}, ${r.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>
+                      <button onclick="saveEventAttendance(${eventId}, ${r.student_id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+        document.getElementById('eventAttendanceModal').classList.add('active');
+      } catch (err) {
+        alert('Error loading attendance: ' + err.message);
+      }
+    }
+
+    function closeEventAttendanceModal() {
+      document.getElementById('eventAttendanceModal').classList.remove('active');
+    }
+
+    async function saveEventAttendance(eventId, studentId, status) {
+      try {
+        const res = await fetch(`/api/events/${eventId}/attendance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance: status }] })
+        });
+
+        if (res.ok) {
+          alert('✅ Attendance marked!');
+          // Refresh the modal
+          const event = await (await fetch(`/api/events/${eventId}`)).json();
+          markEventAttendance(eventId, event.event_name);
+        } else {
+          alert('❌ Failed to mark attendance');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
   </script>
 
   <!-- Footer -->
