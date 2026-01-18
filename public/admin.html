@@ -7,16 +7,41 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
-    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-    header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-    header h1 { color: #B05D9E; font-size: 28px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 30px; }
-    .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid #B05D9E; }
-    .stat-card h3 { color: #718096; font-size: 0.9rem; margin-bottom: 10px; }
-    .stat-card .value { font-size: 2rem; font-weight: bold; color: #2d3748; }
-    .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+
+    /* Sidebar Layout */
+    .app-layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: linear-gradient(180deg, #B05D9E 0%, #8B4789 100%); color: white; position: fixed; height: 100vh; overflow-y: auto; padding: 20px 0; }
+    .sidebar-header { padding: 10px 20px 25px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
+    .sidebar-header h2 { font-size: 18px; margin-bottom: 5px; }
+    .sidebar-header p { font-size: 11px; opacity: 0.8; }
+    .sidebar-nav { padding: 0 10px; }
+    .nav-btn { width: 100%; padding: 12px 15px; background: transparent; border: none; color: white; text-align: left; cursor: pointer; font-size: 14px; font-weight: 500; border-radius: 8px; margin-bottom: 4px; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
+    .nav-btn:hover { background: rgba(255,255,255,0.15); }
+    .nav-btn.active { background: rgba(255,255,255,0.25); font-weight: 600; }
+    .sidebar-footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-footer button { width: 100%; margin-bottom: 8px; }
+
+    .main-content { margin-left: 240px; flex: 1; padding: 20px 30px; }
+    header { background: white; padding: 15px 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { color: #B05D9E; font-size: 24px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 4px solid #B05D9E; }
+    .stat-card h3 { color: #718096; font-size: 0.85rem; margin-bottom: 8px; }
+    .stat-card .value { font-size: 1.8rem; font-weight: bold; color: #2d3748; }
+
+    /* Hide old tabs - now using sidebar */
+    .tabs { display: none; }
     .tab-btn { padding: 12px 24px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .tab-btn.active { background: #B05D9E; color: white; border-color: #B05D9E; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar { width: 60px; }
+      .sidebar-header h2, .sidebar-header p, .nav-btn span { display: none; }
+      .nav-btn { justify-content: center; padding: 12px; }
+      .sidebar-footer { display: none; }
+      .main-content { margin-left: 60px; }
+    }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
@@ -58,42 +83,67 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1 style="margin: 0; font-size: 28px;">🎓 Fluent Feathers Academy By Aaliya</h1>
-        <p style="margin: 5px 0 0; color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🎓 Fluent Feathers</h2>
+        <p>Admin Dashboard</p>
       </div>
-      <div style="display: flex; gap: 10px;">
-        <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: #38b2ac; color: white;">👁️ Switch to Learner View</button>
-        <button onclick="location.href='index.html'" class="btn btn-danger btn-sm">Logout</button>
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" onclick="showTab('upcoming', event)">📅 <span>Upcoming</span></button>
+        <button class="nav-btn" onclick="showTab('students', event)">👥 <span>Students</span></button>
+        <button class="nav-btn" onclick="showTab('groups', event)">👨‍👩‍👧 <span>Groups</span></button>
+        <button class="nav-btn" onclick="showTab('schedule', event)">📆 <span>Schedule</span></button>
+        <button class="nav-btn" onclick="showTab('scheduleManager', event)">📋 <span>Manage Schedules</span></button>
+        <button class="nav-btn" onclick="showTab('past', event)">📚 <span>Past Classes</span></button>
+        <button class="nav-btn" onclick="showTab('homework', event)">📝 <span>Homework</span></button>
+        <button class="nav-btn" onclick="showTab('payments', event)">💳 <span>Payments</span></button>
+        <button class="nav-btn" onclick="showTab('events', event)">🎉 <span>Events</span></button>
+        <button class="nav-btn" onclick="showTab('announcements', event)">📢 <span>Announcements</span></button>
+        <button class="nav-btn" onclick="showTab('monthlyAssessment', event)">📊 <span>Assessment</span></button>
+        <button class="nav-btn" onclick="showTab('classRatings', event)">⭐ <span>Class Ratings</span></button>
+        <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: rgba(255,255,255,0.2); color: white; font-size: 12px;">👁️ Learner View</button>
+        <button onclick="location.href='index.html'" class="btn btn-sm" style="background: rgba(255,255,255,0.1); color: white; font-size: 12px;">Logout</button>
       </div>
-    </header>
+    </aside>
 
-    <div class="stats-grid">
-      <div class="stat-card"><h3>Total Students</h3><div class="value" id="totalStudents">0</div></div>
-      <div class="stat-card"><h3>Upcoming Sessions</h3><div class="value" id="upcomingSessions">0</div></div>
-      <div class="stat-card" onclick="toggleRevenue()" style="cursor: pointer;"><h3>Total Revenue <span style="font-size: 0.7rem; color: #718096;">(click to show)</span></h3><div class="value" id="totalRevenue">*****</div></div>
-      <div class="stat-card"><h3>Total Groups</h3><div class="value" id="totalGroups">0</div></div>
-      <div class="stat-card"><h3>Active Events</h3><div class="value" id="activeEvents">0</div></div>
-    </div>
+    <!-- Main Content -->
+    <main class="main-content">
+      <header>
+        <h1>🎓 Fluent Feathers Academy By Aaliya</h1>
+        <p style="color: #718096; font-size: 13px;">Empowering Young Minds Through Language & Communication</p>
+      </header>
 
-    <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
-      <button class="tab-btn" onclick="showTab('students', event)">👥 Students</button>
-      <button class="tab-btn" onclick="showTab('groups', event)">👨‍👩‍👧 Groups</button>
-      <button class="tab-btn" onclick="showTab('schedule', event)">📆 Schedule</button>
-      <button class="tab-btn" onclick="showTab('scheduleManager', event)">📋 Manage Schedules</button>
-      <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
-      <button class="tab-btn" onclick="showTab('homework', event)">📝 Homework</button>
-      <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
-      <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
-      <button class="tab-btn" onclick="showTab('announcements', event)">📢 Announcements</button>
-      <button class="tab-btn" onclick="showTab('monthlyAssessment', event)">📊 Monthly Assessment</button>
-      <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
-    </div>
+      <div class="stats-grid">
+        <div class="stat-card"><h3>Total Students</h3><div class="value" id="totalStudents">0</div></div>
+        <div class="stat-card"><h3>Upcoming Sessions</h3><div class="value" id="upcomingSessions">0</div></div>
+        <div class="stat-card" onclick="toggleRevenue()" style="cursor: pointer;"><h3>Total Revenue <span style="font-size: 0.7rem; color: #718096;">(click)</span></h3><div class="value" id="totalRevenue">*****</div></div>
+        <div class="stat-card"><h3>Total Groups</h3><div class="value" id="totalGroups">0</div></div>
+        <div class="stat-card"><h3>Active Events</h3><div class="value" id="activeEvents">0</div></div>
+      </div>
 
-    <div id="upcomingTab" class="tab-content active">
+      <!-- Old tabs hidden, kept for JS compatibility -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
+        <button class="tab-btn" onclick="showTab('students', event)">👥 Students</button>
+        <button class="tab-btn" onclick="showTab('groups', event)">👨‍👩‍👧 Groups</button>
+        <button class="tab-btn" onclick="showTab('schedule', event)">📆 Schedule</button>
+        <button class="tab-btn" onclick="showTab('scheduleManager', event)">📋 Manage Schedules</button>
+        <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
+        <button class="tab-btn" onclick="showTab('homework', event)">📝 Homework</button>
+        <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
+        <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
+        <button class="tab-btn" onclick="showTab('announcements', event)">📢 Announcements</button>
+        <button class="tab-btn" onclick="showTab('monthlyAssessment', event)">📊 Monthly Assessment</button>
+        <button class="tab-btn" onclick="showTab('classRatings', event)">⭐ Class Ratings</button>
+        <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
+      </div>
+
+      <div id="upcomingTab" class="tab-content active">
       <div class="section"><h2>📅 Upcoming Classes</h2><div id="upcomingClassesGrid" class="upcoming-classes-grid"><p>Loading...</p></div></div>
     </div>
 
@@ -297,6 +347,56 @@
         <button type="submit" class="btn btn-primary">Create Event</button>
       </form></div>
       <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date (IST)</th><th>Time (IST)</th><th>Duration</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
+    </div>
+
+    <!-- Class Ratings Tab -->
+    <div id="classRatingsTab" class="tab-content">
+      <div class="section">
+        <h2>⭐ Class Ratings & Feedback</h2>
+        <p style="color: #718096; margin-bottom: 20px;">View feedback and ratings submitted by parents after attending classes.</p>
+
+        <div style="margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+          <div>
+            <label style="font-weight: 600; margin-right: 8px;">Filter by Student:</label>
+            <select id="ratingsStudentFilter" onchange="loadClassRatings()" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;">
+              <option value="">All Students</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-weight: 600; margin-right: 8px;">Filter by Rating:</label>
+            <select id="ratingsRatingFilter" onchange="loadClassRatings()" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;">
+              <option value="">All Ratings</option>
+              <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
+              <option value="4">⭐⭐⭐⭐ (4 Stars)</option>
+              <option value="3">⭐⭐⭐ (3 Stars)</option>
+              <option value="2">⭐⭐ (2 Stars)</option>
+              <option value="1">⭐ (1 Star)</option>
+            </select>
+          </div>
+          <button onclick="loadClassRatings()" class="btn btn-primary">🔄 Refresh</button>
+        </div>
+
+        <!-- Summary Stats -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px;">
+          <div style="background: linear-gradient(135deg, #B05D9E, #8B4789); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+            <div style="font-size: 2rem; font-weight: bold;" id="avgRating">-</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Avg Rating</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #38a169, #2f855a); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+            <div style="font-size: 2rem; font-weight: bold;" id="totalFeedbacks">0</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Total Feedbacks</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #ecc94b, #d69e2e); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+            <div style="font-size: 2rem; font-weight: bold;" id="fiveStarCount">0</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">5-Star Ratings</div>
+          </div>
+        </div>
+
+        <!-- Feedback List -->
+        <div id="ratingsContainer" style="display: grid; gap: 15px;">
+          <p style="color: #718096; text-align: center; padding: 30px;">Loading feedback...</p>
+        </div>
+      </div>
     </div>
 
     <div id="emailsTab" class="tab-content"><div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
@@ -913,13 +1013,20 @@
       if(e) e.stopPropagation();
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
       document.getElementById(tabName + 'Tab').classList.add('active');
-      if(e) e.target.classList.add('active'); else document.querySelector(`.tab-btn[onclick*="'${tabName}'"]`).classList.add('active');
+      // Update old tabs (hidden but kept for compatibility)
+      const oldTabBtn = document.querySelector(`.tab-btn[onclick*="'${tabName}'"]`);
+      if(oldTabBtn) oldTabBtn.classList.add('active');
+      // Update sidebar nav button
+      const navBtn = document.querySelector(`.nav-btn[onclick*="'${tabName}'"]`);
+      if(navBtn) navBtn.classList.add('active');
       if (tabName === 'emails') loadEmailLogs();
       if (tabName === 'past') loadPastSessions();
       if (tabName === 'events') loadEvents();
       if (tabName === 'scheduleManager') loadScheduleManager();
       if (tabName === 'homework') loadHomeworkSubmissions();
+      if (tabName === 'classRatings') loadClassRatings();
     }
 
     function showModalTab(tabName, e) {
@@ -1336,25 +1443,52 @@
             : '<span style="color: #718096;">Not graded</span>';
 
           const fileExt = hw.file_name ? hw.file_name.split('.').pop().toLowerCase() : '';
-          const fileIcon = ['mp4', 'mov', 'avi'].includes(fileExt) ? '🎥' :
-                          ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt) ? '🖼️' :
+          const fileIcon = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt) ? '🎥' :
+                          ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt) ? '🖼️' :
                           ['pdf'].includes(fileExt) ? '📄' :
                           ['doc', 'docx'].includes(fileExt) ? '📝' :
                           ['ppt', 'pptx'].includes(fileExt) ? '📊' : '📁';
+
+          // Build proper file URL
+          let fileUrl = '';
+          let isLink = false;
+          if (hw.file_path) {
+            if (hw.file_path.startsWith('LINK:')) {
+              fileUrl = hw.file_path.replace('LINK:', '');
+              isLink = true;
+            } else {
+              fileUrl = '/uploads/homework/' + hw.file_path;
+            }
+          }
+
+          // For images, show preview button
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+          const isVideo = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
+          let previewBtn = '';
+          if (isImage && fileUrl) {
+            previewBtn = `<button onclick="previewImage('${fileUrl}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Preview</button>`;
+          } else if (isVideo && fileUrl) {
+            previewBtn = `<button onclick="previewVideo('${fileUrl}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Preview</button>`;
+          }
+
+          const feedbackDisplay = hw.feedback_comments
+            ? `<br><small style="color:#4a5568;">💬 ${hw.feedback_comments}</small>`
+            : '';
 
           return `<tr>
             <td><strong>${hw.student_name || 'Unknown'}</strong></td>
             <td>#${hw.session_number || 'N/A'}</td>
             <td>
-              <a href="/uploads/homework/${hw.file_path}" target="_blank" style="color: #B05D9E; text-decoration: none;">
-                ${fileIcon} ${hw.file_name || 'Download'}
+              <a href="${fileUrl}" target="_blank" style="color: #B05D9E; text-decoration: none;">
+                ${fileIcon} ${hw.file_name || (isLink ? 'External Link' : 'Download')}
               </a>
             </td>
             <td>${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
-            <td>${gradeDisplay}</td>
+            <td>${gradeDisplay}${feedbackDisplay}</td>
             <td>
-              <button onclick="openGradeHomeworkModal(${hw.id}, '${hw.student_name}', '${hw.file_name}')" class="btn btn-sm btn-primary">Grade</button>
-              <a href="/uploads/homework/${hw.file_path}" download class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">Download</a>
+              <button onclick="openGradeHomeworkModal(${hw.id}, '${(hw.student_name || '').replace(/'/g, "\\'")}', '${(hw.file_name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-primary">Grade</button>
+              ${previewBtn}
+              ${!isLink ? `<a href="${fileUrl}" download class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">Download</a>` : ''}
             </td>
           </tr>`;
         }).join('');
@@ -1371,6 +1505,26 @@
       const comments = prompt('Enter feedback comments (optional):') || '';
 
       gradeHomework(homeworkId, grade, comments);
+    }
+
+    function previewImage(url) {
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; display:flex; align-items:center; justify-content:center; cursor:pointer;';
+      modal.innerHTML = `<img src="${url}" style="max-width:90%; max-height:90%; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.5);">`;
+      modal.onclick = () => modal.remove();
+      document.body.appendChild(modal);
+    }
+
+    function previewVideo(url) {
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; display:flex; align-items:center; justify-content:center;';
+      modal.innerHTML = `
+        <div style="position:relative; max-width:90%; max-height:90%;">
+          <button onclick="this.parentElement.parentElement.remove()" style="position:absolute; top:-40px; right:0; background:#e53e3e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Close</button>
+          <video controls autoplay style="max-width:100%; max-height:80vh; border-radius:8px;"><source src="${url}">Your browser does not support video.</video>
+        </div>
+      `;
+      document.body.appendChild(modal);
     }
 
     async function gradeHomework(homeworkId, grade, comments) {
@@ -1423,10 +1577,42 @@
         const session = await res.json();
         document.getElementById('modalSessionTitle').textContent = `Session #${session.session_number} - ${session.session_type}`;
 
-        let content = `<p><strong>Date:</strong> ${formatSessionTime(session)}</p><h3>Uploads</h3><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
-          <div><input type="file" id="pptFile" accept=".ppt,.pdf,.pptx"><button onclick="uploadMaterial(${sessionId}, 'ppt')" class="btn btn-sm">Upload PPT</button></div>
-          <div><input type="file" id="recFile" accept=".mp4"><button onclick="uploadMaterial(${sessionId}, 'recording')" class="btn btn-sm">Upload Recording</button></div>
-          <div><input type="file" id="hwFile" accept=".pdf"><button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm">Upload HW</button></div>
+        let content = `<p><strong>Date:</strong> ${formatSessionTime(session)}</p>
+        <h3>📁 Upload Materials</h3>
+        <div style="display:grid; grid-template-columns:1fr; gap:15px; margin-bottom:20px;">
+          <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
+            <strong>📊 PPT / Presentation</strong>
+            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <input type="file" id="pptFile" style="flex:1; min-width:200px;">
+              <button onclick="uploadMaterial(${sessionId}, 'ppt')" class="btn btn-sm btn-primary">Upload File</button>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <input type="url" id="pptLink" placeholder="Or paste link (Google Drive, etc.)" style="flex:1; min-width:200px; padding:8px; border:1px solid #ddd; border-radius:4px;">
+              <button onclick="saveMaterialLink(${sessionId}, 'ppt')" class="btn btn-sm" style="background:#B05D9E; color:white;">Save Link</button>
+            </div>
+          </div>
+          <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
+            <strong>🎥 Recording</strong>
+            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <input type="file" id="recFile" style="flex:1; min-width:200px;">
+              <button onclick="uploadMaterial(${sessionId}, 'recording')" class="btn btn-sm btn-primary">Upload File</button>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <input type="url" id="recLink" placeholder="Or paste link (YouTube, Drive, etc.)" style="flex:1; min-width:200px; padding:8px; border:1px solid #ddd; border-radius:4px;">
+              <button onclick="saveMaterialLink(${sessionId}, 'recording')" class="btn btn-sm" style="background:#B05D9E; color:white;">Save Link</button>
+            </div>
+          </div>
+          <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
+            <strong>📝 Homework</strong>
+            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <input type="file" id="hwFile" style="flex:1; min-width:200px;">
+              <button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm btn-primary">Upload File</button>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <input type="url" id="hwLink" placeholder="Or paste link (Google Docs, etc.)" style="flex:1; min-width:200px; padding:8px; border:1px solid #ddd; border-radius:4px;">
+              <button onclick="saveMaterialLink(${sessionId}, 'homework')" class="btn btn-sm" style="background:#B05D9E; color:white;">Save Link</button>
+            </div>
+          </div>
         </div>`;
 
         if (sessionType === 'Group') {
@@ -1665,6 +1851,91 @@
           .catch(err => alert('❌ Upload failed'));
       } else {
         alert('Please select a file first');
+      }
+    }
+
+    // ==================== CLASS RATINGS ====================
+    async function loadClassRatings() {
+      try {
+        const studentFilter = document.getElementById('ratingsStudentFilter').value;
+        const ratingFilter = document.getElementById('ratingsRatingFilter').value;
+
+        let url = '/api/class-feedback/all';
+        const params = [];
+        if (studentFilter) params.push(`student_id=${studentFilter}`);
+        if (ratingFilter) params.push(`rating=${ratingFilter}`);
+        if (params.length > 0) url += '?' + params.join('&');
+
+        const res = await fetch(url);
+        const data = await res.json();
+        const container = document.getElementById('ratingsContainer');
+
+        // Update stats
+        document.getElementById('totalFeedbacks').textContent = data.total || 0;
+        document.getElementById('avgRating').textContent = data.avgRating ? data.avgRating.toFixed(1) + ' ⭐' : '-';
+        document.getElementById('fiveStarCount').textContent = data.fiveStarCount || 0;
+
+        // Populate student filter if not already done
+        const filterSelect = document.getElementById('ratingsStudentFilter');
+        if (filterSelect.options.length <= 1 && data.students) {
+          data.students.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.name;
+            filterSelect.appendChild(opt);
+          });
+        }
+
+        if (!data.feedbacks || data.feedbacks.length === 0) {
+          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 30px;">No feedback received yet. Parents can give feedback after their classes.</p>';
+          return;
+        }
+
+        container.innerHTML = data.feedbacks.map(f => {
+          const stars = '⭐'.repeat(f.rating || 0) + '☆'.repeat(5 - (f.rating || 0));
+          const date = f.created_at ? new Date(f.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+          return `
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border-left: 4px solid ${f.rating >= 4 ? '#38a169' : f.rating >= 3 ? '#ecc94b' : '#e53e3e'};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <strong style="font-size: 1.1rem; color: #2d3748;">${f.student_name || 'Unknown Student'}</strong>
+                  <p style="color: #718096; font-size: 0.85rem; margin: 5px 0;">Session #${f.session_number || 'N/A'} • ${date}</p>
+                </div>
+                <div style="font-size: 1.3rem;">${stars}</div>
+              </div>
+              ${f.feedback_text ? `<p style="margin-top: 12px; color: #4a5568; background: white; padding: 12px; border-radius: 8px; font-style: italic;">"${f.feedback_text}"</p>` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error loading class ratings:', err);
+        document.getElementById('ratingsContainer').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading feedback</p>';
+      }
+    }
+
+    async function saveMaterialLink(sessionId, type) {
+      const inp = document.getElementById(type==='ppt'?'pptLink':type==='recording'?'recLink':'hwLink');
+      const link = inp.value.trim();
+      if(!link) {
+        alert('Please enter a link first');
+        return;
+      }
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/save-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ materialType: type, link: link })
+        });
+        const data = await res.json();
+        if(res.ok) {
+          alert('✅ Link saved successfully!');
+          inp.value = '';
+        } else {
+          alert('❌ Failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch(err) {
+        alert('❌ Error saving link');
       }
     }
 
@@ -2722,9 +2993,11 @@
     }
   </script>
 
-  <!-- Footer -->
-  <footer style="background: white; padding: 20px; text-align: center; margin: 30px 20px 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-    <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
-  </footer>
+      <!-- Footer -->
+      <footer style="background: white; padding: 20px; text-align: center; margin: 30px 0 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+        <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
+      </footer>
+    </main>
+  </div>
 </body>
 </html>

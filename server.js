@@ -66,16 +66,15 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max for videos
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const forbidden = ['.exe', '.sh', '.bat', '.js', '.cmd', '.php', '.py', '.rb'];
+    // Only block executable/script files for security
+    const forbidden = ['.exe', '.sh', '.bat', '.cmd', '.php', '.py', '.rb', '.dll', '.msi', '.com', '.scr'];
     if (forbidden.includes(ext)) return cb(new Error('Executable files not allowed'));
     if (file.originalname.includes('..')) return cb(new Error('Invalid filename'));
-    // Allow images, videos, documents, presentations, audio, and archives
-    const allowedTypes = /jpeg|jpg|png|gif|webp|pdf|doc|docx|ppt|pptx|xls|xlsx|mp4|mov|avi|mkv|mp3|wav|zip|rar|7z|txt|rtf/;
-    if (allowedTypes.test(ext)) return cb(null, true);
-    cb(new Error('Invalid file type. Allowed: Images, Videos, Documents, Presentations, Audio, Archives'));
+    // Allow ALL other file types
+    cb(null, true);
   }
 });
 
@@ -544,6 +543,46 @@ async function runMigrations() {
       console.log('✅ Monthly assessments table checked/created');
     } catch (err) {
       console.error('❌ Error with assessments table:', err.message);
+    }
+
+    // Migration 6: Ensure student_badges table exists
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS student_badges (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL,
+          badge_type TEXT NOT NULL,
+          badge_name TEXT NOT NULL,
+          badge_description TEXT,
+          earned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+      `);
+      await client.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
+      console.log('✅ Student badges table checked/created');
+    } catch (err) {
+      console.error('❌ Error with badges table:', err.message);
+    }
+
+    // Migration 7: Ensure class_feedback table exists
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS class_feedback (
+          id SERIAL PRIMARY KEY,
+          session_id INTEGER NOT NULL,
+          student_id INTEGER NOT NULL,
+          rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+          feedback_text TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+      `);
+      await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_session ON class_feedback(session_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
+      console.log('✅ Class feedback table checked/created');
+    } catch (err) {
+      console.error('❌ Error with class_feedback table:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -1410,45 +1449,85 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
 app.get('/api/dashboard/upcoming-classes', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    // Get tomorrow's date for limiting to today + tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
+    // Get private sessions
     const priv = await pool.query(`
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
-      CONCAT(st.program_name, ' - ', st.duration) as class_info
+      CONCAT(st.program_name, ' - ', st.duration) as class_info,
+      'Private' as display_type
       FROM sessions s
       JOIN students st ON s.student_id = st.id
-      WHERE s.session_date >= $1 AND s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
-      ORDER BY s.session_date ASC, s.session_time ASC LIMIT 15
-    `, [today]);
+      WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
+      ORDER BY s.session_date ASC, s.session_time ASC
+    `);
 
+    // Get group sessions
     const grp = await pool.query(`
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
-      CONCAT(g.program_name, ' - ', g.duration) as class_info
+      CONCAT(g.program_name, ' - ', g.duration) as class_info,
+      'Group' as display_type
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
-      WHERE s.session_date >= $1 AND s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
-      ORDER BY s.session_date ASC, s.session_time ASC LIMIT 15
-    `, [today]);
+      WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
+      ORDER BY s.session_date ASC, s.session_time ASC
+    `);
 
-    // Combine and sort by date/time properly
-    const all = [...priv.rows, ...grp.rows].sort((a, b) => {
-      // Clean date and time strings
-      const dateA_str = typeof a.session_date === 'string' && a.session_date.includes('T') ? a.session_date.split('T')[0] : a.session_date;
-      const dateB_str = typeof b.session_date === 'string' && b.session_date.includes('T') ? b.session_date.split('T')[0] : b.session_date;
+    // Get upcoming events as well
+    const events = await pool.query(`
+      SELECT id, event_name as student_name, event_date as session_date, event_time as session_time,
+      event_duration as class_info, 'Asia/Kolkata' as timezone, 0 as session_number,
+      'Event' as display_type, 'Event' as session_type, zoom_link
+      FROM events
+      WHERE status = 'Active'
+      ORDER BY event_date ASC, event_time ASC
+    `);
 
-      const timeA = a.session_time ? a.session_time.substring(0, 8) : '00:00:00';
-      const timeB = b.session_time ? b.session_time.substring(0, 8) : '00:00:00';
+    // Combine all
+    const all = [...priv.rows, ...grp.rows, ...events.rows];
 
-      const dateA = new Date(`${dateA_str}T${timeA}Z`);
-      const dateB = new Date(`${dateB_str}T${timeB}Z`);
-      return dateA - dateB;
-    }).slice(0, 7); // Limit to 7 upcoming classes
+    // Filter and sort by UTC datetime (since database stores UTC)
+    const now = new Date();
+    const upcoming = all.filter(session => {
+      try {
+        // Parse date - handle both Date objects and strings
+        let dateStr = session.session_date;
+        if (dateStr instanceof Date) {
+          dateStr = dateStr.toISOString().split('T')[0];
+        } else if (typeof dateStr === 'string' && dateStr.includes('T')) {
+          dateStr = dateStr.split('T')[0];
+        }
 
-    res.json(all);
+        // Parse time
+        let timeStr = session.session_time || '00:00:00';
+        if (typeof timeStr === 'string') {
+          timeStr = timeStr.substring(0, 8);
+        }
+
+        const sessionDateTime = new Date(`${dateStr}T${timeStr}Z`);
+        return sessionDateTime >= now;
+      } catch (e) {
+        return false;
+      }
+    }).sort((a, b) => {
+      // Get date strings
+      let dateA = a.session_date;
+      let dateB = b.session_date;
+      if (dateA instanceof Date) dateA = dateA.toISOString().split('T')[0];
+      else if (typeof dateA === 'string' && dateA.includes('T')) dateA = dateA.split('T')[0];
+      if (dateB instanceof Date) dateB = dateB.toISOString().split('T')[0];
+      else if (typeof dateB === 'string' && dateB.includes('T')) dateB = dateB.split('T')[0];
+
+      // Get time strings
+      let timeA = a.session_time || '00:00:00';
+      let timeB = b.session_time || '00:00:00';
+      if (typeof timeA === 'string') timeA = timeA.substring(0, 8);
+      if (typeof timeB === 'string') timeB = timeB.substring(0, 8);
+
+      const dtA = new Date(`${dateA}T${timeA}Z`);
+      const dtB = new Date(`${dateB}T${timeB}Z`);
+      return dtA - dtB;
+    }).slice(0, 10); // Show 10 upcoming classes
+
+    res.json(upcoming);
   } catch (err) {
     console.error('Error loading upcoming classes:', err);
     res.status(500).json({ error: err.message });
@@ -1767,10 +1846,16 @@ app.get('/api/sessions/:studentId', async (req, res) => {
   }
 
   try {
-    // Get private sessions
+    // Get private sessions with homework info and feedback status
     const privateSessions = await pool.query(`
-      SELECT s.*, 'Private' as source_type
+      SELECT s.*, 'Private' as source_type,
+        m.file_path as homework_submission_path,
+        m.feedback_grade as homework_grade,
+        m.feedback_comments as homework_feedback,
+        CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
       FROM sessions s
+      LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
+      LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
       WHERE s.student_id = $1 AND s.session_type = 'Private'
     `, [id]);
 
@@ -1780,10 +1865,16 @@ app.get('/api/sessions/:studentId', async (req, res) => {
 
     if (student.rows[0] && student.rows[0].group_id) {
       const groupSessionsResult = await pool.query(`
-        SELECT s.*, 'Group' as source_type
+        SELECT s.*, 'Group' as source_type,
+          m.file_path as homework_submission_path,
+          m.feedback_grade as homework_grade,
+          m.feedback_comments as homework_feedback,
+          CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
         FROM sessions s
-        WHERE s.group_id = $1 AND s.session_type = 'Group'
-      `, [student.rows[0].group_id]);
+        LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
+        LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
+        WHERE s.group_id = $2 AND s.session_type = 'Group'
+      `, [id, student.rows[0].group_id]);
       groupSessions = groupSessionsResult.rows;
     }
 
@@ -2004,6 +2095,40 @@ app.put('/api/sessions/:sessionId/notes', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Save material link (for PPT, Recording, Homework links like Google Drive, YouTube, etc.)
+app.post('/api/sessions/:sessionId/save-link', async (req, res) => {
+  const { materialType, link } = req.body;
+  const col = { ppt:'ppt_file_path', recording:'recording_file_path', homework:'homework_file_path' }[materialType];
+  if (!col) return res.status(400).json({ error: 'Invalid material type' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Save link with LINK: prefix to identify it as a link
+    await client.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, ['LINK:' + link, req.params.sessionId]);
+
+    // Also save to materials table for tracking
+    const session = (await client.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId])).rows[0];
+    const studentsQuery = session.session_type === 'Group' ? `SELECT id FROM students WHERE group_id = $1 AND is_active = true` : `SELECT $1 as id`;
+    const students = await client.query(studentsQuery, [session.group_id || session.student_id]);
+
+    for(const s of students.rows) {
+      await client.query(`
+        INSERT INTO materials (student_id, group_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'Teacher')
+      `, [s.id, session.group_id, req.params.sessionId, session.session_date, materialType.toUpperCase(), 'External Link', 'LINK:' + link]);
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'Link saved successfully!' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -2659,6 +2784,61 @@ app.delete('/api/badges/:id', async (req, res) => {
     await pool.query('DELETE FROM student_badges WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== CLASS FEEDBACK/RATINGS ====================
+app.get('/api/class-feedback/all', async (req, res) => {
+  try {
+    const { student_id, rating } = req.query;
+
+    let query = `
+      SELECT cf.*, s.session_number, st.name as student_name
+      FROM class_feedback cf
+      LEFT JOIN sessions s ON cf.session_id = s.id
+      LEFT JOIN students st ON cf.student_id = st.id
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramIndex = 1;
+
+    if (student_id) {
+      query += ` AND cf.student_id = $${paramIndex}`;
+      params.push(student_id);
+      paramIndex++;
+    }
+    if (rating) {
+      query += ` AND cf.rating = $${paramIndex}`;
+      params.push(rating);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY cf.created_at DESC`;
+
+    const feedbacks = await pool.query(query, params);
+
+    // Get stats
+    const statsQuery = await pool.query(`
+      SELECT
+        COUNT(*) as total,
+        AVG(rating) as avg_rating,
+        COUNT(CASE WHEN rating = 5 THEN 1 END) as five_star_count
+      FROM class_feedback
+    `);
+
+    // Get all students for filter dropdown
+    const students = await pool.query('SELECT id, name FROM students WHERE is_active = true ORDER BY name');
+
+    res.json({
+      feedbacks: feedbacks.rows,
+      total: parseInt(statsQuery.rows[0].total) || 0,
+      avgRating: parseFloat(statsQuery.rows[0].avg_rating) || 0,
+      fiveStarCount: parseInt(statsQuery.rows[0].five_star_count) || 0,
+      students: students.rows
+    });
+  } catch (err) {
+    console.error('Error loading class feedback:', err);
     res.status(500).json({ error: err.message });
   }
 });

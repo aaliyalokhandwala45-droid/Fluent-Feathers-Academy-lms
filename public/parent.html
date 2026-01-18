@@ -237,8 +237,8 @@
         <div class="section">
           <h2>📚 Completed Classes</h2>
           <table id="pastTable">
-            <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th></tr></thead>
-            <tbody id="pastBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+            <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th><th>Feedback</th></tr></thead>
+            <tbody id="pastBody"><tr><td colspan="7">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -252,10 +252,10 @@
               <select id="homeworkSessionSelect" required><option value="">Loading...</option></select>
             </div>
             <div class="form-group">
-              <label>File * (Images, Videos, PDFs, Documents, Presentations)</label>
-              <input type="file" id="homeworkFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp4,.mov,.avi,.mp3,.ppt,.pptx,.zip,.rar">
+              <label>Files * (Select multiple files at once)</label>
+              <input type="file" id="homeworkFile" required multiple>
               <p style="color: #718096; font-size: 0.85rem; margin-top: 5px;">
-                Supported formats: Images (JPG, PNG, GIF), Videos (MP4, MOV, AVI), Audio (MP3), Documents (PDF, DOC, DOCX), Presentations (PPT, PPTX), Archives (ZIP, RAR) - Max 50MB
+                Upload any file type: Images, Videos, PDFs, Documents, Presentations, Audio, etc. - Max 100MB per file. You can select multiple files.
               </p>
             </div>
             <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
@@ -312,29 +312,26 @@
   <div id="feedbackModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>⭐ Class Feedback</h2>
+        <h2>⭐ Rate Your Class</h2>
         <button class="close-modal" onclick="closeFeedbackModal()">✕</button>
       </div>
       <form id="feedbackForm">
         <input type="hidden" id="feedbackSessionId">
         <div style="text-align: center; margin-bottom: 20px;">
-          <p style="font-size: 18px; color: #4a5568; margin-bottom: 10px;">How was the class?</p>
-          <div class="star-rating" id="starRating">
-            <span class="star" data-rating="1">★</span>
-            <span class="star" data-rating="2">★</span>
-            <span class="star" data-rating="3">★</span>
-            <span class="star" data-rating="4">★</span>
-            <span class="star" data-rating="5">★</span>
+          <p style="font-size: 18px; color: #4a5568; margin-bottom: 15px;">How was Session #<span id="feedbackSessionNum"></span>?</p>
+          <div class="star-rating" id="starRatingContainer" style="font-size: 2.5rem; cursor: pointer;">
+            <span class="star" data-rating="1" onclick="setRating(1)">☆</span>
+            <span class="star" data-rating="2" onclick="setRating(2)">☆</span>
+            <span class="star" data-rating="3" onclick="setRating(3)">☆</span>
+            <span class="star" data-rating="4" onclick="setRating(4)">☆</span>
+            <span class="star" data-rating="5" onclick="setRating(5)">☆</span>
           </div>
         </div>
         <div class="form-group">
-          <label>Your Feedback (Optional)</label>
-          <textarea id="feedbackText" rows="4" placeholder="Share your thoughts about the class..."></textarea>
+          <label>Comments (Optional)</label>
+          <textarea id="feedbackTextArea" rows="3" placeholder="Share your thoughts..."></textarea>
         </div>
-        <div style="display: flex; gap: 10px;">
-          <button type="submit" class="btn btn-primary" style="flex: 1;">Submit Feedback</button>
-          <button type="button" onclick="closeFeedbackModal()" class="btn" style="background: #cbd5e0; flex: 1;">Skip</button>
-        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Submit</button>
       </form>
     </div>
   </div>
@@ -754,17 +751,44 @@
         tbody.innerHTML = past.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
 
+          // Helper to format material links/files properly
+          function getMaterialLink(filePath, icon, label) {
+            if (!filePath) return '';
+            if (filePath.startsWith('LINK:')) {
+              // External link
+              const url = filePath.replace('LINK:', '');
+              return `<a href="${url}" target="_blank" class="btn-download">${icon} ${label}</a>`;
+            } else {
+              // File upload - needs /uploads/materials/ prefix
+              const fullPath = filePath.startsWith('/uploads/') ? filePath : '/uploads/materials/' + filePath;
+              return `<a href="${fullPath}" target="_blank" class="btn-download" download>${icon} ${label}</a>`;
+            }
+          }
+
           let materials = '';
-          if (s.ppt_file_path) materials += `<a href="${s.ppt_file_path}" download class="btn-download">📊 PPT</a>`;
-          if (s.recording_file_path) materials += `<a href="${s.recording_file_path}" download class="btn-download">🎥 Recording</a>`;
-          if (s.homework_file_path) materials += `<a href="${s.homework_file_path}" download class="btn-download">📝 HW</a>`;
+          materials += getMaterialLink(s.ppt_file_path, '📊', 'PPT');
+          materials += getMaterialLink(s.recording_file_path, '🎥', 'Recording');
+          materials += getMaterialLink(s.homework_file_path, '📝', 'HW');
           if (!materials) materials = '-';
 
           let hwStatus = '-';
           if (s.homework_submission_path) {
             hwStatus = `<span style="color: #38a169;">✓ Submitted</span>`;
             if (s.homework_grade) {
-              hwStatus += `<br><small>Grade: ${s.homework_grade}</small>`;
+              hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${s.homework_grade}</span>`;
+            }
+            if (s.homework_feedback) {
+              hwStatus += `<br><small style="color:#4a5568; font-style:italic;">💬 ${s.homework_feedback}</small>`;
+            }
+          }
+
+          // Feedback button - show if completed and not already given feedback
+          let feedbackBtn = '-';
+          if (s.status === 'Completed') {
+            if (s.has_feedback) {
+              feedbackBtn = `<span style="color:#38a169;">✓ Given</span>`;
+            } else {
+              feedbackBtn = `<button onclick="openFeedbackModal(${s.id}, ${s.session_number})" style="background:#B05D9E; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;">⭐ Rate</button>`;
             }
           }
 
@@ -775,6 +799,7 @@
             <td>${s.status||'-'}</td>
             <td>${materials}</td>
             <td>${hwStatus}</td>
+            <td>${feedbackBtn}</td>
           </tr>`;
         }).join('');
       } catch(e) {
@@ -833,6 +858,29 @@
             ? `<p style="color: #4a5568; font-size: 0.9rem; margin-top: 8px; padding: 10px; background: #f0fff4; border-radius: 6px;"><strong>Teacher's Feedback:</strong> ${hw.feedback_comments}</p>`
             : '';
 
+          // Build proper file URL for viewing
+          let fileUrl = '';
+          let viewText = 'View';
+          if (hw.file_path) {
+            if (hw.file_path.startsWith('LINK:')) {
+              fileUrl = hw.file_path.replace('LINK:', '');
+              viewText = 'Open Link';
+            } else {
+              fileUrl = '/uploads/homework/' + hw.file_path;
+            }
+          }
+
+          // For images, show preview
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+          const isVideo = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
+
+          let previewHtml = '';
+          if (isImage && fileUrl) {
+            previewHtml = `<img src="${fileUrl}" style="max-width: 100%; max-height: 200px; margin-top: 10px; border-radius: 8px; cursor: pointer;" onclick="window.open('${fileUrl}', '_blank')">`;
+          } else if (isVideo && fileUrl) {
+            previewHtml = `<video controls style="max-width: 100%; max-height: 200px; margin-top: 10px; border-radius: 8px;"><source src="${fileUrl}" type="video/${fileExt}">Your browser does not support video.</video>`;
+          }
+
           return `
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -844,10 +892,12 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                   ${gradeDisplay}
-                  <a href="/uploads/homework/${hw.file_path}" target="_blank" style="color: #B05D9E; font-size: 0.85rem;">View</a>
+                  ${fileUrl ? `<a href="${fileUrl}" target="_blank" style="color: #B05D9E; font-size: 0.85rem;">${viewText}</a>` : ''}
+                  ${fileUrl && !hw.file_path.startsWith('LINK:') ? `<a href="${fileUrl}" download style="color: #667eea; font-size: 0.85rem;">Download</a>` : ''}
                 </div>
               </div>
               ${feedbackDisplay}
+              ${previewHtml}
             </div>
           `;
         }).join('');
@@ -924,68 +974,39 @@
     }
 
     async function checkForFeedback() {
+      // Only show feedback popup ONCE per login session - completely optional
+      if (sessionStorage.getItem('feedbackPopupShown_' + currentStudent.id)) return;
+
       try {
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
 
-        // Find completed sessions that need feedback
+        // Find the most recent completed session without feedback
         const needsFeedback = sessions.find(s => {
-          if (checkedFeedbackSessions.has(s.id)) return false;
           if (s.status !== 'Completed') return false;
-
-          // Check if completed within last 24 hours
-          const sessionDate = new Date(`${s.session_date}T${s.session_time}Z`);
-          const now = new Date();
-          const hoursSince = (now - sessionDate) / (1000 * 60 * 60);
-
-          return hoursSince < 24 && hoursSince > 0;
+          if (s.has_feedback === true) return false;
+          return true;
         });
 
         if (needsFeedback) {
-          // Check if feedback already exists
-          const feedbackRes = await fetch(`/api/sessions/${needsFeedback.id}/feedbacks`, { headers: authHeaders() });
-          const existingFeedback = await feedbackRes.json();
-
-          if (existingFeedback.length === 0) {
-            showFeedbackModal(needsFeedback);
-          }
-          checkedFeedbackSessions.add(needsFeedback.id);
+          // Mark popup as shown for this student this session - won't bother them again
+          sessionStorage.setItem('feedbackPopupShown_' + currentStudent.id, 'true');
+          // Show the optional feedback popup
+          openFeedbackModal(needsFeedback.id, needsFeedback.session_number);
         }
       } catch(e) {
         console.error('Error checking feedback:', e);
       }
     }
 
+    // Legacy functions kept for compatibility
     function showFeedbackModal(session) {
-      const t = toLocalTime(session.session_date, session.session_time, currentStudent.timezone);
-      document.getElementById('feedbackSessionId').value = session.id;
-      document.getElementById('feedbackModal').style.display = 'block';
-
-      // Reset stars
-      document.querySelectorAll('.star').forEach(star => star.classList.remove('active'));
-      selectedRating = 0;
+      openFeedbackModal(session.id, session.session_number);
     }
 
-    function closeFeedbackModal() {
-      document.getElementById('feedbackModal').style.display = 'none';
-      document.getElementById('feedbackForm').reset();
-      selectedRating = 0;
-    }
-
-    // Star rating interaction
+    // Star rating interaction (for legacy support)
     document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.star').forEach(star => {
-        star.addEventListener('click', function() {
-          selectedRating = parseInt(this.getAttribute('data-rating'));
-          document.querySelectorAll('.star').forEach((s, idx) => {
-            if (idx < selectedRating) {
-              s.classList.add('active');
-            } else {
-              s.classList.remove('active');
-            }
-          });
-        });
-      });
+      // No longer needed - using new star system
     });
 
     document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
@@ -997,7 +1018,7 @@
       }
 
       const sessionId = document.getElementById('feedbackSessionId').value;
-      const feedbackText = document.getElementById('feedbackText').value;
+      const feedbackText = document.getElementById('feedbackTextArea').value;
 
       try {
         const res = await fetch(`/api/sessions/${sessionId}/feedback`, {
@@ -1014,6 +1035,7 @@
           alert('Thank you for your feedback! 🌟');
           closeFeedbackModal();
           loadBadges(); // Reload badges as feedback might award one
+          loadPast(); // Refresh past classes to show feedback given
         } else {
           alert('Error submitting feedback');
         }
@@ -1056,35 +1078,82 @@
     document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const sid = document.getElementById('homeworkSessionSelect').value;
-      const file = document.getElementById('homeworkFile').files[0];
-      if(!sid || !file) return alert('Please fill all fields');
+      const files = document.getElementById('homeworkFile').files;
+      if(!sid || files.length === 0) return alert('Please select a session and at least one file');
 
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('sessionId', sid);
-      fd.append('uploadType', 'homework');
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Uploading...';
+
+      let successCount = 0;
+      let errorCount = 0;
 
       try {
-        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: fd
-        });
+        // Upload each file separately
+        for (let i = 0; i < files.length; i++) {
+          const fd = new FormData();
+          fd.append('file', files[i]);
+          fd.append('sessionId', sid);
+          fd.append('uploadType', 'homework');
 
-        if(res.ok) {
-          alert('Homework uploaded successfully! 🎉');
-          e.target.reset();
-          loadPast(); // Refresh past classes to show submission
-          loadBadges(); // Reload badges as homework might award one
-          loadSubmittedHomework(); // Refresh submitted homework list
-        } else {
-          alert('Error uploading homework');
+          try {
+            const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
+              method: 'POST',
+              headers: authHeaders(),
+              body: fd
+            });
+
+            if(res.ok) {
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          } catch(err) {
+            errorCount++;
+          }
         }
-      } catch(e) {
-        console.error('Upload error:', e);
+
+        if (successCount > 0) {
+          alert(`✅ ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+          e.target.reset();
+          loadPast();
+          loadBadges();
+          loadSubmittedHomework();
+        } else {
+          alert('Error uploading files');
+        }
+      } catch(err) {
+        console.error('Upload error:', err);
         alert('Error uploading homework');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📤 Upload Homework';
       }
     });
+
+    // ==================== CLASS FEEDBACK ====================
+    function openFeedbackModal(sessionId, sessionNumber) {
+      document.getElementById('feedbackSessionId').value = sessionId;
+      document.getElementById('feedbackSessionNum').textContent = sessionNumber;
+      selectedRating = 0;
+      document.getElementById('feedbackTextArea').value = '';
+      // Reset stars
+      document.querySelectorAll('#starRatingContainer .star').forEach(s => s.textContent = '☆');
+      document.getElementById('feedbackModal').classList.add('active');
+    }
+
+    function closeFeedbackModal() {
+      document.getElementById('feedbackModal').classList.remove('active');
+      selectedRating = 0;
+    }
+
+    function setRating(rating) {
+      selectedRating = rating;
+      document.querySelectorAll('#starRatingContainer .star').forEach(s => {
+        const starNum = parseInt(s.getAttribute('data-rating'));
+        s.textContent = starNum <= rating ? '⭐' : '☆';
+      });
+    }
 
     async function loadEvents() {
       try {
