@@ -1456,6 +1456,8 @@
             if (hw.file_path.startsWith('LINK:')) {
               fileUrl = hw.file_path.replace('LINK:', '');
               isLink = true;
+            } else if (hw.file_path.startsWith('/uploads/')) {
+              fileUrl = hw.file_path;
             } else {
               fileUrl = '/uploads/homework/' + hw.file_path;
             }

@@ -585,7 +585,67 @@ async function runMigrations() {
       console.error('❌ Error with class_feedback table:', err.message);
     }
 
+    // Migration 8: Ensure payment_renewals table exists
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS payment_renewals (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL,
+          renewal_date DATE NOT NULL,
+          amount DECIMAL(10,2) NOT NULL,
+          currency TEXT NOT NULL,
+          sessions_added INTEGER NOT NULL,
+          payment_method TEXT,
+          notes TEXT,
+          status TEXT DEFAULT 'Paid',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+      `);
+      console.log('✅ Payment renewals table checked/created');
+    } catch (err) {
+      console.error('❌ Error with payment_renewals table:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
+
+    // Auto-sync badges for students who should have them
+    try {
+      const students = await client.query('SELECT id, completed_sessions FROM students WHERE is_active = true');
+      let awarded = 0;
+
+      for (const student of students.rows) {
+        const count = student.completed_sessions || 0;
+        if (count >= 1) {
+          const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, 'first_class']);
+          if (existing.rows.length === 0) {
+            await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
+              [student.id, 'first_class', '🌟 First Class Star', 'Attended first class!']);
+            awarded++;
+          }
+        }
+        if (count >= 5) {
+          const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '5_classes']);
+          if (existing.rows.length === 0) {
+            await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
+              [student.id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!']);
+            awarded++;
+          }
+        }
+        if (count >= 10) {
+          const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '10_classes']);
+          if (existing.rows.length === 0) {
+            await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
+              [student.id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!']);
+            awarded++;
+          }
+        }
+      }
+      if (awarded > 0) console.log(`✅ Auto-synced ${awarded} missing badges`);
+    } catch (badgeErr) {
+      console.error('Badge sync error:', badgeErr.message);
+    }
+
   } catch (err) {
     console.error('❌ Migration error:', err);
   } finally {
@@ -1275,20 +1335,37 @@ cron.schedule('*/15 * * * *', async () => {
     console.log('🔔 Checking for upcoming classes to send reminders...');
 
     const now = new Date();
-    const fiveHoursLater = new Date(now.getTime() + (5 * 60 * 60 * 1000));
-    const oneHourLater = new Date(now.getTime() + (1 * 60 * 60 * 1000));
 
-    // Find all upcoming sessions in the next 5 hours and 1 hour
-    const upcomingSessions = await pool.query(`
+    // Find all upcoming PRIVATE sessions
+    const privateSessions = await pool.query(`
       SELECT s.*, st.name as student_name, st.parent_email, st.parent_name, st.timezone,
              CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
       FROM sessions s
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled')
+        AND s.session_type = 'Private'
         AND s.session_date >= CURRENT_DATE
         AND st.is_active = true
         AND st.parent_email IS NOT NULL
     `);
+
+    // Find all upcoming GROUP sessions and get students in those groups
+    const groupSessions = await pool.query(`
+      SELECT s.*, g.group_name, g.timezone as group_timezone,
+             st.name as student_name, st.parent_email, st.parent_name, st.timezone,
+             CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
+      FROM sessions s
+      JOIN groups g ON s.group_id = g.id
+      JOIN students st ON st.group_id = g.id
+      WHERE s.status IN ('Pending', 'Scheduled')
+        AND s.session_type = 'Group'
+        AND s.session_date >= CURRENT_DATE
+        AND st.is_active = true
+        AND st.parent_email IS NOT NULL
+    `);
+
+    // Combine all sessions
+    const upcomingSessions = { rows: [...privateSessions.rows, ...groupSessions.rows] };
 
     for (const session of upcomingSessions.rows) {
       try {
@@ -1461,7 +1538,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       ORDER BY s.session_date ASC, s.session_time ASC
     `);
 
-    // Get group sessions (only for active groups)
+    // Get group sessions
     const grp = await pool.query(`
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
       CONCAT(g.program_name, ' - ', g.duration) as class_info,
@@ -1469,7 +1546,6 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
-        AND g.is_active = true
       ORDER BY s.session_date ASC, s.session_time ASC
     `);
 

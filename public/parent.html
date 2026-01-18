@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Parent Portal - Fluent Feathers Academy By Aaliya</title>
+  <!-- PDF Generation Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
@@ -793,11 +796,23 @@
             }
           }
 
+          // Convert status to attendance display
+          let attendanceDisplay = '-';
+          if (s.status === 'Completed') {
+            attendanceDisplay = `<span style="color:#38a169; font-weight:600;">✓ Present</span>`;
+          } else if (s.status === 'Missed') {
+            attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">✗ Absent</span>`;
+          } else if (s.status === 'Cancelled') {
+            attendanceDisplay = `<span style="color:#718096;">Cancelled</span>`;
+          } else {
+            attendanceDisplay = s.status || '-';
+          }
+
           return `<tr>
             <td>#${s.session_number}</td>
             <td>${t.date}</td>
             <td>${t.time}</td>
-            <td>${s.status||'-'}</td>
+            <td>${attendanceDisplay}</td>
             <td>${materials}</td>
             <td>${hwStatus}</td>
             <td>${feedbackBtn}</td>
@@ -866,6 +881,8 @@
             if (hw.file_path.startsWith('LINK:')) {
               fileUrl = hw.file_path.replace('LINK:', '');
               viewText = 'Open Link';
+            } else if (hw.file_path.startsWith('/uploads/')) {
+              fileUrl = hw.file_path;
             } else {
               fileUrl = '/uploads/homework/' + hw.file_path;
             }
@@ -1236,11 +1253,74 @@
             </div>
 
             ${a.certificate_title ? `
-            <!-- Certificate Award -->
-            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; box-shadow: 0 6px 15px rgba(255, 215, 0, 0.3);">
-              <div style="font-size: 35px; margin-bottom: 8px;">🏆</div>
-              <p style="margin: 0 0 5px; color: #2d3748; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Achievement Award</p>
-              <h4 style="margin: 0; color: #2d3748; font-size: 20px; font-weight: bold;">🌟 ${a.certificate_title} 🌟</h4>
+            <!-- Professional Certificate -->
+            <div id="certificate-${a.id}" class="certificate-container" style="background: linear-gradient(135deg, #fffef5 0%, #fff9e6 100%); border: 3px solid #B05D9E; border-radius: 12px; padding: 30px; margin-bottom: 25px; position: relative; box-shadow: 0 8px 25px rgba(176, 93, 158, 0.15);">
+              <!-- Certificate Number -->
+              <div style="position: absolute; top: 15px; right: 20px; color: #718096; font-size: 10px; font-family: monospace;">
+                Certificate No: FFA-${a.year}${String(a.month).padStart(2, '0')}-${String(a.id).padStart(4, '0')}
+              </div>
+
+              <!-- Decorative corners -->
+              <div style="position: absolute; top: 10px; left: 10px; width: 40px; height: 40px; border-top: 3px solid #d4af37; border-left: 3px solid #d4af37;"></div>
+              <div style="position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-top: 3px solid #d4af37; border-right: 3px solid #d4af37;"></div>
+              <div style="position: absolute; bottom: 10px; left: 10px; width: 40px; height: 40px; border-bottom: 3px solid #d4af37; border-left: 3px solid #d4af37;"></div>
+              <div style="position: absolute; bottom: 10px; right: 10px; width: 40px; height: 40px; border-bottom: 3px solid #d4af37; border-right: 3px solid #d4af37;"></div>
+
+              <!-- Certificate Header -->
+              <div style="text-align: center; margin-bottom: 20px; margin-top: 10px;">
+                <div style="font-size: 28px; margin-bottom: 5px;">🎓</div>
+                <h2 style="margin: 0; color: #B05D9E; font-size: 14px; text-transform: uppercase; letter-spacing: 3px; font-weight: 600;">Fluent Feathers Academy</h2>
+                <p style="margin: 5px 0 0; color: #718096; font-size: 11px; letter-spacing: 1px;">Empowering Young Minds Through Language & Communication</p>
+              </div>
+
+              <!-- Certificate Title -->
+              <div style="text-align: center; margin: 25px 0;">
+                <p style="margin: 0 0 8px; color: #718096; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Certificate of</p>
+                <h3 style="margin: 0; color: #2d3748; font-size: 26px; font-weight: 700; font-family: Georgia, serif; text-transform: uppercase; letter-spacing: 1px;">${a.certificate_title}</h3>
+              </div>
+
+              <!-- Presented To -->
+              <div style="text-align: center; margin: 30px 0;">
+                <p style="margin: 0 0 10px; color: #718096; font-size: 13px;">This certificate is proudly presented to</p>
+                <h2 style="margin: 0; color: #B05D9E; font-size: 32px; font-family: 'Brush Script MT', cursive, Georgia, serif; font-weight: normal; border-bottom: 2px solid #d4af37; display: inline-block; padding: 0 30px 8px;">${currentStudent.name}</h2>
+              </div>
+
+              <!-- Achievement Description -->
+              <div style="text-align: center; margin: 25px 0;">
+                <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6; max-width: 400px; margin: 0 auto;">
+                  For outstanding achievement and dedication in<br>
+                  <strong style="color: #B05D9E;">${monthNames[a.month - 1]} ${a.year}</strong>
+                </p>
+              </div>
+
+              <!-- Signature Section -->
+              <div style="display: flex; justify-content: center; align-items: flex-end; margin-top: 35px; padding-top: 20px;">
+                <div style="text-align: center;">
+                  <div style="font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 38px; color: #1a1a1a; margin-bottom: 5px; letter-spacing: 1px; transform: rotate(-3deg);">Aaliya</div>
+                  <div style="width: 180px; border-top: 2px solid #2d3748; padding-top: 8px;">
+                    <p style="margin: 0; color: #2d3748; font-size: 14px; font-weight: 700;">Aaliya Lokhandwala</p>
+                    <p style="margin: 3px 0 0; color: #718096; font-size: 11px;">Founder & Teacher</p>
+                    <p style="margin: 2px 0 0; color: #B05D9E; font-size: 10px; font-style: italic;">Fluent Feathers Academy</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Issue Date & Seal -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px; padding-top: 15px; border-top: 1px dashed #d4af37;">
+                <p style="margin: 0; color: #718096; font-size: 11px;">
+                  📅 Issued: ${new Date(a.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </p>
+                <div style="width: 60px; height: 60px; border: 2px solid #d4af37; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #fff9e6 0%, #fffef5 100%);">
+                  <span style="font-size: 24px;">🏅</span>
+                </div>
+              </div>
+            </div>
+            <!-- Download Certificate Button -->
+            <div style="text-align: center; margin-bottom: 20px;">
+              <button onclick="downloadCertificate(${a.id}, '${currentStudent.name.replace(/'/g, "\\'")}', '${a.certificate_title.replace(/'/g, "\\'")}', '${monthNames[a.month - 1]}', ${a.year})"
+                      style="background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 4px 15px rgba(176, 93, 158, 0.3);">
+                📥 Download Certificate as PDF
+              </button>
             </div>
             ` : ''}
 
@@ -1308,6 +1388,64 @@
       } catch(e) {
         console.error('Error loading assessments:', e);
         document.getElementById('assessmentsContainer').innerHTML = '<p style="color: #e53e3e;">Error loading assessments</p>';
+      }
+    }
+
+    // Download Certificate as PDF
+    async function downloadCertificate(assessmentId, studentName, certTitle, month, year) {
+      const certElement = document.getElementById(`certificate-${assessmentId}`);
+      if (!certElement) {
+        alert('Certificate not found');
+        return;
+      }
+
+      // Show loading
+      const btn = event.target;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Generating PDF...';
+      btn.disabled = true;
+
+      try {
+        const { jsPDF } = window.jspdf;
+
+        // Capture the certificate as canvas
+        const canvas = await html2canvas(certElement, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#fffef5'
+        });
+
+        // Create PDF in landscape for better certificate look
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const imgWidth = 297; // A4 landscape width in mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Center vertically if image is shorter than page
+        const pageHeight = 210; // A4 landscape height
+        const yOffset = imgHeight < pageHeight ? (pageHeight - imgHeight) / 2 : 0;
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, yOffset, imgWidth, imgHeight);
+
+        // Download the PDF
+        const fileName = `Certificate_${studentName.replace(/\s+/g, '_')}_${month}_${year}.pdf`;
+        pdf.save(fileName);
+
+        btn.innerHTML = '✅ Downloaded!';
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }, 2000);
+      } catch (err) {
+        console.error('PDF generation error:', err);
+        alert('Error generating PDF. Please try again.');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
       }
     }
 
