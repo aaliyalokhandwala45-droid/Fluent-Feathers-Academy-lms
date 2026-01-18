@@ -1449,7 +1449,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
 app.get('/api/dashboard/upcoming-classes', async (req, res) => {
   try {
-    // Get private sessions
+    // Get private sessions (only for active students)
     const priv = await pool.query(`
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
       CONCAT(st.program_name, ' - ', st.duration) as class_info,
@@ -1457,10 +1457,11 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       FROM sessions s
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
+        AND st.is_active = true
       ORDER BY s.session_date ASC, s.session_time ASC
     `);
 
-    // Get group sessions
+    // Get group sessions (only for active groups)
     const grp = await pool.query(`
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
       CONCAT(g.program_name, ' - ', g.duration) as class_info,
@@ -1468,6 +1469,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
+        AND g.is_active = true
       ORDER BY s.session_date ASC, s.session_time ASC
     `);
 
@@ -1885,7 +1887,28 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       return dateA - dateB;
     });
 
-    res.json(allSessions);
+    // Fix file paths for backwards compatibility
+    const fixedSessions = allSessions.map(session => {
+      // Fix PPT file path
+      if (session.ppt_file_path && !session.ppt_file_path.startsWith('/uploads/') && !session.ppt_file_path.startsWith('LINK:')) {
+        session.ppt_file_path = '/uploads/materials/' + session.ppt_file_path;
+      }
+      // Fix Recording file path
+      if (session.recording_file_path && !session.recording_file_path.startsWith('/uploads/') && !session.recording_file_path.startsWith('LINK:')) {
+        session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
+      }
+      // Fix Homework file path (teacher uploaded)
+      if (session.homework_file_path && !session.homework_file_path.startsWith('/uploads/') && !session.homework_file_path.startsWith('LINK:')) {
+        session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
+      }
+      // Fix homework submission path (parent uploaded)
+      if (session.homework_submission_path && !session.homework_submission_path.startsWith('/uploads/') && !session.homework_submission_path.startsWith('LINK:')) {
+        session.homework_submission_path = '/uploads/homework/' + session.homework_submission_path;
+      }
+      return session;
+    });
+
+    res.json(fixedSessions);
   } catch (err) {
     console.error('Error fetching sessions:', err);
     res.status(500).json({ error: err.message });
@@ -1939,8 +1962,23 @@ app.get('/api/parent/admin-view', async (req, res) => {
 
 app.get('/api/sessions/:sessionId/details', async (req, res) => {
   try {
-    const session = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
-    res.json(session.rows[0]);
+    const result = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
+    const session = result.rows[0];
+
+    // Fix file paths for backwards compatibility
+    if (session) {
+      if (session.ppt_file_path && !session.ppt_file_path.startsWith('/uploads/') && !session.ppt_file_path.startsWith('LINK:')) {
+        session.ppt_file_path = '/uploads/materials/' + session.ppt_file_path;
+      }
+      if (session.recording_file_path && !session.recording_file_path.startsWith('/uploads/') && !session.recording_file_path.startsWith('LINK:')) {
+        session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
+      }
+      if (session.homework_file_path && !session.homework_file_path.startsWith('/uploads/') && !session.homework_file_path.startsWith('LINK:')) {
+        session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
+      }
+    }
+
+    res.json(session);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2069,7 +2107,9 @@ app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, r
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, [req.file.filename, req.params.sessionId]);
+    // Store full relative path including folder
+    const filePath = '/uploads/materials/' + req.file.filename;
+    await client.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, [filePath, req.params.sessionId]);
     const session = (await client.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId])).rows[0];
     const studentsQuery = session.session_type === 'Group' ? `SELECT id FROM students WHERE group_id = $1 AND is_active = true` : `SELECT $1 as id`;
     const students = await client.query(studentsQuery, [session.group_id || session.student_id]);
@@ -2077,7 +2117,7 @@ app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, r
       await client.query(`
         INSERT INTO materials (student_id, group_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'Teacher')
-      `, [s.id, session.group_id, req.params.sessionId, session.session_date, req.body.materialType.toUpperCase(), req.file.originalname, req.file.filename]);
+      `, [s.id, session.group_id, req.params.sessionId, session.session_date, req.body.materialType.toUpperCase(), req.file.originalname, filePath]);
     }
     await client.query('COMMIT');
     res.json({ message: 'Material uploaded successfully!', filename: req.file.filename });
@@ -2152,7 +2192,19 @@ app.post('/api/sessions/:sessionId/grade/:studentId', async (req, res) => {
 
 app.get('/api/materials/:studentId', async (req, res) => {
   try {
-    res.json((await pool.query('SELECT * FROM materials WHERE student_id = $1 ORDER BY uploaded_at DESC', [req.params.studentId])).rows);
+    const result = await pool.query('SELECT * FROM materials WHERE student_id = $1 ORDER BY uploaded_at DESC', [req.params.studentId]);
+
+    // Ensure file paths have correct prefix for backwards compatibility
+    const rows = result.rows.map(row => {
+      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:')) {
+        // Determine correct folder based on file type
+        const folder = row.uploaded_by === 'Parent' ? 'homework' : 'materials';
+        row.file_path = `/uploads/${folder}/` + row.file_path;
+      }
+      return row;
+    });
+
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2161,10 +2213,12 @@ app.get('/api/materials/:studentId', async (req, res) => {
 app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
+    // Store full relative path including folder
+    const filePath = '/uploads/homework/' + req.file.filename;
     await pool.query(`
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
       VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent')
-    `, [req.params.studentId, req.body.sessionId, req.file.originalname, req.file.filename]);
+    `, [req.params.studentId, req.body.sessionId, req.file.originalname, filePath]);
 
     // Award homework submission badge
     await awardBadge(req.params.studentId, 'hw_submit', '📝 Homework Hero', 'Submitted homework on time');
@@ -2426,7 +2480,21 @@ app.get('/api/sessions/past/all', async (req, res) => {
       return dateB - dateA;
     }).slice(0, 50);
 
-    res.json(all);
+    // Fix file paths for backwards compatibility
+    const fixed = all.map(session => {
+      if (session.ppt_file_path && !session.ppt_file_path.startsWith('/uploads/') && !session.ppt_file_path.startsWith('LINK:')) {
+        session.ppt_file_path = '/uploads/materials/' + session.ppt_file_path;
+      }
+      if (session.recording_file_path && !session.recording_file_path.startsWith('/uploads/') && !session.recording_file_path.startsWith('LINK:')) {
+        session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
+      }
+      if (session.homework_file_path && !session.homework_file_path.startsWith('/uploads/') && !session.homework_file_path.startsWith('LINK:')) {
+        session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
+      }
+      return session;
+    });
+
+    res.json(fixed);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2779,6 +2847,44 @@ app.post('/api/students/:id/badges', async (req, res) => {
   }
 });
 
+// Sync badges for all students based on their completed sessions (run once to fix missing badges)
+app.post('/api/badges/sync-all', async (req, res) => {
+  try {
+    const students = await pool.query('SELECT id, completed_sessions FROM students WHERE is_active = true');
+    let awarded = 0;
+
+    for (const student of students.rows) {
+      const count = student.completed_sessions || 0;
+
+      if (count >= 1) {
+        const result = await awardBadge(student.id, 'first_class', '🌟 First Class Star', 'Attended first class!');
+        if (result) awarded++;
+      }
+      if (count >= 5) {
+        const result = await awardBadge(student.id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
+        if (result) awarded++;
+      }
+      if (count >= 10) {
+        const result = await awardBadge(student.id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
+        if (result) awarded++;
+      }
+      if (count >= 25) {
+        const result = await awardBadge(student.id, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
+        if (result) awarded++;
+      }
+      if (count >= 50) {
+        const result = await awardBadge(student.id, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
+        if (result) awarded++;
+      }
+    }
+
+    res.json({ success: true, message: `Synced badges! ${awarded} new badges awarded.` });
+  } catch (err) {
+    console.error('Badge sync error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/badges/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM student_badges WHERE id = $1', [req.params.id]);
@@ -2876,7 +2982,16 @@ app.get('/api/students/:id/homework', async (req, res) => {
       WHERE m.student_id = $1 AND m.file_type = 'Homework'
       ORDER BY m.uploaded_at DESC
     `, [req.params.id]);
-    res.json(result.rows);
+
+    // Ensure file paths have correct prefix for backwards compatibility
+    const rows = result.rows.map(row => {
+      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:')) {
+        row.file_path = '/uploads/homework/' + row.file_path;
+      }
+      return row;
+    });
+
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2903,7 +3018,16 @@ app.get('/api/homework/all', async (req, res) => {
     query += ` ORDER BY m.uploaded_at DESC`;
 
     const result = await pool.query(query, params);
-    res.json(result.rows);
+
+    // Ensure file paths have correct prefix for backwards compatibility
+    const rows = result.rows.map(row => {
+      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:')) {
+        row.file_path = '/uploads/homework/' + row.file_path;
+      }
+      return row;
+    });
+
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
