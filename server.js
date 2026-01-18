@@ -10,6 +10,8 @@ const axios = require('axios');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const cron = require('node-cron');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 require('dotenv').config();
 
 const app = express();
@@ -19,6 +21,21 @@ const PORT = process.env.PORT || 3000;
 // ==================== CONFIG ====================
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'super_secret_change_this_in_production';
 const DEFAULT_ZOOM = process.env.DEFAULT_ZOOM_LINK || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+
+// ==================== CLOUDINARY CONFIG ====================
+// Configure Cloudinary for persistent file storage
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const useCloudinary = !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+if (useCloudinary) {
+  console.log('☁️ Cloudinary configured for file storage');
+} else {
+  console.log('📁 Using local file storage (files may be lost on server restart)');
+}
 
 // ==================== DATABASE CONNECTION ====================
 const pool = new Pool({
@@ -52,7 +69,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 });
 
 // ==================== FILE UPLOAD SETUP ====================
-const storage = multer.diskStorage({
+// Local disk storage (fallback when Cloudinary is not configured)
+const localDiskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dest = req.body.uploadType === 'homework' ? 'uploads/homework/' : 'uploads/materials/';
     cb(null, dest);
@@ -64,18 +82,41 @@ const storage = multer.diskStorage({
   }
 });
 
+// Cloudinary storage configuration
+let cloudinaryStorage = null;
+if (useCloudinary) {
+  cloudinaryStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: async (req, file) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
+      const isVideo = ['.mp4', '.mov', '.avi', '.webm'].includes(ext);
+      const folder = req.body.uploadType === 'homework' ? 'fluentfeathers/homework' : 'fluentfeathers/materials';
+
+      return {
+        folder: folder,
+        resource_type: isVideo ? 'video' : isImage ? 'image' : 'raw',
+        public_id: Date.now() + '-' + Math.round(Math.random() * 1E9),
+        allowed_formats: null // Allow all formats
+      };
+    }
+  });
+}
+
+// File filter for security
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const forbidden = ['.exe', '.sh', '.bat', '.cmd', '.php', '.py', '.rb', '.dll', '.msi', '.com', '.scr'];
+  if (forbidden.includes(ext)) return cb(new Error('Executable files not allowed'));
+  if (file.originalname.includes('..')) return cb(new Error('Invalid filename'));
+  cb(null, true);
+};
+
+// Use Cloudinary storage if available, otherwise use local disk
 const upload = multer({
-  storage: storage,
+  storage: useCloudinary ? cloudinaryStorage : localDiskStorage,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max for videos
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    // Only block executable/script files for security
-    const forbidden = ['.exe', '.sh', '.bat', '.cmd', '.php', '.py', '.rb', '.dll', '.msi', '.com', '.scr'];
-    if (forbidden.includes(ext)) return cb(new Error('Executable files not allowed'));
-    if (file.originalname.includes('..')) return cb(new Error('Invalid filename'));
-    // Allow ALL other file types
-    cb(null, true);
-  }
+  fileFilter: fileFilter
 });
 
 // ==================== SECURITY HELPERS ====================
@@ -580,6 +621,8 @@ async function runMigrations() {
       `);
       await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_session ON class_feedback(session_id)');
       await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
+      // Add unique constraint for session_id + student_id
+      await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_unique ON class_feedback(session_id, student_id)');
       console.log('✅ Class feedback table checked/created');
     } catch (err) {
       console.error('❌ Error with class_feedback table:', err.message);
@@ -1237,11 +1280,60 @@ function getMonthlyReportCardEmail(data) {
       </div>
 
       ${certificateTitle ? `
-      <!-- Certificate Award -->
-      <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);">
-        <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
-        <p style="margin: 0 0 8px; color: #2d3748; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Achievement Award</p>
-        <h3 style="margin: 0; color: #2d3748; font-size: 26px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">🌟 ${certificateTitle} 🌟</h3>
+      <!-- Professional Certificate -->
+      <div style="background: linear-gradient(135deg, #fffef5 0%, #fff9e6 100%); border: 3px solid #B05D9E; border-radius: 12px; padding: 30px; margin-bottom: 30px; position: relative; box-shadow: 0 8px 25px rgba(176, 93, 158, 0.15);">
+        <!-- Certificate Number -->
+        <div style="text-align: right; color: #718096; font-size: 10px; font-family: monospace; margin-bottom: 10px;">
+          Certificate No: FFA-${year}${String(month).padStart(2, '0')}-${Date.now().toString().slice(-4)}
+        </div>
+
+        <!-- Decorative Border -->
+        <div style="border: 2px solid #d4af37; border-radius: 8px; padding: 25px;">
+          <!-- Certificate Header with Logo -->
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="${process.env.LOGO_URL || 'https://i.postimg.cc/placeholder/logo.png'}" alt="Fluent Feathers" style="height: 80px; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <h2 style="margin: 0; color: #B05D9E; font-size: 16px; text-transform: uppercase; letter-spacing: 3px; font-weight: 600;">Fluent Feathers Academy</h2>
+            <p style="margin: 5px 0 0; color: #718096; font-size: 11px; letter-spacing: 1px;">Empowering Young Minds Through Language & Communication</p>
+          </div>
+
+          <!-- Certificate Title -->
+          <div style="text-align: center; margin: 25px 0;">
+            <p style="margin: 0 0 8px; color: #718096; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Certificate of</p>
+            <h3 style="margin: 0; color: #2d3748; font-size: 28px; font-weight: 700; font-family: Georgia, serif; text-transform: uppercase; letter-spacing: 1px;">${certificateTitle}</h3>
+          </div>
+
+          <!-- Presented To -->
+          <div style="text-align: center; margin: 25px 0;">
+            <p style="margin: 0 0 10px; color: #718096; font-size: 13px;">This certificate is proudly presented to</p>
+            <h2 style="margin: 0; color: #B05D9E; font-size: 32px; font-family: Georgia, serif; font-weight: normal; border-bottom: 2px solid #d4af37; display: inline-block; padding: 0 30px 8px;">${studentName}</h2>
+          </div>
+
+          <!-- Recognition Text -->
+          <div style="text-align: center; margin: 25px 0;">
+            <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6; max-width: 450px; margin: 0 auto;">
+              In recognition of outstanding achievement and dedication in<br>
+              <strong style="color: #B05D9E;">${monthNames[month - 1]} ${year}</strong>
+            </p>
+          </div>
+
+          <!-- Signature Section -->
+          <div style="display: flex; justify-content: center; margin-top: 30px; padding-top: 20px; border-top: 1px dashed #e2e8f0;">
+            <div style="text-align: center;">
+              <img src="https://i.imgur.com/YourSignature.png" alt="" style="height: 40px; margin-bottom: 5px;" onerror="this.style.display='none'">
+              <div style="border-top: 1px solid #2d3748; padding-top: 5px; min-width: 180px;">
+                <p style="margin: 0; font-size: 12px; font-weight: 600; color: #2d3748;">Aaliya Lokhandwala</p>
+                <p style="margin: 2px 0 0; font-size: 10px; color: #718096;">Founder & Teacher</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Official Seal -->
+          <div style="text-align: center; margin-top: 20px;">
+            <div style="display: inline-block; padding: 8px 20px; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); border-radius: 20px;">
+              <span style="color: white; font-size: 11px; font-weight: 600; letter-spacing: 1px;">✨ OFFICIAL CERTIFICATE ✨</span>
+            </div>
+          </div>
+        </div>
       </div>
       ` : ''}
 
@@ -1337,6 +1429,7 @@ cron.schedule('*/15 * * * *', async () => {
     const now = new Date();
 
     // Find all upcoming PRIVATE sessions
+    // Use session_date >= CURRENT_DATE - 1 to catch sessions that might span across midnight UTC
     const privateSessions = await pool.query(`
       SELECT s.*, st.name as student_name, st.parent_email, st.parent_name, st.timezone,
              CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
@@ -1344,7 +1437,7 @@ cron.schedule('*/15 * * * *', async () => {
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled')
         AND s.session_type = 'Private'
-        AND s.session_date >= CURRENT_DATE
+        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
         AND st.is_active = true
         AND st.parent_email IS NOT NULL
     `);
@@ -1359,7 +1452,7 @@ cron.schedule('*/15 * * * *', async () => {
       JOIN students st ON st.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled')
         AND s.session_type = 'Group'
-        AND s.session_date >= CURRENT_DATE
+        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
         AND st.is_active = true
         AND st.parent_email IS NOT NULL
     `);
@@ -1367,21 +1460,30 @@ cron.schedule('*/15 * * * *', async () => {
     // Combine all sessions
     const upcomingSessions = { rows: [...privateSessions.rows, ...groupSessions.rows] };
 
+    console.log(`📋 Found ${privateSessions.rows.length} private + ${groupSessions.rows.length} group = ${upcomingSessions.rows.length} total sessions to check for reminders`);
+
     for (const session of upcomingSessions.rows) {
       try {
         const sessionDateTime = new Date(session.full_datetime);
         const timeDiff = sessionDateTime - now;
         const hoursDiff = timeDiff / (1000 * 60 * 60);
 
+        // Skip past sessions
+        if (hoursDiff < 0) continue;
+
+        // Log session details for debugging
+        console.log(`📌 Session #${session.session_number} for ${session.student_name}: ${session.full_datetime} (${hoursDiff.toFixed(2)} hours away)`);
+
         // Check if we need to send 5-hour reminder
         if (hoursDiff > 4.75 && hoursDiff <= 5.25) {
-          // Check if 5-hour reminder already sent for this specific session
+          console.log(`⏰ Session #${session.session_number} is within 5-hour window, checking if reminder already sent...`);
+          // Check if 5-hour reminder already sent for this specific session and student
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
              WHERE recipient_email = $1
                AND email_type = 'Reminder-5hrs'
-               AND subject = $2`,
-            [session.parent_email, `⏰ Class Reminder - Session #${session.session_number} in 5 hours`]
+               AND subject LIKE $2`,
+            [session.parent_email, `%Session #${session.session_number}%5 hours%`]
           );
 
           if (sentCheck.rows.length === 0) {
@@ -1404,18 +1506,21 @@ cron.schedule('*/15 * * * *', async () => {
               'Reminder-5hrs'
             );
             console.log(`✅ Sent 5-hour reminder to ${session.parent_email} for Session #${session.session_number}`);
+          } else {
+            console.log(`⏭️ 5-hour reminder already sent for Session #${session.session_number}`);
           }
         }
 
         // Check if we need to send 1-hour reminder
         if (hoursDiff > 0.75 && hoursDiff <= 1.25) {
-          // Check if 1-hour reminder already sent for this specific session
+          console.log(`⏰ Session #${session.session_number} is within 1-hour window, checking if reminder already sent...`);
+          // Check if 1-hour reminder already sent for this specific session and student
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
              WHERE recipient_email = $1
                AND email_type = 'Reminder-1hr'
-               AND subject = $2`,
-            [session.parent_email, `⏰ Class Reminder - Session #${session.session_number} in 1 hour`]
+               AND subject LIKE $2`,
+            [session.parent_email, `%Session #${session.session_number}%1 hour%`]
           );
 
           if (sentCheck.rows.length === 0) {
@@ -1438,6 +1543,8 @@ cron.schedule('*/15 * * * *', async () => {
               'Reminder-1hr'
             );
             console.log(`✅ Sent 1-hour reminder to ${session.parent_email} for Session #${session.session_number}`);
+          } else {
+            console.log(`⏭️ 1-hour reminder already sent for Session #${session.session_number}`);
           }
         }
       } catch (sessionErr) {
@@ -1965,20 +2072,23 @@ app.get('/api/sessions/:studentId', async (req, res) => {
 
     // Fix file paths for backwards compatibility
     const fixedSessions = allSessions.map(session => {
+      // Helper to check if path needs prefix (skip Cloudinary URLs)
+      const needsPrefix = (path) => path && !path.startsWith('/uploads/') && !path.startsWith('LINK:') && !path.startsWith('https://') && !path.startsWith('http://');
+
       // Fix PPT file path
-      if (session.ppt_file_path && !session.ppt_file_path.startsWith('/uploads/') && !session.ppt_file_path.startsWith('LINK:')) {
+      if (needsPrefix(session.ppt_file_path)) {
         session.ppt_file_path = '/uploads/materials/' + session.ppt_file_path;
       }
       // Fix Recording file path
-      if (session.recording_file_path && !session.recording_file_path.startsWith('/uploads/') && !session.recording_file_path.startsWith('LINK:')) {
+      if (needsPrefix(session.recording_file_path)) {
         session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
       }
       // Fix Homework file path (teacher uploaded)
-      if (session.homework_file_path && !session.homework_file_path.startsWith('/uploads/') && !session.homework_file_path.startsWith('LINK:')) {
+      if (needsPrefix(session.homework_file_path)) {
         session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
       }
       // Fix homework submission path (parent uploaded)
-      if (session.homework_submission_path && !session.homework_submission_path.startsWith('/uploads/') && !session.homework_submission_path.startsWith('LINK:')) {
+      if (needsPrefix(session.homework_submission_path)) {
         session.homework_submission_path = '/uploads/homework/' + session.homework_submission_path;
       }
       return session;
@@ -2041,15 +2151,16 @@ app.get('/api/sessions/:sessionId/details', async (req, res) => {
     const result = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
     const session = result.rows[0];
 
-    // Fix file paths for backwards compatibility
+    // Fix file paths for backwards compatibility (skip Cloudinary URLs)
     if (session) {
-      if (session.ppt_file_path && !session.ppt_file_path.startsWith('/uploads/') && !session.ppt_file_path.startsWith('LINK:')) {
+      const needsPrefix = (path) => path && !path.startsWith('/uploads/') && !path.startsWith('LINK:') && !path.startsWith('https://') && !path.startsWith('http://');
+      if (needsPrefix(session.ppt_file_path)) {
         session.ppt_file_path = '/uploads/materials/' + session.ppt_file_path;
       }
-      if (session.recording_file_path && !session.recording_file_path.startsWith('/uploads/') && !session.recording_file_path.startsWith('LINK:')) {
+      if (needsPrefix(session.recording_file_path)) {
         session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
       }
-      if (session.homework_file_path && !session.homework_file_path.startsWith('/uploads/') && !session.homework_file_path.startsWith('LINK:')) {
+      if (needsPrefix(session.homework_file_path)) {
         session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
       }
     }
@@ -2183,8 +2294,15 @@ app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, r
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Store full relative path including folder
-    const filePath = '/uploads/materials/' + req.file.filename;
+    // Get file path - Cloudinary returns path in req.file.path, local storage uses filename
+    let filePath;
+    if (useCloudinary && req.file.path) {
+      // Cloudinary returns full URL in path
+      filePath = req.file.path;
+    } else {
+      // Local storage - use relative path
+      filePath = '/uploads/materials/' + req.file.filename;
+    }
     await client.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, [filePath, req.params.sessionId]);
     const session = (await client.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId])).rows[0];
     const studentsQuery = session.session_type === 'Group' ? `SELECT id FROM students WHERE group_id = $1 AND is_active = true` : `SELECT $1 as id`;
@@ -2272,7 +2390,8 @@ app.get('/api/materials/:studentId', async (req, res) => {
 
     // Ensure file paths have correct prefix for backwards compatibility
     const rows = result.rows.map(row => {
-      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:')) {
+      // Skip if already has correct prefix, is a link, or is a Cloudinary/external URL
+      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:') && !row.file_path.startsWith('https://') && !row.file_path.startsWith('http://')) {
         // Determine correct folder based on file type
         const folder = row.uploaded_by === 'Parent' ? 'homework' : 'materials';
         row.file_path = `/uploads/${folder}/` + row.file_path;
@@ -2289,8 +2408,16 @@ app.get('/api/materials/:studentId', async (req, res) => {
 app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
-    // Store full relative path including folder
-    const filePath = '/uploads/homework/' + req.file.filename;
+    // Get file path - Cloudinary returns path in req.file.path, local storage uses filename
+    let filePath;
+    if (useCloudinary && req.file.path) {
+      // Cloudinary returns full URL in path
+      filePath = req.file.path;
+    } else {
+      // Local storage - use relative path
+      filePath = '/uploads/homework/' + req.file.filename;
+    }
+
     await pool.query(`
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
       VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent')
@@ -2556,15 +2683,16 @@ app.get('/api/sessions/past/all', async (req, res) => {
       return dateB - dateA;
     }).slice(0, 50);
 
-    // Fix file paths for backwards compatibility
+    // Fix file paths for backwards compatibility (skip Cloudinary URLs)
     const fixed = all.map(session => {
-      if (session.ppt_file_path && !session.ppt_file_path.startsWith('/uploads/') && !session.ppt_file_path.startsWith('LINK:')) {
+      const needsPrefix = (path) => path && !path.startsWith('/uploads/') && !path.startsWith('LINK:') && !path.startsWith('https://') && !path.startsWith('http://');
+      if (needsPrefix(session.ppt_file_path)) {
         session.ppt_file_path = '/uploads/materials/' + session.ppt_file_path;
       }
-      if (session.recording_file_path && !session.recording_file_path.startsWith('/uploads/') && !session.recording_file_path.startsWith('LINK:')) {
+      if (needsPrefix(session.recording_file_path)) {
         session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
       }
-      if (session.homework_file_path && !session.homework_file_path.startsWith('/uploads/') && !session.homework_file_path.startsWith('LINK:')) {
+      if (needsPrefix(session.homework_file_path)) {
         session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
       }
       return session;
@@ -2834,17 +2962,31 @@ app.get('/api/groups/:id/full', async (req, res) => {
 app.post('/api/sessions/:sessionId/feedback', async (req, res) => {
   const { student_id, rating, feedback_text } = req.body;
   try {
-    await pool.query(`
-      INSERT INTO class_feedback (session_id, student_id, rating, feedback_text)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (session_id, student_id) DO UPDATE
-      SET rating = $3, feedback_text = $4
-    `, [req.params.sessionId, student_id, rating, feedback_text]);
+    // Check if feedback already exists
+    const existing = await pool.query(
+      'SELECT id FROM class_feedback WHERE session_id = $1 AND student_id = $2',
+      [req.params.sessionId, student_id]
+    );
+
+    if (existing.rows.length > 0) {
+      // Update existing feedback
+      await pool.query(
+        'UPDATE class_feedback SET rating = $1, feedback_text = $2 WHERE session_id = $3 AND student_id = $4',
+        [rating, feedback_text, req.params.sessionId, student_id]
+      );
+    } else {
+      // Insert new feedback
+      await pool.query(
+        'INSERT INTO class_feedback (session_id, student_id, rating, feedback_text) VALUES ($1, $2, $3, $4)',
+        [req.params.sessionId, student_id, rating, feedback_text]
+      );
+    }
 
     await awardBadge(student_id, 'feedback', '⭐ Feedback Star', 'Shared valuable feedback');
 
     res.json({ success: true, message: 'Thank you for your feedback!' });
   } catch (err) {
+    console.error('Feedback error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -3097,7 +3239,8 @@ app.get('/api/homework/all', async (req, res) => {
 
     // Ensure file paths have correct prefix for backwards compatibility
     const rows = result.rows.map(row => {
-      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:')) {
+      // Skip if already has correct prefix, is a link, or is a Cloudinary/external URL
+      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:') && !row.file_path.startsWith('https://') && !row.file_path.startsWith('http://')) {
         row.file_path = '/uploads/homework/' + row.file_path;
       }
       return row;

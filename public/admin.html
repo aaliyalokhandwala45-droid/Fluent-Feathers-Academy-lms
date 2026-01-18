@@ -108,9 +108,12 @@
     <!-- Main Content -->
     <main class="main-content">
       <header>
-        <div>
-          <h1>🎓 Fluent Feathers Academy By Aaliya</h1>
-          <p style="color: #718096; font-size: 13px;">Empowering Young Minds Through Language & Communication</p>
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <img src="/logo.png" alt="Fluent Feathers" style="height: 55px;">
+          <div>
+            <h1 style="margin: 0;">Fluent Feathers Academy</h1>
+            <p style="color: #718096; font-size: 13px; margin: 0;">Empowering Young Minds Through Language & Communication</p>
+          </div>
         </div>
         <div style="display: flex; gap: 10px;">
           <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">👁️ Learner View</button>
@@ -984,6 +987,17 @@
     </div>
   </div>
 
+  <!-- Assessment View Modal with Certificate -->
+  <div id="assessmentViewModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2>📊 Monthly Assessment Report</h2>
+        <button onclick="closeAssessmentModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <div id="assessmentViewContent" style="max-height: 80vh; overflow-y: auto;">Loading...</div>
+    </div>
+  </div>
+
   <script>
     let allStudents = [], allGroups = [];
     let currentStudentId = null;
@@ -1456,6 +1470,9 @@
             if (hw.file_path.startsWith('LINK:')) {
               fileUrl = hw.file_path.replace('LINK:', '');
               isLink = true;
+            } else if (hw.file_path.startsWith('https://') || hw.file_path.startsWith('http://')) {
+              // Cloudinary or external URL - use directly
+              fileUrl = hw.file_path;
             } else if (hw.file_path.startsWith('/uploads/')) {
               fileUrl = hw.file_path;
             } else {
@@ -2493,10 +2510,7 @@
       if (certificateTitle === 'Custom') {
         certificateTitle = document.getElementById('customCertificateTitle').value;
       }
-      // Remove emoji from certificate title before saving
-      if (certificateTitle && certificateTitle.includes(' ')) {
-        certificateTitle = certificateTitle.split(' ').slice(1).join(' ');
-      }
+      // Certificate title is already clean (no emoji in values)
 
       const sendEmail = document.getElementById('sendAssessmentEmail').checked;
       const data = {
@@ -2535,12 +2549,95 @@
         const res = await fetch(`/api/assessments/${id}`);
         const a = await res.json();
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        const skills = a.skills ? JSON.parse(a.skills).join('\n• ') : 'None';
+        const skillsArray = a.skills ? JSON.parse(a.skills) : [];
 
-        alert(`📊 Monthly Assessment Report\n\nStudent: ${a.student_name}\nMonth/Year: ${monthNames[a.month-1]} ${a.year}\n\n🏆 Certificate: ${a.certificate_title || 'None'}\n\n📝 Skills Assessed:\n• ${skills}\n\n📈 Performance Summary:\n${a.performance_summary || 'N/A'}\n\n📌 Areas of Improvement:\n${a.areas_of_improvement || 'N/A'}\n\n💬 Teacher's Comments:\n${a.teacher_comments || 'N/A'}`);
+        let content = `
+          <div style="padding: 20px;">
+            <!-- Student Info -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 25px; color: white;">
+              <h2 style="margin: 0;">${a.student_name}</h2>
+              <p style="margin: 10px 0 0; opacity: 0.9;">${monthNames[a.month-1]} ${a.year}</p>
+            </div>
+
+            ${a.certificate_title ? `
+            <!-- Professional Certificate -->
+            <div style="background: linear-gradient(135deg, #fffef5 0%, #fff9e6 100%); border: 3px solid #B05D9E; border-radius: 12px; padding: 25px; margin-bottom: 25px; position: relative;">
+              <div style="text-align: right; color: #718096; font-size: 10px; font-family: monospace;">
+                Certificate No: FFA-${a.year}${String(a.month).padStart(2, '0')}-${String(a.id).padStart(4, '0')}
+              </div>
+              <div style="border: 2px solid #d4af37; border-radius: 8px; padding: 20px; margin-top: 10px;">
+                <div style="text-align: center;">
+                  <img src="/logo.png" alt="Fluent Feathers" style="height: 70px; margin-bottom: 10px;">
+                  <h3 style="margin: 0; color: #B05D9E; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">Fluent Feathers Academy</h3>
+                  <p style="margin: 5px 0 15px; color: #718096; font-size: 10px;">Empowering Young Minds Through Language & Communication</p>
+
+                  <p style="margin: 0 0 5px; color: #718096; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Certificate of</p>
+                  <h2 style="margin: 0 0 15px; color: #2d3748; font-size: 24px; font-family: Georgia, serif;">${a.certificate_title}</h2>
+
+                  <p style="margin: 0 0 8px; color: #718096; font-size: 12px;">Proudly presented to</p>
+                  <h2 style="margin: 0; color: #B05D9E; font-size: 26px; font-family: Georgia, serif; border-bottom: 2px solid #d4af37; display: inline-block; padding: 0 20px 5px;">${a.student_name}</h2>
+
+                  <p style="margin: 15px 0; color: #4a5568; font-size: 12px;">
+                    In recognition of outstanding achievement in<br>
+                    <strong style="color: #B05D9E;">${monthNames[a.month-1]} ${a.year}</strong>
+                  </p>
+
+                  <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #e2e8f0;">
+                    <p style="margin: 0; font-size: 11px; font-weight: 600; color: #2d3748;">Aaliya Lokhandwala</p>
+                    <p style="margin: 2px 0 0; font-size: 9px; color: #718096;">Founder & Teacher</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            ` : ''}
+
+            ${skillsArray.length > 0 ? `
+            <div style="margin-bottom: 20px;">
+              <h3 style="color: #2d3748; margin: 0 0 10px; font-size: 16px;">📝 Skills Assessed</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                ${skillsArray.map(skill => `<div style="background: #f7fafc; padding: 10px; border-radius: 6px; border-left: 3px solid #667eea; font-size: 13px;">✓ ${skill}</div>`).join('')}
+              </div>
+            </div>
+            ` : ''}
+
+            ${a.performance_summary ? `
+            <div style="margin-bottom: 20px;">
+              <h3 style="color: #2d3748; margin: 0 0 10px; font-size: 16px;">📈 Performance Summary</h3>
+              <div style="background: #e6fffa; padding: 15px; border-radius: 8px; border-left: 3px solid #38b2ac;">
+                <p style="margin: 0; font-size: 14px; line-height: 1.6;">${a.performance_summary}</p>
+              </div>
+            </div>
+            ` : ''}
+
+            ${a.areas_of_improvement ? `
+            <div style="margin-bottom: 20px;">
+              <h3 style="color: #2d3748; margin: 0 0 10px; font-size: 16px;">📌 Areas of Improvement</h3>
+              <div style="background: #fff5f5; padding: 15px; border-radius: 8px; border-left: 3px solid #fc8181;">
+                <p style="margin: 0; font-size: 14px; line-height: 1.6;">${a.areas_of_improvement}</p>
+              </div>
+            </div>
+            ` : ''}
+
+            ${a.teacher_comments ? `
+            <div style="margin-bottom: 20px;">
+              <h3 style="color: #2d3748; margin: 0 0 10px; font-size: 16px;">💬 Teacher's Comments</h3>
+              <div style="background: #fef5e7; padding: 15px; border-radius: 8px; border-left: 3px solid #f6ad55;">
+                <p style="margin: 0; font-size: 14px; line-height: 1.6; font-style: italic;">"${a.teacher_comments}"</p>
+              </div>
+            </div>
+            ` : ''}
+          </div>
+        `;
+
+        document.getElementById('assessmentViewContent').innerHTML = content;
+        document.getElementById('assessmentViewModal').classList.add('active');
       } catch (err) {
         alert('❌ Error: ' + err.message);
       }
+    }
+
+    function closeAssessmentModal() {
+      document.getElementById('assessmentViewModal').classList.remove('active');
     }
 
     async function deleteAssessment(id) {
