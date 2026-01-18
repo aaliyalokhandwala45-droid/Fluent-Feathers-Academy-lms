@@ -119,6 +119,14 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
+// ==================== CONFIG API ====================
+// Endpoint to get logo URL for frontend
+app.get('/api/config', (req, res) => {
+  res.json({
+    logoUrl: process.env.LOGO_URL || '/logo.png'
+  });
+});
+
 // ==================== SECURITY HELPERS ====================
 function generateAdminToken(studentId) {
   const payload = `${studentId}:${Date.now()}`;
@@ -1280,59 +1288,46 @@ function getMonthlyReportCardEmail(data) {
       </div>
 
       ${certificateTitle ? `
-      <!-- Professional Certificate -->
-      <div style="background: linear-gradient(135deg, #fffef5 0%, #fff9e6 100%); border: 3px solid #B05D9E; border-radius: 12px; padding: 30px; margin-bottom: 30px; position: relative; box-shadow: 0 8px 25px rgba(176, 93, 158, 0.15);">
-        <!-- Certificate Number -->
-        <div style="text-align: right; color: #718096; font-size: 10px; font-family: monospace; margin-bottom: 10px;">
-          Certificate No: FFA-${year}${String(month).padStart(2, '0')}-${Date.now().toString().slice(-4)}
+      <!-- Child-Friendly Certificate for Email -->
+      <div style="background: linear-gradient(135deg, #fff5f8 0%, #fef3c7 50%, #e0f2fe 100%); border: 4px solid #f472b6; border-radius: 20px; padding: 25px; margin-bottom: 25px; text-align: center;">
+        <!-- Stars Header -->
+        <div style="font-size: 24px; margin-bottom: 10px;">⭐ ✨ 🌟 ✨ ⭐</div>
+
+        <!-- Logo -->
+        <img src="${process.env.LOGO_URL || ''}" alt="Fluent Feathers" style="height: 60px; margin-bottom: 8px;" onerror="this.outerHTML='<div style=\\'font-size:40px;\\'>🎓</div>'">
+        <p style="margin: 0 0 15px; color: #B05D9E; font-size: 12px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY</p>
+
+        <!-- Award Badge with FULL Title -->
+        <div style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 10px 25px; border-radius: 25px; margin: 10px 0;">
+          <span style="font-size: 24px;">🏆</span>
+          <span style="color: #78350f; font-size: 18px; font-weight: 700; margin-left: 8px;">${certificateTitle}</span>
         </div>
 
-        <!-- Decorative Border -->
-        <div style="border: 2px solid #d4af37; border-radius: 8px; padding: 25px;">
-          <!-- Certificate Header with Logo -->
-          <div style="text-align: center; margin-bottom: 20px;">
-            <img src="${process.env.LOGO_URL || 'https://i.postimg.cc/placeholder/logo.png'}" alt="Fluent Feathers" style="height: 80px; margin-bottom: 10px;" onerror="this.style.display='none'">
-            <h2 style="margin: 0; color: #B05D9E; font-size: 16px; text-transform: uppercase; letter-spacing: 3px; font-weight: 600;">Fluent Feathers Academy</h2>
-            <p style="margin: 5px 0 0; color: #718096; font-size: 11px; letter-spacing: 1px;">Empowering Young Minds Through Language & Communication</p>
-          </div>
+        <!-- Student Name -->
+        <div style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.8); border-radius: 15px;">
+          <p style="margin: 0 0 8px; color: #6b7280; font-size: 11px; text-transform: uppercase;">Awarded to</p>
+          <h2 style="margin: 0; color: #B05D9E; font-size: 28px; font-family: 'Comic Sans MS', cursive, sans-serif;">🌟 ${studentName} 🌟</h2>
+        </div>
 
-          <!-- Certificate Title -->
-          <div style="text-align: center; margin: 25px 0;">
-            <p style="margin: 0 0 8px; color: #718096; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Certificate of</p>
-            <h3 style="margin: 0; color: #2d3748; font-size: 28px; font-weight: 700; font-family: Georgia, serif; text-transform: uppercase; letter-spacing: 1px;">${certificateTitle}</h3>
-          </div>
+        <!-- Achievement -->
+        <p style="margin: 0; color: #4b5563; font-size: 13px;">
+          For amazing progress in <strong style="color: #B05D9E;">${monthNames[month - 1]} ${year}</strong>
+        </p>
 
-          <!-- Presented To -->
-          <div style="text-align: center; margin: 25px 0;">
-            <p style="margin: 0 0 10px; color: #718096; font-size: 13px;">This certificate is proudly presented to</p>
-            <h2 style="margin: 0; color: #B05D9E; font-size: 32px; font-family: Georgia, serif; font-weight: normal; border-bottom: 2px solid #d4af37; display: inline-block; padding: 0 30px 8px;">${studentName}</h2>
-          </div>
+        <!-- Fun Emojis -->
+        <div style="font-size: 28px; margin: 15px 0;">🎉 🎊 🥳 🎈</div>
 
-          <!-- Recognition Text -->
-          <div style="text-align: center; margin: 25px 0;">
-            <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6; max-width: 450px; margin: 0 auto;">
-              In recognition of outstanding achievement and dedication in<br>
-              <strong style="color: #B05D9E;">${monthNames[month - 1]} ${year}</strong>
-            </p>
-          </div>
+        <!-- Signature -->
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px dashed #f9a8d4;">
+          <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 22px; color: #374151;">Aaliya Lokhandwala</p>
+          <p style="margin: 3px 0 0; color: #9ca3af; font-size: 10px;">Founder & Teacher</p>
+        </div>
 
-          <!-- Signature Section -->
-          <div style="display: flex; justify-content: center; margin-top: 30px; padding-top: 20px; border-top: 1px dashed #e2e8f0;">
-            <div style="text-align: center;">
-              <img src="https://i.imgur.com/YourSignature.png" alt="" style="height: 40px; margin-bottom: 5px;" onerror="this.style.display='none'">
-              <div style="border-top: 1px solid #2d3748; padding-top: 5px; min-width: 180px;">
-                <p style="margin: 0; font-size: 12px; font-weight: 600; color: #2d3748;">Aaliya Lokhandwala</p>
-                <p style="margin: 2px 0 0; font-size: 10px; color: #718096;">Founder & Teacher</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Official Seal -->
-          <div style="text-align: center; margin-top: 20px;">
-            <div style="display: inline-block; padding: 8px 20px; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); border-radius: 20px;">
-              <span style="color: white; font-size: 11px; font-weight: 600; letter-spacing: 1px;">✨ OFFICIAL CERTIFICATE ✨</span>
-            </div>
-          </div>
+        <!-- Footer -->
+        <div style="margin-top: 15px;">
+          <span style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 6px 15px; border-radius: 15px; font-size: 11px; font-weight: 600;">
+            🎊 Keep Shining Bright! 🎊
+          </span>
         </div>
       </div>
       ` : ''}
@@ -3203,7 +3198,8 @@ app.get('/api/students/:id/homework', async (req, res) => {
 
     // Ensure file paths have correct prefix for backwards compatibility
     const rows = result.rows.map(row => {
-      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:')) {
+      // Skip if already has correct prefix, is a link, or is a Cloudinary/external URL
+      if (row.file_path && !row.file_path.startsWith('/uploads/') && !row.file_path.startsWith('LINK:') && !row.file_path.startsWith('https://') && !row.file_path.startsWith('http://')) {
         row.file_path = '/uploads/homework/' + row.file_path;
       }
       return row;
