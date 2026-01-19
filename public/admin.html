@@ -111,7 +111,7 @@
         <div style="display: flex; align-items: center; gap: 15px;">
           <img id="headerLogo" src="/logo.png" alt="Fluent Feathers" style="height: 55px;">
           <div>
-            <h1 style="margin: 0;">Fluent Feathers Academy</h1>
+            <h1 style="margin: 0;">Fluent Feathers Academy By Aaliya</h1>
             <p style="color: #718096; font-size: 13px; margin: 0;">Empowering Young Minds Through Language & Communication</p>
           </div>
         </div>
@@ -390,23 +390,127 @@
     <div id="scheduleTab" class="tab-content">
       <div class="section"><h2>📅 Schedule Classes</h2>
         <div class="form-group" style="margin-bottom: 20px;"><label>Schedule Type *</label><select id="scheduleType" onchange="handleScheduleTypeChange()"><option value="private">Private Session</option><option value="group">Group Session</option></select></div>
+
+        <!-- Private Class Scheduling -->
         <form id="schedulePrivateForm">
           <div class="form-group"><label>Select Student *</label><select id="scheduleStudent" required><option value="">Select student...</option></select></div>
-          <div id="classScheduleList"></div><button type="button" onclick="addScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Class</button>
+
+          <!-- Bulk Scheduling Options -->
+          <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0; border: 2px solid #B05D9E;">
+            <h3 style="margin-bottom: 15px; color: #B05D9E;">📆 Bulk Schedule</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Start Date *</label>
+                <input type="date" id="bulkStartDate">
+              </div>
+              <div class="form-group">
+                <label>End Date *</label>
+                <input type="date" id="bulkEndDate">
+              </div>
+              <div class="form-group">
+                <label>Class Time *</label>
+                <input type="time" id="bulkClassTime">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Select Days of Week *</label>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="0"> Sun
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="1"> Mon
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="2"> Tue
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="3"> Wed
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="4"> Thu
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="5"> Fri
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="6"> Sat
+                </label>
+              </div>
+            </div>
+            <button type="button" onclick="generateBulkSchedule('private')" class="btn" style="background: #B05D9E; color: white; margin-top: 10px;">Generate Schedule Preview</button>
+          </div>
+
+          <h4 style="margin: 20px 0 10px; color: #4a5568;">📋 Scheduled Classes (or add manually)</h4>
+          <div id="classScheduleList"></div>
+          <button type="button" onclick="addScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Single Class</button>
+
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 15px;">
             <input type="checkbox" id="sendPrivateScheduleEmail" checked style="width: auto; margin: 0;">
             <label style="margin: 0;">Send Schedule Confirmation Email</label>
           </div>
-          <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule</button>
+          <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule All Classes</button>
         </form>
+
+        <!-- Group Class Scheduling -->
         <form id="scheduleGroupForm" style="display: none;">
           <div class="form-group"><label>Select Group *</label><select id="scheduleGroup" required><option value="">Select group...</option></select></div>
-          <div id="groupClassScheduleList"></div><button type="button" onclick="addGroupScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Class</button>
+
+          <!-- Bulk Scheduling Options for Groups -->
+          <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0; border: 2px solid #9f7aea;">
+            <h3 style="margin-bottom: 15px; color: #9f7aea;">📆 Bulk Schedule</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Start Date *</label>
+                <input type="date" id="groupBulkStartDate">
+              </div>
+              <div class="form-group">
+                <label>End Date *</label>
+                <input type="date" id="groupBulkEndDate">
+              </div>
+              <div class="form-group">
+                <label>Class Time *</label>
+                <input type="time" id="groupBulkClassTime">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Select Days of Week *</label>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="0"> Sun
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="1"> Mon
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="2"> Tue
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="3"> Wed
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="4"> Thu
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="5"> Fri
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="6"> Sat
+                </label>
+              </div>
+            </div>
+            <button type="button" onclick="generateBulkSchedule('group')" class="btn" style="background: #9f7aea; color: white; margin-top: 10px;">Generate Schedule Preview</button>
+          </div>
+
+          <h4 style="margin: 20px 0 10px; color: #4a5568;">📋 Scheduled Classes (or add manually)</h4>
+          <div id="groupClassScheduleList"></div>
+          <button type="button" onclick="addGroupScheduleRow()" class="btn btn-primary" style="background:#718096; margin-top:10px;">+ Add Single Class</button>
+
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 15px;">
             <input type="checkbox" id="sendGroupScheduleEmail" checked style="width: auto; margin: 0;">
             <label style="margin: 0;">Send Schedule Confirmation Email</label>
           </div>
-          <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule</button>
+          <button type="submit" class="btn btn-primary" style="margin-top:10px;">Schedule All Classes</button>
         </form>
       </div>
     </div>
@@ -1276,6 +1380,53 @@
     </div>
   </div>
 
+  <!-- Edit Payment Modal -->
+  <div id="editPaymentModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 style="color: #667eea;">✏️ Edit Payment Details</h2>
+        <button onclick="closeEditPaymentModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <div style="padding: 20px;">
+        <input type="hidden" id="editPaymentStudentId">
+        <div class="form-group">
+          <label>Total Amount Paid *</label>
+          <div style="display: flex; gap: 10px;">
+            <select id="editPaymentCurrency" style="width: 100px;">
+              <option value="INR">INR ₹</option>
+              <option value="USD">USD $</option>
+              <option value="GBP">GBP £</option>
+              <option value="EUR">EUR €</option>
+              <option value="AED">AED</option>
+              <option value="SAR">SAR</option>
+              <option value="OMR">OMR</option>
+              <option value="QAR">QAR</option>
+              <option value="CAD">CAD</option>
+              <option value="AUD">AUD</option>
+              <option value="SGD">SGD</option>
+            </select>
+            <input type="number" id="editPaymentAmount" step="0.01" min="0" required style="flex: 1;">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Total Sessions</label>
+          <input type="number" id="editPaymentSessions" min="0" required>
+        </div>
+        <div class="form-group">
+          <label>Reason for Edit (Optional)</label>
+          <input type="text" id="editPaymentReason" placeholder="e.g., Correction, Refund adjustment">
+        </div>
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <p style="color: #856404; font-size: 0.9rem; margin: 0;">⚠️ <strong>Warning:</strong> This will directly update the student's payment record. Use this only for corrections.</p>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button onclick="closeEditPaymentModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+          <button onclick="saveEditedPayment()" class="btn btn-primary">💾 Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Assessment View Modal with Certificate -->
   <div id="assessmentViewModal" class="modal">
     <div class="modal-content" style="max-width: 700px;">
@@ -1404,16 +1555,22 @@
         const classes = await res.json();
         const grid = document.getElementById('upcomingClassesGrid');
         if (classes.length === 0) return grid.innerHTML = '<p>No upcoming classes</p>';
-        grid.innerHTML = classes.map(cls => `<div class="class-card">
+        grid.innerHTML = classes.map(cls => {
+          // Get day name
+          const dateStr = cls.session_date.includes('T') ? cls.session_date.split('T')[0] : cls.session_date;
+          const d = new Date(dateStr + 'T00:00:00');
+          const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+          return `<div class="class-card">
           <h3>${cls.student_name}</h3>
           <p>📚 ${cls.class_info || 'N/A'}</p>
-          <p>📅 ${formatSessionTime(cls)} (IST)</p>
+          <p>📅 ${dayName}, ${formatSessionTime(cls)} (IST)</p>
           <p>🌍 Student TZ: ${cls.timezone}</p>
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
             <a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join</a>
             <button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
           </div>
-        </div>`).join('');
+        </div>`;
+        }).join('');
       } catch (err) {
         console.error(err);
       }
@@ -1632,6 +1789,72 @@
     }
     addScheduleRow();
 
+    // Bulk Schedule Generator
+    function generateBulkSchedule(type) {
+      const isPrivate = type === 'private';
+      const startDateEl = document.getElementById(isPrivate ? 'bulkStartDate' : 'groupBulkStartDate');
+      const endDateEl = document.getElementById(isPrivate ? 'bulkEndDate' : 'groupBulkEndDate');
+      const timeEl = document.getElementById(isPrivate ? 'bulkClassTime' : 'groupBulkClassTime');
+      const daysCheckboxes = document.querySelectorAll(isPrivate ? 'input[name="bulkDays"]:checked' : 'input[name="groupBulkDays"]:checked');
+      const container = document.getElementById(isPrivate ? 'classScheduleList' : 'groupClassScheduleList');
+
+      // Validation
+      if (!startDateEl.value) return alert('Please select a start date');
+      if (!endDateEl.value) return alert('Please select an end date');
+      if (!timeEl.value) return alert('Please select a class time');
+      if (daysCheckboxes.length === 0) return alert('Please select at least one day of the week');
+
+      const startDate = new Date(startDateEl.value);
+      const endDate = new Date(endDateEl.value);
+      const time = timeEl.value;
+
+      if (endDate < startDate) return alert('End date must be after start date');
+
+      // Get selected days (0=Sun, 1=Mon, etc.)
+      const selectedDays = Array.from(daysCheckboxes).map(cb => parseInt(cb.value));
+
+      // Clear existing schedule
+      container.innerHTML = '';
+
+      // Generate dates
+      let currentDate = new Date(startDate);
+      let count = 0;
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      while (currentDate <= endDate) {
+        if (selectedDays.includes(currentDate.getDay())) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          const dayName = dayNames[currentDate.getDay()];
+
+          const row = document.createElement('div');
+          row.className = 'schedule-row';
+          row.style.cssText = 'display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px; background: #f7fafc; border-radius: 6px;';
+          row.innerHTML = `
+            <span style="min-width: 50px; font-weight: bold; color: #B05D9E;">${dayName}</span>
+            <input type="date" name="date" value="${dateStr}" required style="flex: 1;">
+            <input type="time" name="time" value="${time}" required style="flex: 1;">
+            <button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>
+          `;
+          container.appendChild(row);
+          count++;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      if (count === 0) {
+        alert('No classes generated. Check your date range and selected days.');
+      } else {
+        alert(`✅ Generated ${count} class${count > 1 ? 'es' : ''} preview. Review below and click "Schedule All Classes" to confirm.`);
+      }
+    }
+
+    function clearBulkSchedule(type) {
+      const isPrivate = type === 'private';
+      const container = document.getElementById(isPrivate ? 'classScheduleList' : 'groupClassScheduleList');
+      container.innerHTML = '';
+      addScheduleRow();
+    }
+
     document.getElementById('schedulePrivateForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const studentId = document.getElementById('scheduleStudent').value;
@@ -1675,8 +1898,9 @@
         tbody.innerHTML = sessions.map(s => {
           const isPending = s.status === 'Pending' || s.status === 'Scheduled';
           const attendanceBtn = isPending ?
-            `<button onclick="markSessionAttendance(${s.id}, '${s.session_type}')" class="btn btn-sm btn-success">Mark Attendance</button>` :
-            `<span style="background: ${s.status === 'Present' ? '#38a169' : s.status === 'Absent' ? '#e53e3e' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.status}</span>`;
+            `<button onclick="markAttendance(${s.id}, '${s.session_type}', 'Present')" class="btn btn-sm" style="background:#38a169; color:white; margin-right:5px;">✓ Present</button>
+             <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Absent')" class="btn btn-sm" style="background:#e53e3e; color:white;">✗ Absent</button>` :
+            `<span style="background: ${s.status === 'Present' ? '#38a169' : s.status === 'Absent' ? '#e53e3e' : s.status === 'Completed' ? '#38a169' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.status}</span>`;
           const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
           return `<tr>
             <td>${formatSessionTime(s)}</td>
@@ -1770,7 +1994,6 @@
           // Build proper file URL
           let fileUrl = '';
           let isLink = false;
-          let isCloudinaryBroken = false;
           if (hw.file_path) {
             if (hw.file_path.startsWith('LINK:')) {
               fileUrl = hw.file_path.replace('LINK:', '');
@@ -1781,9 +2004,12 @@
             } else if (hw.file_path.startsWith('/uploads/')) {
               fileUrl = hw.file_path;
             } else if (/^\d+-\d+/.test(hw.file_path)) {
-              // This looks like a Cloudinary public_id without full URL - file is broken
-              isCloudinaryBroken = true;
-              fileUrl = '';
+              // This is a Cloudinary public_id - construct the full URL
+              // Note: Parent-uploaded homework goes to homework folder, teacher materials go to materials folder
+              const isImageFile = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+              const resourceType = isImageFile ? 'image' : 'raw';
+              const folder = hw.uploaded_by === 'Parent' ? 'homework' : 'materials';
+              fileUrl = `https://res.cloudinary.com/divz4aavx/${resourceType}/upload/fluentfeathers/${folder}/${hw.file_path}`;
             } else {
               fileUrl = '/uploads/homework/' + hw.file_path;
             }
@@ -1803,18 +2029,13 @@
             ? `<br><small style="color:#4a5568;">💬 ${hw.feedback_comments}</small>`
             : '';
 
-          // Warning for broken files
-          const brokenWarning = isCloudinaryBroken
-            ? `<span style="color: #e53e3e; font-size: 0.75rem; background: #fed7d7; padding: 2px 6px; border-radius: 4px;">File unavailable</span>`
-            : '';
-
           return `<tr>
             <td><strong>${hw.student_name || 'Unknown'}</strong></td>
             <td>#${hw.session_number || 'N/A'}</td>
             <td>
               ${fileUrl ? `<a href="${fileUrl}" target="_blank" style="color: #B05D9E; text-decoration: none;">
                 ${fileIcon} ${hw.file_name || (isLink ? 'External Link' : 'Download')}
-              </a>` : `${fileIcon} ${hw.file_name || 'File'} ${brokenWarning}`}
+              </a>` : `${fileIcon} ${hw.file_name || 'File'}`}
             </td>
             <td>${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
             <td>${gradeDisplay}${feedbackDisplay}</td>
@@ -1903,11 +2124,10 @@
       }
     }
 
-    async function markSessionAttendance(sessionId, sessionType) {
+    async function markAttendance(sessionId, sessionType, attendance) {
       if (sessionType === 'Group') {
         openSessionModal(sessionId, 'Group');
       } else {
-        const attendance = confirm('Mark as Present? (Cancel for Absent)') ? 'Present' : 'Absent';
         try {
           const res = await fetch(`/api/sessions/${sessionId}/attendance`, {
             method: 'POST',
@@ -1915,16 +2135,32 @@
             body: JSON.stringify({ attendance })
           });
           if(res.ok) {
-            alert('✅ Attendance marked');
+            alert(`✅ Marked as ${attendance}`);
             loadPastSessions();
             loadDashboardStats();
           } else {
-            alert('❌ Error');
+            alert('❌ Error marking attendance');
           }
         } catch(err) {
-          alert('❌ Error');
+          alert('❌ Error marking attendance');
         }
       }
+    }
+
+    // Helper function to build material URL for viewing
+    function buildMaterialUrl(filePath) {
+      if (!filePath) return '';
+      if (filePath.startsWith('LINK:')) return filePath.replace('LINK:', '');
+      if (filePath.startsWith('https://') || filePath.startsWith('http://')) return filePath;
+      if (filePath.startsWith('/uploads/')) return filePath;
+      if (/^\d+-\d+/.test(filePath)) {
+        // Cloudinary public_id - construct URL
+        const ext = filePath.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+        const resourceType = isImage ? 'image' : 'raw';
+        return `https://res.cloudinary.com/divz4aavx/${resourceType}/upload/fluentfeathers/materials/${filePath}`;
+      }
+      return '/uploads/' + filePath;
     }
 
     async function openSessionModal(sessionId, sessionType) {
@@ -1933,11 +2169,30 @@
         const session = await res.json();
         document.getElementById('modalSessionTitle').textContent = `Session #${session.session_number} - ${session.session_type}`;
 
+        // Build view links for existing materials
+        const pptUrl = buildMaterialUrl(session.ppt_file_path);
+        const recUrl = buildMaterialUrl(session.recording_file_path);
+        const hwUrl = buildMaterialUrl(session.homework_file_path);
+
+        const pptViewLink = pptUrl ? `<a href="${pptUrl}" target="_blank" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px;">📊 View PPT</a>` : '';
+        const recViewLink = recUrl ? `<a href="${recUrl}" target="_blank" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px;">🎥 View Recording</a>` : '';
+        const hwViewLink = hwUrl ? `<a href="${hwUrl}" target="_blank" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px;">📝 View Homework</a>` : '';
+
         let content = `<p><strong>Date:</strong> ${formatSessionTime(session)}</p>
+
+        ${(pptUrl || recUrl || hwUrl) ? `
+        <h3>📂 Uploaded Materials</h3>
+        <div style="background:#e6fffa; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+          ${pptViewLink}
+          ${recViewLink}
+          ${hwViewLink}
+          ${!pptUrl && !recUrl && !hwUrl ? '<span style="color:#718096;">No materials uploaded yet</span>' : ''}
+        </div>` : ''}
+
         <h3>📁 Upload Materials</h3>
         <div style="display:grid; grid-template-columns:1fr; gap:15px; margin-bottom:20px;">
           <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
-            <strong>📊 PPT / Presentation</strong>
+            <strong>📊 PPT / Presentation</strong> ${session.ppt_file_path ? '<span style="color:#38a169; font-size:0.85rem;">✓ Uploaded</span>' : ''}
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
               <input type="file" id="pptFile" style="flex:1; min-width:200px;">
               <button onclick="uploadMaterial(${sessionId}, 'ppt')" class="btn btn-sm btn-primary">Upload File</button>
@@ -1948,7 +2203,7 @@
             </div>
           </div>
           <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
-            <strong>🎥 Recording</strong>
+            <strong>🎥 Recording</strong> ${session.recording_file_path ? '<span style="color:#38a169; font-size:0.85rem;">✓ Uploaded</span>' : ''}
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
               <input type="file" id="recFile" style="flex:1; min-width:200px;">
               <button onclick="uploadMaterial(${sessionId}, 'recording')" class="btn btn-sm btn-primary">Upload File</button>
@@ -1959,7 +2214,7 @@
             </div>
           </div>
           <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
-            <strong>📝 Homework</strong>
+            <strong>📝 Homework</strong> ${session.homework_file_path ? '<span style="color:#38a169; font-size:0.85rem;">✓ Uploaded</span>' : ''}
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
               <input type="file" id="hwFile" style="flex:1; min-width:200px;">
               <button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm btn-primary">Upload File</button>
@@ -2131,9 +2386,10 @@
 
         <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
           <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-            <div><strong>Total Paid:</strong> ${student.currency} ${student.fees_paid || 0}</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: center;">
+            <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${student.fees_paid || 0}</span></div>
             <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
+            <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.fees_paid || 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
           </div>
         </div>
       `;
@@ -2144,6 +2400,60 @@
 
     function closeStudentModal() {
       document.getElementById('studentModal').classList.remove('active');
+    }
+
+    // Edit Payment Functions
+    function openEditPaymentModal(studentId, currency, amount, totalSessions) {
+      document.getElementById('editPaymentStudentId').value = studentId;
+      document.getElementById('editPaymentCurrency').value = currency || 'INR';
+      document.getElementById('editPaymentAmount').value = amount || 0;
+      document.getElementById('editPaymentSessions').value = totalSessions || 0;
+      document.getElementById('editPaymentReason').value = '';
+      document.getElementById('editPaymentModal').classList.add('active');
+    }
+
+    function closeEditPaymentModal() {
+      document.getElementById('editPaymentModal').classList.remove('active');
+    }
+
+    async function saveEditedPayment() {
+      const studentId = document.getElementById('editPaymentStudentId').value;
+      const currency = document.getElementById('editPaymentCurrency').value;
+      const amount = document.getElementById('editPaymentAmount').value;
+      const totalSessions = document.getElementById('editPaymentSessions').value;
+      const reason = document.getElementById('editPaymentReason').value;
+
+      if (!amount || amount < 0) return alert('Please enter a valid amount');
+      if (!totalSessions || totalSessions < 0) return alert('Please enter valid total sessions');
+
+      if (!confirm(`Are you sure you want to update the payment to ${currency} ${amount} and total sessions to ${totalSessions}?`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/students/${studentId}/update-payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fees_paid: parseFloat(amount),
+            currency: currency,
+            total_sessions: parseInt(totalSessions),
+            reason: reason
+          })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Payment updated successfully!');
+          closeEditPaymentModal();
+          closeStudentModal();
+          loadStudents();
+          loadDashboardStats();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
     }
 
     function handleScheduleTypeChange() {
@@ -2303,15 +2613,39 @@
     }
 
     // Download database backup for migration
-    function downloadBackup() {
+    async function downloadBackup() {
       const password = document.getElementById('backupPassword').value;
       if (!password) {
         alert('Please enter your admin password');
         return;
       }
 
-      // Open download in new window
-      window.open(`/api/backup/export?pass=${encodeURIComponent(password)}`, '_blank');
+      try {
+        const res = await fetch(`/api/backup/export?pass=${encodeURIComponent(password)}`);
+
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.error || 'Failed to download backup. Check your password.');
+          return;
+        }
+
+        // Get the SQL content and download as file
+        const sql = await res.text();
+        const blob = new Blob([sql], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `fluentfeathers_backup_${new Date().toISOString().split('T')[0]}.sql`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        alert('✅ Backup downloaded successfully!');
+      } catch (e) {
+        console.error('Backup error:', e);
+        alert('Error downloading backup: ' + e.message);
+      }
     }
 
     function loadEvents() {
@@ -2909,31 +3243,65 @@
             </div>
 
             ${a.certificate_title ? `
-            <!-- Child-Friendly Certificate Preview -->
-            <div style="background: linear-gradient(135deg, #fff5f8 0%, #fef3c7 50%, #e0f2fe 100%); border: 4px solid #f472b6; border-radius: 20px; padding: 20px; margin-bottom: 20px; text-align: center; max-width: 400px; margin-left: auto; margin-right: auto;">
-              <div style="font-size: 18px; margin-bottom: 8px;">⭐ ✨ 🌟 ✨ ⭐</div>
-              <img src="${appConfig.logoUrl}" alt="Fluent Feathers" style="height: 45px; margin-bottom: 5px;" onerror="this.outerHTML='<div style=\\'font-size:30px;\\'>🎓</div>'">
-              <p style="margin: 0 0 10px; color: #B05D9E; font-size: 10px; font-weight: 600;">FLUENT FEATHERS ACADEMY</p>
+            <!-- Colorful Kid-Friendly Certificate Preview -->
+            <div style="background: #ffffff; border-radius: 15px; padding: 0; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-width: 480px; margin-left: auto; margin-right: auto; overflow: hidden; display: flex; min-height: 280px;">
 
-              <div style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 8px 18px; border-radius: 20px; margin: 8px 0;">
-                <span style="font-size: 18px;">🏆</span>
-                <span style="color: #78350f; font-size: 14px; font-weight: 700; margin-left: 5px;">${a.certificate_title}</span>
+              <!-- Left Decorative Panel (Pink/Magenta) -->
+              <div style="width: 90px; background: linear-gradient(180deg, #e91e8c 0%, #d81b7a 50%, #c41569 100%); flex-shrink: 0; display: flex; flex-direction: column; justify-content: space-around; padding: 12px 8px; text-align: center;">
+                <div>
+                  <div style="font-size: 32px;">🧸</div>
+                  <div style="font-size: 20px;">🎈</div>
+                </div>
+                <div>
+                  <div style="font-size: 16px; margin-bottom: 5px;">⭐</div>
+                  <div style="font-size: 14px; margin-bottom: 5px;">🕐</div>
+                  <div style="font-size: 16px;">✏️</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; margin-bottom: 3px;">⭐</div>
+                  <div style="font-size: 18px;">🎀</div>
+                </div>
               </div>
 
-              <div style="margin: 12px 0; padding: 10px; background: rgba(255,255,255,0.7); border-radius: 12px;">
-                <p style="margin: 0 0 5px; color: #6b7280; font-size: 9px; text-transform: uppercase;">Awarded to</p>
-                <h3 style="margin: 0; color: #B05D9E; font-size: 18px; font-family: 'Comic Sans MS', cursive;">🌟 ${a.student_name} 🌟</h3>
-              </div>
+              <!-- Blue Border -->
+              <div style="width: 15px; background: linear-gradient(180deg, #4fc3f7 0%, #29b6f6 50%, #03a9f4 100%);"></div>
 
-              <p style="margin: 0; color: #4b5563; font-size: 10px;">
-                For amazing progress in <strong style="color: #B05D9E;">${monthNames[a.month-1]} ${a.year}</strong>
-              </p>
+              <!-- Main Content -->
+              <div style="flex: 1; padding: 18px 20px; display: flex; flex-direction: column; justify-content: center; position: relative;">
+                <!-- Stars -->
+                <div style="position: absolute; top: 10px; right: 15px; font-size: 20px; color: #ffd700;">⭐</div>
 
-              <div style="font-size: 18px; margin: 10px 0;">🎉 🎊 🥳 🎈</div>
+                <!-- Title -->
+                <h3 style="margin: 0 0 8px; color: #e91e8c; font-size: 18px; font-family: 'Comic Sans MS', cursive; text-align: center;">Certificate of Appreciation</h3>
 
-              <div style="margin-top: 10px; padding-top: 10px; border-top: 2px dashed #f9a8d4;">
-                <p style="margin: 0; font-family: cursive; font-size: 14px; color: #374151;">Aaliya Lokhandwala</p>
-                <p style="margin: 2px 0 0; color: #9ca3af; font-size: 8px;">Founder & Teacher</p>
+                <!-- Blue Badge -->
+                <div style="text-align: center; margin: 6px 0;">
+                  <div style="display: inline-flex; width: 40px; height: 40px; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); border-radius: 50%; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(33, 150, 243, 0.4);">
+                    <span style="color: white; font-size: 22px; font-weight: bold;">1</span>
+                  </div>
+                </div>
+
+                <!-- Award Type -->
+                <div style="text-align: center; margin: 10px 0 6px;">
+                  <span style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #5d4e00; padding: 5px 14px; border-radius: 15px; font-size: 11px; font-weight: bold;">🏆 ${a.certificate_title}</span>
+                </div>
+
+                <!-- Student Name -->
+                <div style="text-align: center; margin: 8px 0;">
+                  <p style="margin: 0 0 3px; color: #888; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Proudly Presented To</p>
+                  <h4 style="margin: 0; color: #e91e8c; font-size: 16px; font-family: 'Comic Sans MS', cursive;">${a.student_name}</h4>
+                </div>
+
+                <!-- Achievement -->
+                <div style="text-align: center; margin: 6px 0; padding: 6px 10px; background: #fff9e6; border-radius: 8px; border: 1px dashed #ffd700;">
+                  <p style="margin: 0; color: #5d4e37; font-size: 10px;">For outstanding achievement in <strong style="color: #e91e8c;">${monthNames[a.month-1]} ${a.year}</strong></p>
+                </div>
+
+                <!-- Signature -->
+                <div style="text-align: center; margin-top: 8px; padding-top: 6px; border-top: 1px dotted #e91e8c;">
+                  <p style="margin: 0; font-family: cursive; font-size: 12px; color: #333;">Aaliya Lokhandwala</p>
+                  <p style="margin: 1px 0 0; color: #888; font-size: 7px;">Founder & Teacher</p>
+                </div>
               </div>
             </div>
             ` : ''}

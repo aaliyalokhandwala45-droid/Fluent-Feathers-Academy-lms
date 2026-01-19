@@ -3122,6 +3122,43 @@ app.get('/api/students/:id/payments', async (req, res) => {
   }
 });
 
+// Update payment details (for corrections)
+app.post('/api/students/:id/update-payment', async (req, res) => {
+  const { fees_paid, currency, total_sessions, reason } = req.body;
+  const studentId = req.params.id;
+
+  try {
+    // Get current student data
+    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [studentId]);
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Calculate remaining sessions
+    const completedSessions = student.completed_sessions || 0;
+    const newRemaining = Math.max(0, total_sessions - completedSessions);
+
+    // Update student payment info
+    await pool.query(`
+      UPDATE students SET
+        fees_paid = $1,
+        currency = $2,
+        total_sessions = $3,
+        remaining_sessions = $4
+      WHERE id = $5
+    `, [fees_paid, currency, total_sessions, newRemaining, studentId]);
+
+    console.log(`Payment updated for student ${studentId}: ${currency} ${fees_paid}, Sessions: ${total_sessions}, Reason: ${reason || 'No reason provided'}`);
+
+    res.json({ success: true, message: 'Payment updated successfully!' });
+  } catch (err) {
+    console.error('Error updating payment:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== EDIT & DELETE STUDENT ====================
 app.put('/api/students/:id', async (req, res) => {
   const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency } = req.body;
