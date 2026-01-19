@@ -179,7 +179,7 @@
     <div id="dashboardSection" style="display: none;">
       <header>
         <div style="display: flex; align-items: center; gap: 15px;">
-          <img src="/logo.png" alt="Fluent Feathers" style="height: 50px;">
+          <img id="headerLogo" src="/logo.png" alt="Fluent Feathers" style="height: 50px;">
           <div>
             <h1 style="margin: 0; font-size: 24px;">Fluent Feathers Academy</h1>
             <p style="margin: 5px 0 0; color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
@@ -354,6 +354,21 @@
     let allMyStudents = [];
     let selectedRating = 0;
     let checkedFeedbackSessions = new Set();
+    let appConfig = { logoUrl: '/logo.png' };
+
+    // Load app configuration (logo URL from environment)
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        appConfig = await res.json();
+        const headerLogo = document.getElementById('headerLogo');
+        if (headerLogo && appConfig.logoUrl) {
+          headerLogo.src = appConfig.logoUrl;
+        }
+      } catch (e) {
+        console.log('Using default config');
+      }
+    }
 
     const adminToken = sessionStorage.getItem('adminParentToken');
     function authHeaders() {
@@ -402,6 +417,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      // Load app configuration (logo URL)
+      loadConfig();
+
       if (adminToken) {
         fetch('/api/parent/admin-view', { headers: authHeaders() })
         .then(res => {
@@ -889,6 +907,7 @@
           // Build proper file URL for viewing
           let fileUrl = '';
           let viewText = 'View';
+          let isCloudinaryBroken = false;
           if (hw.file_path) {
             if (hw.file_path.startsWith('LINK:')) {
               fileUrl = hw.file_path.replace('LINK:', '');
@@ -898,6 +917,10 @@
               fileUrl = hw.file_path;
             } else if (hw.file_path.startsWith('/uploads/')) {
               fileUrl = hw.file_path;
+            } else if (/^\d+-\d+/.test(hw.file_path)) {
+              // This looks like a Cloudinary public_id without full URL - file is broken
+              isCloudinaryBroken = true;
+              fileUrl = '';
             } else {
               fileUrl = '/uploads/homework/' + hw.file_path;
             }
@@ -909,10 +932,15 @@
 
           let previewHtml = '';
           if (isImage && fileUrl) {
-            previewHtml = `<img src="${fileUrl}" style="max-width: 100%; max-height: 200px; margin-top: 10px; border-radius: 8px; cursor: pointer;" onclick="window.open('${fileUrl}', '_blank')">`;
+            previewHtml = `<img src="${fileUrl}" style="max-width: 100%; max-height: 200px; margin-top: 10px; border-radius: 8px; cursor: pointer;" onclick="window.open('${fileUrl}', '_blank')" onerror="this.style.display='none'">`;
           } else if (isVideo && fileUrl) {
             previewHtml = `<video controls style="max-width: 100%; max-height: 200px; margin-top: 10px; border-radius: 8px;"><source src="${fileUrl}" type="video/${fileExt}">Your browser does not support video.</video>`;
           }
+
+          // Show broken file warning
+          const brokenWarning = isCloudinaryBroken
+            ? `<span style="color: #e53e3e; font-size: 0.8rem; background: #fed7d7; padding: 2px 8px; border-radius: 4px;">File unavailable - please re-upload</span>`
+            : '';
 
           return `
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
@@ -922,11 +950,13 @@
                   <p style="color: #718096; font-size: 0.85rem; margin: 5px 0;">
                     ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </p>
+                  ${brokenWarning}
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                   ${gradeDisplay}
                   ${fileUrl ? `<a href="${fileUrl}" target="_blank" style="color: #B05D9E; font-size: 0.85rem;">${viewText}</a>` : ''}
                   ${fileUrl && !hw.file_path.startsWith('LINK:') ? `<a href="${fileUrl}" download style="color: #667eea; font-size: 0.85rem;">Download</a>` : ''}
+                  <button onclick="deleteHomework(${hw.id})" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>
                 </div>
               </div>
               ${feedbackDisplay}
@@ -1164,6 +1194,30 @@
       }
     });
 
+    // Delete homework submission
+    async function deleteHomework(homeworkId) {
+      if (!confirm('Are you sure you want to delete this homework submission?')) return;
+
+      try {
+        const res = await fetch(`/api/homework/${homeworkId}`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+
+        if (res.ok) {
+          alert('Homework deleted successfully!');
+          loadSubmittedHomework();
+          loadPast();
+        } else {
+          const data = await res.json();
+          alert(data.error || 'Error deleting homework');
+        }
+      } catch (e) {
+        console.error('Delete error:', e);
+        alert('Error deleting homework');
+      }
+    }
+
     // ==================== CLASS FEEDBACK ====================
     function openFeedbackModal(sessionId, sessionNumber) {
       document.getElementById('feedbackSessionId').value = sessionId;
@@ -1283,7 +1337,7 @@
 
               <!-- Header with Logo -->
               <div style="text-align: center; margin-bottom: 12px;">
-                <img src="/logo.png" alt="Fluent Feathers" style="height: 50px; margin-bottom: 5px;" onerror="this.outerHTML='<div style=\\'font-size:35px;\\'>🎓</div>'">
+                <img src="${appConfig.logoUrl}" alt="Fluent Feathers" style="height: 50px; margin-bottom: 5px;" onerror="this.outerHTML='<div style=\\'font-size:35px;\\'>🎓</div>'">
                 <p style="margin: 0; color: #B05D9E; font-size: 11px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY</p>
               </div>
 

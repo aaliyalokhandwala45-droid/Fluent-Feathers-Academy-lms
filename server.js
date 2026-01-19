@@ -127,6 +127,65 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// ==================== DATABASE BACKUP ENDPOINT ====================
+// Export all data as SQL for migration
+app.get('/api/backup/export', async (req, res) => {
+  try {
+    // Verify admin password from query parameter for security
+    const adminPass = req.query.pass;
+    if (adminPass !== (process.env.ADMIN_PASSWORD || 'admin123')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    let sql = '-- Fluent Feathers LMS Database Backup\n';
+    sql += '-- Generated: ' + new Date().toISOString() + '\n\n';
+
+    // Get all tables
+    const tables = ['students', 'groups', 'sessions', 'materials', 'badges', 'assessments', 'announcements', 'events', 'event_registrations', 'email_log', 'class_feedback'];
+
+    for (const table of tables) {
+      try {
+        const result = await pool.query(`SELECT * FROM ${table}`);
+
+        if (result.rows.length > 0) {
+          sql += `-- Table: ${table}\n`;
+          sql += `DELETE FROM ${table};\n`;
+
+          for (const row of result.rows) {
+            const columns = Object.keys(row).join(', ');
+            const values = Object.values(row).map(val => {
+              if (val === null) return 'NULL';
+              if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+              if (typeof val === 'number') return val;
+              if (val instanceof Date) return `'${val.toISOString()}'`;
+              // Escape single quotes in strings
+              return `'${String(val).replace(/'/g, "''")}'`;
+            }).join(', ');
+
+            sql += `INSERT INTO ${table} (${columns}) VALUES (${values});\n`;
+          }
+          sql += '\n';
+        }
+      } catch (tableErr) {
+        sql += `-- Table ${table} not found or error: ${tableErr.message}\n\n`;
+      }
+    }
+
+    // Reset sequences for auto-increment IDs
+    sql += '-- Reset sequences\n';
+    for (const table of tables) {
+      sql += `SELECT setval(pg_get_serial_sequence('${table}', 'id'), COALESCE((SELECT MAX(id) FROM ${table}), 1), true);\n`;
+    }
+
+    res.setHeader('Content-Type', 'application/sql');
+    res.setHeader('Content-Disposition', 'attachment; filename=fluentfeathers_backup_' + new Date().toISOString().split('T')[0] + '.sql');
+    res.send(sql);
+  } catch (err) {
+    console.error('Backup error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== SECURITY HELPERS ====================
 function generateAdminToken(studentId) {
   const payload = `${studentId}:${Date.now()}`;
@@ -755,6 +814,77 @@ function formatUTCToLocal(utcDateStr, utcTimeStr, timezone) {
   }
 }
 
+// Get friendly timezone label from IANA timezone
+function getTimezoneLabel(timezone) {
+  const tzLabels = {
+    // Asia
+    'Asia/Kolkata': 'India Time',
+    'Asia/Dubai': 'Dubai Time',
+    'Asia/Muscat': 'Oman Time',
+    'Asia/Riyadh': 'Saudi Time',
+    'Asia/Qatar': 'Qatar Time',
+    'Asia/Kuwait': 'Kuwait Time',
+    'Asia/Bahrain': 'Bahrain Time',
+    'Asia/Singapore': 'Singapore Time',
+    'Asia/Hong_Kong': 'Hong Kong Time',
+    'Asia/Tokyo': 'Tokyo Time',
+    'Asia/Seoul': 'Seoul Time',
+    'Asia/Shanghai': 'China Time',
+    'Asia/Bangkok': 'Bangkok Time',
+    'Asia/Jakarta': 'Jakarta Time',
+    'Asia/Manila': 'Manila Time',
+    'Asia/Karachi': 'Pakistan Time',
+    'Asia/Dhaka': 'Bangladesh Time',
+    'Asia/Colombo': 'Sri Lanka Time',
+    'Asia/Kathmandu': 'Nepal Time',
+    'Asia/Tehran': 'Iran Time',
+    'Asia/Jerusalem': 'Israel Time',
+    // Americas
+    'America/New_York': 'New York Time',
+    'America/Chicago': 'Chicago Time',
+    'America/Denver': 'Denver Time',
+    'America/Los_Angeles': 'LA Time',
+    'America/Toronto': 'Toronto Time',
+    'America/Vancouver': 'Vancouver Time',
+    'America/Mexico_City': 'Mexico Time',
+    'America/Sao_Paulo': 'Brazil Time',
+    'America/Argentina/Buenos_Aires': 'Argentina Time',
+    'America/Lima': 'Peru Time',
+    'America/Bogota': 'Colombia Time',
+    // Europe
+    'Europe/London': 'London Time',
+    'Europe/Paris': 'Paris Time',
+    'Europe/Berlin': 'Berlin Time',
+    'Europe/Rome': 'Rome Time',
+    'Europe/Madrid': 'Madrid Time',
+    'Europe/Amsterdam': 'Amsterdam Time',
+    'Europe/Brussels': 'Brussels Time',
+    'Europe/Zurich': 'Zurich Time',
+    'Europe/Vienna': 'Vienna Time',
+    'Europe/Stockholm': 'Stockholm Time',
+    'Europe/Oslo': 'Oslo Time',
+    'Europe/Copenhagen': 'Copenhagen Time',
+    'Europe/Helsinki': 'Helsinki Time',
+    'Europe/Athens': 'Athens Time',
+    'Europe/Istanbul': 'Istanbul Time',
+    'Europe/Moscow': 'Moscow Time',
+    'Europe/Warsaw': 'Warsaw Time',
+    // Africa
+    'Africa/Cairo': 'Cairo Time',
+    'Africa/Johannesburg': 'South Africa Time',
+    'Africa/Lagos': 'Nigeria Time',
+    'Africa/Nairobi': 'Kenya Time',
+    'Africa/Casablanca': 'Morocco Time',
+    // Oceania
+    'Australia/Sydney': 'Sydney Time',
+    'Australia/Melbourne': 'Melbourne Time',
+    'Australia/Perth': 'Perth Time',
+    'Pacific/Auckland': 'Auckland Time',
+    'Pacific/Fiji': 'Fiji Time'
+  };
+  return tzLabels[timezone] || 'Your Local Time';
+}
+
 async function sendEmail(to, subject, html, recipientName, emailType) {
   try {
     const apiKey = process.env.BREVO_API_KEY;
@@ -1083,7 +1213,7 @@ function getOTPEmail(data) {
 }
 
 function getClassReminderEmail(data) {
-  const { studentName, sessionNumber, localDate, localTime, localDay, zoomLink, hoursBeforeClass } = data;
+  const { studentName, sessionNumber, localDate, localTime, localDay, zoomLink, hoursBeforeClass, timezoneLabel } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -1118,7 +1248,7 @@ function getClassReminderEmail(data) {
           </tr>
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Time:</strong></td>
-            <td style="padding: 8px 0; color: #667eea; font-size: 16px; font-weight: bold; text-align: right;">${localTime}</td>
+            <td style="padding: 8px 0; color: #667eea; font-size: 16px; font-weight: bold; text-align: right;">${localTime}${timezoneLabel ? ` <span style="font-size: 12px; font-weight: normal; color: #718096;">(${timezoneLabel})</span>` : ''}</td>
           </tr>
         </table>
       </div>
@@ -1138,6 +1268,86 @@ function getClassReminderEmail(data) {
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
         We're excited to see you in class!<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getHomeworkFeedbackEmail(data) {
+  const { studentName, sessionNumber, grade, comments, fileName } = data;
+
+  // Get emoji based on grade
+  const gradeEmoji = grade.toLowerCase().includes('a') || grade.toLowerCase().includes('excellent') ? '🌟' :
+                     grade.toLowerCase().includes('b') || grade.toLowerCase().includes('good') ? '👍' :
+                     grade.toLowerCase().includes('c') ? '📝' : '⭐';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">📝 Homework Reviewed!</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Great job on completing your homework!</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Hi <strong>${studentName}</strong>'s Parent,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        We're happy to let you know that ${studentName}'s homework has been reviewed! Here are the details:
+      </p>
+
+      <div style="background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #38a169; margin-bottom: 25px;">
+        <h2 style="margin: 0 0 15px; color: #38a169; font-size: 20px;">📋 Homework Details</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Session:</strong></td>
+            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">#${sessionNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>File:</strong></td>
+            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">${fileName || 'Homework submission'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Grade:</strong></td>
+            <td style="padding: 8px 0; font-size: 18px; font-weight: bold; text-align: right;">
+              <span style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; padding: 5px 15px; border-radius: 20px;">
+                ${gradeEmoji} ${grade}
+              </span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      ${comments ? `
+      <div style="background: #fef5e7; padding: 20px; border-radius: 10px; border-left: 4px solid #f6ad55; margin-bottom: 25px;">
+        <h3 style="margin: 0 0 10px; color: #c05621; font-size: 16px;">💬 Teacher's Feedback</h3>
+        <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.6; font-style: italic;">
+          "${comments}"
+        </p>
+      </div>
+      ` : ''}
+
+      <div style="background: #e6fffa; border: 1px solid #38b2ac; padding: 15px; border-radius: 8px; margin-top: 25px;">
+        <p style="margin: 0; color: #234e52; font-size: 14px; line-height: 1.5;">
+          <strong>🎯 Keep it up!</strong> Regular homework completion helps reinforce learning and build good study habits. We're proud of ${studentName}'s progress!
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        Keep up the excellent work!<br>
+        <strong style="color: #38a169;">Team Fluent Feathers Academy</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
@@ -1482,7 +1692,11 @@ cron.schedule('*/15 * * * *', async () => {
           );
 
           if (sentCheck.rows.length === 0) {
-            const localTime = formatUTCToLocal(session.session_date, session.session_time, session.timezone);
+            // Use student timezone, fallback to group timezone for group sessions
+            const studentTimezone = session.timezone || session.group_timezone || 'Asia/Kolkata';
+            console.log(`📍 Using timezone: ${studentTimezone} for ${session.student_name}`);
+            const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
+            console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
               sessionNumber: session.session_number,
@@ -1490,7 +1704,8 @@ cron.schedule('*/15 * * * *', async () => {
               localTime: localTime.time,
               localDay: localTime.day,
               zoomLink: session.zoom_link || DEFAULT_ZOOM,
-              hoursBeforeClass: 5
+              hoursBeforeClass: 5,
+              timezoneLabel: getTimezoneLabel(studentTimezone)
             });
 
             await sendEmail(
@@ -1519,7 +1734,11 @@ cron.schedule('*/15 * * * *', async () => {
           );
 
           if (sentCheck.rows.length === 0) {
-            const localTime = formatUTCToLocal(session.session_date, session.session_time, session.timezone);
+            // Use student timezone, fallback to group timezone for group sessions
+            const studentTimezone = session.timezone || session.group_timezone || 'Asia/Kolkata';
+            console.log(`📍 Using timezone: ${studentTimezone} for ${session.student_name}`);
+            const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
+            console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
               sessionNumber: session.session_number,
@@ -1527,7 +1746,8 @@ cron.schedule('*/15 * * * *', async () => {
               localTime: localTime.time,
               localDay: localTime.day,
               zoomLink: session.zoom_link || DEFAULT_ZOOM,
-              hoursBeforeClass: 1
+              hoursBeforeClass: 1,
+              timezoneLabel: getTimezoneLabel(studentTimezone)
             });
 
             await sendEmail(
@@ -2403,11 +2623,12 @@ app.get('/api/materials/:studentId', async (req, res) => {
 app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
-    // Get file path - Cloudinary returns path in req.file.path, local storage uses filename
+    // Get file path - Cloudinary returns URL in req.file.path, local storage uses filename
     let filePath;
-    if (useCloudinary && req.file.path) {
-      // Cloudinary returns full URL in path
-      filePath = req.file.path;
+    if (useCloudinary) {
+      // Cloudinary: use secure_url if available, otherwise path
+      filePath = req.file.secure_url || req.file.path || req.file.url;
+      console.log('Cloudinary upload result:', { path: req.file.path, secure_url: req.file.secure_url, url: req.file.url });
     } else {
       // Local storage - use relative path
       filePath = '/uploads/homework/' + req.file.filename;
@@ -3175,9 +3396,45 @@ app.post('/api/materials/:id/grade', async (req, res) => {
       WHERE id = $3
     `, [grade, comments, req.params.id]);
 
-    const material = await pool.query('SELECT student_id FROM materials WHERE id = $1', [req.params.id]);
-    if (material.rows[0]) {
-      await awardBadge(material.rows[0].student_id, 'graded_hw', '📚 Homework Hero', 'Received homework feedback');
+    // Get material details with student info for email
+    const materialResult = await pool.query(`
+      SELECT m.*, s.session_number, st.name as student_name, st.parent_email, st.parent_name
+      FROM materials m
+      LEFT JOIN sessions s ON m.session_id = s.id
+      LEFT JOIN students st ON m.student_id = st.id
+      WHERE m.id = $1
+    `, [req.params.id]);
+
+    if (materialResult.rows[0]) {
+      const material = materialResult.rows[0];
+
+      // Award badge
+      await awardBadge(material.student_id, 'graded_hw', '📚 Homework Hero', 'Received homework feedback');
+
+      // Send email notification to parent
+      if (material.parent_email) {
+        try {
+          const feedbackEmailHTML = getHomeworkFeedbackEmail({
+            studentName: material.student_name,
+            sessionNumber: material.session_number || 'N/A',
+            grade: grade,
+            comments: comments,
+            fileName: material.file_name
+          });
+
+          await sendEmail(
+            material.parent_email,
+            `📝 Homework Feedback - ${material.student_name}'s Session #${material.session_number || 'N/A'}`,
+            feedbackEmailHTML,
+            material.parent_name,
+            'Homework-Feedback'
+          );
+          console.log(`✅ Sent homework feedback email to ${material.parent_email} for ${material.student_name}`);
+        } catch (emailErr) {
+          console.error('Error sending homework feedback email:', emailErr);
+          // Don't fail the request if email fails
+        }
+      }
     }
 
     res.json({ success: true, message: 'Homework graded successfully!' });
@@ -3243,6 +3500,30 @@ app.get('/api/homework/all', async (req, res) => {
     });
 
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete homework submission
+app.delete('/api/homework/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get the file path before deleting (for Cloudinary cleanup if needed)
+    const existing = await pool.query('SELECT file_path FROM materials WHERE id = $1', [id]);
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Homework not found' });
+    }
+
+    // Delete from database
+    await pool.query('DELETE FROM materials WHERE id = $1', [id]);
+
+    // If using Cloudinary and file was uploaded there, we could delete from Cloudinary too
+    // For now just delete from DB - Cloudinary files can be cleaned up manually if needed
+
+    res.json({ message: 'Homework deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

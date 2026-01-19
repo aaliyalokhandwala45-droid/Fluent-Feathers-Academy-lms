@@ -160,21 +160,75 @@
             <div class="form-group"><label>Date of Birth (Optional)</label><input type="date" id="dateOfBirth"></div>
             <div class="form-group"><label>Timezone *</label>
               <select id="timezone" required>
-                <option value="Asia/Kolkata">India (IST)</option>
-                <option value="America/New_York">USA East (EST/EDT)</option>
-                <option value="America/Chicago">USA Central (CST/CDT)</option>
-                <option value="America/Denver">USA Mountain (MST/MDT)</option>
-                <option value="America/Los_Angeles">USA West (PST/PDT)</option>
-                <option value="America/Toronto">Canada (EST/EDT)</option>
-                <option value="Europe/London">UK (GMT/BST)</option>
-                <option value="Europe/Paris">France/Germany (CET/CEST)</option>
-                <option value="Europe/Moscow">Russia (MSK)</option>
-                <option value="Asia/Dubai">UAE (GST)</option>
-                <option value="Asia/Singapore">Singapore (SGT)</option>
-                <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
-                <option value="Asia/Tokyo">Japan (JST)</option>
-                <option value="Australia/Sydney">Australia East (AEST/AEDT)</option>
-                <option value="Pacific/Auckland">New Zealand (NZST/NZDT)</option>
+                <optgroup label="Asia">
+                  <option value="Asia/Kolkata">India (IST)</option>
+                  <option value="Asia/Dubai">UAE/Dubai (GST)</option>
+                  <option value="Asia/Muscat">Oman/Muscat (GST)</option>
+                  <option value="Asia/Riyadh">Saudi Arabia (AST)</option>
+                  <option value="Asia/Qatar">Qatar (AST)</option>
+                  <option value="Asia/Kuwait">Kuwait (AST)</option>
+                  <option value="Asia/Bahrain">Bahrain (AST)</option>
+                  <option value="Asia/Singapore">Singapore (SGT)</option>
+                  <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                  <option value="Asia/Tokyo">Japan (JST)</option>
+                  <option value="Asia/Seoul">South Korea (KST)</option>
+                  <option value="Asia/Shanghai">China (CST)</option>
+                  <option value="Asia/Bangkok">Thailand (ICT)</option>
+                  <option value="Asia/Jakarta">Indonesia (WIB)</option>
+                  <option value="Asia/Manila">Philippines (PHT)</option>
+                  <option value="Asia/Karachi">Pakistan (PKT)</option>
+                  <option value="Asia/Dhaka">Bangladesh (BST)</option>
+                  <option value="Asia/Colombo">Sri Lanka (IST)</option>
+                  <option value="Asia/Kathmandu">Nepal (NPT)</option>
+                  <option value="Asia/Tehran">Iran (IRST)</option>
+                  <option value="Asia/Jerusalem">Israel (IST)</option>
+                </optgroup>
+                <optgroup label="Americas">
+                  <option value="America/New_York">USA East (EST/EDT)</option>
+                  <option value="America/Chicago">USA Central (CST/CDT)</option>
+                  <option value="America/Denver">USA Mountain (MST/MDT)</option>
+                  <option value="America/Los_Angeles">USA West (PST/PDT)</option>
+                  <option value="America/Toronto">Canada East (EST/EDT)</option>
+                  <option value="America/Vancouver">Canada West (PST/PDT)</option>
+                  <option value="America/Mexico_City">Mexico (CST)</option>
+                  <option value="America/Sao_Paulo">Brazil (BRT)</option>
+                  <option value="America/Argentina/Buenos_Aires">Argentina (ART)</option>
+                  <option value="America/Lima">Peru (PET)</option>
+                  <option value="America/Bogota">Colombia (COT)</option>
+                </optgroup>
+                <optgroup label="Europe">
+                  <option value="Europe/London">UK (GMT/BST)</option>
+                  <option value="Europe/Paris">France (CET/CEST)</option>
+                  <option value="Europe/Berlin">Germany (CET/CEST)</option>
+                  <option value="Europe/Rome">Italy (CET/CEST)</option>
+                  <option value="Europe/Madrid">Spain (CET/CEST)</option>
+                  <option value="Europe/Amsterdam">Netherlands (CET/CEST)</option>
+                  <option value="Europe/Brussels">Belgium (CET/CEST)</option>
+                  <option value="Europe/Zurich">Switzerland (CET/CEST)</option>
+                  <option value="Europe/Vienna">Austria (CET/CEST)</option>
+                  <option value="Europe/Stockholm">Sweden (CET/CEST)</option>
+                  <option value="Europe/Oslo">Norway (CET/CEST)</option>
+                  <option value="Europe/Copenhagen">Denmark (CET/CEST)</option>
+                  <option value="Europe/Helsinki">Finland (EET/EEST)</option>
+                  <option value="Europe/Athens">Greece (EET/EEST)</option>
+                  <option value="Europe/Istanbul">Turkey (TRT)</option>
+                  <option value="Europe/Moscow">Russia (MSK)</option>
+                  <option value="Europe/Warsaw">Poland (CET/CEST)</option>
+                </optgroup>
+                <optgroup label="Africa">
+                  <option value="Africa/Cairo">Egypt (EET)</option>
+                  <option value="Africa/Johannesburg">South Africa (SAST)</option>
+                  <option value="Africa/Lagos">Nigeria (WAT)</option>
+                  <option value="Africa/Nairobi">Kenya (EAT)</option>
+                  <option value="Africa/Casablanca">Morocco (WET)</option>
+                </optgroup>
+                <optgroup label="Oceania">
+                  <option value="Australia/Sydney">Australia East (AEST/AEDT)</option>
+                  <option value="Australia/Melbourne">Melbourne (AEST/AEDT)</option>
+                  <option value="Australia/Perth">Australia West (AWST)</option>
+                  <option value="Pacific/Auckland">New Zealand (NZST/NZDT)</option>
+                  <option value="Pacific/Fiji">Fiji (FJT)</option>
+                </optgroup>
               </select>
             </div>
           </div>
@@ -191,18 +245,62 @@
             </div>
             <div class="form-group"><label>Currency *</label>
               <select id="currency" required>
-                <option value="USD">USD ($)</option>
-                <option value="INR">INR (₹)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="AED">AED (د.إ)</option>
-                <option value="AUD">AUD ($)</option>
-                <option value="CAD">CAD ($)</option>
-                <option value="SGD">SGD ($)</option>
-                <option value="HKD">HKD ($)</option>
-                <option value="JPY">JPY (¥)</option>
-                <option value="NZD">NZD ($)</option>
-                <option value="RUB">RUB (₽)</option>
+                <optgroup label="Major Currencies">
+                  <option value="USD">USD - US Dollar ($)</option>
+                  <option value="EUR">EUR - Euro (€)</option>
+                  <option value="GBP">GBP - British Pound (£)</option>
+                  <option value="INR">INR - Indian Rupee (₹)</option>
+                  <option value="AED">AED - UAE Dirham (د.إ)</option>
+                  <option value="SAR">SAR - Saudi Riyal (﷼)</option>
+                  <option value="OMR">OMR - Omani Rial (ر.ع.)</option>
+                  <option value="QAR">QAR - Qatari Riyal (﷼)</option>
+                  <option value="KWD">KWD - Kuwaiti Dinar (د.ك)</option>
+                  <option value="BHD">BHD - Bahraini Dinar (.د.ب)</option>
+                </optgroup>
+                <optgroup label="Asia Pacific">
+                  <option value="SGD">SGD - Singapore Dollar ($)</option>
+                  <option value="HKD">HKD - Hong Kong Dollar ($)</option>
+                  <option value="JPY">JPY - Japanese Yen (¥)</option>
+                  <option value="CNY">CNY - Chinese Yuan (¥)</option>
+                  <option value="KRW">KRW - South Korean Won (₩)</option>
+                  <option value="THB">THB - Thai Baht (฿)</option>
+                  <option value="MYR">MYR - Malaysian Ringgit (RM)</option>
+                  <option value="IDR">IDR - Indonesian Rupiah (Rp)</option>
+                  <option value="PHP">PHP - Philippine Peso (₱)</option>
+                  <option value="PKR">PKR - Pakistani Rupee (₨)</option>
+                  <option value="BDT">BDT - Bangladeshi Taka (৳)</option>
+                  <option value="LKR">LKR - Sri Lankan Rupee (₨)</option>
+                  <option value="NPR">NPR - Nepalese Rupee (₨)</option>
+                  <option value="AUD">AUD - Australian Dollar ($)</option>
+                  <option value="NZD">NZD - New Zealand Dollar ($)</option>
+                </optgroup>
+                <optgroup label="Americas">
+                  <option value="CAD">CAD - Canadian Dollar ($)</option>
+                  <option value="MXN">MXN - Mexican Peso ($)</option>
+                  <option value="BRL">BRL - Brazilian Real (R$)</option>
+                  <option value="ARS">ARS - Argentine Peso ($)</option>
+                  <option value="COP">COP - Colombian Peso ($)</option>
+                  <option value="PEN">PEN - Peruvian Sol (S/)</option>
+                  <option value="CLP">CLP - Chilean Peso ($)</option>
+                </optgroup>
+                <optgroup label="Europe">
+                  <option value="CHF">CHF - Swiss Franc (CHF)</option>
+                  <option value="SEK">SEK - Swedish Krona (kr)</option>
+                  <option value="NOK">NOK - Norwegian Krone (kr)</option>
+                  <option value="DKK">DKK - Danish Krone (kr)</option>
+                  <option value="PLN">PLN - Polish Zloty (zł)</option>
+                  <option value="CZK">CZK - Czech Koruna (Kč)</option>
+                  <option value="HUF">HUF - Hungarian Forint (Ft)</option>
+                  <option value="RUB">RUB - Russian Ruble (₽)</option>
+                  <option value="TRY">TRY - Turkish Lira (₺)</option>
+                </optgroup>
+                <optgroup label="Africa">
+                  <option value="ZAR">ZAR - South African Rand (R)</option>
+                  <option value="EGP">EGP - Egyptian Pound (£)</option>
+                  <option value="NGN">NGN - Nigerian Naira (₦)</option>
+                  <option value="KES">KES - Kenyan Shilling (KSh)</option>
+                  <option value="MAD">MAD - Moroccan Dirham (د.م.)</option>
+                </optgroup>
               </select>
             </div>
             <div class="form-group"><label>Per Session Fee *</label><input type="number" id="perSessionFee" required step="0.01"></div>
@@ -244,9 +342,44 @@
             </div>
             <div class="form-group"><label>Timezone *</label>
                 <select id="groupTimezone" required>
+                  <optgroup label="Asia">
                     <option value="Asia/Kolkata">India (IST)</option>
-                    <option value="America/New_York">USA (EST)</option>
-                    <option value="Europe/London">UK (GMT)</option>
+                    <option value="Asia/Dubai">UAE/Dubai (GST)</option>
+                    <option value="Asia/Muscat">Oman/Muscat (GST)</option>
+                    <option value="Asia/Riyadh">Saudi Arabia (AST)</option>
+                    <option value="Asia/Qatar">Qatar (AST)</option>
+                    <option value="Asia/Kuwait">Kuwait (AST)</option>
+                    <option value="Asia/Singapore">Singapore (SGT)</option>
+                    <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                    <option value="Asia/Tokyo">Japan (JST)</option>
+                    <option value="Asia/Seoul">South Korea (KST)</option>
+                    <option value="Asia/Shanghai">China (CST)</option>
+                    <option value="Asia/Bangkok">Thailand (ICT)</option>
+                    <option value="Asia/Karachi">Pakistan (PKT)</option>
+                    <option value="Asia/Dhaka">Bangladesh (BST)</option>
+                  </optgroup>
+                  <optgroup label="Americas">
+                    <option value="America/New_York">USA East (EST/EDT)</option>
+                    <option value="America/Chicago">USA Central (CST/CDT)</option>
+                    <option value="America/Denver">USA Mountain (MST/MDT)</option>
+                    <option value="America/Los_Angeles">USA West (PST/PDT)</option>
+                    <option value="America/Toronto">Canada East (EST/EDT)</option>
+                    <option value="America/Mexico_City">Mexico (CST)</option>
+                    <option value="America/Sao_Paulo">Brazil (BRT)</option>
+                  </optgroup>
+                  <optgroup label="Europe">
+                    <option value="Europe/London">UK (GMT/BST)</option>
+                    <option value="Europe/Paris">France (CET/CEST)</option>
+                    <option value="Europe/Berlin">Germany (CET/CEST)</option>
+                    <option value="Europe/Moscow">Russia (MSK)</option>
+                    <option value="Europe/Istanbul">Turkey (TRT)</option>
+                  </optgroup>
+                  <optgroup label="Africa & Oceania">
+                    <option value="Africa/Cairo">Egypt (EET)</option>
+                    <option value="Africa/Johannesburg">South Africa (SAST)</option>
+                    <option value="Australia/Sydney">Australia East (AEST/AEDT)</option>
+                    <option value="Pacific/Auckland">New Zealand (NZST/NZDT)</option>
+                  </optgroup>
                 </select>
             </div>
             <div class="form-group"><label>Max Students *</label><input type="number" id="groupMaxStudents" value="10" required></div>
@@ -402,7 +535,22 @@
       </div>
     </div>
 
-    <div id="emailsTab" class="tab-content"><div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
+    <div id="emailsTab" class="tab-content">
+      <div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div>
+
+      <!-- Database Backup Section -->
+      <div class="section" style="margin-top: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px;">
+        <h2 style="color: white; margin-bottom: 15px;">💾 Database Backup</h2>
+        <p style="color: rgba(255,255,255,0.9); margin-bottom: 20px;">Download a complete backup of your database. Use this to migrate to a new database provider (like Supabase) or for safekeeping.</p>
+        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+          <input type="password" id="backupPassword" placeholder="Enter admin password" style="padding: 12px 15px; border-radius: 8px; border: none; width: 250px; font-size: 14px;">
+          <button onclick="downloadBackup()" class="btn" style="background: white; color: #667eea; font-weight: bold; padding: 12px 25px;">
+            📥 Download Backup (.sql)
+          </button>
+        </div>
+        <p style="color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 15px;">⚠️ Keep this backup file safe. It contains all your student data, sessions, and records.</p>
+      </div>
+    </div>
 
     <div id="announcementsTab" class="tab-content">
       <div class="section">
@@ -944,14 +1092,114 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>Primary Contact *</label><input type="tel" id="editPrimaryContact" required></div>
-          <div class="form-group"><label>Timezone *</label><select id="editTimezone" required><option value="Asia/Kolkata">India (IST)</option><option value="America/New_York">USA (EST)</option></select></div>
+          <div class="form-group"><label>Timezone *</label>
+            <select id="editTimezone" required>
+              <optgroup label="Asia">
+                <option value="Asia/Kolkata">India (IST)</option>
+                <option value="Asia/Dubai">UAE/Dubai (GST)</option>
+                <option value="Asia/Muscat">Oman/Muscat (GST)</option>
+                <option value="Asia/Riyadh">Saudi Arabia (AST)</option>
+                <option value="Asia/Qatar">Qatar (AST)</option>
+                <option value="Asia/Kuwait">Kuwait (AST)</option>
+                <option value="Asia/Bahrain">Bahrain (AST)</option>
+                <option value="Asia/Singapore">Singapore (SGT)</option>
+                <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                <option value="Asia/Tokyo">Japan (JST)</option>
+                <option value="Asia/Seoul">South Korea (KST)</option>
+                <option value="Asia/Shanghai">China (CST)</option>
+                <option value="Asia/Bangkok">Thailand (ICT)</option>
+                <option value="Asia/Jakarta">Indonesia (WIB)</option>
+                <option value="Asia/Manila">Philippines (PHT)</option>
+                <option value="Asia/Karachi">Pakistan (PKT)</option>
+                <option value="Asia/Dhaka">Bangladesh (BST)</option>
+                <option value="Asia/Colombo">Sri Lanka (IST)</option>
+                <option value="Asia/Kathmandu">Nepal (NPT)</option>
+                <option value="Asia/Tehran">Iran (IRST)</option>
+                <option value="Asia/Jerusalem">Israel (IST)</option>
+              </optgroup>
+              <optgroup label="Americas">
+                <option value="America/New_York">USA East (EST/EDT)</option>
+                <option value="America/Chicago">USA Central (CST/CDT)</option>
+                <option value="America/Denver">USA Mountain (MST/MDT)</option>
+                <option value="America/Los_Angeles">USA West (PST/PDT)</option>
+                <option value="America/Toronto">Canada East (EST/EDT)</option>
+                <option value="America/Vancouver">Canada West (PST/PDT)</option>
+                <option value="America/Mexico_City">Mexico (CST)</option>
+                <option value="America/Sao_Paulo">Brazil (BRT)</option>
+                <option value="America/Argentina/Buenos_Aires">Argentina (ART)</option>
+              </optgroup>
+              <optgroup label="Europe">
+                <option value="Europe/London">UK (GMT/BST)</option>
+                <option value="Europe/Paris">France (CET/CEST)</option>
+                <option value="Europe/Berlin">Germany (CET/CEST)</option>
+                <option value="Europe/Rome">Italy (CET/CEST)</option>
+                <option value="Europe/Madrid">Spain (CET/CEST)</option>
+                <option value="Europe/Amsterdam">Netherlands (CET/CEST)</option>
+                <option value="Europe/Zurich">Switzerland (CET/CEST)</option>
+                <option value="Europe/Istanbul">Turkey (TRT)</option>
+                <option value="Europe/Moscow">Russia (MSK)</option>
+              </optgroup>
+              <optgroup label="Africa & Oceania">
+                <option value="Africa/Cairo">Egypt (EET)</option>
+                <option value="Africa/Johannesburg">South Africa (SAST)</option>
+                <option value="Africa/Lagos">Nigeria (WAT)</option>
+                <option value="Australia/Sydney">Australia East (AEST/AEDT)</option>
+                <option value="Australia/Perth">Australia West (AWST)</option>
+                <option value="Pacific/Auckland">New Zealand (NZST/NZDT)</option>
+              </optgroup>
+            </select>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Program Name *</label><input type="text" id="editProgramName" required></div>
           <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Currency *</label><select id="editCurrency" required><option value="USD">USD</option><option value="INR">INR</option><option value="GBP">GBP</option></select></div>
+          <div class="form-group"><label>Currency *</label>
+            <select id="editCurrency" required>
+              <optgroup label="Major Currencies">
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="INR">INR (₹)</option>
+                <option value="AED">AED (د.إ)</option>
+                <option value="SAR">SAR (﷼)</option>
+                <option value="OMR">OMR (ر.ع.)</option>
+                <option value="QAR">QAR (﷼)</option>
+                <option value="KWD">KWD (د.ك)</option>
+                <option value="BHD">BHD (.د.ب)</option>
+              </optgroup>
+              <optgroup label="Asia Pacific">
+                <option value="SGD">SGD ($)</option>
+                <option value="HKD">HKD ($)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="CNY">CNY (¥)</option>
+                <option value="KRW">KRW (₩)</option>
+                <option value="THB">THB (฿)</option>
+                <option value="MYR">MYR (RM)</option>
+                <option value="IDR">IDR (Rp)</option>
+                <option value="PHP">PHP (₱)</option>
+                <option value="PKR">PKR (₨)</option>
+                <option value="BDT">BDT (৳)</option>
+                <option value="LKR">LKR (₨)</option>
+                <option value="NPR">NPR (₨)</option>
+                <option value="AUD">AUD ($)</option>
+                <option value="NZD">NZD ($)</option>
+              </optgroup>
+              <optgroup label="Americas & Europe">
+                <option value="CAD">CAD ($)</option>
+                <option value="MXN">MXN ($)</option>
+                <option value="BRL">BRL (R$)</option>
+                <option value="CHF">CHF (CHF)</option>
+                <option value="SEK">SEK (kr)</option>
+                <option value="NOK">NOK (kr)</option>
+                <option value="RUB">RUB (₽)</option>
+                <option value="TRY">TRY (₺)</option>
+                <option value="ZAR">ZAR (R)</option>
+                <option value="EGP">EGP (£)</option>
+              </optgroup>
+            </select>
+          </div>
           <div class="form-group"><label>Per Session Fee *</label><input type="number" id="editPerSessionFee" required step="0.01"></div>
         </div>
         <button type="submit" class="btn btn-primary">Update Student</button>
@@ -971,7 +1219,48 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>Duration *</label><select id="editGroupDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
-          <div class="form-group"><label>Timezone *</label><select id="editGroupTimezone" required><option value="Asia/Kolkata">India (IST)</option><option value="America/New_York">USA (EST)</option></select></div>
+          <div class="form-group"><label>Timezone *</label>
+            <select id="editGroupTimezone" required>
+              <optgroup label="Asia">
+                <option value="Asia/Kolkata">India (IST)</option>
+                <option value="Asia/Dubai">UAE/Dubai (GST)</option>
+                <option value="Asia/Muscat">Oman/Muscat (GST)</option>
+                <option value="Asia/Riyadh">Saudi Arabia (AST)</option>
+                <option value="Asia/Qatar">Qatar (AST)</option>
+                <option value="Asia/Kuwait">Kuwait (AST)</option>
+                <option value="Asia/Singapore">Singapore (SGT)</option>
+                <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                <option value="Asia/Tokyo">Japan (JST)</option>
+                <option value="Asia/Seoul">South Korea (KST)</option>
+                <option value="Asia/Shanghai">China (CST)</option>
+                <option value="Asia/Bangkok">Thailand (ICT)</option>
+                <option value="Asia/Karachi">Pakistan (PKT)</option>
+                <option value="Asia/Dhaka">Bangladesh (BST)</option>
+              </optgroup>
+              <optgroup label="Americas">
+                <option value="America/New_York">USA East (EST/EDT)</option>
+                <option value="America/Chicago">USA Central (CST/CDT)</option>
+                <option value="America/Denver">USA Mountain (MST/MDT)</option>
+                <option value="America/Los_Angeles">USA West (PST/PDT)</option>
+                <option value="America/Toronto">Canada East (EST/EDT)</option>
+                <option value="America/Mexico_City">Mexico (CST)</option>
+                <option value="America/Sao_Paulo">Brazil (BRT)</option>
+              </optgroup>
+              <optgroup label="Europe">
+                <option value="Europe/London">UK (GMT/BST)</option>
+                <option value="Europe/Paris">France (CET/CEST)</option>
+                <option value="Europe/Berlin">Germany (CET/CEST)</option>
+                <option value="Europe/Moscow">Russia (MSK)</option>
+                <option value="Europe/Istanbul">Turkey (TRT)</option>
+              </optgroup>
+              <optgroup label="Africa & Oceania">
+                <option value="Africa/Cairo">Egypt (EET)</option>
+                <option value="Africa/Johannesburg">South Africa (SAST)</option>
+                <option value="Australia/Sydney">Australia East (AEST/AEDT)</option>
+                <option value="Pacific/Auckland">New Zealand (NZST/NZDT)</option>
+              </optgroup>
+            </select>
+          </div>
           <div class="form-group"><label>Max Students *</label><input type="number" id="editGroupMaxStudents" required></div>
         </div>
         <button type="submit" class="btn btn-primary">Update Group</button>
@@ -1481,6 +1770,7 @@
           // Build proper file URL
           let fileUrl = '';
           let isLink = false;
+          let isCloudinaryBroken = false;
           if (hw.file_path) {
             if (hw.file_path.startsWith('LINK:')) {
               fileUrl = hw.file_path.replace('LINK:', '');
@@ -1490,6 +1780,10 @@
               fileUrl = hw.file_path;
             } else if (hw.file_path.startsWith('/uploads/')) {
               fileUrl = hw.file_path;
+            } else if (/^\d+-\d+/.test(hw.file_path)) {
+              // This looks like a Cloudinary public_id without full URL - file is broken
+              isCloudinaryBroken = true;
+              fileUrl = '';
             } else {
               fileUrl = '/uploads/homework/' + hw.file_path;
             }
@@ -1509,20 +1803,26 @@
             ? `<br><small style="color:#4a5568;">💬 ${hw.feedback_comments}</small>`
             : '';
 
+          // Warning for broken files
+          const brokenWarning = isCloudinaryBroken
+            ? `<span style="color: #e53e3e; font-size: 0.75rem; background: #fed7d7; padding: 2px 6px; border-radius: 4px;">File unavailable</span>`
+            : '';
+
           return `<tr>
             <td><strong>${hw.student_name || 'Unknown'}</strong></td>
             <td>#${hw.session_number || 'N/A'}</td>
             <td>
-              <a href="${fileUrl}" target="_blank" style="color: #B05D9E; text-decoration: none;">
+              ${fileUrl ? `<a href="${fileUrl}" target="_blank" style="color: #B05D9E; text-decoration: none;">
                 ${fileIcon} ${hw.file_name || (isLink ? 'External Link' : 'Download')}
-              </a>
+              </a>` : `${fileIcon} ${hw.file_name || 'File'} ${brokenWarning}`}
             </td>
             <td>${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
             <td>${gradeDisplay}${feedbackDisplay}</td>
             <td>
               <button onclick="openGradeHomeworkModal(${hw.id}, '${(hw.student_name || '').replace(/'/g, "\\'")}', '${(hw.file_name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-primary">Grade</button>
               ${previewBtn}
-              ${!isLink ? `<a href="${fileUrl}" download class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">Download</a>` : ''}
+              ${fileUrl && !isLink ? `<a href="${fileUrl}" download class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">Download</a>` : ''}
+              <button onclick="deleteHomework(${hw.id})" class="btn btn-sm btn-danger">Delete</button>
             </td>
           </tr>`;
         }).join('');
@@ -1539,6 +1839,28 @@
       const comments = prompt('Enter feedback comments (optional):') || '';
 
       gradeHomework(homeworkId, grade, comments);
+    }
+
+    // Delete homework submission
+    async function deleteHomework(homeworkId) {
+      if (!confirm('Are you sure you want to delete this homework submission?')) return;
+
+      try {
+        const res = await fetch(`/api/homework/${homeworkId}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          alert('Homework deleted successfully!');
+          loadHomeworkSubmissions();
+        } else {
+          const data = await res.json();
+          alert(data.error || 'Error deleting homework');
+        }
+      } catch (e) {
+        console.error('Delete error:', e);
+        alert('Error deleting homework');
+      }
     }
 
     function previewImage(url) {
@@ -1978,6 +2300,18 @@
         .then(r=>r.json())
         .then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map(l=>`<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}</td><td>${l.email_type}</td><td>${l.subject}</td><td><span style="color: ${l.status === 'Sent' ? '#38a169' : '#e53e3e'};">${l.status}</span></td></tr>`).join(''))
         .catch(err => console.error(err));
+    }
+
+    // Download database backup for migration
+    function downloadBackup() {
+      const password = document.getElementById('backupPassword').value;
+      if (!password) {
+        alert('Please enter your admin password');
+        return;
+      }
+
+      // Open download in new window
+      window.open(`/api/backup/export?pass=${encodeURIComponent(password)}`, '_blank');
     }
 
     function loadEvents() {
