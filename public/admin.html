@@ -1082,7 +1082,52 @@
       </div>
     </div>
   </div>
-
+<!-- Edit Payment Modal -->
+<div id="editPaymentModal" class="modal">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h2 style="color: #667eea;">✏️ Edit Payment Details</h2>
+      <button onclick="closeEditPaymentModal()" class="btn btn-danger btn-sm">✕</button>
+    </div>
+    <div style="padding: 20px;">
+      <input type="hidden" id="editPaymentStudentId">
+      <div class="form-group">
+        <label>Total Amount Paid *</label>
+        <div style="display: flex; gap: 10px;">
+          <select id="editPaymentCurrency" style="width: 100px;">
+            <option value="INR">INR ₹</option>
+            <option value="USD">USD $</option>
+            <option value="GBP">GBP £</option>
+            <option value="EUR">EUR €</option>
+            <option value="AED">AED</option>
+            <option value="SAR">SAR</option>
+            <option value="OMR">OMR</option>
+            <option value="QAR">QAR</option>
+            <option value="CAD">CAD</option>
+            <option value="AUD">AUD</option>
+            <option value="SGD">SGD</option>
+          </select>
+          <input type="number" id="editPaymentAmount" step="0.01" min="0" required style="flex: 1;">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Total Sessions</label>
+        <input type="number" id="editPaymentSessions" min="0" required>
+      </div>
+      <div class="form-group">
+        <label>Reason for Edit (Optional)</label>
+        <input type="text" id="editPaymentReason" placeholder="e.g., Correction, Refund adjustment">
+      </div>
+      <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+        <p style="color: #856404; font-size: 0.9rem; margin: 0;">⚠️ <strong>Warning:</strong> This will directly update the student's payment record. Use this only for corrections.</p>
+      </div>
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button onclick="closeEditPaymentModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+        <button onclick="saveEditedPayment()" class="btn btn-primary">💾 Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
   <!-- Switch to Learner View Modal -->
   <div id="switchToLearnerModal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
@@ -2384,14 +2429,14 @@
           </div>
         </div>
 
-        <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
-          <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: center;">
-            <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${student.fees_paid || 0}</span></div>
-            <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
-            <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.fees_paid || 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
-          </div>
-        </div>
+       <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
+  <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: center;">
+    <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${student.fees_paid || 0}</span></div>
+    <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
+    <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.fees_paid || 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
+  </div>
+</div>
       `;
 
       document.getElementById('studentInfoContent').innerHTML = infoHTML;
@@ -2403,58 +2448,61 @@
     }
 
     // Edit Payment Functions
-    function openEditPaymentModal(studentId, currency, amount, totalSessions) {
-      document.getElementById('editPaymentStudentId').value = studentId;
-      document.getElementById('editPaymentCurrency').value = currency || 'INR';
-      document.getElementById('editPaymentAmount').value = amount || 0;
-      document.getElementById('editPaymentSessions').value = totalSessions || 0;
-      document.getElementById('editPaymentReason').value = '';
-      document.getElementById('editPaymentModal').classList.add('active');
+  // Edit Payment Functions
+function openEditPaymentModal(studentId, currency, amount, totalSessions) {
+  document.getElementById('editPaymentStudentId').value = studentId;
+  document.getElementById('editPaymentCurrency').value = currency || 'INR';
+  document.getElementById('editPaymentAmount').value = amount || 0;
+  document.getElementById('editPaymentSessions').value = totalSessions || 0;
+  document.getElementById('editPaymentReason').value = '';
+  document.getElementById('editPaymentModal').classList.add('active');
+}
+
+function closeEditPaymentModal() {
+  document.getElementById('editPaymentModal').classList.remove('active');
+}
+
+async function saveEditedPayment() {
+  const studentId = document.getElementById('editPaymentStudentId').value;
+  const currency = document.getElementById('editPaymentCurrency').value;
+  const amount = document.getElementById('editPaymentAmount').value;
+  const totalSessions = document.getElementById('editPaymentSessions').value;
+  const reason = document.getElementById('editPaymentReason').value;
+
+  if (!amount || amount < 0) return alert('Please enter a valid amount');
+  if (!totalSessions || totalSessions < 0) return alert('Please enter valid total sessions');
+
+  if (!confirm(`Are you sure you want to update the payment to ${currency} ${amount} and total sessions to ${totalSessions}?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/students/${studentId}/update-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fees_paid: parseFloat(amount),
+        currency: currency,
+        total_sessions: parseInt(totalSessions),
+        reason: reason
+      })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      alert('✅ Payment updated successfully!');
+      closeEditPaymentModal();
+      closeStudentModal();
+      loadStudents();
+      loadDashboardStats();
+    } else {
+      alert('❌ Failed: ' + result.error);
     }
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  }
+}
 
-    function closeEditPaymentModal() {
-      document.getElementById('editPaymentModal').classList.remove('active');
-    }
-
-    async function saveEditedPayment() {
-      const studentId = document.getElementById('editPaymentStudentId').value;
-      const currency = document.getElementById('editPaymentCurrency').value;
-      const amount = document.getElementById('editPaymentAmount').value;
-      const totalSessions = document.getElementById('editPaymentSessions').value;
-      const reason = document.getElementById('editPaymentReason').value;
-
-      if (!amount || amount < 0) return alert('Please enter a valid amount');
-      if (!totalSessions || totalSessions < 0) return alert('Please enter valid total sessions');
-
-      if (!confirm(`Are you sure you want to update the payment to ${currency} ${amount} and total sessions to ${totalSessions}?`)) {
-        return;
-      }
-
-      try {
-        const res = await fetch(`/api/students/${studentId}/update-payment`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fees_paid: parseFloat(amount),
-            currency: currency,
-            total_sessions: parseInt(totalSessions),
-            reason: reason
-          })
-        });
-        const result = await res.json();
-        if (res.ok) {
-          alert('✅ Payment updated successfully!');
-          closeEditPaymentModal();
-          closeStudentModal();
-          loadStudents();
-          loadDashboardStats();
-        } else {
-          alert('❌ Failed: ' + result.error);
-        }
-      } catch (err) {
-        alert('❌ Error: ' + err.message);
-      }
-    }
+    
 
     function handleScheduleTypeChange() {
       const type = document.getElementById('scheduleType').value;
