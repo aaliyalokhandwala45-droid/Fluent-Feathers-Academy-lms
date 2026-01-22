@@ -1875,14 +1875,20 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
 
     // Get upcoming events as well
     const events = await pool.query(`
-      SELECT id, event_name as student_name, event_date as session_date, event_time as session_time,
-      event_duration as class_info, 'Asia/Kolkata' as timezone, 0 as session_number,
-      'Event' as display_type, 'Event' as session_type,
-      COALESCE(meet_link, $1) as meet_link
-      FROM events
-      WHERE status = 'Active'
-      ORDER BY event_date ASC, event_time ASC
-    `, [DEFAULT_MEET]);
+  SELECT id,
+    event_name as student_name,
+    event_date as session_date,
+    event_time as session_time,
+    event_duration as class_info,
+    'Asia/Kolkata' as timezone,
+    0 as session_number,
+    'Event' as display_type,
+    'Event' as session_type,
+    COALESCE(e.meet_link, '') as meet_link
+  FROM events e
+  WHERE status = 'Active'
+  ORDER BY event_date ASC, event_time ASC
+`);
 
     // Combine all
     const all = [...priv.rows, ...grp.rows, ...events.rows];
