@@ -1611,7 +1611,7 @@
           <p>📅 ${dayName}, ${formatSessionTime(cls)} (IST)</p>
           <p>🌍 Student TZ: ${cls.timezone}</p>
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
-            <a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join</a>
+           <a href="${cls.zoom_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join Meet</a>
             <button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
           </div>
         </div>`;
@@ -3659,7 +3659,7 @@ async function saveEditedPayment() {
               <div><strong>Target Audience:</strong> ${event.target_audience || 'All'}</div>
               <div><strong>Max Participants:</strong> ${event.max_participants || 'Unlimited'}</div>
               <div><strong>Current Registrations:</strong> ${event.current_participants || 0}</div>
-              <div><strong>Zoom Link:</strong> <a href="${event.zoom_link}" target="_blank" style="color: #B05D9E;">Open</a></div>
+              <div><strong>Meet Link:</strong> <a href="${event.zoom_link}" target="_blank" style="color: #B05D9E;">Open</a></div>
             </div>
             ${event.event_description ? `<div style="margin-top: 15px;"><strong>Description:</strong><p style="margin-top: 5px; color: #4a5568;">${event.event_description}</p></div>` : ''}
           </div>
@@ -3707,7 +3707,7 @@ async function saveEditedPayment() {
               </div>
               <div class="form-group"><label>Max Participants</label><input type="number" id="editEventMaxParticipants" value="${event.max_participants || ''}"></div>
             </div>
-            <div class="form-group"><label>Zoom Link</label><input type="text" id="editEventZoomLink" value="${event.zoom_link || ''}"></div>
+            <div class="form-group"><label>Meet Link</label><input type="text" id="editEventMeetLink" value="${event.zoom_link || ''}"></div>
             <button type="submit" class="btn btn-primary">Update Event</button>
           </form>
         `;
@@ -3730,7 +3730,7 @@ async function saveEditedPayment() {
         event_duration: document.getElementById('editEventDuration').value,
         status: document.getElementById('editEventStatus').value,
         max_participants: document.getElementById('editEventMaxParticipants').value || null,
-        zoom_link: document.getElementById('editEventZoomLink').value
+        zoom_link: document.getElementById('editEventMeetLink').value
       };
 
       try {

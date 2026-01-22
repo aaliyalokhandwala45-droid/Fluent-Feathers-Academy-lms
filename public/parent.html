@@ -8,8 +8,45 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
+  /* Base styles */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    color: #2d3748;
+  }
+
+  /* Loading Screen Styles */
+  #serverLoadingScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%);
+    z-index: 10000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .spinner {
+    border: 4px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top: 4px solid white;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-top: 20px;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+    
     .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
     header h1 { color: #B05D9E; font-size: 24px; }
@@ -29,7 +66,7 @@
     .btn-primary:hover { background: #9A4D88; }
     .btn-danger { background: #e53e3e; color: white; }
     .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
-    .btn-zoom { background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; display: inline-block; }
+    .btn-meet { background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; display: inline-block; }
     .btn-zoom:hover { background: linear-gradient(135deg, #319795 0%, #285e61 100%); }
     .btn-download { background: #B05D9E; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; display: inline-block; margin: 2px; }
     table { width: 100%; border-collapse: collapse; }
@@ -91,6 +128,17 @@
   </style>
 </head>
 <body>
+  <!-- Loading Screen -->
+<div id="serverLoadingScreen">
+  <div style="text-align:center; color:white;">
+    <img id="loadingLogo" src="/logo.png" alt="Fluent Feathers" height="100"
+     onerror="this.outerHTML='🎓'">
+    <h1>Welcome to Fluent Feathers Academy By Aaliya</h1>
+    <p id="loadingMessage">Preparing your learning portal...</p>
+    <div class="spinner"></div>
+  </div>
+</div>
+
   <div class="container">
     <!-- LOGIN SECTION -->
     <div id="loginSection" class="login-section">
@@ -182,7 +230,7 @@
           <img id="headerLogo" src="/logo.png" alt="Fluent Feathers" style="height: 50px;">
           <div>
             <h1 style="margin: 0; font-size: 24px;">Fluent Feathers Academy By Aaliya</h1>
-            <p style="margin: 5px 0 0; color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
+            <p style="margin: 5px 0 0; color: #718096; font-size: 12px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
           </div>
         </div>
         <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
@@ -350,6 +398,108 @@
   </div>
 
   <script>
+
+    // ==================== SERVER WAKE-UP LOADING SCREEN ====================
+(function() {
+  let serverReady = false;
+  let checkAttempts = 0;
+  const maxAttempts = 30; // 30 seconds maximum
+  
+  const loadingScreen = document.getElementById('serverLoadingScreen');
+  const loadingMessage = document.getElementById('loadingMessage');
+  
+  const messages = [
+    'Preparing your learning portal...',
+    'Loading your classes...',
+    'Setting up your dashboard...',
+    'Almost ready...',
+    'Just a moment more...'
+  ];
+  
+  let messageIndex = 0;
+  
+  // Show loading screen immediately
+  function showLoadingScreen() {
+    loadingScreen.style.display = 'flex';
+    
+    // Rotate messages every 3 seconds
+    const messageInterval = setInterval(() => {
+      messageIndex = (messageIndex + 1) % messages.length;
+      loadingMessage.textContent = messages[messageIndex];
+    }, 3000);
+    
+    return messageInterval;
+  }
+  
+  // Hide loading screen
+  function hideLoadingScreen(messageInterval) {
+    clearInterval(messageInterval);
+    loadingScreen.style.opacity = '0';
+    loadingScreen.style.transition = 'opacity 0.5s ease';
+    setTimeout(() => {
+      loadingScreen.style.display = 'none';
+    }, 500);
+  }
+  
+  // Check if server is ready
+  async function checkServerHealth() {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch('/api/config', {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        serverReady = true;
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.log('Server not ready yet, attempt', checkAttempts + 1);
+      return false;
+    }
+  }
+  
+  // Main loading logic
+  async function initializeApp() {
+    const messageInterval = showLoadingScreen();
+    
+    // Check server health
+    while (!serverReady && checkAttempts < maxAttempts) {
+      checkAttempts++;
+      const isReady = await checkServerHealth();
+      
+      if (isReady) {
+        console.log('✅ Server is ready!');
+        hideLoadingScreen(messageInterval);
+        break;
+      }
+      
+      // Wait 1 second before next attempt
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    // If server didn't respond after max attempts, still hide loading screen
+    // to let user see any error messages
+    if (!serverReady) {
+      console.warn('⚠️ Server may be slow to respond');
+      hideLoadingScreen(messageInterval);
+    }
+  }
+  
+  // Start initialization when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+  } else {
+    initializeApp();
+  }
+})();
+
     let currentStudent = null;
     let allMyStudents = [];
     let selectedRating = 0;
@@ -357,18 +507,26 @@
     let appConfig = { logoUrl: '/logo.png' };
 
     // Load app configuration (logo URL from environment)
-    async function loadConfig() {
-      try {
-        const res = await fetch('/api/config');
-        appConfig = await res.json();
-        const headerLogo = document.getElementById('headerLogo');
-        if (headerLogo && appConfig.logoUrl) {
-          headerLogo.src = appConfig.logoUrl;
-        }
-      } catch (e) {
-        console.log('Using default config');
-      }
+   async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    appConfig = await res.json();
+    
+    // Update header logo
+    const headerLogo = document.getElementById('headerLogo');
+    if (headerLogo && appConfig.logoUrl) {
+      headerLogo.src = appConfig.logoUrl;
     }
+    
+    // Update loading screen logo
+    const loadingLogo = document.getElementById('loadingLogo');
+    if (loadingLogo && appConfig.logoUrl) {
+      loadingLogo.src = appConfig.logoUrl;
+    }
+  } catch (e) {
+    console.log('Using default config');
+  }
+}
 
     const adminToken = sessionStorage.getItem('adminParentToken');
     function authHeaders() {
@@ -752,7 +910,7 @@
           const dateStr = s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date;
           const d = new Date(dateStr + 'T00:00:00');
           const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-          const zoomLink = s.zoom_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+          const zoomLink = s.zoom_link || 'https://meet.google.com/qne-muzw-wav';
 
           // Check if within 5 minutes of class start time
           const sessionDateTime = new Date(dateStr + 'T' + s.session_time + 'Z');
@@ -761,8 +919,8 @@
           const canJoin = diffMinutes <= 5 && diffMinutes >= -60; // Can join 5 mins before until 60 mins after start
 
           const zoomButton = canJoin
-            ? `<a href="${zoomLink}" target="_blank" class="btn-zoom">🎥 Join Zoom</a>`
-            : `<button onclick="alert('You can join 5 minutes before your class starts. Please wait until then.')" class="btn-zoom" style="background: #a0aec0; cursor: not-allowed;">🔒 Join Zoom</button>`;
+  ? `<a href="${zoomLink}" target="_blank" class="btn-zoom">🎥 Join Meet</a>`
+  : `<button onclick="alert('You can join 5 minutes before your class starts. Please wait until then.')" class="btn-zoom" style="background: #a0aec0; cursor: not-allowed;">🔒 Join Meet</button>`;
 
           return `<tr>
             <td>#${s.session_number}</td>

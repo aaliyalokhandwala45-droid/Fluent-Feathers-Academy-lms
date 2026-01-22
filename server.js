@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIG ====================
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'super_secret_change_this_in_production';
-const DEFAULT_ZOOM = process.env.DEFAULT_ZOOM_LINK || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+const DEFAULT_MEET = process.env.DEFAULT_MEET_LINK || 'https://meet.google.com/qne-muzw-wav';
 
 // ==================== CLOUDINARY CONFIG ====================
 // Configure Cloudinary for persistent file storage
@@ -300,7 +300,7 @@ async function initializeDatabase() {
         status TEXT DEFAULT 'Pending',
         attendance TEXT,
         cancelled_by TEXT,
-        zoom_link TEXT,
+        meet_link TEXT,
         teacher_notes TEXT,
         ppt_file_path TEXT,
         recording_file_path TEXT,
@@ -395,7 +395,7 @@ async function initializeDatabase() {
         event_duration TEXT,
         target_audience TEXT DEFAULT 'All',
         specific_grades TEXT,
-        zoom_link TEXT,
+        meet_link TEXT,
         max_participants INTEGER,
         current_participants INTEGER DEFAULT 0,
         status TEXT DEFAULT 'Active',
@@ -929,14 +929,14 @@ function getWelcomeEmail(data) {
       </div>
 
       <div style="text-align: center; margin: 35px 0;">
-        <a href="${data.zoom_link}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
-          🎥 Join Your First Class
-        </a>
+        <a href="${data.meet_link}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
+  🎥 Join Your First Class on Meet
+</a>
       </div>
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>💡 Pro Tip:</strong> Save the Zoom link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
+          <strong>💡 Pro Tip:</strong> Save the Google Meet link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
         </p>
       </div>
 
@@ -990,8 +990,8 @@ function getScheduleEmail(data) {
 
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Your Classes</h3>
-        <p style="color: #234e52; margin: 0; font-size: 14px; line-height: 1.8;">
-          All classes will use the same Zoom link. We recommend joining 5 minutes early to ensure a smooth start.
+<p style="color: #234e52; margin: 0; font-size: 14px; line-height: 1.8;">
+  All classes will use the same Google Meet link. We recommend joining 5 minutes early to ensure a smooth start.
           The link will also be available in your parent portal next to each class.
         </p>
       </div>
@@ -1077,15 +1077,15 @@ function getEventEmail(data) {
         </a>
       </div>
 
-      ${data.zoom_link ? `
+      ${data.meet_link ? `
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Information</h3>
-        <p style="color: #234e52; margin: 0 0 15px 0; font-size: 14px;">
-          After registering, you'll receive the Zoom link to join the event. We recommend joining 5 minutes early!
-        </p>
-        <a href="${data.zoom_link}" style="display: inline-block; background: #38b2ac; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
-          🔗 Event Zoom Link
-        </a>
+        <p style="color: rgba(255,255,255,0.9); margin: 0 0 15px 0; font-size: 14px;">
+  After registering, you'll receive the Google Meet link to join the event. We recommend joining 5 minutes early!
+</p>
+<a href="${data.meet_link}" style="display: inline-block; background: #38b2ac; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
+  🔗 Event Meet Link
+</a>
       </div>
       ` : ''}
 
@@ -1255,8 +1255,8 @@ function getClassReminderEmail(data) {
 
       <div style="text-align: center; margin: 30px 0;">
         <a href="${zoomLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
-          🎥 Join Zoom Class
-        </a>
+  🎥 Join Meet Class
+</a>
       </div>
 
       <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
@@ -1703,7 +1703,7 @@ cron.schedule('*/15 * * * *', async () => {
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
-              zoomLink: session.zoom_link || DEFAULT_ZOOM,
+              zoomLink: session.meet_link || DEFAULT_MEET,
               hoursBeforeClass: 5,
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
@@ -1745,7 +1745,7 @@ cron.schedule('*/15 * * * *', async () => {
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
-              zoomLink: session.zoom_link || DEFAULT_ZOOM,
+              zoomLink: session.meet_link || DEFAULT_MEET,
               hoursBeforeClass: 1,
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
@@ -1875,7 +1875,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     const events = await pool.query(`
       SELECT id, event_name as student_name, event_date as session_date, event_time as session_time,
       event_duration as class_info, 'Asia/Kolkata' as timezone, 0 as session_number,
-      'Event' as display_type, 'Event' as session_type, zoom_link
+      'Event' as display_type, 'Event' as session_type, meet_link
       FROM events
       WHERE status = 'Active'
       ORDER BY event_date ASC, event_time ASC
@@ -1964,7 +1964,7 @@ app.post('/api/students', async (req, res) => {
       emailSent = await sendEmail(
         parent_email,
         `🎓 Welcome to Fluent Feathers Academy - ${name}`,
-        getWelcomeEmail({ parent_name, student_name: name, program_name, zoom_link: DEFAULT_ZOOM }),
+        getWelcomeEmail({ parent_name, student_name: name, program_name, meet_link: DEFAULT_MEET }),
         parent_name,
         'Welcome'
       );
@@ -2122,9 +2122,9 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
       await client.query(`
-        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, zoom_link, status)
+        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status)
         VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Pending')
-      `, [student_id, sessionNumber, utc.date, utc.time, DEFAULT_ZOOM]);
+      `, [student_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
 
       // Store for email
       const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
@@ -2183,10 +2183,10 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
       const r = await client.query(`
-        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, zoom_link, status)
+        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, meet_link, status)
         VALUES ($1, 'Group', $2, $3::date, $4::time, $5, 'Pending')
         RETURNING id
-      `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_ZOOM]);
+      `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
 
       const sessionId = r.rows[0].id;
 
@@ -2672,14 +2672,14 @@ app.get('/api/events', async (req, res) => {
 });
 
 app.post('/api/events', async (req, res) => {
-  const { event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, zoom_link, max_participants, send_email } = req.body;
+  const { event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, meet_link, max_participants, send_email } = req.body;
   try {
     const utc = istToUTC(event_date, event_time);
     const result = await pool.query(`
-      INSERT INTO events (event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, zoom_link, max_participants, status)
+      INSERT INTO events (event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, meet_link, max_participants, status)
       VALUES ($1, $2, $3::date, $4::time, $5, $6, $7, $8, $9, 'Active')
       RETURNING id
-    `, [event_name, event_description || '', utc.date, utc.time, event_duration, target_audience || 'All', specific_grades || '', zoom_link || DEFAULT_ZOOM, max_participants || null]);
+    `, [event_name, event_description || '', utc.date, utc.time, event_duration, target_audience || 'All', specific_grades || '', meet_link || DEFAULT_MEET, max_participants || null]);
 
     const eventId = result.rows[0].id;
     let students = [];
@@ -2703,7 +2703,7 @@ app.post('/api/events', async (req, res) => {
           event_date: display.date,
           event_time: display.time,
           event_duration,
-          zoom_link: zoom_link || DEFAULT_ZOOM,
+          meet_link: meet_link || DEFAULT_MEET,
           registration_link: registrationLink
         });
 
@@ -2794,7 +2794,7 @@ app.post('/api/events/:eventId/attendance', async (req, res) => {
 });
 
 app.put('/api/events/:id', async (req, res) => {
-  const { event_name, event_description, event_duration, status, max_participants, zoom_link } = req.body;
+  const { event_name, event_description, event_duration, status, max_participants, meet_link } = req.body;
   try {
     await pool.query(`
       UPDATE events SET
@@ -2803,9 +2803,9 @@ app.put('/api/events/:id', async (req, res) => {
         event_duration = $3,
         status = $4,
         max_participants = $5,
-        zoom_link = $6
+        meet_link = $6
       WHERE id = $7
-    `, [event_name, event_description, event_duration, status, max_participants, zoom_link, req.params.id]);
+    `, [event_name, event_description, event_duration, status, max_participants, meet_link, req.params.id]);
     res.json({ success: true, message: 'Event updated successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
