@@ -923,7 +923,7 @@ function getWelcomeEmail(data) {
         <ul style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
           <li>Check your email for class schedule details</li>
           <li>Access the parent portal to view sessions and materials</li>
-          <li>Join classes using the Zoom link provided</li>
+          <li>Join classes using the Meet link provided</li>
           <li>Upload homework and track progress</li>
         </ul>
       </div>
@@ -1213,7 +1213,7 @@ function getOTPEmail(data) {
 }
 
 function getClassReminderEmail(data) {
-  const { studentName, sessionNumber, localDate, localTime, localDay, zoomLink, hoursBeforeClass, timezoneLabel } = data;
+  const { studentName, sessionNumber, localDate, localTime, localDay, meetLink, hoursBeforeClass, timezoneLabel } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -1254,7 +1254,7 @@ function getClassReminderEmail(data) {
       </div>
 
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${zoomLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
+        <a href="${meetLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
   🎥 Join Meet Class
 </a>
       </div>
@@ -1703,7 +1703,7 @@ cron.schedule('*/15 * * * *', async () => {
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
-              zoomLink: session.meet_link || DEFAULT_MEET,
+              meetLink: session.meet_link || DEFAULT_MEET,
               hoursBeforeClass: 5,
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
@@ -1745,7 +1745,7 @@ cron.schedule('*/15 * * * *', async () => {
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
-              zoomLink: session.meet_link || DEFAULT_MEET,
+              meetLink: session.meet_link || DEFAULT_MEET,
               hoursBeforeClass: 1,
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
@@ -1853,7 +1853,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
       CONCAT(st.program_name, ' - ', st.duration) as class_info,
       'Private' as display_type,
-      COALESCE(s.meet_link, $1) as zoom_link
+      COALESCE(s.meet_link, $1) as meet_link
       FROM sessions s
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
@@ -1866,7 +1866,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
       CONCAT(g.program_name, ' - ', g.duration) as class_info,
       'Group' as display_type,
-      COALESCE(s.meet_link, $1) as zoom_link
+      COALESCE(s.meet_link, $1) as meet_link
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
@@ -1878,7 +1878,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       SELECT id, event_name as student_name, event_date as session_date, event_time as session_time,
       event_duration as class_info, 'Asia/Kolkata' as timezone, 0 as session_number,
       'Event' as display_type, 'Event' as session_type,
-      COALESCE(meet_link, $1) as zoom_link
+      COALESCE(meet_link, $1) as meet_link
       FROM events
       WHERE status = 'Active'
       ORDER BY event_date ASC, event_time ASC
@@ -1936,10 +1936,20 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       }
     }).slice(0, 10); // Show 10 upcoming classes
 
-    res.json(upcoming);
+   // SUCCESS
+res.json({
+  success: true,
+  classes: upcoming
+});
+
   } catch (err) {
     console.error('Error loading upcoming classes:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+    // ERROR
+res.status(500).json({
+  success: false,
+  classes: []   // 🔑 CRITICAL
+});
+
   }
 });
 

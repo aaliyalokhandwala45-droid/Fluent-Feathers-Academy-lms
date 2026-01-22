@@ -67,7 +67,7 @@
     .btn-danger { background: #e53e3e; color: white; }
     .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
     .btn-meet { background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; display: inline-block; }
-    .btn-zoom:hover { background: linear-gradient(135deg, #319795 0%, #285e61 100%); }
+    .btn-meet:hover { background: linear-gradient(135deg, #319795 0%, #285e61 100%); }
     .btn-download { background: #B05D9E; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; display: inline-block; margin: 2px; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
@@ -910,7 +910,7 @@
           const dateStr = s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date;
           const d = new Date(dateStr + 'T00:00:00');
           const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-          const zoomLink = s.zoom_link || 'https://meet.google.com/qne-muzw-wav';
+          const meetLink = s.meet_link || 'https://meet.google.com/qne-muzw-wav';
 
           // Get class duration in minutes from session (default 40 mins if not specified)
           const durationMatch = s.duration ? s.duration.match(/(\d+)\s*mins?/) : null;
@@ -924,15 +924,15 @@
           // Can join from 5 mins before until class duration after start (e.g., 40 mins for 40 min class)
           const canJoin = diffMinutes <= 5 && diffMinutes >= -(classDurationMins);
 
-          const zoomButton = canJoin
-  ? `<a href="${zoomLink}" target="_blank" class="btn-meet">🎥 Join Meet</a>`
+          const meetButton = canJoin
+  ? `<a href="${meetLink}" target="_blank" class="btn-meet">🎥 Join Meet</a>`
   : `<button onclick="alert('You can join from 5 minutes before class starts until the end of class (${classDurationMins} minutes). Please wait until then.')" class="btn-meet" style="background: #a0aec0; cursor: not-allowed;">🔒 Join Meet</button>`;
 
           return `<tr>
             <td>#${s.session_number}</td>
             <td>${dayName}, ${t.date}</td>
             <td><strong style="color:#B05D9E">${t.time}</strong></td>
-            <td>${zoomButton}</td>
+            <td>${meetButton}</td>
           </tr>`;
         }).join('');
       } catch(e) {
