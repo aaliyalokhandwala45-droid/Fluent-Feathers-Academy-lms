@@ -912,15 +912,21 @@
           const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
           const zoomLink = s.zoom_link || 'https://meet.google.com/qne-muzw-wav';
 
-          // Check if within 5 minutes of class start time
+          // Get class duration in minutes from session (default 40 mins if not specified)
+          const durationMatch = s.duration ? s.duration.match(/(\d+)\s*mins?/) : null;
+          const classDurationMins = durationMatch ? parseInt(durationMatch[1]) : 40;
+
+          // Check if within join window: 5 mins before start until end of class
           const sessionDateTime = new Date(dateStr + 'T' + s.session_time + 'Z');
           const now = new Date();
           const diffMinutes = (sessionDateTime - now) / (1000 * 60);
-          const canJoin = diffMinutes <= 5 && diffMinutes >= -60; // Can join 5 mins before until 60 mins after start
+          
+          // Can join from 5 mins before until class duration after start (e.g., 40 mins for 40 min class)
+          const canJoin = diffMinutes <= 5 && diffMinutes >= -(classDurationMins);
 
           const zoomButton = canJoin
-  ? `<a href="${zoomLink}" target="_blank" class="btn-zoom">🎥 Join Meet</a>`
-  : `<button onclick="alert('You can join 5 minutes before your class starts. Please wait until then.')" class="btn-zoom" style="background: #a0aec0; cursor: not-allowed;">🔒 Join Meet</button>`;
+  ? `<a href="${zoomLink}" target="_blank" class="btn-meet">🎥 Join Meet</a>`
+  : `<button onclick="alert('You can join from 5 minutes before class starts until the end of class (${classDurationMins} minutes). Please wait until then.')" class="btn-meet" style="background: #a0aec0; cursor: not-allowed;">🔒 Join Meet</button>`;
 
           return `<tr>
             <td>#${s.session_number}</td>

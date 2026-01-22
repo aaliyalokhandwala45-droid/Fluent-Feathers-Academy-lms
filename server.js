@@ -1852,34 +1852,37 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     const priv = await pool.query(`
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
       CONCAT(st.program_name, ' - ', st.duration) as class_info,
-      'Private' as display_type
+      'Private' as display_type,
+      COALESCE(s.meet_link, $1) as zoom_link
       FROM sessions s
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
         AND st.is_active = true
       ORDER BY s.session_date ASC, s.session_time ASC
-    `);
+    `, [DEFAULT_MEET]);
 
     // Get group sessions
     const grp = await pool.query(`
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
       CONCAT(g.program_name, ' - ', g.duration) as class_info,
-      'Group' as display_type
+      'Group' as display_type,
+      COALESCE(s.meet_link, $1) as zoom_link
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
       ORDER BY s.session_date ASC, s.session_time ASC
-    `);
+    `, [DEFAULT_MEET]);
 
     // Get upcoming events as well
     const events = await pool.query(`
       SELECT id, event_name as student_name, event_date as session_date, event_time as session_time,
       event_duration as class_info, 'Asia/Kolkata' as timezone, 0 as session_number,
-      'Event' as display_type, 'Event' as session_type, meet_link
+      'Event' as display_type, 'Event' as session_type,
+      COALESCE(meet_link, $1) as zoom_link
       FROM events
       WHERE status = 'Active'
       ORDER BY event_date ASC, event_time ASC
-    `);
+    `, [DEFAULT_MEET]);
 
     // Combine all
     const all = [...priv.rows, ...grp.rows, ...events.rows];
@@ -1905,32 +1908,38 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
         const sessionDateTime = new Date(`${dateStr}T${timeStr}Z`);
         return sessionDateTime >= now;
       } catch (e) {
+        console.error('Error parsing session date/time:', e);
         return false;
       }
     }).sort((a, b) => {
-      // Get date strings
-      let dateA = a.session_date;
-      let dateB = b.session_date;
-      if (dateA instanceof Date) dateA = dateA.toISOString().split('T')[0];
-      else if (typeof dateA === 'string' && dateA.includes('T')) dateA = dateA.split('T')[0];
-      if (dateB instanceof Date) dateB = dateB.toISOString().split('T')[0];
-      else if (typeof dateB === 'string' && dateB.includes('T')) dateB = dateB.split('T')[0];
+      try {
+        // Get date strings
+        let dateA = a.session_date;
+        let dateB = b.session_date;
+        if (dateA instanceof Date) dateA = dateA.toISOString().split('T')[0];
+        else if (typeof dateA === 'string' && dateA.includes('T')) dateA = dateA.split('T')[0];
+        if (dateB instanceof Date) dateB = dateB.toISOString().split('T')[0];
+        else if (typeof dateB === 'string' && dateB.includes('T')) dateB = dateB.split('T')[0];
 
-      // Get time strings
-      let timeA = a.session_time || '00:00:00';
-      let timeB = b.session_time || '00:00:00';
-      if (typeof timeA === 'string') timeA = timeA.substring(0, 8);
-      if (typeof timeB === 'string') timeB = timeB.substring(0, 8);
+        // Get time strings
+        let timeA = a.session_time || '00:00:00';
+        let timeB = b.session_time || '00:00:00';
+        if (typeof timeA === 'string') timeA = timeA.substring(0, 8);
+        if (typeof timeB === 'string') timeB = timeB.substring(0, 8);
 
-      const dtA = new Date(`${dateA}T${timeA}Z`);
-      const dtB = new Date(`${dateB}T${timeB}Z`);
-      return dtA - dtB;
+        const dtA = new Date(`${dateA}T${timeA}Z`);
+        const dtB = new Date(`${dateB}T${timeB}Z`);
+        return dtA - dtB;
+      } catch (e) {
+        console.error('Error sorting sessions:', e);
+        return 0;
+      }
     }).slice(0, 10); // Show 10 upcoming classes
 
     res.json(upcoming);
   } catch (err) {
     console.error('Error loading upcoming classes:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
