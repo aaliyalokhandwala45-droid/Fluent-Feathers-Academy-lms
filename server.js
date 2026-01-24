@@ -764,6 +764,48 @@ async function runMigrations() {
       console.error('❌ Error with demo_leads table:', err.message);
     }
 
+    // Migration 10: Weekly challenges table
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS weekly_challenges (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          challenge_type TEXT DEFAULT 'General',
+          points INTEGER DEFAULT 10,
+          week_start DATE NOT NULL,
+          week_end DATE NOT NULL,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS student_challenges (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL,
+          challenge_id INTEGER NOT NULL,
+          status TEXT DEFAULT 'Assigned',
+          completed_at TIMESTAMP,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+          FOREIGN KEY (challenge_id) REFERENCES weekly_challenges(id) ON DELETE CASCADE
+        );
+      `);
+      console.log('✅ Weekly challenges tables checked/created');
+    } catch (err) {
+      console.error('❌ Error with weekly_challenges tables:', err.message);
+    }
+
+    // Migration 11: Parent expectations column
+    try {
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_expectations TEXT`);
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS renewal_reminder_sent BOOLEAN DEFAULT false`);
+      console.log('✅ Parent expectations & renewal reminder columns added');
+    } catch (err) {
+      console.error('❌ Error adding columns:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -832,7 +874,15 @@ function formatUTCToLocal(utcDateStr, utcTimeStr, timezone) {
       return { date: 'Invalid Date', time: 'Invalid Time', day: '' };
     }
 
-    const dateStr = utcDateStr.includes('T') ? utcDateStr.split('T')[0] : utcDateStr;
+    // Handle Date objects from PostgreSQL
+    let dateInput = utcDateStr;
+    if (utcDateStr instanceof Date) {
+      dateInput = utcDateStr.toISOString();
+    } else if (typeof utcDateStr !== 'string') {
+      dateInput = String(utcDateStr);
+    }
+
+    const dateStr = dateInput.includes('T') ? dateInput.split('T')[0] : dateInput;
     let timeStr = utcTimeStr.toString().trim();
 
     // Ensure time is in HH:MM:SS format
@@ -1921,6 +1971,60 @@ cron.schedule('0 8 * * *', async () => {
 });
 
 console.log('✅ Birthday reminder system initialized - checking daily at 8:00 AM');
+
+// ==================== PAYMENT RENEWAL REMINDER CRON JOB ====================
+// Runs daily at 9:00 AM to check for students with 2 or fewer sessions remaining
+cron.schedule('0 9 * * *', async () => {
+  try {
+    console.log('💳 Checking for payment renewal reminders...');
+
+    // Find students with 2 or fewer sessions remaining who haven't been reminded
+    const lowSessionStudents = await pool.query(`
+      SELECT id, name, parent_email, parent_name, remaining_sessions, program_name, per_session_fee, currency
+      FROM students
+      WHERE is_active = true
+        AND remaining_sessions <= 2
+        AND remaining_sessions > 0
+        AND (renewal_reminder_sent = false OR renewal_reminder_sent IS NULL)
+    `);
+
+    for (const student of lowSessionStudents.rows) {
+      try {
+        const renewalEmailHTML = getRenewalReminderEmail({
+          parentName: student.parent_name,
+          studentName: student.name,
+          remainingSessions: student.remaining_sessions,
+          programName: student.program_name,
+          perSessionFee: student.per_session_fee,
+          currency: student.currency
+        });
+
+        await sendEmail(
+          student.parent_email,
+          `⏰ Renewal Reminder - Only ${student.remaining_sessions} Session${student.remaining_sessions > 1 ? 's' : ''} Left for ${student.name}`,
+          renewalEmailHTML,
+          student.parent_name,
+          'Renewal-Reminder'
+        );
+
+        // Mark reminder as sent
+        await pool.query('UPDATE students SET renewal_reminder_sent = true WHERE id = $1', [student.id]);
+
+        console.log(`✅ Sent renewal reminder to ${student.parent_name} for ${student.name} (${student.remaining_sessions} sessions left)`);
+      } catch (emailErr) {
+        console.error(`Error sending renewal reminder for ${student.name}:`, emailErr);
+      }
+    }
+
+    if (lowSessionStudents.rows.length === 0) {
+      console.log('No renewal reminders needed today');
+    }
+  } catch (err) {
+    console.error('❌ Error in payment renewal cron job:', err);
+  }
+});
+
+console.log('✅ Payment renewal reminder system initialized - checking daily at 9:00 AM');
 
 // ==================== API ROUTES ====================
 app.get('/api/dashboard/stats', async (req, res) => {
@@ -3930,6 +4034,142 @@ app.delete('/api/homework/:id', async (req, res) => {
     // For now just delete from DB - Cloudinary files can be cleaned up manually if needed
 
     res.json({ message: 'Homework deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== WEEKLY CHALLENGES API ====================
+// Get all challenges (admin)
+app.get('/api/challenges', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*,
+        (SELECT COUNT(*) FROM student_challenges sc WHERE sc.challenge_id = c.id) as assigned_count,
+        (SELECT COUNT(*) FROM student_challenges sc WHERE sc.challenge_id = c.id AND sc.status = 'Completed') as completed_count
+      FROM weekly_challenges c
+      ORDER BY c.week_start DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create new challenge
+app.post('/api/challenges', async (req, res) => {
+  const { title, description, challenge_type, points, week_start, week_end, assign_to_all } = req.body;
+  try {
+    const result = await pool.query(`
+      INSERT INTO weekly_challenges (title, description, challenge_type, points, week_start, week_end)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [title, description, challenge_type || 'General', points || 10, week_start, week_end]);
+
+    const challenge = result.rows[0];
+
+    // If assign_to_all, create student_challenges for all active students
+    if (assign_to_all) {
+      const students = await pool.query('SELECT id FROM students WHERE is_active = true');
+      for (const student of students.rows) {
+        await pool.query(`
+          INSERT INTO student_challenges (student_id, challenge_id, status)
+          VALUES ($1, $2, 'Assigned')
+        `, [student.id, challenge.id]);
+      }
+    }
+
+    res.json({ success: true, challenge });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Assign challenge to specific students
+app.post('/api/challenges/:id/assign', async (req, res) => {
+  const { student_ids } = req.body;
+  try {
+    for (const studentId of student_ids) {
+      await pool.query(`
+        INSERT INTO student_challenges (student_id, challenge_id, status)
+        VALUES ($1, $2, 'Assigned')
+        ON CONFLICT DO NOTHING
+      `, [studentId, req.params.id]);
+    }
+    res.json({ success: true, message: 'Challenge assigned' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark student challenge as completed
+app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, res) => {
+  const { notes } = req.body;
+  try {
+    await pool.query(`
+      UPDATE student_challenges
+      SET status = 'Completed', completed_at = CURRENT_TIMESTAMP, notes = $1
+      WHERE challenge_id = $2 AND student_id = $3
+    `, [notes || '', req.params.challengeId, req.params.studentId]);
+
+    // Award badge for completing challenge
+    const challenge = await pool.query('SELECT * FROM weekly_challenges WHERE id = $1', [req.params.challengeId]);
+    if (challenge.rows.length > 0) {
+      await pool.query(`
+        INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
+        VALUES ($1, $2, $3, $4)
+      `, [req.params.studentId, 'challenge_' + req.params.challengeId, '🎯 Challenge Champion', 'Completed: ' + challenge.rows[0].title]);
+    }
+
+    res.json({ success: true, message: 'Challenge completed!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get challenges for a student (parent portal)
+app.get('/api/students/:id/challenges', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*, sc.status, sc.completed_at, sc.notes as completion_notes
+      FROM weekly_challenges c
+      JOIN student_challenges sc ON c.id = sc.challenge_id
+      WHERE sc.student_id = $1 AND c.is_active = true
+      ORDER BY c.week_start DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete challenge
+app.delete('/api/challenges/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM weekly_challenges WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Challenge deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== PARENT EXPECTATIONS API ====================
+// Get student expectations
+app.get('/api/students/:id/expectations', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT parent_expectations FROM students WHERE id = $1', [req.params.id]);
+    res.json({ expectations: result.rows[0]?.parent_expectations || '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update student expectations (parent or admin)
+app.put('/api/students/:id/expectations', async (req, res) => {
+  const { expectations } = req.body;
+  try {
+    await pool.query('UPDATE students SET parent_expectations = $1 WHERE id = $2', [expectations, req.params.id]);
+    res.json({ success: true, message: 'Expectations updated' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
