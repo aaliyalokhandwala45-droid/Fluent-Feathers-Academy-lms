@@ -8,6 +8,34 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
 
+    /* Loading Screen - Shows immediately to prevent black screen */
+    #serverLoadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top: 4px solid white;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-top: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
     /* Sidebar Layout */
     .app-layout { display: flex; min-height: 100vh; }
     .sidebar { width: 240px; background: linear-gradient(180deg, #B05D9E 0%, #8B4789 100%); color: white; position: fixed; height: 100vh; overflow-y: auto; padding: 20px 0; }
@@ -81,6 +109,16 @@
   </style>
 </head>
 <body>
+  <!-- Loading Screen -->
+  <div id="serverLoadingScreen">
+    <div style="text-align:center; color:white;">
+      <h1 style="font-size: 2rem; margin-bottom: 10px;">🎓 Fluent Feathers Academy</h1>
+      <h2 style="font-size: 1.2rem; font-weight: normal; opacity: 0.9;">Admin Dashboard</h2>
+      <p id="loadingMessage" style="margin-top: 20px;">Loading your dashboard...</p>
+      <div class="spinner"></div>
+    </div>
+  </div>
+
   <div class="app-layout">
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
@@ -91,6 +129,7 @@
       <nav class="sidebar-nav">
         <button class="nav-btn active" onclick="showTab('upcoming', event)">📅 <span>Upcoming</span></button>
         <button class="nav-btn" onclick="showTab('students', event)">👥 <span>Students</span></button>
+        <button class="nav-btn" onclick="showTab('demoStudents', event)">🎯 <span>Demo Leads</span></button>
         <button class="nav-btn" onclick="showTab('groups', event)">👨‍👩‍👧 <span>Groups</span></button>
         <button class="nav-btn" onclick="showTab('schedule', event)">📆 <span>Schedule</span></button>
         <button class="nav-btn" onclick="showTab('scheduleManager', event)">📋 <span>Manage Schedules</span></button>
@@ -101,6 +140,7 @@
         <button class="nav-btn" onclick="showTab('announcements', event)">📢 <span>Announcements</span></button>
         <button class="nav-btn" onclick="showTab('monthlyAssessment', event)">📊 <span>Assessment</span></button>
         <button class="nav-btn" onclick="showTab('classRatings', event)">⭐ <span>Class Ratings</span></button>
+        <button class="nav-btn" onclick="showTab('leaderboard', event)">🏆 <span>Leaderboard</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
       </nav>
     </aside>
@@ -327,6 +367,94 @@
       <div class="section"><h2>📋 All Students</h2><table id="studentsTable"><thead><tr><th>Name</th><th>Grade</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
     </div>
 
+    <!-- Demo Students Tab -->
+    <div id="demoStudentsTab" class="tab-content">
+      <div class="section">
+        <h2>🎯 Demo Class Leads</h2>
+        <p style="color: #718096; margin-bottom: 20px;">Manage students who are scheduled for demo classes. Convert them to permanent students once they pay.</p>
+
+        <!-- Add Demo Lead Form -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+          <h3 style="margin-bottom: 15px;">➕ Add New Demo Lead</h3>
+          <form id="addDemoLeadForm">
+            <div class="form-row">
+              <div class="form-group"><label>Child's Name *</label><input type="text" id="demoChildName" required></div>
+              <div class="form-group"><label>Child's Grade *</label><input type="text" id="demoChildGrade" required></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Parent Name *</label><input type="text" id="demoParentName" required></div>
+              <div class="form-group"><label>Parent Email *</label><input type="email" id="demoParentEmail" required></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Phone Number *</label><input type="tel" id="demoPhone" required></div>
+              <div class="form-group"><label>Program Interest</label>
+                <select id="demoProgramInterest">
+                  <option value="">Select Program...</option>
+                  <option value="Phonics">Phonics</option>
+                  <option value="Reading">Reading</option>
+                  <option value="Creative Writing">Creative Writing</option>
+                  <option value="Grammar">Grammar</option>
+                  <option value="Public Speaking">Public Speaking</option>
+                  <option value="English Fluency">English Fluency</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Demo Date *</label><input type="date" id="demoDate" required></div>
+              <div class="form-group"><label>Demo Time *</label><input type="time" id="demoTime" required></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Source/How they found us</label>
+                <select id="demoSource">
+                  <option value="">Select...</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="Facebook">Facebook</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Google">Google</option>
+                  <option value="Website">Website</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Notes (Optional)</label><input type="text" id="demoNotes" placeholder="Any additional info..."></div>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Demo Lead</button>
+          </form>
+        </div>
+
+        <!-- Filter by Status -->
+        <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <strong>Filter:</strong>
+          <button onclick="filterDemoLeads('all')" class="btn btn-sm" style="background: #B05D9E; color: white;">All</button>
+          <button onclick="filterDemoLeads('Scheduled')" class="btn btn-sm" style="background: #3182ce; color: white;">📅 Scheduled</button>
+          <button onclick="filterDemoLeads('Completed')" class="btn btn-sm" style="background: #38a169; color: white;">✅ Completed</button>
+          <button onclick="filterDemoLeads('Converted')" class="btn btn-sm" style="background: #d69e2e; color: white;">🎉 Converted</button>
+          <button onclick="filterDemoLeads('Lost')" class="btn btn-sm" style="background: #e53e3e; color: white;">❌ Lost</button>
+        </div>
+
+        <!-- Demo Leads Table -->
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Child Name</th>
+                <th>Parent</th>
+                <th>Contact</th>
+                <th>Program</th>
+                <th>Demo Date/Time</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="demoLeadsBody">
+              <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div id="groupsTab" class="tab-content">
       <div class="section"><h2>➕ Create New Group</h2><form id="createGroupForm">
         <div class="form-row"><div class="form-group"><label>Group Name *</label><input type="text" id="groupName" required></div><div class="form-group"><label>Program Name *</label><input type="text" id="groupProgram" required></div></div>
@@ -404,38 +532,80 @@
                 <input type="date" id="bulkStartDate">
               </div>
               <div class="form-group">
-                <label>End Date *</label>
-                <input type="date" id="bulkEndDate">
+                <label>Number of Sessions *</label>
+                <input type="number" id="bulkNumSessions" min="1" max="100" placeholder="e.g. 10">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Time Option 1 *</label>
+                <input type="time" id="bulkClassTime1">
               </div>
               <div class="form-group">
-                <label>Class Time *</label>
-                <input type="time" id="bulkClassTime">
+                <label>Time Option 2 (Optional)</label>
+                <input type="time" id="bulkClassTime2" placeholder="For different days">
               </div>
             </div>
             <div class="form-group">
-              <label>Select Days of Week *</label>
+              <label>Select Days & Assign Time *</label>
+              <p style="font-size: 0.85rem; color: #718096; margin-bottom: 10px;">Check days and select which time to use for each day</p>
               <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="bulkDays" value="0"> Sun
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="bulkDays" value="1"> Mon
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="bulkDays" value="2"> Tue
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="bulkDays" value="3"> Wed
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="bulkDays" value="4"> Thu
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="bulkDays" value="5"> Fri
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="bulkDays" value="6"> Sat
-                </label>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="0" id="bulkDay0">
+                  <label for="bulkDay0" style="cursor:pointer; margin-right: 5px;">Sun</label>
+                  <select name="bulkDayTime" data-day="0" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="1" id="bulkDay1">
+                  <label for="bulkDay1" style="cursor:pointer; margin-right: 5px;">Mon</label>
+                  <select name="bulkDayTime" data-day="1" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="2" id="bulkDay2">
+                  <label for="bulkDay2" style="cursor:pointer; margin-right: 5px;">Tue</label>
+                  <select name="bulkDayTime" data-day="2" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="3" id="bulkDay3">
+                  <label for="bulkDay3" style="cursor:pointer; margin-right: 5px;">Wed</label>
+                  <select name="bulkDayTime" data-day="3" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="4" id="bulkDay4">
+                  <label for="bulkDay4" style="cursor:pointer; margin-right: 5px;">Thu</label>
+                  <select name="bulkDayTime" data-day="4" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="5" id="bulkDay5">
+                  <label for="bulkDay5" style="cursor:pointer; margin-right: 5px;">Fri</label>
+                  <select name="bulkDayTime" data-day="5" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="bulkDays" value="6" id="bulkDay6">
+                  <label for="bulkDay6" style="cursor:pointer; margin-right: 5px;">Sat</label>
+                  <select name="bulkDayTime" data-day="6" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
               </div>
             </div>
             <button type="button" onclick="generateBulkSchedule('private')" class="btn" style="background: #B05D9E; color: white; margin-top: 10px;">Generate Schedule Preview</button>
@@ -465,38 +635,80 @@
                 <input type="date" id="groupBulkStartDate">
               </div>
               <div class="form-group">
-                <label>End Date *</label>
-                <input type="date" id="groupBulkEndDate">
+                <label>Number of Sessions *</label>
+                <input type="number" id="groupBulkNumSessions" min="1" max="100" placeholder="e.g. 10">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Time Option 1 *</label>
+                <input type="time" id="groupBulkClassTime1">
               </div>
               <div class="form-group">
-                <label>Class Time *</label>
-                <input type="time" id="groupBulkClassTime">
+                <label>Time Option 2 (Optional)</label>
+                <input type="time" id="groupBulkClassTime2" placeholder="For different days">
               </div>
             </div>
             <div class="form-group">
-              <label>Select Days of Week *</label>
+              <label>Select Days & Assign Time *</label>
+              <p style="font-size: 0.85rem; color: #718096; margin-bottom: 10px;">Check days and select which time to use for each day</p>
               <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="groupBulkDays" value="0"> Sun
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="groupBulkDays" value="1"> Mon
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="groupBulkDays" value="2"> Tue
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="groupBulkDays" value="3"> Wed
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="groupBulkDays" value="4"> Thu
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="groupBulkDays" value="5"> Fri
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                  <input type="checkbox" name="groupBulkDays" value="6"> Sat
-                </label>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="0" id="groupBulkDay0">
+                  <label for="groupBulkDay0" style="cursor:pointer; margin-right: 5px;">Sun</label>
+                  <select name="groupBulkDayTime" data-day="0" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="1" id="groupBulkDay1">
+                  <label for="groupBulkDay1" style="cursor:pointer; margin-right: 5px;">Mon</label>
+                  <select name="groupBulkDayTime" data-day="1" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="2" id="groupBulkDay2">
+                  <label for="groupBulkDay2" style="cursor:pointer; margin-right: 5px;">Tue</label>
+                  <select name="groupBulkDayTime" data-day="2" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="3" id="groupBulkDay3">
+                  <label for="groupBulkDay3" style="cursor:pointer; margin-right: 5px;">Wed</label>
+                  <select name="groupBulkDayTime" data-day="3" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="4" id="groupBulkDay4">
+                  <label for="groupBulkDay4" style="cursor:pointer; margin-right: 5px;">Thu</label>
+                  <select name="groupBulkDayTime" data-day="4" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="5" id="groupBulkDay5">
+                  <label for="groupBulkDay5" style="cursor:pointer; margin-right: 5px;">Fri</label>
+                  <select name="groupBulkDayTime" data-day="5" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                  <input type="checkbox" name="groupBulkDays" value="6" id="groupBulkDay6">
+                  <label for="groupBulkDay6" style="cursor:pointer; margin-right: 5px;">Sat</label>
+                  <select name="groupBulkDayTime" data-day="6" style="padding: 2px 5px; font-size: 0.8rem; border-radius: 4px;">
+                    <option value="1">Time 1</option>
+                    <option value="2">Time 2</option>
+                  </select>
+                </div>
               </div>
             </div>
             <button type="button" onclick="generateBulkSchedule('group')" class="btn" style="background: #9f7aea; color: white; margin-top: 10px;">Generate Schedule Preview</button>
@@ -639,6 +851,38 @@
       </div>
     </div>
 
+    <!-- Leaderboard Tab -->
+    <div id="leaderboardTab" class="tab-content">
+      <div class="section">
+        <h2>🏆 Badge Leaderboard</h2>
+        <p style="color: #718096; margin-bottom: 25px;">See which students are leading in badge collection! This motivates kids to earn more badges.</p>
+
+        <!-- Top 3 Podium -->
+        <div id="leaderboardPodium" style="display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin-bottom: 30px; min-height: 200px;">
+          <p style="color: #718096; text-align: center;">Loading leaderboard...</p>
+        </div>
+
+        <!-- Full Leaderboard Table -->
+        <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <table style="width: 100%;">
+            <thead>
+              <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <th style="padding: 15px; text-align: center; width: 60px;">Rank</th>
+                <th style="padding: 15px; text-align: left;">Student</th>
+                <th style="padding: 15px; text-align: center;">Total Badges</th>
+                <th style="padding: 15px; text-align: center;">Class Badges</th>
+                <th style="padding: 15px; text-align: center;">Milestone Badges</th>
+                <th style="padding: 15px; text-align: center;">Latest Badge</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody">
+              <tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div id="emailsTab" class="tab-content">
       <div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div>
 
@@ -679,6 +923,10 @@
             </div>
           </div>
           <div class="form-group"><label>Content *</label><textarea id="announcementContent" rows="4" required placeholder="Write your announcement here..."></textarea></div>
+          <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+            <input type="checkbox" id="sendAnnouncementEmail" style="width: auto; margin: 0;">
+            <label for="sendAnnouncementEmail" style="margin: 0; cursor: pointer;">Send Email to All Active Students/Parents</label>
+          </div>
           <button type="submit" class="btn btn-primary">Create Announcement</button>
         </form>
       </div>
@@ -688,6 +936,50 @@
           <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="announcementsBody"><tr><td colspan="5">Loading...</td></tr></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Announcement View/Edit Modal -->
+    <div id="announcementModal" class="modal">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2 id="announcementModalTitle">View Announcement</h2>
+          <button onclick="closeAnnouncementModal()" class="btn btn-danger">Close</button>
+        </div>
+        <form id="editAnnouncementForm">
+          <input type="hidden" id="editAnnouncementId">
+          <div class="form-group">
+            <label>Title *</label>
+            <input type="text" id="editAnnouncementTitle" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Type</label>
+              <select id="editAnnouncementType">
+                <option value="General">General</option>
+                <option value="Holiday">Holiday</option>
+                <option value="Reminder">Reminder</option>
+                <option value="Update">Update</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Priority</label>
+              <select id="editAnnouncementPriority">
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Content *</label>
+            <textarea id="editAnnouncementContent" rows="6" required></textarea>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="button" onclick="resendAnnouncementEmail()" class="btn" style="background: #38a169; color: white;">Send Email to All</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -1225,6 +1517,234 @@
   <!-- Edit Session Modal -->
   <div id="editSessionModal" class="modal"><div class="modal-content"><div class="modal-header"><h2>Edit Session</h2><button onclick="closeEditSessionModal()" class="btn btn-danger btn-sm">✕</button></div><form id="editSessionForm"><input type="hidden" id="editSessionId"><div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="editSessionDate" required></div><div class="form-group"><label>Time *</label><input type="time" id="editSessionTime" required></div></div><button type="submit" class="btn btn-primary">Save Changes</button></form></div></div>
 
+  <!-- Cancel Class Modal -->
+  <div id="cancelClassModal" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header">
+        <h2>Cancel Class</h2>
+        <button onclick="closeCancelClassModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <form id="cancelClassForm">
+        <input type="hidden" id="cancelSessionId">
+        <input type="hidden" id="cancelSessionType">
+        <p style="margin-bottom: 15px;">Cancel class for: <strong id="cancelStudentName"></strong></p>
+        <div class="form-group">
+          <label>Cancellation Reason *</label>
+          <select id="cancelReason" required>
+            <option value="">Select reason...</option>
+            <option value="Parent Requested">Parent Requested</option>
+            <option value="Admin Cancelled">Admin Cancelled</option>
+            <option value="Teacher Unavailable">Teacher Unavailable</option>
+            <option value="Technical Issues">Technical Issues</option>
+            <option value="Holiday">Holiday</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Additional Notes (Optional)</label>
+          <textarea id="cancelNotes" rows="2" placeholder="Any additional details..."></textarea>
+        </div>
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+          <input type="checkbox" id="grantMakeupCredit" checked style="width: auto; margin: 0;">
+          <label for="grantMakeupCredit" style="margin: 0; cursor: pointer;">Grant makeup credit to student</label>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="submit" class="btn btn-danger">Cancel Class</button>
+          <button type="button" onclick="closeCancelClassModal()" class="btn" style="background: #718096; color: white;">Close</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Update Demo Status Modal -->
+  <div id="updateDemoStatusModal" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header">
+        <h2>Update Demo Status</h2>
+        <button onclick="closeUpdateDemoStatusModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <form id="updateDemoStatusForm">
+        <input type="hidden" id="updateDemoId">
+        <p style="margin-bottom: 15px;">Update status for: <strong id="updateDemoName"></strong></p>
+        <div class="form-group">
+          <label>New Status *</label>
+          <select id="newDemoStatus" required>
+            <option value="Scheduled">📅 Scheduled</option>
+            <option value="Completed">✅ Demo Completed</option>
+            <option value="Converted">🎉 Converted to Student</option>
+            <option value="Lost">❌ Lost/Not Interested</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes (Optional)</label>
+          <textarea id="demoStatusNotes" rows="2" placeholder="Any notes about this status change..."></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="submit" class="btn btn-primary">Update Status</button>
+          <button type="button" onclick="closeUpdateDemoStatusModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Convert Demo to Student Modal -->
+  <div id="convertDemoModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2>🎉 Convert to Permanent Student</h2>
+        <button onclick="closeConvertDemoModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <form id="convertDemoForm">
+        <input type="hidden" id="convertDemoId">
+        <p style="margin-bottom: 15px; color: #38a169;">Converting <strong id="convertDemoName"></strong> to a permanent student!</p>
+
+        <div class="form-row">
+          <div class="form-group"><label>Program Name *</label><input type="text" id="convertProgram" required placeholder="e.g., Phonics, Reading"></div>
+          <div class="form-group"><label>Duration *</label>
+            <select id="convertDuration" required>
+              <option value="25 mins">25 mins</option>
+              <option value="30 mins">30 mins</option>
+              <option value="40 mins" selected>40 mins</option>
+              <option value="45 mins">45 mins</option>
+              <option value="60 mins">60 mins</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Per Session Fee *</label><input type="number" id="convertFee" required placeholder="e.g., 500"></div>
+          <div class="form-group"><label>Currency *</label>
+            <select id="convertCurrency" required>
+              <option value="₹">₹ INR</option>
+              <option value="$">$ USD</option>
+              <option value="AED">AED</option>
+              <option value="£">£ GBP</option>
+              <option value="€">€ EUR</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Sessions Purchased *</label><input type="number" id="convertSessions" required placeholder="e.g., 8"></div>
+          <div class="form-group"><label>Amount Paid *</label><input type="number" id="convertAmountPaid" required placeholder="e.g., 4000"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Payment Method *</label>
+            <select id="convertPaymentMethod" required>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="UPI">UPI</option>
+              <option value="Cash">Cash</option>
+              <option value="Credit Card">Credit Card</option>
+              <option value="PayPal">PayPal</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Timezone *</label>
+            <select id="convertTimezone" required>
+              <option value="Asia/Kolkata">India (IST)</option>
+              <option value="Asia/Dubai">UAE/Dubai (GST)</option>
+              <option value="America/New_York">USA East (EST)</option>
+              <option value="America/Los_Angeles">USA West (PST)</option>
+              <option value="Europe/London">UK (GMT)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+          <input type="checkbox" id="convertSendEmail" checked style="width: auto; margin: 0;">
+          <label for="convertSendEmail" style="margin: 0; cursor: pointer;">Send welcome email to parent</label>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="submit" class="btn btn-primary" style="background: #38a169;">🎉 Convert to Student</button>
+          <button type="button" onclick="closeConvertDemoModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Assign Badge Modal -->
+  <div id="assignBadgeModal" class="modal">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <h2>🎖️ Assign Badge</h2>
+        <button onclick="closeAssignBadgeModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <p style="color: #718096; margin-bottom: 15px;">Select a badge to reward the student for their achievement in class!</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto; padding: 10px;">
+        <div onclick="assignBadge('active_listener', '👂 Active Listener', 'Listened attentively throughout the class!')" class="badge-option" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">👂</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Active Listener</div>
+        </div>
+        <div onclick="assignBadge('attentive_star', '🌟 Attentive Star', 'Showed excellent focus and attention!')" class="badge-option" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">🌟</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Attentive Star</div>
+        </div>
+        <div onclick="assignBadge('vocabulary_champ', '📚 Vocabulary Champ', 'Learned new words brilliantly!')" class="badge-option" style="background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">📚</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Vocabulary Champ</div>
+        </div>
+        <div onclick="assignBadge('reading_rockstar', '📖 Reading Rockstar', 'Read with great fluency and expression!')" class="badge-option" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">📖</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Reading Rockstar</div>
+        </div>
+        <div onclick="assignBadge('pronunciation_pro', '🗣️ Pronunciation Pro', 'Excellent pronunciation skills!')" class="badge-option" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">🗣️</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Pronunciation Pro</div>
+        </div>
+        <div onclick="assignBadge('grammar_guru', '✏️ Grammar Guru', 'Mastered grammar concepts!')" class="badge-option" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">✏️</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Grammar Guru</div>
+        </div>
+        <div onclick="assignBadge('creative_writer', '✍️ Creative Writer', 'Showed amazing creativity in writing!')" class="badge-option" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">✍️</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Creative Writer</div>
+        </div>
+        <div onclick="assignBadge('quick_learner', '⚡ Quick Learner', 'Grasped concepts super fast!')" class="badge-option" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">⚡</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Quick Learner</div>
+        </div>
+        <div onclick="assignBadge('confident_speaker', '🎤 Confident Speaker', 'Spoke with great confidence!')" class="badge-option" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">🎤</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Confident Speaker</div>
+        </div>
+        <div onclick="assignBadge('perfect_participation', '🙋 Perfect Participation', 'Participated actively in every activity!')" class="badge-option" style="background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">🙋</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Perfect Participation</div>
+        </div>
+        <div onclick="assignBadge('super_effort', '💪 Super Effort', 'Put in outstanding effort today!')" class="badge-option" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">💪</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Super Effort</div>
+        </div>
+        <div onclick="assignBadge('bright_spark', '💡 Bright Spark', 'Had brilliant ideas in class!')" class="badge-option" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">💡</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Bright Spark</div>
+        </div>
+        <div onclick="assignBadge('improvement_star', '📈 Improvement Star', 'Showed great improvement!')" class="badge-option" style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">📈</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Improvement Star</div>
+        </div>
+        <div onclick="assignBadge('curiosity_badge', '🔍 Curious Mind', 'Asked thoughtful questions!')" class="badge-option" style="background: linear-gradient(135deg, #c3cfe2 0%, #c3cfe2 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">🔍</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Curious Mind</div>
+        </div>
+        <div onclick="assignBadge('storyteller', '📕 Storyteller', 'Told stories wonderfully!')" class="badge-option" style="background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">📕</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Storyteller</div>
+        </div>
+        <div onclick="assignBadge('spelling_bee', '🐝 Spelling Bee', 'Spelled words perfectly!')" class="badge-option" style="background: linear-gradient(135deg, #f5af19 0%, #f12711 100%); color: white; padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">🐝</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Spelling Bee</div>
+        </div>
+        <div onclick="assignBadge('positive_attitude', '😊 Positive Attitude', 'Maintained a great positive attitude!')" class="badge-option" style="background: linear-gradient(135deg, #fddb92 0%, #d1fdff 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">😊</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Positive Attitude</div>
+        </div>
+        <div onclick="assignBadge('team_player', '🤝 Team Player', 'Worked wonderfully with others!')" class="badge-option" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 12px; border-radius: 12px; cursor: pointer; text-align: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+          <div style="font-size: 1.5rem;">🤝</div>
+          <div style="font-weight: 600; font-size: 0.85rem;">Team Player</div>
+        </div>
+      </div>
+      <button onclick="closeAssignBadgeModal()" class="btn" style="margin-top: 15px; background: #718096; color: white; width: 100%;">Close</button>
+    </div>
+  </div>
+
   <!-- Edit Student Modal -->
   <div id="editStudentModal" class="modal">
     <div class="modal-content">
@@ -1302,6 +1822,10 @@
         <div class="form-row">
           <div class="form-group"><label>Program Name *</label><input type="text" id="editProgramName" required></div>
           <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Date of Birth</label><input type="date" id="editDateOfBirth"></div>
+          <div class="form-group"><label>Google Meet Link</label><input type="url" id="editMeetLink" placeholder="https://meet.google.com/..."></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Currency *</label>
@@ -1484,6 +2008,96 @@
   </div>
 
   <script>
+    // ==================== SERVER WAKE-UP LOADING SCREEN ====================
+    (function() {
+      let serverReady = false;
+      let checkAttempts = 0;
+      const maxAttempts = 30;
+
+      const loadingScreen = document.getElementById('serverLoadingScreen');
+      const loadingMessage = document.getElementById('loadingMessage');
+
+      const messages = [
+        'Loading your dashboard...',
+        'Connecting to server...',
+        'Fetching student data...',
+        'Almost ready...',
+        'Just a moment more...'
+      ];
+
+      let messageIndex = 0;
+
+      // Rotate messages every 3 seconds
+      const messageInterval = setInterval(() => {
+        messageIndex = (messageIndex + 1) % messages.length;
+        if (loadingMessage) loadingMessage.textContent = messages[messageIndex];
+      }, 3000);
+
+      // Hide loading screen
+      function hideLoadingScreen() {
+        clearInterval(messageInterval);
+        if (loadingScreen) {
+          loadingScreen.style.opacity = '0';
+          loadingScreen.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 500);
+        }
+      }
+
+      // Check if server is ready
+      async function checkServerHealth() {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+          const response = await fetch('/api/config', {
+            signal: controller.signal,
+            cache: 'no-store'
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            serverReady = true;
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.log('Server not ready yet, attempt', checkAttempts + 1);
+          return false;
+        }
+      }
+
+      // Main loading logic
+      async function initializeLoading() {
+        while (!serverReady && checkAttempts < maxAttempts) {
+          checkAttempts++;
+          const isReady = await checkServerHealth();
+
+          if (isReady) {
+            console.log('✅ Server is ready!');
+            hideLoadingScreen();
+            break;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        if (!serverReady) {
+          console.warn('⚠️ Server may be slow to respond');
+          hideLoadingScreen();
+        }
+      }
+
+      // Start initialization
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeLoading);
+      } else {
+        initializeLoading();
+      }
+    })();
+
     let allStudents = [], allGroups = [];
     let currentStudentId = null;
     let currentGroupId = null;
@@ -1541,6 +2155,8 @@
       if (tabName === 'scheduleManager') loadScheduleManager();
       if (tabName === 'homework') loadHomeworkSubmissions();
       if (tabName === 'classRatings') loadClassRatings();
+      if (tabName === 'demoStudents') loadDemoLeads();
+      if (tabName === 'leaderboard') loadLeaderboard();
     }
 
     function showModalTab(tabName, e) {
@@ -1606,14 +2222,21 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           const dateStr = cls.session_date.includes('T') ? cls.session_date.split('T')[0] : cls.session_date;
           const d = new Date(dateStr + 'T00:00:00');
           const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-          return `<div class="class-card">
-          <h3>${cls.student_name}</h3>
+
+          // Different styling for demo classes
+          const isDemo = cls.session_type === 'Demo';
+          const cardStyle = isDemo ? 'background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);' : '';
+          const typeLabel = isDemo ? '<span style="background: #ffd700; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 5px;">DEMO</span>' : '';
+
+          return `<div class="class-card" style="${cardStyle}">
+          <h3>${cls.student_name}${typeLabel}</h3>
           <p>📚 ${cls.class_info || 'N/A'}</p>
           <p>📅 ${dayName}, ${formatSessionTime(cls)} (IST)</p>
-          <p>🌍 Student TZ: ${cls.timezone}</p>
+          <p>🌍 ${isDemo ? 'Demo Class' : 'Student TZ: ' + cls.timezone}</p>
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
            <a href="${cls.meet_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join Meet</a>
-            <button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
+            ${isDemo ? `<button onclick="showTab('demoStudents', event)" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">📋 View Demo Leads</button>` : `<button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
+            <button onclick="openCancelClassModal(${cls.id}, '${cls.student_name.replace(/'/g, "\\'")}', '${cls.session_type}')" class="btn btn-sm" style="background:#e53e3e; color:white;">✕ Cancel</button>`}
           </div>
         </div>`;
         }).join('');
@@ -1649,6 +2272,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         document.getElementById('editTimezone').value = student.timezone;
         document.getElementById('editProgramName').value = student.program_name;
         document.getElementById('editDuration').value = student.duration;
+        document.getElementById('editDateOfBirth').value = student.date_of_birth ? student.date_of_birth.split('T')[0] : '';
+        document.getElementById('editMeetLink').value = student.meet_link || '';
         document.getElementById('editCurrency').value = student.currency;
         document.getElementById('editPerSessionFee').value = student.per_session_fee;
         document.getElementById('editStudentModal').classList.add('active');
@@ -1669,6 +2294,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         timezone: document.getElementById('editTimezone').value,
         program_name: document.getElementById('editProgramName').value,
         duration: document.getElementById('editDuration').value,
+        date_of_birth: document.getElementById('editDateOfBirth').value || null,
+        meet_link: document.getElementById('editMeetLink').value || null,
         currency: document.getElementById('editCurrency').value,
         per_session_fee: parseFloat(document.getElementById('editPerSessionFee').value)
       };
@@ -1835,60 +2462,75 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
     }
     addScheduleRow();
 
-    // Bulk Schedule Generator
+    // Bulk Schedule Generator - supports number of sessions and dual time options
     function generateBulkSchedule(type) {
       const isPrivate = type === 'private';
       const startDateEl = document.getElementById(isPrivate ? 'bulkStartDate' : 'groupBulkStartDate');
-      const endDateEl = document.getElementById(isPrivate ? 'bulkEndDate' : 'groupBulkEndDate');
-      const timeEl = document.getElementById(isPrivate ? 'bulkClassTime' : 'groupBulkClassTime');
+      const numSessionsEl = document.getElementById(isPrivate ? 'bulkNumSessions' : 'groupBulkNumSessions');
+      const time1El = document.getElementById(isPrivate ? 'bulkClassTime1' : 'groupBulkClassTime1');
+      const time2El = document.getElementById(isPrivate ? 'bulkClassTime2' : 'groupBulkClassTime2');
       const daysCheckboxes = document.querySelectorAll(isPrivate ? 'input[name="bulkDays"]:checked' : 'input[name="groupBulkDays"]:checked');
+      const dayTimeSelects = document.querySelectorAll(isPrivate ? 'select[name="bulkDayTime"]' : 'select[name="groupBulkDayTime"]');
       const container = document.getElementById(isPrivate ? 'classScheduleList' : 'groupClassScheduleList');
 
       // Validation
       if (!startDateEl.value) return alert('Please select a start date');
-      if (!endDateEl.value) return alert('Please select an end date');
-      if (!timeEl.value) return alert('Please select a class time');
+      if (!numSessionsEl.value || numSessionsEl.value < 1) return alert('Please enter number of sessions (at least 1)');
+      if (!time1El.value) return alert('Please select Time Option 1');
       if (daysCheckboxes.length === 0) return alert('Please select at least one day of the week');
 
       const startDate = new Date(startDateEl.value);
-      const endDate = new Date(endDateEl.value);
-      const time = timeEl.value;
+      const numSessions = parseInt(numSessionsEl.value);
+      const time1 = time1El.value;
+      const time2 = time2El.value || time1; // Fallback to time1 if time2 not set
 
-      if (endDate < startDate) return alert('End date must be after start date');
-
-      // Get selected days (0=Sun, 1=Mon, etc.)
+      // Get selected days with their time preference (0=Sun, 1=Mon, etc.)
       const selectedDays = Array.from(daysCheckboxes).map(cb => parseInt(cb.value));
+
+      // Build day to time mapping
+      const dayTimeMap = {};
+      dayTimeSelects.forEach(select => {
+        const day = parseInt(select.getAttribute('data-day'));
+        const timeOption = select.value;
+        dayTimeMap[day] = timeOption === '2' ? time2 : time1;
+      });
 
       // Clear existing schedule
       container.innerHTML = '';
 
-      // Generate dates
+      // Generate dates until we have the required number of sessions
       let currentDate = new Date(startDate);
       let count = 0;
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const maxIterations = 365; // Safety limit - max 1 year
+      let iterations = 0;
 
-      while (currentDate <= endDate) {
+      while (count < numSessions && iterations < maxIterations) {
         if (selectedDays.includes(currentDate.getDay())) {
           const dateStr = currentDate.toISOString().split('T')[0];
           const dayName = dayNames[currentDate.getDay()];
+          const timeForDay = dayTimeMap[currentDate.getDay()] || time1;
 
           const row = document.createElement('div');
           row.className = 'schedule-row';
           row.style.cssText = 'display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px; background: #f7fafc; border-radius: 6px;';
           row.innerHTML = `
-            <span style="min-width: 50px; font-weight: bold; color: #B05D9E;">${dayName}</span>
+            <span style="min-width: 50px; font-weight: bold; color: ${isPrivate ? '#B05D9E' : '#9f7aea'};">${dayName}</span>
             <input type="date" name="date" value="${dateStr}" required style="flex: 1;">
-            <input type="time" name="time" value="${time}" required style="flex: 1;">
+            <input type="time" name="time" value="${timeForDay}" required style="flex: 1;">
             <button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>
           `;
           container.appendChild(row);
           count++;
         }
         currentDate.setDate(currentDate.getDate() + 1);
+        iterations++;
       }
 
       if (count === 0) {
-        alert('No classes generated. Check your date range and selected days.');
+        alert('No classes generated. Check your start date and selected days.');
+      } else if (count < numSessions) {
+        alert(`⚠️ Generated ${count} class${count > 1 ? 'es' : ''} (requested ${numSessions}). Could not find enough matching days within 1 year.`);
       } else {
         alert(`✅ Generated ${count} class${count > 1 ? 'es' : ''} preview. Review below and click "Schedule All Classes" to confirm.`);
       }
@@ -2061,14 +2703,22 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             }
           }
 
-          // For images, show preview button
+          // Determine file type for preview button
           const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
           const isVideo = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
+          const isPdf = ['pdf'].includes(fileExt);
+          const isDoc = ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(fileExt);
+
+          // Create preview button for all file types
           let previewBtn = '';
-          if (isImage && fileUrl) {
-            previewBtn = `<button onclick="previewImage('${fileUrl}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Preview</button>`;
-          } else if (isVideo && fileUrl) {
-            previewBtn = `<button onclick="previewVideo('${fileUrl}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Preview</button>`;
+          if (fileUrl && !isLink) {
+            let fileType = 'other';
+            if (isImage) fileType = 'image';
+            else if (isVideo) fileType = 'video';
+            else if (isPdf) fileType = 'pdf';
+            else if (isDoc) fileType = 'doc';
+
+            previewBtn = `<button onclick="previewFile('${fileUrl}', '${fileType}', '${(hw.file_name || 'File').replace(/'/g, "\\'")}')" class="btn btn-sm" style="background:#9f7aea; color:white;">View</button>`;
           }
 
           const feedbackDisplay = hw.feedback_comments
@@ -2130,24 +2780,81 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       }
     }
 
-    function previewImage(url) {
+    // Preview file in modal - supports all file types
+    function previewFile(url, fileType, fileName) {
+      // Remove any existing modal
+      const existingModal = document.getElementById('filePreviewModal');
+      if (existingModal) existingModal.remove();
+
+      let content = '';
+
+      if (fileType === 'image') {
+        content = `<img src="${url}" style="max-width: 95%; max-height: 85vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" onerror="this.parentElement.innerHTML='<p style=color:white;>Error loading image. <a href=${url} target=_blank style=color:#9f7aea;>Click here to download</a></p>'">`;
+      } else if (fileType === 'video') {
+        content = `
+          <video controls autoplay style="max-width: 95%; max-height: 85vh; border-radius: 8px;">
+            <source src="${url}">
+            Your browser does not support video playback.
+          </video>`;
+      } else if (fileType === 'pdf') {
+        // Use Google Docs viewer for PDFs (works better than iframe for Cloudinary URLs)
+        const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+        content = `
+          <iframe src="${googleViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;"></iframe>
+          <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to download</a></p>`;
+      } else if (fileType === 'doc') {
+        // Use Microsoft Office Online viewer for Word/PPT/Excel
+        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+        const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+        content = `
+          <iframe src="${officeViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;" onerror="this.src='${googleViewerUrl}'"></iframe>
+          <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to download</a></p>`;
+      } else {
+        // For other file types, show download prompt
+        content = `
+          <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 400px;">
+            <p style="font-size: 4rem; margin-bottom: 20px;">📁</p>
+            <h3 style="color: #2d3748; margin-bottom: 10px;">${fileName}</h3>
+            <p style="color: #718096; margin-bottom: 20px;">This file type cannot be previewed in browser.</p>
+            <a href="${url}" download="${fileName}" style="background: #9f7aea; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">Download File</a>
+          </div>`;
+      }
+
       const modal = document.createElement('div');
-      modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; display:flex; align-items:center; justify-content:center; cursor:pointer;';
-      modal.innerHTML = `<img src="${url}" style="max-width:90%; max-height:90%; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.5);">`;
-      modal.onclick = () => modal.remove();
+      modal.id = 'filePreviewModal';
+      modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+      modal.innerHTML = `
+        <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
+          <a href="${url}" download="${fileName}" style="background: #667eea; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 0.9rem;">⬇️ Download</a>
+          <button onclick="document.getElementById('filePreviewModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+        </div>
+        <p style="color: white; margin-bottom: 15px; font-size: 1.1rem;">${fileName}</p>
+        ${content}
+      `;
+
+      // Close on background click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+
+      // Close on Escape key
+      document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+          modal.remove();
+          document.removeEventListener('keydown', escHandler);
+        }
+      });
+
       document.body.appendChild(modal);
     }
 
+    // Legacy functions for backward compatibility
+    function previewImage(url) {
+      previewFile(url, 'image', 'Image');
+    }
+
     function previewVideo(url) {
-      const modal = document.createElement('div');
-      modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; display:flex; align-items:center; justify-content:center;';
-      modal.innerHTML = `
-        <div style="position:relative; max-width:90%; max-height:90%;">
-          <button onclick="this.parentElement.parentElement.remove()" style="position:absolute; top:-40px; right:0; background:#e53e3e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Close</button>
-          <video controls autoplay style="max-width:100%; max-height:80vh; border-radius:8px;"><source src="${url}">Your browser does not support video.</video>
-        </div>
-      `;
-      document.body.appendChild(modal);
+      previewFile(url, 'video', 'Video');
     }
 
     async function gradeHomework(homeworkId, grade, comments) {
@@ -2215,14 +2922,29 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         const session = await res.json();
         document.getElementById('modalSessionTitle').textContent = `Session #${session.session_number} - ${session.session_type}`;
 
-        // Build view links for existing materials
+        // Build view links for existing materials with proper file type detection
         const pptUrl = buildMaterialUrl(session.ppt_file_path);
         const recUrl = buildMaterialUrl(session.recording_file_path);
         const hwUrl = buildMaterialUrl(session.homework_file_path);
 
-        const pptViewLink = pptUrl ? `<a href="${pptUrl}" target="_blank" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px;">📊 View PPT</a>` : '';
-        const recViewLink = recUrl ? `<a href="${recUrl}" target="_blank" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px;">🎥 View Recording</a>` : '';
-        const hwViewLink = hwUrl ? `<a href="${hwUrl}" target="_blank" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px;">📝 View Homework</a>` : '';
+        // Determine file types for proper viewing
+        function getFileType(filePath) {
+          if (!filePath) return 'other';
+          const ext = filePath.split('.').pop().toLowerCase();
+          if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+          if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) return 'video';
+          if (['pdf'].includes(ext)) return 'pdf';
+          if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(ext)) return 'doc';
+          return 'other';
+        }
+
+        const pptType = getFileType(session.ppt_file_path);
+        const recType = getFileType(session.recording_file_path);
+        const hwType = getFileType(session.homework_file_path);
+
+        const pptViewLink = pptUrl ? `<button onclick="previewFile('${pptUrl}', '${pptType}', 'PPT - Session ${session.session_number}')" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px; cursor:pointer;">📊 View PPT</button>` : '';
+        const recViewLink = recUrl ? `<button onclick="previewFile('${recUrl}', '${recType}', 'Recording - Session ${session.session_number}')" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px; cursor:pointer;">🎥 View Recording</button>` : '';
+        const hwViewLink = hwUrl ? `<button onclick="previewFile('${hwUrl}', '${hwType}', 'Homework - Session ${session.session_number}')" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px; cursor:pointer;">📝 View Homework</button>` : '';
 
         let content = `<p><strong>Date:</strong> ${formatSessionTime(session)}</p>
 
@@ -2884,6 +3606,283 @@ async function saveEditedPayment() {
       }
     }
 
+    // CANCEL CLASS FUNCTIONS
+    function openCancelClassModal(sessionId, studentName, sessionType) {
+      document.getElementById('cancelSessionId').value = sessionId;
+      document.getElementById('cancelSessionType').value = sessionType;
+      document.getElementById('cancelStudentName').textContent = studentName;
+      document.getElementById('cancelReason').value = '';
+      document.getElementById('cancelNotes').value = '';
+      document.getElementById('grantMakeupCredit').checked = true;
+      document.getElementById('cancelClassModal').classList.add('active');
+    }
+
+    function closeCancelClassModal() {
+      document.getElementById('cancelClassModal').classList.remove('active');
+    }
+
+    document.getElementById('cancelClassForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const sessionId = document.getElementById('cancelSessionId').value;
+      const sessionType = document.getElementById('cancelSessionType').value;
+      const reason = document.getElementById('cancelReason').value;
+      const notes = document.getElementById('cancelNotes').value;
+      const grantMakeupCredit = document.getElementById('grantMakeupCredit').checked;
+
+      if (!reason) {
+        alert('Please select a cancellation reason');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/cancel`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            reason,
+            notes,
+            grant_makeup_credit: grantMakeupCredit,
+            session_type: sessionType
+          })
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message);
+          closeCancelClassModal();
+          loadUpcomingClasses();
+          if(currentStudentId) loadStudentSchedule();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    // DEMO STUDENTS FUNCTIONS
+    let allDemoLeads = [];
+    let currentDemoFilter = 'all';
+
+    async function loadDemoLeads() {
+      try {
+        const res = await fetch('/api/demo-leads');
+        allDemoLeads = await res.json();
+        renderDemoLeads();
+      } catch (err) {
+        console.error('Error loading demo leads:', err);
+        document.getElementById('demoLeadsBody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #e53e3e;">Error loading demo leads</td></tr>';
+      }
+    }
+
+    function filterDemoLeads(status) {
+      currentDemoFilter = status;
+      renderDemoLeads();
+    }
+
+    function renderDemoLeads() {
+      const tbody = document.getElementById('demoLeadsBody');
+      let leads = allDemoLeads;
+
+      if (currentDemoFilter !== 'all') {
+        leads = leads.filter(l => l.status === currentDemoFilter);
+      }
+
+      if (leads.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096; padding: 30px;">No demo leads found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = leads.map(lead => {
+        const statusColors = {
+          'Scheduled': '#3182ce',
+          'Completed': '#38a169',
+          'Converted': '#d69e2e',
+          'Lost': '#e53e3e'
+        };
+        const statusIcons = {
+          'Scheduled': '📅',
+          'Completed': '✅',
+          'Converted': '🎉',
+          'Lost': '❌'
+        };
+
+        // Format demo date/time in IST
+        let demoDateTime = 'Not set';
+        if (lead.demo_date && lead.demo_time) {
+          const dateStr = lead.demo_date.includes('T') ? lead.demo_date.split('T')[0] : lead.demo_date;
+          const d = new Date(dateStr + 'T' + lead.demo_time + 'Z');
+          demoDateTime = d.toLocaleString('en-US', {
+            timeZone: 'Asia/Kolkata',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+          });
+        }
+
+        const actionButtons = lead.status === 'Completed'
+          ? `<button onclick="openConvertDemoModal(${lead.id})" class="btn btn-sm" style="background: #38a169; color: white;">🎉 Convert</button>
+             <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Status</button>`
+          : lead.status === 'Converted'
+          ? `<span style="color: #38a169;">Student #${lead.converted_student_id || ''}</span>`
+          : `<button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Update</button>`;
+
+        return `<tr>
+          <td><strong>${lead.child_name}</strong><br><small style="color:#718096;">Grade: ${lead.child_grade || 'N/A'}</small></td>
+          <td>${lead.parent_name}<br><small style="color:#718096;">${lead.parent_email}</small></td>
+          <td>${lead.phone || 'N/A'}<br><small style="color:#a0aec0;">${lead.source || ''}</small></td>
+          <td>${lead.program_interest || 'Not specified'}</td>
+          <td>${demoDateTime}</td>
+          <td><span style="background: ${statusColors[lead.status] || '#718096'}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem;">${statusIcons[lead.status] || ''} ${lead.status}</span></td>
+          <td style="white-space: nowrap;">
+            ${actionButtons}
+            <button onclick="deleteDemoLead(${lead.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">✕</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Add Demo Lead Form Handler
+    document.getElementById('addDemoLeadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        child_name: document.getElementById('demoChildName').value,
+        child_grade: document.getElementById('demoChildGrade').value,
+        parent_name: document.getElementById('demoParentName').value,
+        parent_email: document.getElementById('demoParentEmail').value,
+        phone: document.getElementById('demoPhone').value,
+        program_interest: document.getElementById('demoProgramInterest').value,
+        demo_date: document.getElementById('demoDate').value,
+        demo_time: document.getElementById('demoTime').value,
+        source: document.getElementById('demoSource').value,
+        notes: document.getElementById('demoNotes').value
+      };
+
+      try {
+        const res = await fetch('/api/demo-leads', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Demo lead added successfully!');
+          e.target.reset();
+          loadDemoLeads();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function openUpdateDemoStatusModal(leadId) {
+      const lead = allDemoLeads.find(l => l.id === leadId);
+      if (!lead) return;
+
+      document.getElementById('updateDemoId').value = leadId;
+      document.getElementById('updateDemoName').textContent = lead.child_name;
+      document.getElementById('newDemoStatus').value = lead.status;
+      document.getElementById('demoStatusNotes').value = '';
+      document.getElementById('updateDemoStatusModal').classList.add('active');
+    }
+
+    function closeUpdateDemoStatusModal() {
+      document.getElementById('updateDemoStatusModal').classList.remove('active');
+    }
+
+    document.getElementById('updateDemoStatusForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const leadId = document.getElementById('updateDemoId').value;
+      const status = document.getElementById('newDemoStatus').value;
+      const notes = document.getElementById('demoStatusNotes').value;
+
+      try {
+        const res = await fetch(`/api/demo-leads/${leadId}/status`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ status, notes })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Status updated!');
+          closeUpdateDemoStatusModal();
+          loadDemoLeads();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function openConvertDemoModal(leadId) {
+      const lead = allDemoLeads.find(l => l.id === leadId);
+      if (!lead) return;
+
+      document.getElementById('convertDemoId').value = leadId;
+      document.getElementById('convertDemoName').textContent = lead.child_name + ' (' + lead.parent_name + ')';
+      document.getElementById('convertProgram').value = lead.program_interest || '';
+      document.getElementById('convertDemoModal').classList.add('active');
+    }
+
+    function closeConvertDemoModal() {
+      document.getElementById('convertDemoModal').classList.remove('active');
+    }
+
+    document.getElementById('convertDemoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const leadId = document.getElementById('convertDemoId').value;
+      const data = {
+        program_name: document.getElementById('convertProgram').value,
+        duration: document.getElementById('convertDuration').value,
+        per_session_fee: parseFloat(document.getElementById('convertFee').value),
+        currency: document.getElementById('convertCurrency').value,
+        total_sessions: parseInt(document.getElementById('convertSessions').value),
+        amount_paid: parseFloat(document.getElementById('convertAmountPaid').value),
+        payment_method: document.getElementById('convertPaymentMethod').value,
+        timezone: document.getElementById('convertTimezone').value,
+        send_welcome_email: document.getElementById('convertSendEmail').checked
+      };
+
+      try {
+        const res = await fetch(`/api/demo-leads/${leadId}/convert`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('🎉 Successfully converted to student!');
+          closeConvertDemoModal();
+          loadDemoLeads();
+          loadStudents(); // Reload students list too
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    async function deleteDemoLead(leadId) {
+      if (!confirm('Are you sure you want to delete this demo lead?')) return;
+
+      try {
+        const res = await fetch(`/api/demo-leads/${leadId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Demo lead deleted');
+          loadDemoLeads();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
     // PAYMENT & RENEWAL FUNCTIONS
     function showRenewalForm() {
       document.getElementById('renewalForm').style.display = 'block';
@@ -2987,10 +3986,16 @@ async function saveEditedPayment() {
       }
     }
 
-    async function gradeHomework(materialId) {
-      const grade = prompt('Enter grade (A+, A, B+, B, C, etc):');
-      if(!grade) return;
-      const comments = prompt('Enter feedback comments:');
+    async function gradeHomework(materialId, gradeParam, commentsParam) {
+      // If grade and comments are passed, use them; otherwise prompt
+      let grade = gradeParam;
+      let comments = commentsParam;
+
+      if (grade === undefined) {
+        grade = prompt('Enter grade (A+, A, B+, B, C, etc):');
+        if(!grade) return;
+        comments = prompt('Enter feedback comments:') || '';
+      }
 
       try {
         const res = await fetch(`/api/materials/${materialId}/grade`, {
@@ -3002,6 +4007,10 @@ async function saveEditedPayment() {
         if(res.ok) {
           alert('✅ ' + result.message);
           loadHomework();
+          // Also reload homework submissions if we're on that view
+          if (typeof loadHomeworkSubmissions === 'function') {
+            loadHomeworkSubmissions();
+          }
         } else {
           alert('❌ Failed: ' + result.error);
         }
@@ -3016,23 +4025,181 @@ async function saveEditedPayment() {
         const badges = await res.json();
         const container = document.getElementById('badgesContent');
 
+        const assignButton = `<button onclick="openAssignBadgeModal()" class="btn btn-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-bottom: 15px;">🎖️ Assign Badge</button>`;
+
         if(badges.length === 0) {
-          container.innerHTML = '<p style="color:#718096; text-align:center; padding:40px;">No badges earned yet. Keep learning!</p>';
-        } else {
           container.innerHTML = `
-            <h3 style="margin-bottom:20px;">🏆 Badges Earned: ${badges.length}</h3>
-            <div>
-              ${badges.map(b => `
-                <span class="badge-item" title="${b.badge_description}">
-                  ${b.badge_name}
-                </span>
-              `).join('')}
+            ${assignButton}
+            <p style="color:#718096; text-align:center; padding:40px;">No badges earned yet. Keep learning!</p>
+          `;
+        } else {
+          // Separate auto badges from manual badges
+          const autoBadges = badges.filter(b => ['first_class', '5_classes', '10_classes', '25_classes', '50_classes', 'hw_submit', '5_homework', '10_homework', '25_homework'].includes(b.badge_type));
+          const manualBadges = badges.filter(b => !['first_class', '5_classes', '10_classes', '25_classes', '50_classes', 'hw_submit', '5_homework', '10_homework', '25_homework'].includes(b.badge_type));
+
+          container.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <h3 style="margin: 0;">🏆 Total Badges: <span style="color: #667eea;">${badges.length}</span></h3>
+              ${assignButton}
             </div>
+
+            ${manualBadges.length > 0 ? `
+              <div style="margin-bottom: 20px;">
+                <h4 style="color: #764ba2; margin-bottom: 10px;">⭐ Class Achievements</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  ${manualBadges.map(b => `
+                    <div class="badge-card" title="${b.badge_description || ''}\n${new Date(b.earned_date).toLocaleDateString()}" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 8px 12px; border-radius: 20px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(252,182,159,0.3);">
+                      ${b.badge_name}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${autoBadges.length > 0 ? `
+              <div>
+                <h4 style="color: #38a169; margin-bottom: 10px;">🎯 Milestone Badges</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  ${autoBadges.map(b => `
+                    <div class="badge-card" title="${b.badge_description || ''}" style="background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%); padding: 8px 12px; border-radius: 20px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(150,230,161,0.3);">
+                      ${b.badge_name}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
           `;
         }
       } catch(err) {
         console.error(err);
         document.getElementById('badgesContent').innerHTML = '<p style="color:#e53e3e;">Error loading badges</p>';
+      }
+    }
+
+    // Predefined manual badges for teachers to assign
+    const manualBadgeOptions = [
+      { type: 'active_listener', name: '👂 Active Listener', desc: 'Listened attentively throughout the class!' },
+      { type: 'attentive_star', name: '🌟 Attentive Star', desc: 'Showed excellent focus and attention!' },
+      { type: 'vocabulary_champ', name: '📚 Vocabulary Champ', desc: 'Learned new words brilliantly!' },
+      { type: 'reading_rockstar', name: '📖 Reading Rockstar', desc: 'Read with great fluency and expression!' },
+      { type: 'pronunciation_pro', name: '🗣️ Pronunciation Pro', desc: 'Excellent pronunciation skills!' },
+      { type: 'grammar_guru', name: '✏️ Grammar Guru', desc: 'Mastered grammar concepts!' },
+      { type: 'creative_writer', name: '✍️ Creative Writer', desc: 'Showed amazing creativity in writing!' },
+      { type: 'quick_learner', name: '⚡ Quick Learner', desc: 'Grasped concepts super fast!' },
+      { type: 'confident_speaker', name: '🎤 Confident Speaker', desc: 'Spoke with great confidence!' },
+      { type: 'perfect_participation', name: '🙋 Perfect Participation', desc: 'Participated actively in every activity!' },
+      { type: 'super_effort', name: '💪 Super Effort', desc: 'Put in outstanding effort today!' },
+      { type: 'bright_spark', name: '💡 Bright Spark', desc: 'Had brilliant ideas in class!' },
+      { type: 'team_player', name: '🤝 Team Player', desc: 'Worked wonderfully with others!' },
+      { type: 'improvement_star', name: '📈 Improvement Star', desc: 'Showed great improvement!' },
+      { type: 'positive_attitude', name: '😊 Positive Attitude', desc: 'Maintained a great positive attitude!' },
+      { type: 'curiosity_badge', name: '🔍 Curious Mind', desc: 'Asked thoughtful questions!' },
+      { type: 'storyteller', name: '📕 Storyteller', desc: 'Told stories wonderfully!' },
+      { type: 'spelling_bee', name: '🐝 Spelling Bee', desc: 'Spelled words perfectly!' }
+    ];
+
+    function openAssignBadgeModal() {
+      document.getElementById('assignBadgeModal').classList.add('active');
+    }
+
+    function closeAssignBadgeModal() {
+      document.getElementById('assignBadgeModal').classList.remove('active');
+    }
+
+    async function assignBadge(badgeType, badgeName, badgeDesc) {
+      try {
+        const res = await fetch(`/api/students/${currentStudentId}/badges/assign`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ badge_type: badgeType, badge_name: badgeName, badge_description: badgeDesc })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('🎉 Badge assigned successfully!');
+          closeAssignBadgeModal();
+          loadBadges();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // ==================== LEADERBOARD ====================
+    async function loadLeaderboard() {
+      try {
+        const res = await fetch('/api/leaderboard');
+        const data = await res.json();
+        const students = data.leaderboard || [];
+
+        // Update podium (top 3)
+        const podiumContainer = document.getElementById('leaderboardPodium');
+        if (students.length >= 1) {
+          const top3 = students.slice(0, 3);
+          const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3; // 2nd, 1st, 3rd
+
+          let podiumHTML = '';
+          podiumOrder.forEach((student, idx) => {
+            const actualRank = students.indexOf(student) + 1;
+            const heights = { 1: '180px', 2: '140px', 3: '100px' };
+            const colors = { 1: 'linear-gradient(135deg, #ffd700 0%, #ffb347 100%)', 2: 'linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%)', 3: 'linear-gradient(135deg, #cd7f32 0%, #b87333 100%)' };
+            const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+            const shadowColors = { 1: 'rgba(255,215,0,0.4)', 2: 'rgba(192,192,192,0.4)', 3: 'rgba(205,127,50,0.4)' };
+
+            podiumHTML += `
+              <div style="display: flex; flex-direction: column; align-items: center; transition: transform 0.3s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="font-size: 2.5rem; margin-bottom: 10px;">${medals[actualRank]}</div>
+                <div style="background: white; padding: 15px 20px; border-radius: 12px; text-align: center; margin-bottom: 10px; box-shadow: 0 4px 15px ${shadowColors[actualRank]}; min-width: 120px;">
+                  <div style="font-weight: bold; color: #2d3748; font-size: 1rem;">${student.name}</div>
+                  <div style="color: #667eea; font-size: 1.5rem; font-weight: bold;">${student.total_badges}</div>
+                  <div style="color: #718096; font-size: 0.75rem;">badges</div>
+                </div>
+                <div style="background: ${colors[actualRank]}; width: 100px; height: ${heights[actualRank]}; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 15px; box-shadow: 0 4px 15px ${shadowColors[actualRank]};">
+                  <span style="color: white; font-weight: bold; font-size: 1.5rem;">#${actualRank}</span>
+                </div>
+              </div>
+            `;
+          });
+          podiumContainer.innerHTML = podiumHTML;
+        } else {
+          podiumContainer.innerHTML = '<p style="color: #718096; text-align: center;">No badges earned yet. Start assigning badges to students!</p>';
+        }
+
+        // Update table
+        const tbody = document.getElementById('leaderboardBody');
+        if (students.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">No students with badges yet</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = students.map((student, index) => {
+          const rank = index + 1;
+          const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+          const rankStyle = rank <= 3 ? 'font-size: 1.5rem;' : 'font-size: 1rem; color: #718096;';
+          const rowBg = rank <= 3 ? 'background: linear-gradient(90deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.05) 100%);' : '';
+
+          return `
+            <tr style="${rowBg}">
+              <td style="padding: 15px; text-align: center; ${rankStyle}">${rankBadge}</td>
+              <td style="padding: 15px;">
+                <strong style="color: #2d3748;">${student.name}</strong>
+                <br><small style="color: #718096;">${student.program_name || 'N/A'}</small>
+              </td>
+              <td style="padding: 15px; text-align: center;">
+                <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 1.1rem;">${student.total_badges}</span>
+              </td>
+              <td style="padding: 15px; text-align: center; color: #f093fb; font-weight: 600;">${student.manual_badges || 0}</td>
+              <td style="padding: 15px; text-align: center; color: #38a169; font-weight: 600;">${student.auto_badges || 0}</td>
+              <td style="padding: 15px; text-align: center;">
+                ${student.latest_badge ? `<span style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 5px 10px; border-radius: 12px; font-size: 0.8rem;">${student.latest_badge}</span>` : '<span style="color: #a0aec0;">-</span>'}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error loading leaderboard:', err);
+        document.getElementById('leaderboardBody').innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e53e3e;">Error loading leaderboard</td></tr>';
       }
     }
 
@@ -3044,22 +4211,29 @@ async function saveEditedPayment() {
         const tbody = document.getElementById('announcementsBody');
 
         if (announcements.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No announcements</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#718096;">No announcements yet</td></tr>';
           return;
         }
 
-        tbody.innerHTML = announcements.map(a => `
-          <tr>
-            <td><strong>${a.title}</strong></td>
-            <td><span class="badge">${a.announcement_type}</span></td>
-            <td><span class="badge ${a.priority === 'Urgent' ? 'badge-danger' : a.priority === 'High' ? 'badge-warning' : ''}">${a.priority}</span></td>
-            <td>${new Date(a.created_at).toLocaleDateString()}</td>
-            <td>
-              <button onclick="viewAnnouncement(${a.id}, '${a.title.replace(/'/g, "\\'")}', '${a.content.replace(/'/g, "\\'")}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
-              <button onclick="deleteAnnouncement(${a.id})" class="btn btn-danger btn-sm">Delete</button>
-            </td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = announcements.map(a => {
+          // Escape content for data attribute
+          const escapedContent = (a.content || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+          const escapedTitle = (a.title || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+
+          return `
+            <tr>
+              <td><strong>${a.title}</strong></td>
+              <td><span style="background:#e2e8f0; padding:3px 8px; border-radius:4px; font-size:0.8rem;">${a.announcement_type}</span></td>
+              <td><span style="background:${a.priority === 'Urgent' ? '#fed7d7' : a.priority === 'High' ? '#feebc8' : '#e2e8f0'}; color:${a.priority === 'Urgent' ? '#c53030' : a.priority === 'High' ? '#c05621' : '#4a5568'}; padding:3px 8px; border-radius:4px; font-size:0.8rem;">${a.priority}</span></td>
+              <td>${new Date(a.created_at).toLocaleDateString()}</td>
+              <td>
+                <button onclick="openAnnouncementModal(${a.id}, '${escapedTitle}', '${escapedContent}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#9f7aea;color:white;">View</button>
+                <button onclick="openEditAnnouncement(${a.id}, '${escapedTitle}', '${escapedContent}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#B05D9E;color:white;">Edit</button>
+                <button onclick="deleteAnnouncement(${a.id})" class="btn btn-danger btn-sm">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
       } catch (err) {
         console.error(err);
       }
@@ -3067,34 +4241,120 @@ async function saveEditedPayment() {
 
     document.getElementById('createAnnouncementForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const sendEmail = document.getElementById('sendAnnouncementEmail').checked;
       const data = {
         title: document.getElementById('announcementTitle').value,
         content: document.getElementById('announcementContent').value,
         announcement_type: document.getElementById('announcementType').value,
-        priority: document.getElementById('announcementPriority').value
+        priority: document.getElementById('announcementPriority').value,
+        send_email: sendEmail
       };
 
       try {
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = sendEmail ? 'Creating & Sending Emails...' : 'Creating...';
+
         const res = await fetch('/api/announcements', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(data)
         });
 
+        const result = await res.json();
+
         if (res.ok) {
-          alert('✅ Announcement created!');
+          alert(result.message || '✅ Announcement created!');
           e.target.reset();
           loadAnnouncements();
         } else {
-          alert('❌ Failed to create announcement');
+          alert('❌ Failed: ' + (result.error || 'Unknown error'));
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Create Announcement';
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    function openAnnouncementModal(id, title, content, type, priority) {
+      // Decode HTML entities
+      const decodeHtml = (html) => {
+        const txt = document.createElement('textarea');
+        txt.innerHTML = html;
+        return txt.value;
+      };
+
+      document.getElementById('editAnnouncementId').value = id;
+      document.getElementById('editAnnouncementTitle').value = decodeHtml(title);
+      document.getElementById('editAnnouncementContent').value = decodeHtml(content);
+      document.getElementById('editAnnouncementType').value = type;
+      document.getElementById('editAnnouncementPriority').value = priority;
+      document.getElementById('announcementModalTitle').textContent = 'View Announcement';
+      document.getElementById('announcementModal').classList.add('active');
+    }
+
+    function openEditAnnouncement(id, title, content, type, priority) {
+      openAnnouncementModal(id, title, content, type, priority);
+      document.getElementById('announcementModalTitle').textContent = 'Edit Announcement';
+      document.getElementById('editAnnouncementTitle').focus();
+    }
+
+    function closeAnnouncementModal() {
+      document.getElementById('announcementModal').classList.remove('active');
+    }
+
+    document.getElementById('editAnnouncementForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editAnnouncementId').value;
+      const data = {
+        title: document.getElementById('editAnnouncementTitle').value,
+        content: document.getElementById('editAnnouncementContent').value,
+        announcement_type: document.getElementById('editAnnouncementType').value,
+        priority: document.getElementById('editAnnouncementPriority').value
+      };
+
+      try {
+        const res = await fetch(`/api/announcements/${id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('✅ Announcement updated!');
+          closeAnnouncementModal();
+          loadAnnouncements();
+        } else {
+          alert('❌ Failed to update announcement');
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);
       }
     });
 
-    function viewAnnouncement(id, title, content, type, priority) {
-      alert(`📢 ${title}\n\nType: ${type}\nPriority: ${priority}\n\n${content}`);
+    async function resendAnnouncementEmail() {
+      const id = document.getElementById('editAnnouncementId').value;
+      const title = document.getElementById('editAnnouncementTitle').value;
+
+      if (!confirm(`Send email for "${title}" to all active students/parents?`)) return;
+
+      try {
+        const res = await fetch(`/api/announcements/${id}/send-email`, {
+          method: 'POST'
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+          alert(result.message || '✅ Emails sent!');
+        } else {
+          alert('❌ Failed: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
     }
 
     async function deleteAnnouncement(id) {
@@ -3105,6 +4365,8 @@ async function saveEditedPayment() {
         if (res.ok) {
           alert('✅ Announcement deleted');
           loadAnnouncements();
+        } else {
+          alert('❌ Failed to delete announcement');
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);
@@ -3292,64 +4554,48 @@ async function saveEditedPayment() {
             </div>
 
             ${a.certificate_title ? `
-            <!-- Colorful Kid-Friendly Certificate Preview -->
-            <div style="background: #ffffff; border-radius: 15px; padding: 0; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-width: 480px; margin-left: auto; margin-right: auto; overflow: hidden; display: flex; min-height: 280px;">
+            <!-- Elegant Certificate with Scattered Stars -->
+            <div style="background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%); border-radius: 12px; padding: 0; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-width: 500px; margin-left: auto; margin-right: auto; overflow: hidden; border: 3px solid #B05D9E; position: relative;">
 
-              <!-- Left Decorative Panel (Pink/Magenta) -->
-              <div style="width: 90px; background: linear-gradient(180deg, #e91e8c 0%, #d81b7a 50%, #c41569 100%); flex-shrink: 0; display: flex; flex-direction: column; justify-content: space-around; padding: 12px 8px; text-align: center;">
-                <div>
-                  <div style="font-size: 32px;">🧸</div>
-                  <div style="font-size: 20px;">🎈</div>
-                </div>
-                <div>
-                  <div style="font-size: 16px; margin-bottom: 5px;">⭐</div>
-                  <div style="font-size: 14px; margin-bottom: 5px;">🕐</div>
-                  <div style="font-size: 16px;">✏️</div>
-                </div>
-                <div>
-                  <div style="font-size: 12px; margin-bottom: 3px;">⭐</div>
-                  <div style="font-size: 18px;">🎀</div>
-                </div>
+              <!-- Scattered Stars Background -->
+              <div style="position: absolute; top: 8px; left: 12px; color: #ffd700; font-size: 14px; opacity: 0.7;">★</div>
+              <div style="position: absolute; top: 25px; right: 20px; color: #ffd700; font-size: 18px; opacity: 0.8;">★</div>
+              <div style="position: absolute; top: 60px; left: 30px; color: #ffd700; font-size: 10px; opacity: 0.6;">★</div>
+              <div style="position: absolute; bottom: 50px; right: 15px; color: #ffd700; font-size: 12px; opacity: 0.7;">★</div>
+              <div style="position: absolute; bottom: 30px; left: 20px; color: #ffd700; font-size: 16px; opacity: 0.6;">★</div>
+              <div style="position: absolute; top: 45%; right: 8px; color: #ffd700; font-size: 10px; opacity: 0.5;">★</div>
+              <div style="position: absolute; top: 35%; left: 8px; color: #ffd700; font-size: 12px; opacity: 0.5;">★</div>
+
+              <!-- Header with Company Name -->
+              <div style="background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); padding: 12px 20px; text-align: center;">
+                <h4 style="margin: 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY BY AALIYA</h4>
               </div>
 
-              <!-- Blue Border -->
-              <div style="width: 15px; background: linear-gradient(180deg, #4fc3f7 0%, #29b6f6 50%, #03a9f4 100%);"></div>
-
-              <!-- Main Content -->
-              <div style="flex: 1; padding: 18px 20px; display: flex; flex-direction: column; justify-content: center; position: relative;">
-                <!-- Stars -->
-                <div style="position: absolute; top: 10px; right: 15px; font-size: 20px; color: #ffd700;">⭐</div>
-
-                <!-- Title -->
-                <h3 style="margin: 0 0 8px; color: #e91e8c; font-size: 18px; font-family: 'Comic Sans MS', cursive; text-align: center;">Certificate of Appreciation</h3>
-
-                <!-- Blue Badge -->
-                <div style="text-align: center; margin: 6px 0;">
-                  <div style="display: inline-flex; width: 40px; height: 40px; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); border-radius: 50%; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(33, 150, 243, 0.4);">
-                    <span style="color: white; font-size: 22px; font-weight: bold;">1</span>
-                  </div>
-                </div>
+              <!-- Certificate Content -->
+              <div style="padding: 20px 25px; text-align: center; position: relative;">
+                <!-- Certificate Title -->
+                <h3 style="margin: 0 0 12px; color: #B05D9E; font-size: 20px; font-weight: 700; letter-spacing: 1px;">Certificate of Achievement</h3>
 
                 <!-- Award Type -->
-                <div style="text-align: center; margin: 10px 0 6px;">
-                  <span style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #5d4e00; padding: 5px 14px; border-radius: 15px; font-size: 11px; font-weight: bold;">🏆 ${a.certificate_title}</span>
+                <div style="margin: 12px 0;">
+                  <span style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #5d4e00; padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 8px rgba(255,215,0,0.3);">${a.certificate_title}</span>
                 </div>
+
+                <!-- Presented To -->
+                <p style="margin: 15px 0 5px; color: #718096; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">Proudly Presented To</p>
 
                 <!-- Student Name -->
-                <div style="text-align: center; margin: 8px 0;">
-                  <p style="margin: 0 0 3px; color: #888; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Proudly Presented To</p>
-                  <h4 style="margin: 0; color: #e91e8c; font-size: 16px; font-family: 'Comic Sans MS', cursive;">${a.student_name}</h4>
-                </div>
+                <h4 style="margin: 0; color: #2d3748; font-size: 22px; font-weight: 700; font-family: 'Georgia', serif;">${a.student_name}</h4>
 
-                <!-- Achievement -->
-                <div style="text-align: center; margin: 6px 0; padding: 6px 10px; background: #fff9e6; border-radius: 8px; border: 1px dashed #ffd700;">
-                  <p style="margin: 0; color: #5d4e37; font-size: 10px;">For outstanding achievement in <strong style="color: #e91e8c;">${monthNames[a.month-1]} ${a.year}</strong></p>
+                <!-- Achievement Description -->
+                <div style="margin: 15px auto; padding: 10px 15px; background: rgba(176,93,158,0.08); border-radius: 8px; max-width: 320px;">
+                  <p style="margin: 0; color: #4a5568; font-size: 11px; line-height: 1.5;">For outstanding achievement and dedication in <strong style="color: #B05D9E;">${monthNames[a.month-1]} ${a.year}</strong></p>
                 </div>
 
                 <!-- Signature -->
-                <div style="text-align: center; margin-top: 8px; padding-top: 6px; border-top: 1px dotted #e91e8c;">
-                  <p style="margin: 0; font-family: cursive; font-size: 12px; color: #333;">Aaliya Lokhandwala</p>
-                  <p style="margin: 1px 0 0; color: #888; font-size: 7px;">Founder & Teacher</p>
+                <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                  <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 16px; color: #2d3748;">Aaliya Lokhandwala</p>
+                  <p style="margin: 2px 0 0; color: #718096; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Founder & Teacher</p>
                 </div>
               </div>
             </div>

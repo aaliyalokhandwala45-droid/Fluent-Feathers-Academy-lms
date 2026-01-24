@@ -16,7 +16,7 @@
     color: #2d3748;
   }
 
-  /* Loading Screen Styles */
+  /* Loading Screen Styles - Shows immediately to prevent black screen */
   #serverLoadingScreen {
     position: fixed;
     top: 0;
@@ -25,7 +25,7 @@
     height: 100vh;
     background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%);
     z-index: 10000;
-    display: none;
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -76,35 +76,35 @@
     .makeup-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
     .makeup-card h3 { margin-bottom: 10px; }
 
-    /* Badges - Golden & Catchy Design */
-    .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; margin-top: 20px; }
+    /* Badges - Cute Compact Design */
+    .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 15px; }
     .badge-card {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      border: 3px solid #FFD700;
-      border-radius: 15px;
-      padding: 20px;
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      border: 2px solid rgba(255, 183, 77, 0.5);
+      border-radius: 12px;
+      padding: 12px 10px;
       text-align: center;
-      box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+      box-shadow: 0 4px 12px rgba(252, 182, 159, 0.3);
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       position: relative;
       overflow: hidden;
     }
     .badge-card::before {
-      content: '⭐';
+      content: '✨';
       position: absolute;
-      top: -20px;
-      right: -20px;
-      font-size: 80px;
-      opacity: 0.2;
+      top: -10px;
+      right: -10px;
+      font-size: 40px;
+      opacity: 0.15;
     }
     .badge-card:hover {
-      transform: translateY(-5px) scale(1.05);
-      box-shadow: 0 12px 30px rgba(255, 215, 0, 0.6);
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 6px 18px rgba(252, 182, 159, 0.5);
     }
-    .badge-icon { font-size: 48px; margin-bottom: 10px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); }
-    .badge-name { font-size: 16px; font-weight: bold; color: #2d3748; margin-bottom: 5px; text-shadow: 1px 1px 2px rgba(255,255,255,0.5); }
-    .badge-desc { font-size: 12px; color: #4a5568; background: rgba(255,255,255,0.8); padding: 5px; border-radius: 5px; }
-    .badge-date { font-size: 11px; color: #2d3748; margin-top: 5px; font-style: italic; }
+    .badge-icon { font-size: 32px; margin-bottom: 6px; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2)); }
+    .badge-name { font-size: 12px; font-weight: 600; color: #2d3748; margin-bottom: 4px; line-height: 1.2; }
+    .badge-desc { font-size: 10px; color: #4a5568; background: rgba(255,255,255,0.7); padding: 4px 6px; border-radius: 6px; line-height: 1.3; }
+    .badge-date { font-size: 9px; color: #718096; margin-top: 4px; font-style: italic; }
 
     /* Feedback Modal */
     .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
@@ -124,6 +124,71 @@
     @keyframes twinkle {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    /* ==================== MOBILE RESPONSIVE STYLES ==================== */
+    @media screen and (max-width: 768px) {
+      .container { padding: 10px; }
+      header { padding: 15px; flex-direction: column; gap: 10px; text-align: center; }
+      header h1 { font-size: 18px; }
+      .section { padding: 15px; }
+      .info-card { padding: 15px; }
+      .tabs { justify-content: center; }
+      .tab-btn { padding: 10px 15px; font-size: 0.9rem; }
+
+      /* Table responsive - make tables scrollable */
+      .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      table { min-width: 600px; }
+      th, td { padding: 8px 6px; font-size: 0.85rem; }
+
+      /* Buttons */
+      .btn { padding: 10px 16px; font-size: 0.9rem; }
+      .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+      .btn-download { padding: 4px 8px; font-size: 0.75rem; }
+
+      /* Form inputs */
+      .form-group input, .form-group select, .form-group textarea { font-size: 16px; } /* Prevents zoom on iOS */
+
+      /* Payment grid */
+      .payment-grid { grid-template-columns: 1fr; }
+
+      /* Badges grid */
+      .badges-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+      .badge-card { padding: 10px 8px; }
+      .badge-icon { font-size: 28px; }
+      .badge-name { font-size: 11px; }
+      .badge-desc { font-size: 9px; }
+      .badge-date { font-size: 8px; }
+
+      /* Modal */
+      .modal-content { padding: 20px; margin: 10px; width: calc(100% - 20px); }
+      .modal-header h2 { font-size: 18px; }
+      .star-rating { font-size: 36px !important; gap: 5px; }
+
+      /* Homework section */
+      #submittedHomeworkList > div { padding: 12px; }
+      #submittedHomeworkList > div > div { flex-direction: column; align-items: flex-start !important; gap: 8px; }
+      #submittedHomeworkList > div > div > div:last-child { width: 100%; display: flex; flex-wrap: wrap; gap: 5px; }
+
+      /* Certificate container */
+      .certificate-container { min-height: auto !important; flex-direction: column !important; }
+
+      /* Login section */
+      .login-section { padding: 25px 15px; margin: 20px 10px; }
+    }
+
+    @media screen and (max-width: 480px) {
+      header h1 { font-size: 16px; }
+      .tab-btn { padding: 8px 12px; font-size: 0.85rem; }
+      table { min-width: 500px; }
+      th, td { padding: 6px 4px; font-size: 0.8rem; }
+      .badges-grid { grid-template-columns: repeat(2, 1fr); }
+      .modal-content { padding: 15px; }
+      .star-rating { font-size: 28px !important; }
     }
   </style>
 </head>
@@ -259,10 +324,27 @@
 
       <!-- Badges Section -->
       <div class="section">
-        <h2 style="color: #B05D9E; margin-bottom: 10px;">🏆 Achievement Badges</h2>
-        <p style="color: #718096; margin-bottom: 15px;">Keep learning to unlock more badges!</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+          <div>
+            <h2 style="color: #B05D9E; margin-bottom: 5px;">🏆 Achievement Badges</h2>
+            <p style="color: #718096; margin: 0; font-size: 0.9rem;">Keep learning to unlock more badges!</p>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div id="totalBadgesCount" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
+              Total: <span id="badgeCountNum">0</span>
+            </div>
+            <button onclick="openLeaderboardModal()" class="btn btn-sm" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #333; font-weight: 600; font-size: 0.85rem; padding: 8px 12px;">
+              🏅 Leaderboard
+            </button>
+          </div>
+        </div>
         <div id="badgesContainer" class="badges-grid">
           <p style="text-align: center; color: #718096;">Loading badges...</p>
+        </div>
+        <div id="viewAllBadgesBtn" style="display: none; text-align: center; margin-top: 15px;">
+          <button onclick="openAllBadgesModal()" class="btn" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; font-weight: 600;">
+            View All Badges →
+          </button>
         </div>
       </div>
 
@@ -287,20 +369,24 @@
         </div>
         <div class="section">
           <h2>📅 Schedule</h2>
-          <table id="upcomingTable">
-            <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Join</th></tr></thead>
-            <tbody id="upcomingBody"><tr><td colspan="4">Loading...</td></tr></tbody>
-          </table>
+          <div class="table-responsive">
+            <table id="upcomingTable">
+              <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Join</th></tr></thead>
+              <tbody id="upcomingBody"><tr><td colspan="4">Loading...</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       <div id="pastTab" class="tab-content">
         <div class="section">
           <h2>📚 Completed Classes</h2>
-          <table id="pastTable">
-            <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th><th>Feedback</th></tr></thead>
-            <tbody id="pastBody"><tr><td colspan="7">Loading...</td></tr></tbody>
-          </table>
+          <div class="table-responsive">
+            <table id="pastTable">
+              <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th><th>Feedback</th></tr></thead>
+              <tbody id="pastBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -846,28 +932,162 @@
       checkForFeedback();
     }
 
+    let allBadges = []; // Store all badges for the modal
+
     async function loadBadges() {
       try {
         const res = await fetch(`/api/students/${currentStudent.id}/badges`, { headers: authHeaders() });
         const badges = await res.json();
+        allBadges = badges; // Store for modal
         const container = document.getElementById('badgesContainer');
+
+        // Update total count
+        document.getElementById('badgeCountNum').textContent = badges.length;
 
         if (badges.length === 0) {
           container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 20px;">No badges earned yet. Attend classes and submit homework to unlock badges! 🌟</p>';
+          document.getElementById('viewAllBadgesBtn').style.display = 'none';
         } else {
-          container.innerHTML = badges.map(b => `
-            <div class="badge-card">
-              <div class="badge-icon">${b.badge_name.split(' ')[0]}</div>
-              <div class="badge-name">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
-              <div class="badge-desc">${b.badge_description}</div>
-              <div class="badge-date">Earned: ${new Date(b.earned_date).toLocaleDateString()}</div>
+          // Show latest 5 badges only
+          const displayBadges = badges.slice(0, 5);
+          container.innerHTML = displayBadges.map(b => `
+            <div class="badge-card" style="padding: 12px; font-size: 0.9rem;">
+              <div class="badge-icon" style="font-size: 1.8rem;">${b.badge_name.split(' ')[0]}</div>
+              <div class="badge-name" style="font-size: 0.8rem;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
+              <div class="badge-desc" style="font-size: 0.7rem;">${b.badge_description}</div>
+              <div class="badge-date" style="font-size: 0.65rem;">Earned: ${new Date(b.earned_date).toLocaleDateString()}</div>
             </div>
           `).join('');
+
+          // Show "View All" button if more than 5 badges
+          document.getElementById('viewAllBadgesBtn').style.display = badges.length > 5 ? 'block' : 'none';
         }
       } catch(e) {
         console.error('Error loading badges:', e);
         document.getElementById('badgesContainer').innerHTML = '<p style="color: #e53e3e;">Error loading badges</p>';
       }
+    }
+
+    function openAllBadgesModal() {
+      // Remove existing modal if any
+      const existing = document.getElementById('allBadgesModal');
+      if (existing) existing.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'allBadgesModal';
+      modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+
+      modal.innerHTML = `
+        <div style="background: white; border-radius: 16px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 25px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="color: #B05D9E; margin: 0;">🏆 All My Badges (${allBadges.length})</h2>
+            <button onclick="document.getElementById('allBadgesModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer;">✕</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
+            ${allBadges.map(b => `
+              <div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 12px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 2rem;">${b.badge_name.split(' ')[0]}</div>
+                <div style="font-weight: 600; font-size: 0.85rem; color: #2d3748;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
+                <div style="font-size: 0.7rem; color: #718096; margin-top: 5px;">${b.badge_description}</div>
+                <div style="font-size: 0.65rem; color: #a0aec0; margin-top: 5px;">${new Date(b.earned_date).toLocaleDateString()}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+
+      document.body.appendChild(modal);
+    }
+
+    async function openLeaderboardModal() {
+      // Remove existing modal if any
+      const existing = document.getElementById('leaderboardModal');
+      if (existing) existing.remove();
+
+      // Fetch leaderboard data
+      let leaderboardData = [];
+      try {
+        const res = await fetch('/api/leaderboard', { headers: authHeaders() });
+        const data = await res.json();
+        leaderboardData = data.leaderboard || [];
+      } catch (err) {
+        console.error('Error fetching leaderboard:', err);
+      }
+
+      // Find current student's rank
+      const myRank = leaderboardData.findIndex(s => s.id === currentStudent.id) + 1;
+      const myBadges = allBadges.length;
+
+      const modal = document.createElement('div');
+      modal.id = 'leaderboardModal';
+      modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+
+      const top5 = leaderboardData.slice(0, 5);
+      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+
+      modal.innerHTML = `
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; max-width: 500px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 25px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="color: white; margin: 0;">🏅 Badge Leaderboard</h2>
+            <button onclick="document.getElementById('leaderboardModal').remove()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 1rem;">✕</button>
+          </div>
+
+          <!-- My Rank Card -->
+          <div style="background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%); padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <p style="color: #333; margin: 0 0 5px 0; font-size: 0.9rem;">Your Rank</p>
+            <div style="font-size: 3rem; font-weight: bold; color: #333;">${myRank > 0 ? '#' + myRank : '—'}</div>
+            <p style="color: #333; margin: 10px 0 0 0; font-size: 1.1rem;"><strong>${currentStudent.name}</strong></p>
+            <p style="color: #555; margin: 5px 0 0 0;">🏆 <strong>${myBadges}</strong> badges collected</p>
+          </div>
+
+          <!-- Top 5 Leaderboard -->
+          <div style="background: white; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(90deg, #f6d365 0%, #fda085 100%); padding: 12px 15px; text-align: center;">
+              <strong style="color: #333;">🌟 Top Badge Collectors 🌟</strong>
+            </div>
+            ${top5.length > 0 ? top5.map((student, idx) => `
+              <div style="display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #f0f0f0; ${student.id === currentStudent.id ? 'background: rgba(102,126,234,0.1);' : ''}">
+                <div style="font-size: 1.5rem; margin-right: 12px;">${medals[idx]}</div>
+                <div style="flex: 1;">
+                  <div style="font-weight: 600; color: #2d3748;">${student.name} ${student.id === currentStudent.id ? '(You!)' : ''}</div>
+                  <div style="font-size: 0.75rem; color: #718096;">Total Badges: ${student.total_badges}</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
+                  ${student.total_badges}
+                </div>
+              </div>
+            `).join('') : '<div style="padding: 20px; text-align: center; color: #718096;">No students on leaderboard yet!</div>'}
+
+            ${myRank > 5 ? `
+              <div style="padding: 8px 15px; background: #f0f0f0; text-align: center; color: #718096; font-size: 0.8rem;">• • •</div>
+              <div style="display: flex; align-items: center; padding: 12px 15px; background: linear-gradient(90deg, rgba(102,126,234,0.15) 0%, rgba(118,75,162,0.15) 100%); border-top: 2px solid #667eea;">
+                <div style="font-size: 1.2rem; margin-right: 12px; font-weight: bold; color: #667eea;">#${myRank}</div>
+                <div style="flex: 1;">
+                  <div style="font-weight: 600; color: #2d3748;">${currentStudent.name} <span style="color: #667eea;">(You!)</span></div>
+                  <div style="font-size: 0.75rem; color: #718096;">Total Badges: ${myBadges}</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
+                  ${myBadges}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <p style="color: rgba(255,255,255,0.8); text-align: center; margin-top: 15px; font-size: 0.85rem;">
+            ${myRank > 5 ? `You need ${(leaderboardData[4]?.total_badges || 1) - myBadges + 1} more badges to reach Top 5! 💪` : 'Keep earning badges to climb the leaderboard! 🚀'}
+          </p>
+        </div>
+      `;
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+
+      document.body.appendChild(modal);
     }
 
     async function loadMakeupCredits() {
@@ -961,21 +1181,48 @@
         tbody.innerHTML = past.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
 
-          // Helper to format material links/files properly
+          // Helper to format material links/files properly with proper viewer support
           function getMaterialLink(filePath, icon, label) {
             if (!filePath) return '';
+
+            let fileUrl = '';
+            let isLink = false;
+
             if (filePath.startsWith('LINK:')) {
               // External link
-              const url = filePath.replace('LINK:', '');
-              return `<a href="${url}" target="_blank" class="btn-download">${icon} ${label}</a>`;
+              fileUrl = filePath.replace('LINK:', '');
+              isLink = true;
             } else if (filePath.startsWith('https://') || filePath.startsWith('http://')) {
               // Cloudinary or external URL - use directly
-              return `<a href="${filePath}" target="_blank" class="btn-download" download>${icon} ${label}</a>`;
+              fileUrl = filePath;
+            } else if (filePath.startsWith('/uploads/')) {
+              fileUrl = filePath;
+            } else if (/^\d+-\d+/.test(filePath)) {
+              // Cloudinary public_id - construct full URL
+              const ext = filePath.split('.').pop().toLowerCase();
+              const isImageFile = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+              const resourceType = isImageFile ? 'image' : 'raw';
+              fileUrl = `https://res.cloudinary.com/divz4aavx/${resourceType}/upload/fluentfeathers/materials/${filePath}`;
             } else {
               // File upload - needs /uploads/materials/ prefix
-              const fullPath = filePath.startsWith('/uploads/') ? filePath : '/uploads/materials/' + filePath;
-              return `<a href="${fullPath}" target="_blank" class="btn-download" download>${icon} ${label}</a>`;
+              fileUrl = '/uploads/materials/' + filePath;
             }
+
+            if (isLink) {
+              return `<a href="${fileUrl}" target="_blank" class="btn-download">${icon} ${label}</a>`;
+            }
+
+            // Determine file type for proper viewing
+            const ext = filePath.split('.').pop().toLowerCase();
+            let fileType = 'other';
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) fileType = 'image';
+            else if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) fileType = 'video';
+            else if (['pdf'].includes(ext)) fileType = 'pdf';
+            else if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(ext)) fileType = 'doc';
+
+            const fileName = filePath.split('/').pop() || label;
+
+            return `<button onclick="previewFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" class="btn-download" style="cursor:pointer; border:none; background:transparent;">${icon} ${label}</button>`;
           }
 
           let materials = '';
@@ -1108,15 +1355,28 @@
             }
           }
 
-          // For images, show preview
+          // Determine file type for preview
           const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
           const isVideo = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
+          const isPdf = ['pdf'].includes(fileExt);
+          const isDoc = ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(fileExt);
 
-          let previewHtml = '';
-          if (isImage && fileUrl) {
-            previewHtml = `<img src="${fileUrl}" style="max-width: 100%; max-height: 200px; margin-top: 10px; border-radius: 8px; cursor: pointer;" onclick="window.open('${fileUrl}', '_blank')" onerror="this.style.display='none'">`;
-          } else if (isVideo && fileUrl) {
-            previewHtml = `<video controls style="max-width: 100%; max-height: 200px; margin-top: 10px; border-radius: 8px;"><source src="${fileUrl}" type="video/${fileExt}">Your browser does not support video.</video>`;
+          // Create view button based on file type
+          let viewButton = '';
+          if (fileUrl && !hw.file_path.startsWith('LINK:')) {
+            if (isImage) {
+              viewButton = `<button onclick="previewFile('${fileUrl}', 'image', '${hw.file_name || 'Image'}')" style="background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">View</button>`;
+            } else if (isVideo) {
+              viewButton = `<button onclick="previewFile('${fileUrl}', 'video', '${hw.file_name || 'Video'}')" style="background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">View</button>`;
+            } else if (isPdf) {
+              viewButton = `<button onclick="previewFile('${fileUrl}', 'pdf', '${hw.file_name || 'PDF'}')" style="background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">View</button>`;
+            } else if (isDoc) {
+              viewButton = `<button onclick="previewFile('${fileUrl}', 'doc', '${hw.file_name || 'Document'}')" style="background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">View</button>`;
+            } else {
+              viewButton = `<button onclick="previewFile('${fileUrl}', 'other', '${hw.file_name || 'File'}')" style="background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">View</button>`;
+            }
+          } else if (fileUrl && hw.file_path.startsWith('LINK:')) {
+            viewButton = `<a href="${fileUrl}" target="_blank" style="background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none;">Open Link</a>`;
           }
 
           return `
@@ -1130,13 +1390,12 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                   ${gradeDisplay}
-                  ${fileUrl ? `<a href="${fileUrl}" target="_blank" style="color: #B05D9E; font-size: 0.85rem;">${viewText}</a>` : ''}
-                  ${fileUrl && !hw.file_path.startsWith('LINK:') ? `<a href="${fileUrl}" download style="color: #667eea; font-size: 0.85rem;">Download</a>` : ''}
+                  ${viewButton}
+                  ${fileUrl && !hw.file_path.startsWith('LINK:') ? `<a href="${fileUrl}" download="${hw.file_name || 'download'}" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none;">Download</a>` : ''}
                   <button onclick="deleteHomework(${hw.id})" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>
                 </div>
               </div>
               ${feedbackDisplay}
-              ${previewHtml}
             </div>
           `;
         }).join('');
@@ -1220,18 +1479,31 @@
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
 
-        // Find the most recent completed session without feedback
-        const needsFeedback = sessions.find(s => {
+        // Find ALL completed sessions without feedback
+        const unratedSessions = sessions.filter(s => {
           if (s.status !== 'Completed') return false;
           if (s.has_feedback === true) return false;
           return true;
         });
 
-        if (needsFeedback) {
-          // Mark popup as shown for this student this session - won't bother them again
+        // Get the MOST RECENT unrated session (highest session_number)
+        // Sort by session_number descending and take the first one
+        if (unratedSessions.length > 0) {
+          const mostRecentUnrated = unratedSessions.sort((a, b) => {
+            // Sort by session_number descending (highest first)
+            return (b.session_number || 0) - (a.session_number || 0);
+          })[0];
+
+          // Mark popup as shown for this specific session - so we show next session next time
+          const shownKey = `feedbackPopupShown_${currentStudent.id}_session_${mostRecentUnrated.id}`;
+          if (sessionStorage.getItem(shownKey)) return;
+
+          sessionStorage.setItem(shownKey, 'true');
+          // Also set a general flag to not show multiple popups in one session
           sessionStorage.setItem('feedbackPopupShown_' + currentStudent.id, 'true');
-          // Show the optional feedback popup
-          openFeedbackModal(needsFeedback.id, needsFeedback.session_number);
+
+          // Show the optional feedback popup for the most recent unrated session
+          openFeedbackModal(mostRecentUnrated.id, mostRecentUnrated.session_number);
         }
       } catch(e) {
         console.error('Error checking feedback:', e);
@@ -1369,6 +1641,74 @@
         submitBtn.textContent = '📤 Upload Homework';
       }
     });
+
+    // Preview file in modal - supports all file types
+    function previewFile(url, fileType, fileName) {
+      // Remove any existing modal
+      const existingModal = document.getElementById('filePreviewModal');
+      if (existingModal) existingModal.remove();
+
+      let content = '';
+
+      if (fileType === 'image') {
+        content = `<img src="${url}" style="max-width: 95%; max-height: 85vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" onerror="this.parentElement.innerHTML='<p style=color:white;>Error loading image. <a href=${url} target=_blank style=color:#9f7aea;>Click here to download</a></p>'">`;
+      } else if (fileType === 'video') {
+        content = `
+          <video controls autoplay style="max-width: 95%; max-height: 85vh; border-radius: 8px;">
+            <source src="${url}">
+            Your browser does not support video playback.
+          </video>`;
+      } else if (fileType === 'pdf') {
+        // Use Google Docs viewer for PDFs (works better than iframe for Cloudinary URLs)
+        const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+        content = `
+          <iframe src="${googleViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;"></iframe>
+          <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to download</a></p>`;
+      } else if (fileType === 'doc') {
+        // Use Microsoft Office Online viewer for Word/PPT/Excel
+        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+        const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+        content = `
+          <iframe src="${officeViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;" onerror="this.src='${googleViewerUrl}'"></iframe>
+          <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to download</a></p>`;
+      } else {
+        // For other file types, show download prompt
+        content = `
+          <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 400px;">
+            <p style="font-size: 4rem; margin-bottom: 20px;">📁</p>
+            <h3 style="color: #2d3748; margin-bottom: 10px;">${fileName}</h3>
+            <p style="color: #718096; margin-bottom: 20px;">This file type cannot be previewed in browser.</p>
+            <a href="${url}" download="${fileName}" style="background: #9f7aea; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">Download File</a>
+          </div>`;
+      }
+
+      const modal = document.createElement('div');
+      modal.id = 'filePreviewModal';
+      modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+      modal.innerHTML = `
+        <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
+          <a href="${url}" download="${fileName}" style="background: #667eea; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 0.9rem;">⬇️ Download</a>
+          <button onclick="document.getElementById('filePreviewModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+        </div>
+        <p style="color: white; margin-bottom: 15px; font-size: 1.1rem;">${fileName}</p>
+        ${content}
+      `;
+
+      // Close on background click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+
+      // Close on Escape key
+      document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+          modal.remove();
+          document.removeEventListener('keydown', escHandler);
+        }
+      });
+
+      document.body.appendChild(modal);
+    }
 
     // Delete homework submission
     async function deleteHomework(homeworkId) {

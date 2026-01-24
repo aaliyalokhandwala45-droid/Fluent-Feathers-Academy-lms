@@ -431,6 +431,27 @@ async function initializeDatabase() {
       )
     `);
 
+    console.log('🔧 Creating demo_leads table...');
+    await client.query(`
+      CREATE TABLE demo_leads (
+        id SERIAL PRIMARY KEY,
+        child_name TEXT NOT NULL,
+        child_grade TEXT,
+        parent_name TEXT NOT NULL,
+        parent_email TEXT NOT NULL,
+        phone TEXT,
+        program_interest TEXT,
+        demo_date DATE,
+        demo_time TIME,
+        source TEXT,
+        notes TEXT,
+        status TEXT DEFAULT 'Scheduled',
+        converted_student_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('🔧 Creating parent_credentials table...');
     await client.query(`
       CREATE TABLE parent_credentials (
@@ -717,6 +738,32 @@ async function runMigrations() {
       console.error('❌ Error with payment_renewals table:', err.message);
     }
 
+    // Migration 9: Ensure demo_leads table exists
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS demo_leads (
+          id SERIAL PRIMARY KEY,
+          child_name TEXT NOT NULL,
+          child_grade TEXT,
+          parent_name TEXT NOT NULL,
+          parent_email TEXT NOT NULL,
+          phone TEXT,
+          program_interest TEXT,
+          demo_date DATE,
+          demo_time TIME,
+          source TEXT,
+          notes TEXT,
+          status TEXT DEFAULT 'Scheduled',
+          converted_student_id INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      console.log('✅ Demo leads table checked/created');
+    } catch (err) {
+      console.error('❌ Error with demo_leads table:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -998,7 +1045,7 @@ function getScheduleEmail(data) {
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>📌 Important:</strong> If you need to cancel a class, please do so at least 2 hours before the scheduled time to receive a makeup credit.
+          <strong>📌 Important:</strong> If you need to cancel a class, please do so at least 1 hour before the scheduled time to receive a makeup credit.
           You can cancel classes directly from your parent portal.
         </p>
       </div>
@@ -1010,6 +1057,54 @@ function getScheduleEmail(data) {
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         Best regards,<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getAnnouncementEmail(data) {
+  const priorityColors = {
+    'Urgent': { bg: '#fed7d7', border: '#c53030', text: '#c53030' },
+    'High': { bg: '#feebc8', border: '#c05621', text: '#c05621' },
+    'Normal': { bg: '#e2e8f0', border: '#718096', text: '#4a5568' }
+  };
+  const colors = priorityColors[data.priority] || priorityColors['Normal'];
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 28px;">📢 Announcement</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Hi <strong>${data.parentName}</strong>,</p>
+
+      <div style="background: ${colors.bg}; border-left: 4px solid ${colors.border}; padding: 20px; margin: 25px 0; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <span style="background: #B05D9E; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px;">${data.type}</span>
+          <span style="background: ${colors.border}; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px;">${data.priority}</span>
+        </div>
+        <h2 style="color: #2d3748; margin: 0 0 15px; font-size: 22px;">${data.title}</h2>
+        <p style="color: #4a5568; margin: 0; font-size: 16px; line-height: 1.8; white-space: pre-wrap;">${data.content}</p>
+      </div>
+
+      <p style="font-size: 16px; color: #4a5568; margin-top: 30px; line-height: 1.8;">
+        If you have any questions regarding this announcement, please feel free to contact us.
+      </p>
+
+      <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
+        Best regards,<br>
+        <strong style="color: #B05D9E;">Team Fluent Feathers Academy</strong>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
@@ -1385,7 +1480,7 @@ function getBirthdayEmail(data) {
         Everyone at <strong style="color: #667eea;">Fluent Feathers Academy</strong><br>
         wishes you a very <strong>Happy Birthday</strong>!<br><br>
         May this special day bring you lots of happiness,<br>
-        joy, and wonderful memories! 🎈
+        joy, and wonderful memories! 🎈🎂❤️
       </p>
 
       <div style="background: linear-gradient(135deg, #FFF5E1 0%, #FFE4E1 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #FF6B9D; margin: 30px 0;">
@@ -1681,14 +1776,14 @@ cron.schedule('*/15 * * * *', async () => {
 
         // Check if we need to send 5-hour reminder
         if (hoursDiff > 4.75 && hoursDiff <= 5.25) {
-          console.log(`⏰ Session #${session.session_number} is within 5-hour window, checking if reminder already sent...`);
-          // Check if 5-hour reminder already sent for this specific session and student
+          console.log(`⏰ Session #${session.session_number} (ID:${session.id}) is within 5-hour window, checking if reminder already sent...`);
+          // Check if 5-hour reminder already sent for this SPECIFIC session using unique session ID
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
              WHERE recipient_email = $1
                AND email_type = 'Reminder-5hrs'
                AND subject LIKE $2`,
-            [session.parent_email, `%Session #${session.session_number}%5 hours%`]
+            [session.parent_email, `%[SID:${session.id}]%`]
           );
 
           if (sentCheck.rows.length === 0) {
@@ -1710,27 +1805,27 @@ cron.schedule('*/15 * * * *', async () => {
 
             await sendEmail(
               session.parent_email,
-              `⏰ Class Reminder - Session #${session.session_number} in 5 hours`,
+              `⏰ Class Reminder - Session #${session.session_number} in 5 hours [SID:${session.id}]`,
               reminderEmailHTML,
               session.parent_name,
               'Reminder-5hrs'
             );
-            console.log(`✅ Sent 5-hour reminder to ${session.parent_email} for Session #${session.session_number}`);
+            console.log(`✅ Sent 5-hour reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
           } else {
-            console.log(`⏭️ 5-hour reminder already sent for Session #${session.session_number}`);
+            console.log(`⏭️ 5-hour reminder already sent for Session #${session.session_number} (ID:${session.id})`);
           }
         }
 
         // Check if we need to send 1-hour reminder
         if (hoursDiff > 0.75 && hoursDiff <= 1.25) {
-          console.log(`⏰ Session #${session.session_number} is within 1-hour window, checking if reminder already sent...`);
-          // Check if 1-hour reminder already sent for this specific session and student
+          console.log(`⏰ Session #${session.session_number} (ID:${session.id}) is within 1-hour window, checking if reminder already sent...`);
+          // Check if 1-hour reminder already sent for this SPECIFIC session using unique session ID
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
              WHERE recipient_email = $1
                AND email_type = 'Reminder-1hr'
                AND subject LIKE $2`,
-            [session.parent_email, `%Session #${session.session_number}%1 hour%`]
+            [session.parent_email, `%[SID:${session.id}]%`]
           );
 
           if (sentCheck.rows.length === 0) {
@@ -1752,14 +1847,14 @@ cron.schedule('*/15 * * * *', async () => {
 
             await sendEmail(
               session.parent_email,
-              `⏰ Class Reminder - Session #${session.session_number} in 1 hour`,
+              `⏰ Class Reminder - Session #${session.session_number} in 1 hour [SID:${session.id}]`,
               reminderEmailHTML,
               session.parent_name,
               'Reminder-1hr'
             );
-            console.log(`✅ Sent 1-hour reminder to ${session.parent_email} for Session #${session.session_number}`);
+            console.log(`✅ Sent 1-hour reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
           } else {
-            console.log(`⏭️ 1-hour reminder already sent for Session #${session.session_number}`);
+            console.log(`⏭️ 1-hour reminder already sent for Session #${session.session_number} (ID:${session.id})`);
           }
         }
       } catch (sessionErr) {
@@ -1890,11 +1985,30 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
   ORDER BY event_date ASC, event_time ASC
 `);
 
+    // Get scheduled demo classes
+    const demos = await pool.query(`
+      SELECT id,
+        child_name || ' (DEMO)' as student_name,
+        demo_date as session_date,
+        demo_time as session_time,
+        COALESCE(program_interest, 'Demo Class') as class_info,
+        'Asia/Kolkata' as timezone,
+        0 as session_number,
+        'Demo' as display_type,
+        'Demo' as session_type,
+        $1 as meet_link
+      FROM demo_leads
+      WHERE status = 'Scheduled' AND demo_date IS NOT NULL
+      ORDER BY demo_date ASC, demo_time ASC
+    `, [DEFAULT_MEET]);
+
     // Combine all
-    const all = [...priv.rows, ...grp.rows, ...events.rows];
+    const all = [...priv.rows, ...grp.rows, ...events.rows, ...demos.rows];
 
     // Filter and sort by UTC datetime (since database stores UTC)
     const now = new Date();
+    // Keep classes visible for 40 minutes after start time
+    const cutoffTime = new Date(now.getTime() - (40 * 60 * 1000));
     const upcoming = all.filter(session => {
       try {
         // Parse date - handle both Date objects and strings
@@ -1912,7 +2026,8 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
         }
 
         const sessionDateTime = new Date(`${dateStr}T${timeStr}Z`);
-        return sessionDateTime >= now;
+        // Show classes until 40 minutes after their start time
+        return sessionDateTime >= cutoffTime;
       } catch (e) {
         console.error('Error parsing session date/time:', e);
         return false;
@@ -1959,6 +2074,125 @@ res.status(500).json({
   }
 });
 
+// ==================== DEMO LEADS API ====================
+// Get all demo leads
+app.get('/api/demo-leads', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM demo_leads ORDER BY created_at DESC');
+    res.json(r.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add new demo lead
+app.post('/api/demo-leads', async (req, res) => {
+  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, notes } = req.body;
+  try {
+    // Convert demo date/time to UTC
+    let utcDate = demo_date;
+    let utcTime = demo_time;
+    if (demo_date && demo_time) {
+      const utc = istToUTC(demo_date, demo_time);
+      utcDate = utc.date;
+      utcTime = utc.time;
+    }
+
+    const r = await pool.query(`
+      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, notes, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Scheduled')
+      RETURNING *
+    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, utcDate, utcTime, source, notes]);
+
+    res.json({ success: true, lead: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update demo lead status
+app.put('/api/demo-leads/:id/status', async (req, res) => {
+  const { status, notes } = req.body;
+  try {
+    const existingNotes = await pool.query('SELECT notes FROM demo_leads WHERE id = $1', [req.params.id]);
+    const updatedNotes = existingNotes.rows[0]?.notes
+      ? existingNotes.rows[0].notes + '\n[' + new Date().toLocaleDateString() + '] ' + status + (notes ? ': ' + notes : '')
+      : notes || '';
+
+    await pool.query(
+      'UPDATE demo_leads SET status = $1, notes = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      [status, updatedNotes, req.params.id]
+    );
+    res.json({ success: true, message: 'Status updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Convert demo lead to permanent student
+app.post('/api/demo-leads/:id/convert', async (req, res) => {
+  const { program_name, duration, per_session_fee, currency, total_sessions, amount_paid, payment_method, timezone, send_welcome_email } = req.body;
+  try {
+    // Get demo lead info
+    const lead = await pool.query('SELECT * FROM demo_leads WHERE id = $1', [req.params.id]);
+    if (lead.rows.length === 0) {
+      return res.status(404).json({ error: 'Demo lead not found' });
+    }
+    const demoLead = lead.rows[0];
+
+    // Create new student from demo lead
+    const studentResult = await pool.query(`
+      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Private', $8, $9, $10, $11, 0, $11, $12, $13, true)
+      RETURNING *
+    `, [demoLead.child_name, demoLead.child_grade, demoLead.parent_name, demoLead.parent_email, demoLead.phone, timezone, program_name, duration, currency, per_session_fee, total_sessions, amount_paid, payment_method]);
+
+    const newStudent = studentResult.rows[0];
+
+    // Record the payment
+    await pool.query(`
+      INSERT INTO payments (student_id, amount, currency, sessions_added, payment_method, notes)
+      VALUES ($1, $2, $3, $4, $5, 'Initial payment - converted from demo')
+    `, [newStudent.id, amount_paid, currency, total_sessions, payment_method]);
+
+    // Update demo lead status to Converted
+    await pool.query(
+      'UPDATE demo_leads SET status = $1, converted_student_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      ['Converted', newStudent.id, req.params.id]
+    );
+
+    // Send welcome email if requested
+    if (send_welcome_email) {
+      try {
+        await sendEmail(
+          demoLead.parent_email,
+          demoLead.parent_name,
+          `🎉 Welcome to Fluent Feathers Academy - ${demoLead.child_name}`,
+          getWelcomeEmail({ parent_name: demoLead.parent_name, student_name: demoLead.child_name, program_name, meet_link: DEFAULT_MEET }),
+          'Welcome'
+        );
+      } catch (emailErr) {
+        console.error('Failed to send welcome email:', emailErr);
+      }
+    }
+
+    res.json({ success: true, message: 'Demo lead converted to student', student: newStudent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete demo lead
+app.delete('/api/demo-leads/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM demo_leads WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Demo lead deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== STUDENTS API ====================
 app.get('/api/students', async (req, res) => {
   try {
     const r = await pool.query(`
@@ -2358,6 +2592,41 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
     const utc = istToUTC(date, time);
     await pool.query('UPDATE sessions SET session_date = $1::date, session_time = $2::time WHERE id = $3', [utc.date, utc.time, req.params.sessionId]);
     res.json({ success: true, message: 'Session updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cancel a session (with reason and optional makeup credit)
+app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
+  const { reason, notes, grant_makeup_credit, session_type } = req.body;
+  try {
+    // Get session details first
+    const sessionResult = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    const session = sessionResult.rows[0];
+
+    // Update session status to Cancelled
+    await pool.query(
+      'UPDATE sessions SET status = $1, notes = COALESCE(notes, \'\') || $2 WHERE id = $3',
+      ['Cancelled', `\n[Cancelled: ${reason}${notes ? ' - ' + notes : ''}]`, req.params.sessionId]
+    );
+
+    // If grant makeup credit is checked, add a makeup credit to the student
+    if (grant_makeup_credit) {
+      // Increment sessions_remaining for the student
+      await pool.query(
+        'UPDATE students SET sessions_remaining = sessions_remaining + 1 WHERE id = $1',
+        [session.student_id]
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Class cancelled successfully${grant_makeup_credit ? ' (makeup credit granted)' : ''}`
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3221,15 +3490,16 @@ app.post('/api/students/:id/update-payment', async (req, res) => {
 });
 // ==================== EDIT & DELETE STUDENT ====================
 app.put('/api/students/:id', async (req, res) => {
-  const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency } = req.body;
+  const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth, meet_link } = req.body;
   try {
     await pool.query(`
       UPDATE students SET
         name = $1, grade = $2, parent_name = $3, parent_email = $4,
         primary_contact = $5, timezone = $6, program_name = $7,
-        duration = $8, per_session_fee = $9, currency = $10
-      WHERE id = $11
-    `, [name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, req.params.id]);
+        duration = $8, per_session_fee = $9, currency = $10,
+        date_of_birth = $11, meet_link = $12
+      WHERE id = $13
+    `, [name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth || null, meet_link || null, req.params.id]);
     res.json({ success: true, message: 'Student updated successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3373,6 +3643,45 @@ app.post('/api/students/:id/badges', async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [req.params.id, badge_type, badge_name, badge_description]);
     res.json({ success: true, message: 'Badge awarded!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual badge assignment by admin (allows duplicates for class achievements)
+app.post('/api/students/:id/badges/assign', async (req, res) => {
+  const { badge_type, badge_name, badge_description } = req.body;
+  try {
+    await pool.query(`
+      INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
+      VALUES ($1, $2, $3, $4)
+    `, [req.params.id, badge_type, badge_name, badge_description]);
+    res.json({ success: true, message: 'Badge assigned successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Leaderboard - Get all students ranked by badges
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        s.id,
+        s.name,
+        s.program_name,
+        COUNT(b.id) as total_badges,
+        COUNT(CASE WHEN b.badge_type NOT IN ('first_class', '5_classes', '10_classes', '25_classes', '50_classes', 'hw_submit', '5_homework', '10_homework', '25_homework') THEN 1 END) as manual_badges,
+        COUNT(CASE WHEN b.badge_type IN ('first_class', '5_classes', '10_classes', '25_classes', '50_classes', 'hw_submit', '5_homework', '10_homework', '25_homework') THEN 1 END) as auto_badges,
+        (SELECT badge_name FROM student_badges WHERE student_id = s.id ORDER BY earned_date DESC LIMIT 1) as latest_badge
+      FROM students s
+      LEFT JOIN student_badges b ON s.id = b.student_id
+      WHERE s.is_active = true
+      GROUP BY s.id, s.name, s.program_name
+      HAVING COUNT(b.id) > 0
+      ORDER BY total_badges DESC, manual_badges DESC, s.name ASC
+    `);
+    res.json({ leaderboard: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3637,14 +3946,93 @@ app.get('/api/announcements', async (req, res) => {
 });
 
 app.post('/api/announcements', async (req, res) => {
-  const { title, content, announcement_type, priority } = req.body;
+  const { title, content, announcement_type, priority, send_email } = req.body;
   try {
     const result = await pool.query(`
       INSERT INTO announcements (title, content, announcement_type, priority, is_active)
       VALUES ($1, $2, $3, $4, true)
       RETURNING *
     `, [title, content, announcement_type || 'General', priority || 'Normal']);
-    res.json(result.rows[0]);
+
+    const announcement = result.rows[0];
+    let emailsSent = 0;
+
+    // Send emails if requested
+    if (send_email) {
+      const students = await pool.query(`
+        SELECT DISTINCT parent_email, parent_name, name as student_name
+        FROM students
+        WHERE is_active = true AND parent_email IS NOT NULL
+      `);
+
+      for (const student of students.rows) {
+        const emailHtml = getAnnouncementEmail({
+          title,
+          content,
+          type: announcement_type || 'General',
+          priority: priority || 'Normal',
+          parentName: student.parent_name || 'Parent'
+        });
+
+        const sent = await sendEmail(
+          student.parent_email,
+          `📢 ${title} - Fluent Feathers Academy`,
+          emailHtml,
+          student.parent_name,
+          'Announcement'
+        );
+        if (sent) emailsSent++;
+      }
+    }
+
+    res.json({
+      ...announcement,
+      message: send_email
+        ? `✅ Announcement created and ${emailsSent} email(s) sent!`
+        : '✅ Announcement created!'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Send announcement email to all active students
+app.post('/api/announcements/:id/send-email', async (req, res) => {
+  try {
+    const announcement = await pool.query('SELECT * FROM announcements WHERE id = $1', [req.params.id]);
+    if (announcement.rows.length === 0) {
+      return res.status(404).json({ error: 'Announcement not found' });
+    }
+
+    const { title, content, announcement_type, priority } = announcement.rows[0];
+
+    const students = await pool.query(`
+      SELECT DISTINCT parent_email, parent_name, name as student_name
+      FROM students
+      WHERE is_active = true AND parent_email IS NOT NULL
+    `);
+
+    let emailsSent = 0;
+    for (const student of students.rows) {
+      const emailHtml = getAnnouncementEmail({
+        title,
+        content,
+        type: announcement_type,
+        priority,
+        parentName: student.parent_name || 'Parent'
+      });
+
+      const sent = await sendEmail(
+        student.parent_email,
+        `📢 ${title} - Fluent Feathers Academy`,
+        emailHtml,
+        student.parent_name,
+        'Announcement'
+      );
+      if (sent) emailsSent++;
+    }
+
+    res.json({ message: `✅ ${emailsSent} email(s) sent successfully!` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
