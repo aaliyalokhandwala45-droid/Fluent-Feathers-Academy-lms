@@ -46,8 +46,16 @@
     100% { transform: rotate(360deg); }
   }
 
-    
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  /* Hide main content until server is ready */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: none;
+  }
+  .container.ready {
+    display: block;
+  }
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
     header h1 { color: #B05D9E; font-size: 24px; }
     .login-section { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 500px; margin: 50px auto; text-align: center; }
@@ -348,6 +356,29 @@
         </div>
       </div>
 
+      <!-- Weekly Challenges Section -->
+      <div class="section" id="challengesSection">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h2 style="color: #B05D9E; margin: 0;">🎯 Weekly Challenges</h2>
+        </div>
+        <div id="studentChallenges" style="display: grid; gap: 12px;">
+          <p style="text-align: center; color: #718096; padding: 20px;">Loading challenges...</p>
+        </div>
+      </div>
+
+      <!-- Parent Expectations Section -->
+      <div class="section">
+        <h2 style="color: #B05D9E; margin-bottom: 10px;">💭 My Expectations <span style="font-size: 0.75rem; color: #718096;">(Optional)</span></h2>
+        <p style="color: #718096; margin-bottom: 15px; font-size: 0.9rem;">Share your goals and expectations for your child's learning journey. Your teacher will see this.</p>
+        <div id="parentExpectationsSection">
+          <textarea id="myExpectations" rows="3" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; resize: vertical;" placeholder="e.g., I want my child to improve their reading fluency and confidence in speaking..."></textarea>
+          <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+            <button onclick="saveMyExpectations()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">💾 Save Expectations</button>
+            <span id="myExpectationsSaveStatus" style="color: #718096; font-size: 0.85rem;"></span>
+          </div>
+        </div>
+      </div>
+
       <div class="tabs">
         <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
         <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
@@ -418,6 +449,29 @@
       <div id="paymentsTab" class="tab-content">
         <div class="section">
           <h2>💳 Payment Information</h2>
+
+          <!-- Session Progress Card -->
+          <div id="sessionProgressCard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">📊 Session Progress</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+              <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
+                <div style="font-size: 2rem; font-weight: bold;" id="paymentTotalSessions">-</div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">Total Sessions</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
+                <div style="font-size: 2rem; font-weight: bold;" id="paymentCompletedSessions">-</div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">Completed</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
+                <div style="font-size: 2rem; font-weight: bold;" id="paymentRemainingSessions">-</div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">Remaining</div>
+              </div>
+            </div>
+            <div id="renewalWarning" style="display: none; margin-top: 15px; background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+              ⚠️ <strong>Low sessions!</strong> Please contact your teacher to renew your package.
+            </div>
+          </div>
+
           <div class="payment-grid" style="margin-bottom: 20px;">
             <div><strong>Initial Payment:</strong> <span id="displayInitialPayment">-</span></div>
             <div><strong>Total Paid:</strong> <span id="displayTotalPaid" style="color: #38a169;">-</span></div>
@@ -496,10 +550,13 @@
   
   const messages = [
     'Preparing your learning portal...',
+    'Waking up the server...',
+    'Connecting to database...',
     'Loading your classes...',
     'Setting up your dashboard...',
     'Almost ready...',
-    'Just a moment more...'
+    'Just a moment more...',
+    'Server is starting up, please wait...'
   ];
   
   let messageIndex = 0;
@@ -517,9 +574,12 @@
     return messageInterval;
   }
   
-  // Hide loading screen
+  // Hide loading screen and show content
   function hideLoadingScreen(messageInterval) {
     clearInterval(messageInterval);
+    // Show the main content
+    document.querySelector('.container').classList.add('ready');
+    // Fade out loading screen
     loadingScreen.style.opacity = '0';
     loadingScreen.style.transition = 'opacity 0.5s ease';
     setTimeout(() => {
@@ -926,6 +986,8 @@
       document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
       loadMakeupCredits();
       loadBadges();
+      loadStudentChallenges();
+      loadMyExpectations();
       loadUpcoming();
       loadPast();
       loadCancelDropdown();
@@ -1088,6 +1150,99 @@
       });
 
       document.body.appendChild(modal);
+    }
+
+    // Load weekly challenges for student
+    async function loadStudentChallenges() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/challenges`, { headers: authHeaders() });
+        const challenges = await res.json();
+        const container = document.getElementById('studentChallenges');
+
+        if (!challenges || challenges.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No active challenges right now. Check back soon! 🎯</p>';
+          return;
+        }
+
+        container.innerHTML = challenges.map(c => {
+          const isCompleted = c.completed_at !== null;
+          const dueDate = new Date(c.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const badgeEmoji = c.badge_reward ? c.badge_reward.split(' ')[0] : '🏆';
+
+          return `
+            <div style="background: ${isCompleted ? 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'};
+                        padding: 15px; border-radius: 12px; border-left: 4px solid ${isCompleted ? '#38b2ac' : '#f5576c'};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;">
+                  <h3 style="margin: 0 0 8px 0; color: #2d3748; font-size: 1rem;">
+                    ${isCompleted ? '✅' : '🎯'} ${c.title}
+                  </h3>
+                  <p style="margin: 0 0 8px 0; color: #4a5568; font-size: 0.9rem;">${c.description}</p>
+                  <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #718096;">
+                    <span>📅 Due: ${dueDate}</span>
+                    <span>${badgeEmoji} Reward: ${c.badge_reward || 'Badge'}</span>
+                  </div>
+                </div>
+                ${isCompleted ? `
+                  <div style="background: #38b2ac; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
+                    COMPLETED! 🎉
+                  </div>
+                ` : `
+                  <div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
+                    IN PROGRESS
+                  </div>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch(e) {
+        console.error('Error loading challenges:', e);
+        document.getElementById('studentChallenges').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading challenges</p>';
+      }
+    }
+
+    // Load parent expectations
+    async function loadMyExpectations() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/expectations`, { headers: authHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.expectations) {
+          document.getElementById('myExpectations').value = data.expectations;
+        }
+      } catch(e) {
+        console.error('Error loading expectations:', e);
+      }
+    }
+
+    // Save parent expectations
+    async function saveMyExpectations() {
+      const expectations = document.getElementById('myExpectations').value.trim();
+      const statusEl = document.getElementById('myExpectationsSaveStatus');
+
+      try {
+        statusEl.textContent = 'Saving...';
+        statusEl.style.color = '#718096';
+
+        const res = await fetch(`/api/students/${currentStudent.id}/expectations`, {
+          method: 'PUT',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expectations })
+        });
+
+        if (res.ok) {
+          statusEl.textContent = '✓ Saved!';
+          statusEl.style.color = '#38b2ac';
+          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        } else {
+          throw new Error('Failed to save');
+        }
+      } catch(e) {
+        console.error('Error saving expectations:', e);
+        statusEl.textContent = '✗ Error saving';
+        statusEl.style.color = '#e53e3e';
+      }
     }
 
     async function loadMakeupCredits() {
@@ -1433,6 +1588,22 @@
 
     async function loadPayments() {
       try {
+        // Load session progress
+        const totalSessions = parseInt(currentStudent.total_sessions) || 0;
+        const remainingSessions = parseInt(currentStudent.remaining_sessions) || 0;
+        const completedSessions = totalSessions - remainingSessions;
+
+        document.getElementById('paymentTotalSessions').textContent = totalSessions;
+        document.getElementById('paymentCompletedSessions').textContent = completedSessions;
+        document.getElementById('paymentRemainingSessions').textContent = remainingSessions;
+
+        // Show renewal warning if 2 or fewer sessions remaining
+        if (remainingSessions <= 2 && remainingSessions >= 0) {
+          document.getElementById('renewalWarning').style.display = 'block';
+        } else {
+          document.getElementById('renewalWarning').style.display = 'none';
+        }
+
         // Load initial payment info
         document.getElementById('displayInitialPayment').textContent = `${currentStudent.currency} ${currentStudent.fees_paid}`;
         document.getElementById('displayTotalPaid').textContent = `${currentStudent.currency} ${currentStudent.fees_paid}`;
@@ -1443,6 +1614,12 @@
         const res = await fetch(`/api/students/${currentStudent.id}/renewals`, { headers: authHeaders() });
         const renewals = await res.json();
         const container = document.getElementById('paymentHistoryContainer');
+
+        // Calculate total paid including renewals
+        const initialPayment = parseFloat(currentStudent.fees_paid) || 0;
+        const renewalTotal = renewals.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+        const totalPaid = initialPayment + renewalTotal;
+        document.getElementById('displayTotalPaid').textContent = `${currentStudent.currency} ${totalPaid.toFixed(2)}`;
 
         if (renewals.length === 0) {
           container.innerHTML = '<p style="text-align: center; color: #718096;">No renewal payments yet</p>';

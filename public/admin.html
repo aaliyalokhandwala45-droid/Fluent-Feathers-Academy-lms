@@ -36,8 +36,14 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Sidebar Layout */
-    .app-layout { display: flex; min-height: 100vh; }
+    /* Hide main content until server is ready */
+    .app-layout {
+      min-height: 100vh;
+      display: none;
+    }
+    .app-layout.ready {
+      display: flex;
+    }
     .sidebar { width: 240px; background: linear-gradient(180deg, #B05D9E 0%, #8B4789 100%); color: white; position: fixed; height: 100vh; overflow-y: auto; padding: 20px 0; }
     .sidebar-header { padding: 10px 20px 25px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
     .sidebar-header h2 { font-size: 18px; margin-bottom: 5px; }
@@ -141,6 +147,7 @@
         <button class="nav-btn" onclick="showTab('monthlyAssessment', event)">📊 <span>Assessment</span></button>
         <button class="nav-btn" onclick="showTab('classRatings', event)">⭐ <span>Class Ratings</span></button>
         <button class="nav-btn" onclick="showTab('leaderboard', event)">🏆 <span>Leaderboard</span></button>
+        <button class="nav-btn" onclick="showTab('challenges', event)">🎯 <span>Challenges</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
       </nav>
     </aside>
@@ -883,6 +890,68 @@
       </div>
     </div>
 
+    <!-- Weekly Challenges Tab -->
+    <div id="challengesTab" class="tab-content">
+      <div class="section">
+        <h2>🎯 Weekly Challenges</h2>
+        <p style="color: #718096; margin-bottom: 20px;">Create fun weekly challenges to keep students engaged and motivated!</p>
+
+        <!-- Create Challenge Form -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px;">
+          <h3 style="color: white; margin-bottom: 15px;">➕ Create New Challenge</h3>
+          <form id="createChallengeForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label style="color: white;">Challenge Title *</label>
+                <input type="text" id="challengeTitle" required placeholder="e.g., Read 3 books this week">
+              </div>
+              <div class="form-group">
+                <label style="color: white;">Type</label>
+                <select id="challengeType">
+                  <option value="Reading">📖 Reading</option>
+                  <option value="Vocabulary">📚 Vocabulary</option>
+                  <option value="Speaking">🗣️ Speaking</option>
+                  <option value="Writing">✍️ Writing</option>
+                  <option value="Homework">📝 Homework</option>
+                  <option value="Practice">🎯 Practice</option>
+                  <option value="General">⭐ General</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label style="color: white;">Description</label>
+              <textarea id="challengeDescription" rows="2" placeholder="Describe what students need to do..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label style="color: white;">Week Start *</label>
+                <input type="date" id="challengeWeekStart" required>
+              </div>
+              <div class="form-group">
+                <label style="color: white;">Week End *</label>
+                <input type="date" id="challengeWeekEnd" required>
+              </div>
+              <div class="form-group">
+                <label style="color: white;">Points</label>
+                <input type="number" id="challengePoints" value="10" min="1" max="100">
+              </div>
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="assignToAll" checked style="width: auto; margin: 0;">
+              <label for="assignToAll" style="margin: 0; cursor: pointer; color: white;">Assign to all active students</label>
+            </div>
+            <button type="submit" class="btn" style="background: white; color: #667eea; font-weight: bold;">Create Challenge</button>
+          </form>
+        </div>
+
+        <!-- Active Challenges List -->
+        <h3 style="margin-bottom: 15px;">📋 All Challenges</h3>
+        <div id="challengesList" style="display: grid; gap: 15px;">
+          <p style="color: #718096; text-align: center; padding: 30px;">Loading challenges...</p>
+        </div>
+      </div>
+    </div>
+
     <div id="emailsTab" class="tab-content">
       <div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div>
 
@@ -1477,15 +1546,15 @@
       <div class="modal-header"><h2 id="modalStudentName">Student Details</h2><button onclick="closeStudentModal()" class="btn btn-danger btn-sm">✕</button></div>
 
       <div class="modal-tabs">
-        <button class="modal-tab active" onclick="showModalTab('info', event)">📋 Info</button>
-        <button class="modal-tab" onclick="showModalTab('payments', event)">💰 Payments</button>
-        <button class="modal-tab" onclick="showModalTab('homework', event)">📚 Homework</button>
-        <button class="modal-tab" onclick="showModalTab('badges', event)">🏆 Badges</button>
+        <button class="modal-tab active" onclick="showModalTab('modalInfo', event)">📋 Info</button>
+        <button class="modal-tab" onclick="showModalTab('modalPayments', event)">💰 Payments</button>
+        <button class="modal-tab" onclick="showModalTab('modalHomework', event)">📚 Homework</button>
+        <button class="modal-tab" onclick="showModalTab('modalBadges', event)">🏆 Badges</button>
       </div>
 
-      <div id="infoTab" class="modal-tab-content active"><div id="studentInfoContent"></div></div>
+      <div id="modalInfoTab" class="modal-tab-content active"><div id="studentInfoContent"></div></div>
 
-      <div id="paymentsTab" class="modal-tab-content">
+      <div id="modalPaymentsTab" class="modal-tab-content">
         <button onclick="showRenewalForm()" class="btn btn-primary" style="margin-bottom: 20px;">➕ Add Monthly Renewal</button>
         <div id="renewalForm" style="display:none; background:#f7fafc; padding:20px; border-radius:8px; margin-bottom:20px;">
           <h3>Add Monthly Renewal</h3>
@@ -1500,11 +1569,11 @@
           <button onclick="submitRenewal()" class="btn btn-success">Add Renewal</button>
           <button onclick="document.getElementById('renewalForm').style.display='none'" class="btn btn-danger">Cancel</button>
         </div>
-        <div id="paymentsContent">Loading...</div>
+        <div id="modalPaymentsContent">Loading...</div>
       </div>
 
-      <div id="homeworkTab" class="modal-tab-content"><div id="homeworkContent">Loading...</div></div>
-      <div id="badgesTab" class="modal-tab-content"><div id="badgesContent">Loading...</div></div>
+      <div id="modalHomeworkTab" class="modal-tab-content"><div id="modalHomeworkContent">Loading...</div></div>
+      <div id="modalBadgesTab" class="modal-tab-content"><div id="modalBadgesContent">Loading...</div></div>
     </div>
   </div>
 
@@ -2019,10 +2088,12 @@
 
       const messages = [
         'Loading your dashboard...',
-        'Connecting to server...',
+        'Waking up the server...',
+        'Connecting to database...',
         'Fetching student data...',
         'Almost ready...',
-        'Just a moment more...'
+        'Just a moment more...',
+        'Server is starting up, please wait...'
       ];
 
       let messageIndex = 0;
@@ -2033,9 +2104,13 @@
         if (loadingMessage) loadingMessage.textContent = messages[messageIndex];
       }, 3000);
 
-      // Hide loading screen
+      // Hide loading screen and show content
       function hideLoadingScreen() {
         clearInterval(messageInterval);
+        // Show the main content
+        const appLayout = document.querySelector('.app-layout');
+        if (appLayout) appLayout.classList.add('ready');
+        // Fade out loading screen
         if (loadingScreen) {
           loadingScreen.style.opacity = '0';
           loadingScreen.style.transition = 'opacity 0.5s ease';
@@ -2157,6 +2232,7 @@
       if (tabName === 'classRatings') loadClassRatings();
       if (tabName === 'demoStudents') loadDemoLeads();
       if (tabName === 'leaderboard') loadLeaderboard();
+      if (tabName === 'challenges') loadChallenges();
     }
 
     function showModalTab(tabName, e) {
@@ -2166,9 +2242,9 @@
       document.getElementById(tabName + 'Tab').classList.add('active');
       if(e) e.target.classList.add('active');
 
-      if(tabName === 'payments') loadPayments();
-      if(tabName === 'homework') loadHomework();
-      if(tabName === 'badges') loadBadges();
+      if(tabName === 'modalPayments') loadModalPayments();
+      if(tabName === 'modalHomework') loadModalHomework();
+      if(tabName === 'modalBadges') loadModalBadges();
     }
 
     // Admin always sees IST timezone
@@ -3152,7 +3228,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           </div>
         </div>
 
-       <div style="background: #f7fafc; padding: 20px; border-radius: 8px;">
+       <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
   <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: center;">
     <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${student.fees_paid || 0}</span></div>
@@ -3160,9 +3236,23 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
     <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.fees_paid || 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
   </div>
 </div>
+
+<div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 20px; border-radius: 8px;">
+  <h3 style="color: #2d3748; margin-bottom: 15px;">💭 Parent Expectations <span style="font-size: 0.75rem; color: #718096;">(Optional)</span></h3>
+  <div id="parentExpectationsDisplay">Loading...</div>
+</div>
       `;
 
       document.getElementById('studentInfoContent').innerHTML = infoHTML;
+
+      // Reset modal tabs to Info tab
+      document.querySelectorAll('.modal-tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.modal-tab').forEach(el => el.classList.remove('active'));
+      document.getElementById('modalInfoTab').classList.add('active');
+      document.querySelector('.modal-tab').classList.add('active');
+
+      // Load parent expectations
+      loadParentExpectations(id);
       document.getElementById('studentModal').classList.add('active');
     }
 
@@ -3170,8 +3260,50 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       document.getElementById('studentModal').classList.remove('active');
     }
 
+    async function loadParentExpectations(studentId) {
+      const container = document.getElementById('parentExpectationsDisplay');
+      try {
+        const res = await fetch(`/api/students/${studentId}/expectations`);
+        const data = await res.json();
+        const expectations = data.expectations || '';
+
+        container.innerHTML = `
+          <textarea id="expectationsText" rows="3" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; resize: vertical;" placeholder="Parents can share their expectations and goals for their child here...">${expectations}</textarea>
+          <div style="margin-top: 10px; display: flex; gap: 10px;">
+            <button onclick="saveParentExpectations(${studentId})" class="btn btn-sm" style="background: #38a169; color: white;">💾 Save</button>
+            <span id="expectationsSaveStatus" style="color: #718096; font-size: 0.85rem; align-self: center;"></span>
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = '<p style="color: #e53e3e;">Error loading expectations</p>';
+      }
+    }
+
+    async function saveParentExpectations(studentId) {
+      const expectations = document.getElementById('expectationsText').value;
+      const statusEl = document.getElementById('expectationsSaveStatus');
+
+      try {
+        const res = await fetch(`/api/students/${studentId}/expectations`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ expectations })
+        });
+        if (res.ok) {
+          statusEl.textContent = '✅ Saved!';
+          statusEl.style.color = '#38a169';
+          setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        } else {
+          statusEl.textContent = '❌ Error saving';
+          statusEl.style.color = '#e53e3e';
+        }
+      } catch (err) {
+        statusEl.textContent = '❌ Error saving';
+        statusEl.style.color = '#e53e3e';
+      }
+    }
+
     // Edit Payment Functions
-  // Edit Payment Functions
 function openEditPaymentModal(studentId, currency, amount, totalSessions) {
   document.getElementById('editPaymentStudentId').value = studentId;
   document.getElementById('editPaymentCurrency').value = currency || 'INR';
@@ -3915,7 +4047,7 @@ async function saveEditedPayment() {
           alert('✅ ' + result.message);
           document.getElementById('renewalForm').style.display = 'none';
           document.getElementById('renewalForm').reset();
-          loadPayments();
+          loadModalPayments();
           loadStudents();
         } else {
           alert('❌ Failed: ' + result.error);
@@ -3925,11 +4057,11 @@ async function saveEditedPayment() {
       }
     }
 
-    async function loadPayments() {
+    async function loadModalPayments() {
       try {
         const res = await fetch(`/api/students/${currentStudentId}/payments`);
         const data = await res.json();
-        const container = document.getElementById('paymentsContent');
+        const container = document.getElementById('modalPaymentsContent');
 
         let html = '<h3>Payment History</h3>';
         if(data.payments.length === 0 && data.renewals.length === 0) {
@@ -3951,15 +4083,15 @@ async function saveEditedPayment() {
         container.innerHTML = html;
       } catch(err) {
         console.error(err);
-        document.getElementById('paymentsContent').innerHTML = '<p style="color:#e53e3e;">Error loading payments</p>';
+        document.getElementById('modalPaymentsContent').innerHTML = '<p style="color:#e53e3e;">Error loading payments</p>';
       }
     }
 
-    async function loadHomework() {
+    async function loadModalHomework() {
       try {
         const res = await fetch(`/api/students/${currentStudentId}/homework`);
         const homework = await res.json();
-        const container = document.getElementById('homeworkContent');
+        const container = document.getElementById('modalHomeworkContent');
 
         if(homework.length === 0) {
           container.innerHTML = '<p style="color:#718096; text-align:center;">No homework submitted yet</p>';
@@ -3982,7 +4114,7 @@ async function saveEditedPayment() {
         }
       } catch(err) {
         console.error(err);
-        document.getElementById('homeworkContent').innerHTML = '<p style="color:#e53e3e;">Error loading homework</p>';
+        document.getElementById('modalHomeworkContent').innerHTML = '<p style="color:#e53e3e;">Error loading homework</p>';
       }
     }
 
@@ -4006,7 +4138,7 @@ async function saveEditedPayment() {
         const result = await res.json();
         if(res.ok) {
           alert('✅ ' + result.message);
-          loadHomework();
+          loadModalHomework();
           // Also reload homework submissions if we're on that view
           if (typeof loadHomeworkSubmissions === 'function') {
             loadHomeworkSubmissions();
@@ -4019,11 +4151,11 @@ async function saveEditedPayment() {
       }
     }
 
-    async function loadBadges() {
+    async function loadModalBadges() {
       try {
         const res = await fetch(`/api/students/${currentStudentId}/badges`);
         const badges = await res.json();
-        const container = document.getElementById('badgesContent');
+        const container = document.getElementById('modalBadgesContent');
 
         const assignButton = `<button onclick="openAssignBadgeModal()" class="btn btn-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-bottom: 15px;">🎖️ Assign Badge</button>`;
 
@@ -4072,7 +4204,7 @@ async function saveEditedPayment() {
         }
       } catch(err) {
         console.error(err);
-        document.getElementById('badgesContent').innerHTML = '<p style="color:#e53e3e;">Error loading badges</p>';
+        document.getElementById('modalBadgesContent').innerHTML = '<p style="color:#e53e3e;">Error loading badges</p>';
       }
     }
 
@@ -4117,7 +4249,7 @@ async function saveEditedPayment() {
         if (res.ok) {
           alert('🎉 Badge assigned successfully!');
           closeAssignBadgeModal();
-          loadBadges();
+          loadModalBadges();
         } else {
           alert('❌ Error: ' + result.error);
         }
@@ -4203,11 +4335,125 @@ async function saveEditedPayment() {
       }
     }
 
+    // ==================== WEEKLY CHALLENGES ====================
+    async function loadChallenges() {
+      try {
+        const res = await fetch('/api/challenges');
+        const challenges = await res.json();
+        const container = document.getElementById('challengesList');
+
+        if (challenges.length === 0) {
+          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 30px;">No challenges created yet. Create your first challenge above!</p>';
+          return;
+        }
+
+        container.innerHTML = challenges.map(c => {
+          const isActive = new Date(c.week_end) >= new Date();
+          const typeEmojis = {
+            'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️',
+            'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐'
+          };
+          const emoji = typeEmojis[c.challenge_type] || '🎯';
+
+          return `
+            <div style="background: ${isActive ? 'white' : '#f7fafc'}; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); ${!isActive ? 'opacity: 0.7;' : ''}">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div style="flex: 1;">
+                  <h4 style="margin: 0 0 8px 0; color: #2d3748;">
+                    ${emoji} ${c.title}
+                    ${isActive ? '<span style="background: #38a169; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 8px;">Active</span>' : '<span style="background: #718096; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 8px;">Ended</span>'}
+                  </h4>
+                  <p style="margin: 0 0 10px 0; color: #718096; font-size: 0.9rem;">${c.description || 'No description'}</p>
+                  <div style="display: flex; gap: 15px; flex-wrap: wrap; font-size: 0.85rem; color: #4a5568;">
+                    <span>📅 ${new Date(c.week_start).toLocaleDateString()} - ${new Date(c.week_end).toLocaleDateString()}</span>
+                    <span>🏆 ${c.points} points</span>
+                    <span>👥 ${c.assigned_count || 0} assigned</span>
+                    <span style="color: #38a169;">✅ ${c.completed_count || 0} completed</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button onclick="viewChallengeStudents(${c.id}, '${c.title.replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #667eea; color: white;">👀 View</button>
+                  <button onclick="deleteChallenge(${c.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error loading challenges:', err);
+        document.getElementById('challengesList').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading challenges</p>';
+      }
+    }
+
+    // Create Challenge Form Handler
+    document.getElementById('createChallengeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        title: document.getElementById('challengeTitle').value,
+        description: document.getElementById('challengeDescription').value,
+        challenge_type: document.getElementById('challengeType').value,
+        points: parseInt(document.getElementById('challengePoints').value) || 10,
+        week_start: document.getElementById('challengeWeekStart').value,
+        week_end: document.getElementById('challengeWeekEnd').value,
+        assign_to_all: document.getElementById('assignToAll').checked
+      };
+
+      try {
+        const res = await fetch('/api/challenges', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('🎯 Challenge created successfully!');
+          e.target.reset();
+          document.getElementById('challengePoints').value = '10';
+          document.getElementById('assignToAll').checked = true;
+          loadChallenges();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    async function viewChallengeStudents(challengeId, challengeTitle) {
+      try {
+        const res = await fetch(`/api/challenges/${challengeId}/students`);
+        // This endpoint doesn't exist yet, but we can show from student details
+        alert(`View students for challenge: ${challengeTitle}\n\nTo mark a student's challenge complete, open their profile and go to the Challenges section.`);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function deleteChallenge(challengeId) {
+      if (!confirm('Are you sure you want to delete this challenge?')) return;
+
+      try {
+        const res = await fetch(`/api/challenges/${challengeId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Challenge deleted');
+          loadChallenges();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
     // ==================== ANNOUNCEMENTS ====================
+    let announcementsData = []; // Store announcements for modal access
+
     async function loadAnnouncements() {
       try {
         const res = await fetch('/api/announcements');
         const announcements = await res.json();
+        announcementsData = announcements; // Store for later use
         const tbody = document.getElementById('announcementsBody');
 
         if (announcements.length === 0) {
@@ -4216,10 +4462,6 @@ async function saveEditedPayment() {
         }
 
         tbody.innerHTML = announcements.map(a => {
-          // Escape content for data attribute
-          const escapedContent = (a.content || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
-          const escapedTitle = (a.title || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
-
           return `
             <tr>
               <td><strong>${a.title}</strong></td>
@@ -4227,8 +4469,8 @@ async function saveEditedPayment() {
               <td><span style="background:${a.priority === 'Urgent' ? '#fed7d7' : a.priority === 'High' ? '#feebc8' : '#e2e8f0'}; color:${a.priority === 'Urgent' ? '#c53030' : a.priority === 'High' ? '#c05621' : '#4a5568'}; padding:3px 8px; border-radius:4px; font-size:0.8rem;">${a.priority}</span></td>
               <td>${new Date(a.created_at).toLocaleDateString()}</td>
               <td>
-                <button onclick="openAnnouncementModal(${a.id}, '${escapedTitle}', '${escapedContent}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#9f7aea;color:white;">View</button>
-                <button onclick="openEditAnnouncement(${a.id}, '${escapedTitle}', '${escapedContent}', '${a.announcement_type}', '${a.priority}')" class="btn btn-sm" style="background:#B05D9E;color:white;">Edit</button>
+                <button onclick="openAnnouncementModal(${a.id})" class="btn btn-sm" style="background:#9f7aea;color:white;">View</button>
+                <button onclick="openEditAnnouncement(${a.id})" class="btn btn-sm" style="background:#B05D9E;color:white;">Edit</button>
                 <button onclick="deleteAnnouncement(${a.id})" class="btn btn-danger btn-sm">Delete</button>
               </td>
             </tr>
@@ -4278,25 +4520,25 @@ async function saveEditedPayment() {
       }
     });
 
-    function openAnnouncementModal(id, title, content, type, priority) {
-      // Decode HTML entities
-      const decodeHtml = (html) => {
-        const txt = document.createElement('textarea');
-        txt.innerHTML = html;
-        return txt.value;
-      };
+    function openAnnouncementModal(id) {
+      // Find announcement from stored data
+      const a = announcementsData.find(ann => ann.id === id);
+      if (!a) {
+        alert('Announcement not found');
+        return;
+      }
 
-      document.getElementById('editAnnouncementId').value = id;
-      document.getElementById('editAnnouncementTitle').value = decodeHtml(title);
-      document.getElementById('editAnnouncementContent').value = decodeHtml(content);
-      document.getElementById('editAnnouncementType').value = type;
-      document.getElementById('editAnnouncementPriority').value = priority;
+      document.getElementById('editAnnouncementId').value = a.id;
+      document.getElementById('editAnnouncementTitle').value = a.title || '';
+      document.getElementById('editAnnouncementContent').value = a.content || '';
+      document.getElementById('editAnnouncementType').value = a.announcement_type || 'General';
+      document.getElementById('editAnnouncementPriority').value = a.priority || 'Normal';
       document.getElementById('announcementModalTitle').textContent = 'View Announcement';
       document.getElementById('announcementModal').classList.add('active');
     }
 
-    function openEditAnnouncement(id, title, content, type, priority) {
-      openAnnouncementModal(id, title, content, type, priority);
+    function openEditAnnouncement(id) {
+      openAnnouncementModal(id);
       document.getElementById('announcementModalTitle').textContent = 'Edit Announcement';
       document.getElementById('editAnnouncementTitle').focus();
     }

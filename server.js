@@ -1560,6 +1560,71 @@ function getBirthdayEmail(data) {
 </html>`;
 }
 
+function getRenewalReminderEmail(data) {
+  const { parentName, studentName, remainingSessions, programName, perSessionFee, currency } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">⏰</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Session Renewal Reminder</h1>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+
+      <div style="background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #e53e3e; margin: 25px 0;">
+        <p style="margin: 0; font-size: 18px; color: #c53030; font-weight: bold; text-align: center;">
+          ⚠️ Only ${remainingSessions} session${remainingSessions > 1 ? 's' : ''} remaining for ${studentName}!
+        </p>
+      </div>
+
+      <p style="margin: 0 0 20px; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        We wanted to remind you that <strong>${studentName}</strong>'s sessions for
+        <strong style="color: #667eea;">${programName || 'their program'}</strong> are running low.
+      </p>
+
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        To ensure uninterrupted learning, please consider renewing the sessions soon.
+        We'd hate for ${studentName} to miss out on their learning journey! 📚
+      </p>
+
+      <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 25px 0;">
+        <h3 style="margin: 0 0 15px; color: #2d3748; font-size: 16px;">📋 Current Status:</h3>
+        <table style="width: 100%; font-size: 14px; color: #4a5568;">
+          <tr><td style="padding: 8px 0;">Student:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentName}</td></tr>
+          <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
+          <tr><td style="padding: 8px 0;">Sessions Remaining:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e53e3e;">${remainingSessions}</td></tr>
+          ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>` : ''}
+        </table>
+      </div>
+
+      <p style="margin: 25px 0; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        To renew, simply reply to this email or contact us directly. We're happy to help! 😊
+      </p>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568;">
+        Warm regards,<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function getCertificateEmail(data) {
   const { studentName, awardTitle, month, year, description } = data;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -3467,7 +3532,8 @@ app.post('/api/students/:id/renewal', async (req, res) => {
       UPDATE students SET
         total_sessions = total_sessions + $1,
         remaining_sessions = remaining_sessions + $1,
-        fees_paid = fees_paid + $2
+        fees_paid = fees_paid + $2,
+        renewal_reminder_sent = false
       WHERE id = $3
     `, [sessions_added, amount, req.params.id]);
 
