@@ -1316,8 +1316,8 @@
         const res = await fetch('/api/students/' + currentStudent.id + '/makeup-history', { headers: authHeaders() });
         const history = await res.json();
 
-        // Count available credits (not used and not scheduled)
-        const availableCredits = history.filter(c => c.status === 'available').length;
+        // Count available credits (not used and not scheduled) - case insensitive check
+        const availableCredits = history.filter(c => c.status && c.status.toLowerCase() === 'available').length;
         const hasHistory = history.length > 0;
 
         if (hasHistory) {
@@ -1331,14 +1331,15 @@
           } else {
             historyContainer.innerHTML = history.map(c => {
               let statusBadge, statusText;
-              if (c.status === 'available') {
+              const statusLower = (c.status || '').toLowerCase();
+              if (statusLower === 'available') {
                 statusBadge = 'background: #38a169; color: white;';
                 statusText = 'Available';
-              } else if (c.status === 'scheduled') {
+              } else if (statusLower === 'scheduled') {
                 statusBadge = 'background: #805ad5; color: white;';
                 const schedDate = c.scheduled_date ? new Date(c.scheduled_date).toLocaleDateString() : '';
                 statusText = 'Scheduled' + (schedDate ? ' - ' + schedDate : '');
-              } else if (c.status === 'used') {
+              } else if (statusLower === 'used') {
                 statusBadge = 'background: #718096; color: white;';
                 statusText = 'Used';
               } else {
@@ -1348,11 +1349,11 @@
 
               const earnedDate = c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A';
               const addedBy = c.added_by === 'admin' ? 'Added by Teacher' : c.added_by === 'system' ? 'From Cancellation' : '';
-              const bgColor = c.status === 'scheduled' ? 'linear-gradient(135deg, #e9d8fd 0%, #faf5ff 100%)' : '#f7fafc';
-              const borderColor = c.status === 'available' ? '#38a169' : c.status === 'scheduled' ? '#805ad5' : '#718096';
+              const bgColor = statusLower === 'scheduled' ? 'linear-gradient(135deg, #e9d8fd 0%, #faf5ff 100%)' : '#f7fafc';
+              const borderColor = statusLower === 'available' ? '#38a169' : statusLower === 'scheduled' ? '#805ad5' : '#718096';
 
               let scheduledDiv = '';
-              if (c.status === 'scheduled' && c.scheduled_date) {
+              if (statusLower === 'scheduled' && c.scheduled_date) {
                 const schedDateStr = new Date(c.scheduled_date).toLocaleDateString();
                 const schedTimeStr = c.scheduled_time ? ' at ' + c.scheduled_time : '';
                 scheduledDiv = '<div style="margin-top: 8px; background: #805ad5; color: white; padding: 6px 12px; border-radius: 6px; display: inline-block; font-size: 0.85rem;">Makeup Class: ' + schedDateStr + schedTimeStr + '</div>';

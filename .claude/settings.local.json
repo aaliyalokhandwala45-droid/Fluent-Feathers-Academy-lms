@@ -5,7 +5,8 @@
       "Bash(if not exist \"c:\\\\Users\\\\ADMIN\\\\OneDrive\\\\Desktop\\\\solved simplied dashboard\\\\fluentfeathers_lms\\\\public\\\\images\" mkdir \"c:\\\\Users\\\\ADMIN\\\\OneDrive\\\\Desktop\\\\solved simplied dashboard\\\\fluentfeathers_lms\\\\public\\\\images\")",
       "Bash(node:*)",
       "Bash(grep:*)",
-      "Bash(powershell -Command \"\\(Get-Content ''public/admin.html'' -Tail 50\\)\")"
+      "Bash(powershell -Command \"\\(Get-Content ''public/admin.html'' -Tail 50\\)\")",
+      "Bash(git add:*)"
     ]
   }
 }
