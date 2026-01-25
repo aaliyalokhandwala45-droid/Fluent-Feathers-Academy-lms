@@ -1445,6 +1445,11 @@
         const past = sessions.filter(s => {
           if (!s.session_date) return false;
           return s.session_date < today || ['Completed', 'Missed'].includes(s.status);
+        }).sort((a, b) => {
+          // Sort by date descending (most recent first)
+          const dateA = new Date(a.session_date + 'T' + (a.session_time || '00:00:00'));
+          const dateB = new Date(b.session_date + 'T' + (b.session_time || '00:00:00'));
+          return dateB - dateA;
         });
 
         const tbody = document.getElementById('pastBody');
@@ -1518,14 +1523,18 @@
             }
           }
 
-          // Feedback button - show if completed and not already given feedback
+          // Feedback button - show if completed, attended, and not already given feedback
           let feedbackBtn = '-';
-          if (s.status === 'Completed') {
+          const wasAbsent = (s.source_type === 'Group' && s.student_attendance && s.student_attendance.toLowerCase() === 'absent') ||
+                           s.status === 'Missed' || s.status === 'Absent' || s.status === 'Cancelled';
+          if (s.status === 'Completed' && !wasAbsent) {
             if (s.has_feedback) {
               feedbackBtn = `<span style="color:#38a169;">✓ Given</span>`;
             } else {
               feedbackBtn = `<button onclick="openFeedbackModal(${s.id}, ${s.session_number})" style="background:#B05D9E; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;">⭐ Rate</button>`;
             }
+          } else if (wasAbsent) {
+            feedbackBtn = `<span style="color:#718096; font-size:0.85rem;">-</span>`;
           }
 
           // Convert status to attendance display
@@ -1803,10 +1812,16 @@
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
 
-        // Find ALL completed sessions without feedback
+        // Find ALL completed sessions without feedback (exclude absent/missed students)
         const unratedSessions = sessions.filter(s => {
+          // Must be completed
           if (s.status !== 'Completed') return false;
+          // Skip if already has feedback
           if (s.has_feedback === true) return false;
+          // For group sessions, check student_attendance - skip if absent
+          if (s.source_type === 'Group' && s.student_attendance && s.student_attendance.toLowerCase() === 'absent') return false;
+          // For private sessions, status would be 'Missed' not 'Completed' if absent, but double check
+          if (s.status === 'Missed' || s.status === 'Absent' || s.status === 'Cancelled') return false;
           return true;
         });
 

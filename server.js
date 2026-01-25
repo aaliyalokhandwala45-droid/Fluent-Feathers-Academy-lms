@@ -3640,9 +3640,20 @@ app.get('/api/sessions/past/all', async (req, res) => {
     `, [today]);
 
     const all = [...p.rows, ...g.rows].sort((a, b) => {
-      const dateA = new Date(`${a.session_date}T${a.session_time}Z`);
-      const dateB = new Date(`${b.session_date}T${b.session_time}Z`);
-      return dateB - dateA;
+      // Handle date which could be Date object or string
+      const getDateStr = (d) => {
+        if (!d) return '1970-01-01';
+        if (d instanceof Date) return d.toISOString().split('T')[0];
+        if (typeof d === 'string' && d.includes('T')) return d.split('T')[0];
+        return String(d);
+      };
+      const dateStrA = getDateStr(a.session_date);
+      const dateStrB = getDateStr(b.session_date);
+      const timeA = a.session_time || '00:00:00';
+      const timeB = b.session_time || '00:00:00';
+      const dateA = new Date(`${dateStrA}T${timeA}Z`);
+      const dateB = new Date(`${dateStrB}T${timeB}Z`);
+      return dateB - dateA; // Descending - most recent first
     }).slice(0, 50);
 
     // Fix file paths for backwards compatibility (skip Cloudinary URLs)
