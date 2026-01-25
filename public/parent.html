@@ -324,10 +324,18 @@
         </div>
       </div>
 
-      <div id="makeupCreditCard" class="makeup-card" style="display: none;">
-        <h3>🎁 Makeup Credits Available</h3>
-        <div style="font-size: 2rem; font-weight: bold;" id="makeupCount">0</div>
-        <p style="opacity: 0.9;">Contact your teacher to schedule makeup classes</p>
+      <div id="makeupCreditCard" class="section" style="display: none;">
+        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
+          <h3 style="margin-bottom: 10px;">🎁 Makeup Credits Available</h3>
+          <div style="font-size: 2rem; font-weight: bold;" id="makeupCount">0</div>
+          <p style="opacity: 0.9; margin-top: 5px;">Contact your teacher to schedule makeup classes</p>
+        </div>
+
+        <!-- Makeup Credit History -->
+        <h3 style="color: #B05D9E; margin-bottom: 15px;">📋 Makeup Credit History</h3>
+        <div id="makeupCreditsHistory">
+          <p style="text-align: center; color: #718096;">Loading history...</p>
+        </div>
       </div>
 
       <!-- Badges Section -->
@@ -387,6 +395,7 @@
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
         <button class="tab-btn" onclick="showTab('announcements', event)">📢 News</button>
         <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
+        <button class="tab-btn" onclick="showTab('resources', event)">📚 Resources</button>
       </div>
 
       <div id="upcomingTab" class="tab-content active">
@@ -505,6 +514,33 @@
 
       <div id="eventsTab" class="tab-content">
         <div class="section"><h2>🎉 Events</h2><div id="eventsContainer">Loading...</div></div>
+      </div>
+
+      <!-- Resources Tab -->
+      <div id="resourcesTab" class="tab-content">
+        <div class="section">
+          <h2 style="color: #B05D9E; margin-bottom: 10px;">📚 Learning Resources</h2>
+          <p style="color: #718096; margin-bottom: 20px;">Explore additional learning materials - videos, worksheets, and practice activities!</p>
+
+          <!-- Category Filter -->
+          <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+            <span style="color: #4a5568; font-weight: 600;">Filter by:</span>
+            <select id="parentResourceCategory" onchange="loadParentResources()" style="padding: 8px 15px; border-radius: 20px; border: 2px solid #e2e8f0; background: white; font-size: 0.9rem;">
+              <option value="all">All Categories</option>
+              <option value="Videos">Videos</option>
+              <option value="Worksheets">Worksheets</option>
+              <option value="PDFs">PDFs / Documents</option>
+              <option value="Practice">Practice Materials</option>
+              <option value="Games">Games & Activities</option>
+              <option value="Stories">Stories & Reading</option>
+            </select>
+          </div>
+
+          <!-- Resources Grid -->
+          <div id="parentResourcesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+            <p style="color: #718096; text-align: center; padding: 40px; grid-column: 1/-1;">Loading resources...</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -977,6 +1013,7 @@
       if(name === 'payments') loadPayments();
       if(name === 'assessments') loadAssessments();
       if(name === 'announcements') loadAnnouncements();
+      if(name === 'resources') loadParentResources();
     }
 
     function showDashboard() {
@@ -1165,33 +1202,40 @@
         }
 
         container.innerHTML = challenges.map(c => {
-          const isCompleted = c.completed_at !== null;
-          const dueDate = new Date(c.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const badgeEmoji = c.badge_reward ? c.badge_reward.split(' ')[0] : '🏆';
+          const isCompleted = c.status === 'Completed';
+          const isSubmitted = c.status === 'Submitted';
+          const dueDate = new Date(c.week_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const badgeReward = c.badge_reward || '🎯 Challenge Champion';
+          const badgeEmoji = badgeReward.split(' ')[0];
+
+          let statusBadge = '';
+          let actionButton = '';
+
+          if (isCompleted) {
+            statusBadge = `<div style="background: #38b2ac; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">COMPLETED! 🎉</div>`;
+          } else if (isSubmitted) {
+            statusBadge = `<div style="background: #9f7aea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">⏳ Awaiting Approval</div>`;
+          } else {
+            statusBadge = `<div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">IN PROGRESS</div>`;
+            actionButton = `<button onclick="submitChallenge(${c.id}, '${c.title.replace(/'/g, "\\'")}')" style="margin-top: 10px; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">✋ I Did It! Submit for Review</button>`;
+          }
 
           return `
-            <div style="background: ${isCompleted ? 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'};
-                        padding: 15px; border-radius: 12px; border-left: 4px solid ${isCompleted ? '#38b2ac' : '#f5576c'};">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1;">
+            <div style="background: ${isCompleted ? 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' : isSubmitted ? 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)' : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'};
+                        padding: 15px; border-radius: 12px; border-left: 4px solid ${isCompleted ? '#38b2ac' : isSubmitted ? '#9f7aea' : '#f5576c'};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div style="flex: 1; min-width: 200px;">
                   <h3 style="margin: 0 0 8px 0; color: #2d3748; font-size: 1rem;">
-                    ${isCompleted ? '✅' : '🎯'} ${c.title}
+                    ${isCompleted ? '✅' : isSubmitted ? '⏳' : '🎯'} ${c.title}
                   </h3>
-                  <p style="margin: 0 0 8px 0; color: #4a5568; font-size: 0.9rem;">${c.description}</p>
-                  <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #718096;">
+                  <p style="margin: 0 0 8px 0; color: #4a5568; font-size: 0.9rem;">${c.description || ''}</p>
+                  <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #718096; flex-wrap: wrap;">
                     <span>📅 Due: ${dueDate}</span>
-                    <span>${badgeEmoji} Reward: ${c.badge_reward || 'Badge'}</span>
+                    <span style="background: rgba(255,255,255,0.7); padding: 2px 8px; border-radius: 10px;">${badgeEmoji} ${badgeReward}</span>
                   </div>
+                  ${actionButton}
                 </div>
-                ${isCompleted ? `
-                  <div style="background: #38b2ac; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
-                    COMPLETED! 🎉
-                  </div>
-                ` : `
-                  <div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
-                    IN PROGRESS
-                  </div>
-                `}
+                ${statusBadge}
               </div>
             </div>
           `;
@@ -1199,6 +1243,27 @@
       } catch(e) {
         console.error('Error loading challenges:', e);
         document.getElementById('studentChallenges').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading challenges</p>';
+      }
+    }
+
+    // Submit challenge as done (parent reports completion)
+    async function submitChallenge(challengeId, challengeTitle) {
+      if (!confirm(`Submit "${challengeTitle}" as completed?\n\nYour teacher will review and approve it.`)) return;
+
+      try {
+        const res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
+          method: 'PUT',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' }
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('🎉 Challenge submitted! Your teacher will review and award your badge soon.');
+          loadStudentChallenges();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
       }
     }
 
@@ -1247,13 +1312,64 @@
 
     async function loadMakeupCredits() {
       try {
-        const res = await fetch(`/api/students/${currentStudent.id}/makeup-credits`, { headers: authHeaders() });
-        const credits = await res.json();
-        const count = credits.length || 0;
+        // Use the history endpoint to get full makeup credit history
+        const res = await fetch('/api/students/' + currentStudent.id + '/makeup-history', { headers: authHeaders() });
+        const history = await res.json();
 
-        if (count > 0) {
+        // Count available credits (not used and not scheduled)
+        const availableCredits = history.filter(c => c.status === 'available').length;
+        const hasHistory = history.length > 0;
+
+        if (hasHistory) {
           document.getElementById('makeupCreditCard').style.display = 'block';
-          document.getElementById('makeupCount').textContent = count;
+          document.getElementById('makeupCount').textContent = availableCredits;
+
+          // Display history
+          const historyContainer = document.getElementById('makeupCreditsHistory');
+          if (history.length === 0) {
+            historyContainer.innerHTML = '<p style="text-align: center; color: #718096;">No makeup credit history</p>';
+          } else {
+            historyContainer.innerHTML = history.map(c => {
+              let statusBadge, statusText;
+              if (c.status === 'available') {
+                statusBadge = 'background: #38a169; color: white;';
+                statusText = 'Available';
+              } else if (c.status === 'scheduled') {
+                statusBadge = 'background: #805ad5; color: white;';
+                const schedDate = c.scheduled_date ? new Date(c.scheduled_date).toLocaleDateString() : '';
+                statusText = 'Scheduled' + (schedDate ? ' - ' + schedDate : '');
+              } else if (c.status === 'used') {
+                statusBadge = 'background: #718096; color: white;';
+                statusText = 'Used';
+              } else {
+                statusBadge = 'background: #e2e8f0; color: #4a5568;';
+                statusText = c.status || 'Unknown';
+              }
+
+              const earnedDate = c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A';
+              const addedBy = c.added_by === 'admin' ? 'Added by Teacher' : c.added_by === 'system' ? 'From Cancellation' : '';
+              const bgColor = c.status === 'scheduled' ? 'linear-gradient(135deg, #e9d8fd 0%, #faf5ff 100%)' : '#f7fafc';
+              const borderColor = c.status === 'available' ? '#38a169' : c.status === 'scheduled' ? '#805ad5' : '#718096';
+
+              let scheduledDiv = '';
+              if (c.status === 'scheduled' && c.scheduled_date) {
+                const schedDateStr = new Date(c.scheduled_date).toLocaleDateString();
+                const schedTimeStr = c.scheduled_time ? ' at ' + c.scheduled_time : '';
+                scheduledDiv = '<div style="margin-top: 8px; background: #805ad5; color: white; padding: 6px 12px; border-radius: 6px; display: inline-block; font-size: 0.85rem;">Makeup Class: ' + schedDateStr + schedTimeStr + '</div>';
+              }
+
+              return '<div style="background: ' + bgColor + '; border-left: 4px solid ' + borderColor + '; padding: 15px; border-radius: 8px; margin-bottom: 12px;">' +
+                '<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">' +
+                  '<div>' +
+                    '<div style="font-weight: 600; color: #2d3748; margin-bottom: 5px;">' + (c.reason || 'Makeup Credit') + '</div>' +
+                    '<div style="font-size: 0.85rem; color: #718096;">Earned: ' + earnedDate + (addedBy ? ' - ' + addedBy : '') + '</div>' +
+                    scheduledDiv +
+                  '</div>' +
+                  '<span style="' + statusBadge + ' padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">' + statusText + '</span>' +
+                '</div>' +
+              '</div>';
+            }).join('');
+          }
         } else {
           document.getElementById('makeupCreditCard').style.display = 'none';
         }
@@ -1408,15 +1524,30 @@
           }
 
           // Convert status to attendance display
+          // For group sessions, use student_attendance; for private, use session status
           let attendanceDisplay = '-';
-          if (s.status === 'Completed') {
-            attendanceDisplay = `<span style="color:#38a169; font-weight:600;">✓ Present</span>`;
-          } else if (s.status === 'Missed') {
-            attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">✗ Absent</span>`;
-          } else if (s.status === 'Cancelled') {
-            attendanceDisplay = `<span style="color:#718096;">Cancelled</span>`;
+          if (s.source_type === 'Group') {
+            // Group session - use individual student attendance
+            if (s.student_attendance === 'Present') {
+              attendanceDisplay = `<span style="color:#38a169; font-weight:600;">✓ Present</span>`;
+            } else if (s.student_attendance === 'Absent') {
+              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">✗ Absent</span><br><small style="color:#718096;">(Materials available)</small>`;
+            } else if (s.status === 'Completed') {
+              attendanceDisplay = `<span style="color:#718096;">Pending</span>`;
+            } else {
+              attendanceDisplay = s.status || '-';
+            }
           } else {
-            attendanceDisplay = s.status || '-';
+            // Private session - use session status
+            if (s.status === 'Completed') {
+              attendanceDisplay = `<span style="color:#38a169; font-weight:600;">✓ Present</span>`;
+            } else if (s.status === 'Missed') {
+              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">✗ Absent</span>`;
+            } else if (s.status === 'Cancelled') {
+              attendanceDisplay = `<span style="color:#718096;">Cancelled</span>`;
+            } else {
+              attendanceDisplay = s.status || '-';
+            }
           }
 
           return `<tr>
@@ -1438,7 +1569,8 @@
       try {
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
-        const completed = sessions.filter(s => s.status === 'Completed');
+        // Include completed sessions AND group sessions where student was absent (so they can still submit HW after watching recording)
+        const completed = sessions.filter(s => s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance === 'Absent'));
         const sel = document.getElementById('homeworkSessionSelect');
 
         if (completed.length === 0) {
@@ -1987,6 +2119,126 @@
         console.error('Registration error:', e);
         alert('Error registering for event');
       }
+    }
+
+    // ==================== RESOURCE LIBRARY ====================
+    async function loadParentResources() {
+      try {
+        const category = document.getElementById('parentResourceCategory')?.value || 'all';
+        const grade = currentStudent?.grade || 'all';
+        let url = '/api/resources/library?';
+        if (category !== 'all') url += 'category=' + encodeURIComponent(category) + '&';
+        if (grade !== 'all') url += 'grade=' + encodeURIComponent(grade);
+
+        const res = await fetch(url, { headers: authHeaders() });
+        const resources = await res.json();
+
+        const container = document.getElementById('parentResourcesGrid');
+
+        if (resources.length === 0) {
+          container.innerHTML = '<div style="text-align: center; padding: 40px; grid-column: 1/-1; color: #718096;"><div style="font-size: 3rem; margin-bottom: 15px;">📚</div><p>No resources available in this category yet.</p><p style="font-size: 0.9rem;">Check back soon for new learning materials!</p></div>';
+          return;
+        }
+
+        container.innerHTML = resources.map(r => {
+          const typeIcon = getParentResourceIcon(r.category);
+          const resourceUrl = r.external_link || r.file_path;
+          const isFeatured = r.is_featured;
+          const cardBg = isFeatured ? 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)' : 'white';
+          const textColor = isFeatured ? '#333' : '#2d3748';
+          const encodedUrl = encodeURIComponent(resourceUrl);
+          const borderStyle = isFeatured ? '3px solid #f6ad55' : '1px solid #e2e8f0';
+
+          // Check if it's a downloadable file (uploaded file, not external link)
+          const isDownloadable = r.file_path && !r.external_link;
+
+          let html = '<div class="resource-card" style="background: ' + cardBg + '; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; border: ' + borderStyle + ';">';
+          html += '<div style="padding: 20px; text-align: center;">';
+          if (isFeatured) {
+            html += '<div style="background: #e53e3e; color: white; padding: 3px 12px; border-radius: 15px; font-size: 0.7rem; font-weight: bold; display: inline-block; margin-bottom: 10px;">⭐ FEATURED</div>';
+          }
+          html += '<div style="font-size: 3rem; margin-bottom: 10px;">' + typeIcon + '</div>';
+          html += '<h3 style="color: ' + textColor + '; margin: 0 0 8px 0; font-size: 1.1rem; line-height: 1.3;">' + escapeHtml(r.title) + '</h3>';
+          html += '<span style="background: rgba(176, 93, 158, 0.15); color: #B05D9E; padding: 4px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: 600;">' + r.category + '</span>';
+          if (r.description) {
+            html += '<p style="color: #718096; font-size: 0.85rem; margin-top: 12px; line-height: 1.4;">' + escapeHtml(r.description) + '</p>';
+          }
+          html += '<div style="margin-top: 12px;">';
+          html += '<span style="background: #e2e8f0; padding: 4px 10px; border-radius: 10px; font-size: 0.75rem; color: #4a5568;">' + (r.grade_level || 'All Grades') + '</span>';
+          html += '</div>';
+
+          // Action buttons - View and Download
+          html += '<div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">';
+          html += '<button data-action="view" data-id="' + r.id + '" data-url="' + encodedUrl + '" style="background: #B05D9E; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s;">👁 View</button>';
+
+          if (isDownloadable) {
+            // For uploaded files - show download button
+            html += '<a href="' + resourceUrl + '" download style="background: #38a169; color: white; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block;">📥 Download</a>';
+          } else {
+            // For external links (YouTube, Canva, etc.) - show link indicator
+            html += '<span style="background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.8rem;">🔗 Opens in Browser</span>';
+          }
+
+          html += '</div>';
+          html += '</div></div>';
+          return html;
+        }).join('');
+
+        // Add click handlers for view buttons
+        container.querySelectorAll('[data-action="view"]').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            const url = decodeURIComponent(this.dataset.url);
+            openResource(id, url);
+          });
+          // Hover effect for button
+          btn.addEventListener('mouseenter', function() { this.style.background = '#9A4D88'; });
+          btn.addEventListener('mouseleave', function() { this.style.background = '#B05D9E'; });
+        });
+
+        // Add hover effects to cards
+        container.querySelectorAll('.resource-card').forEach(card => {
+          card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+          });
+          card.addEventListener('mouseleave', function() {
+            this.style.transform = 'none';
+            this.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+          });
+        });
+      } catch (err) {
+        console.error('Error loading resources:', err);
+        document.getElementById('parentResourcesGrid').innerHTML = '<p style="color: #e53e3e; text-align: center; grid-column: 1/-1;">Error loading resources</p>';
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function getParentResourceIcon(category) {
+      const icons = {
+        'Videos': '🎬',
+        'Worksheets': '📝',
+        'PDFs': '📄',
+        'Practice': '✏️',
+        'Games': '🎮',
+        'Stories': '📖',
+        'Other': '📦'
+      };
+      return icons[category] || '📚';
+    }
+
+    function openResource(resourceId, url) {
+      // Track view count
+      fetch('/api/resources/' + resourceId + '/view', { method: 'POST', headers: authHeaders() }).catch(function() {});
+      // Open resource in new tab
+      window.open(url, '_blank');
     }
 
     async function loadAssessments() {

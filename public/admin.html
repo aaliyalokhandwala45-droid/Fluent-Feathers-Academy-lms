@@ -112,6 +112,98 @@
     .star-rating { display: flex; gap: 5px; font-size: 24px; }
     .star { cursor: default; color: #fbbf24; }
     .badge-item { display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 8px 16px; border-radius: 20px; margin: 5px; font-size: 0.9rem; }
+    /* Attendance status badges */
+    .att-badge { padding: 4px 12px; border-radius: 12px; font-size: 13px; color: white; }
+    .att-badge-present { background: #38a169; }
+    .att-badge-absent { background: #e53e3e; }
+    .att-badge-pending { background: #718096; }
+    .btn-att-active-present { background: #276749 !important; }
+    .btn-att-active-absent { background: #c53030 !important; }
+    /* Status colors */
+    .status-active { color: #38a169; }
+    .status-inactive { color: #e53e3e; }
+    /* Material type badges */
+    .mat-badge { color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; }
+    .mat-badge-ppt { background: #ed8936; }
+    .mat-badge-recording { background: #9f7aea; }
+    .mat-badge-homework { background: #38b2ac; }
+    .mat-badge-other { background: #718096; }
+    /* Email log badges */
+    .email-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+    .email-badge-group { background: #9f7aea; color: white; }
+    .email-badge-default { background: #e2e8f0; color: #4a5568; }
+    /* Demo class styling */
+    .class-card-demo { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    /* Table row backgrounds */
+    .row-even { background: #f7fafc; }
+    .row-odd { background: white; }
+    .row-pending { background: #fffbeb; }
+    .row-completed { background: #f0fff4; }
+    /* Leaderboard styling */
+    .leaderboard-top3 { background: linear-gradient(90deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.05) 100%); }
+    .rank-top3 { font-size: 1.5rem; }
+    .rank-normal { font-size: 1rem; color: #718096; }
+    /* Challenge status styling */
+    .challenge-row-pending { background: #fffbeb; }
+    .challenge-row-completed { background: #f0fff4; }
+    .challenge-row-submitted { background: linear-gradient(90deg, rgba(159,122,234,0.15) 0%, rgba(159,122,234,0.05) 100%); border-bottom: 1px solid #e2e8f0; }
+    .challenge-row-default { border-bottom: 1px solid #e2e8f0; }
+    /* Challenge status badges */
+    .challenge-badge { padding: 5px 12px; border-radius: 15px; font-size: 0.85rem; color: white; }
+    .challenge-badge-completed { background: #38a169; }
+    .challenge-badge-submitted { background: #9f7aea; animation: pulse 2s infinite; }
+    .challenge-badge-pending { background: #cbd5e0; color: #4a5568; }
+    .needs-review-badge { background: #9f7aea; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7rem; margin-left: 8px; }
+    /* Session type badges */
+    .type-badge { color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .type-badge-private { background: #B05D9E; }
+    .type-badge-group { background: #9f7aea; }
+    /* Attendance status */
+    .attendance-present { background: #38a169; }
+    .attendance-absent { background: #e53e3e; }
+    .attendance-pending { background: #718096; }
+    .attendance-completed { background: #38a169; }
+    /* Event/Announcement status */
+    .event-active { background: #38a169; }
+    .event-inactive { background: #e53e3e; }
+    /* Payment type */
+    .payment-initial { background: #38b2ac; }
+    .payment-renewal { background: #f6ad55; }
+    /* Priority badges */
+    .priority-urgent { background: #fed7d7; color: #c53030; }
+    .priority-high { background: #feebc8; color: #c05621; }
+    .priority-normal { background: #e2e8f0; color: #4a5568; }
+    /* Day labels */
+    .day-label-private { color: #B05D9E; }
+    .day-label-group { color: #9f7aea; }
+    /* Demo lead status */
+    .lead-status { color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; }
+    .lead-status-scheduled { background: #3182ce; }
+    .lead-status-completed { background: #38a169; }
+    .lead-status-converted { background: #d69e2e; }
+    .lead-status-lost { background: #e53e3e; }
+    .lead-status-default { background: #718096; }
+    /* Challenge card states */
+    .challenge-card-active { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .challenge-card-inactive { background: #f7fafc; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); opacity: 0.7; }
+    /* Challenge buttons */
+    .btn-challenge-review { background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%); color: white; }
+    .btn-challenge-track { background: #667eea; color: white; }
+    /* Leaderboard podium */
+    .podium-gold { background: linear-gradient(180deg, #ffd700 0%, #ffb347 100%); box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5); }
+    .podium-silver { background: linear-gradient(180deg, #c0c0c0 0%, #a8a8a8 100%); box-shadow: 0 4px 15px rgba(192, 192, 192, 0.5); }
+    .podium-bronze { background: linear-gradient(180deg, #cd7f32 0%, #b87333 100%); box-shadow: 0 4px 15px rgba(205, 127, 50, 0.5); }
+    .podium-height-1 { height: 180px; }
+    .podium-height-2 { height: 140px; }
+    .podium-height-3 { height: 100px; }
+    .podium-shadow-gold { box-shadow: 0 4px 15px rgba(255,215,0,0.4); }
+    .podium-shadow-silver { box-shadow: 0 4px 15px rgba(192,192,192,0.4); }
+    .podium-shadow-bronze { box-shadow: 0 4px 15px rgba(205,127,50,0.4); }
+    /* Feedback rating borders */
+    .feedback-card { background: #f8f9fa; padding: 20px; border-radius: 12px; border-left: 4px solid; }
+    .feedback-rating-high { border-left-color: #38a169; }
+    .feedback-rating-medium { border-left-color: #ecc94b; }
+    .feedback-rating-low { border-left-color: #e53e3e; }
   </style>
 </head>
 <body>
@@ -190,6 +282,7 @@
         <button class="tab-btn" onclick="showTab('announcements', event)">📢 Announcements</button>
         <button class="tab-btn" onclick="showTab('monthlyAssessment', event)">📊 Monthly Assessment</button>
         <button class="tab-btn" onclick="showTab('classRatings', event)">⭐ Class Ratings</button>
+        <button class="tab-btn" onclick="showTab('resources', event)">📚 Resources</button>
         <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
       </div>
 
@@ -932,8 +1025,17 @@
                 <input type="date" id="challengeWeekEnd" required>
               </div>
               <div class="form-group">
-                <label style="color: white;">Points</label>
-                <input type="number" id="challengePoints" value="10" min="1" max="100">
+                <label style="color: white;">Badge Reward</label>
+                <select id="challengeBadgeReward">
+                  <option value="🎯 Challenge Champion">🎯 Challenge Champion</option>
+                  <option value="📖 Reading Star">📖 Reading Star</option>
+                  <option value="📚 Vocab Master">📚 Vocab Master</option>
+                  <option value="🗣️ Speaking Hero">🗣️ Speaking Hero</option>
+                  <option value="✍️ Writing Wizard">✍️ Writing Wizard</option>
+                  <option value="⭐ Super Achiever">⭐ Super Achiever</option>
+                  <option value="🏆 Weekly Winner">🏆 Weekly Winner</option>
+                  <option value="🌟 Shining Star">🌟 Shining Star</option>
+                </select>
               </div>
             </div>
             <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
@@ -948,6 +1050,101 @@
         <h3 style="margin-bottom: 15px;">📋 All Challenges</h3>
         <div id="challengesList" style="display: grid; gap: 15px;">
           <p style="color: #718096; text-align: center; padding: 30px;">Loading challenges...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resource Library Tab -->
+    <div id="resourcesTab" class="tab-content">
+      <div class="section">
+        <h2>📚 Resource Library</h2>
+        <p style="color: #718096; margin-bottom: 20px;">Add videos, PDFs, worksheets and other learning materials for parents to access.</p>
+
+        <!-- Add Resource Form -->
+        <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px;">
+          <h3 style="color: #2d3748; margin-bottom: 20px;">➕ Add New Resource</h3>
+          <form id="addResourceForm">
+            <div class="form-row">
+              <div class="form-group"><label>Title *</label><input type="text" id="resourceTitle" required placeholder="e.g., Phonics Practice Worksheet"></div>
+              <div class="form-group"><label>Category *</label>
+                <select id="resourceCategory" required>
+                  <option value="">Select Category</option>
+                  <option value="Videos">Videos</option>
+                  <option value="Worksheets">Worksheets</option>
+                  <option value="PDFs">PDFs / Documents</option>
+                  <option value="Practice">Practice Materials</option>
+                  <option value="Games">Games & Activities</option>
+                  <option value="Stories">Stories & Reading</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Resource Type *</label>
+                <select id="resourceType" required onchange="toggleResourceInput()">
+                  <option value="">Select Type</option>
+                  <option value="link">External Link (YouTube, Canva, Google Drive)</option>
+                  <option value="file">Upload File</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Grade Level</label>
+                <select id="resourceGrade">
+                  <option value="All Grades">All Grades</option>
+                  <option value="Pre-K">Pre-K</option>
+                  <option value="Kindergarten">Kindergarten</option>
+                  <option value="Grade 1">Grade 1</option>
+                  <option value="Grade 2">Grade 2</option>
+                  <option value="Grade 3">Grade 3</option>
+                  <option value="Grade 4">Grade 4</option>
+                  <option value="Grade 5+">Grade 5+</option>
+                </select>
+              </div>
+            </div>
+            <div id="resourceLinkSection" style="display: none;">
+              <div class="form-group">
+                <label>External Link *</label>
+                <input type="url" id="resourceLink" placeholder="https://youtube.com/watch?v=... or https://canva.com/design/...">
+                <small style="color: #718096;">Paste YouTube, Canva, Google Drive, or any shareable link</small>
+              </div>
+            </div>
+            <div id="resourceFileSection" style="display: none;">
+              <div class="form-group">
+                <label>Upload File *</label>
+                <input type="file" id="resourceFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.mp4,.mp3">
+                <small style="color: #718096;">PDF, Word, PowerPoint, Images, Videos (max 100MB)</small>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea id="resourceDescription" rows="2" placeholder="Brief description of this resource..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Tags (comma separated)</label><input type="text" id="resourceTags" placeholder="e.g., phonics, reading, practice"></div>
+              <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 25px;">
+                <input type="checkbox" id="resourceFeatured" style="width: 20px; height: 20px;">
+                <label for="resourceFeatured" style="margin: 0;">Featured Resource (shows at top)</label>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">📚 Add Resource</button>
+          </form>
+        </div>
+
+        <!-- Resources List -->
+        <h3 style="margin-bottom: 15px;">📋 All Resources</h3>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+          <select id="filterResourceCategory" onchange="loadResources()" style="padding: 8px 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <option value="all">All Categories</option>
+            <option value="Videos">Videos</option>
+            <option value="Worksheets">Worksheets</option>
+            <option value="PDFs">PDFs / Documents</option>
+            <option value="Practice">Practice Materials</option>
+            <option value="Games">Games & Activities</option>
+            <option value="Stories">Stories & Reading</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div id="resourcesList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+          <p style="color: #718096; text-align: center; padding: 30px; grid-column: 1/-1;">Loading resources...</p>
         </div>
       </div>
     </div>
@@ -1580,6 +1777,52 @@
   <!-- Session Modal -->
   <div id="sessionModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalSessionTitle">Session Details</h2><button onclick="closeSessionModal()" class="btn btn-danger btn-sm">✕</button></div><div id="sessionDetailsContent"></div></div></div>
 
+  <!-- Reschedule Modal -->
+  <div id="rescheduleModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); margin: -30px -30px 20px -30px; padding: 25px 30px; border-radius: 15px 15px 0 0;">
+        <h2 style="color: white; margin: 0;">📅 Reschedule Class</h2>
+        <button onclick="closeRescheduleModal()" class="btn btn-sm" style="background: rgba(255,255,255,0.3); color: white;">✕</button>
+      </div>
+      <div id="rescheduleInfo" style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <!-- Session info will be populated here -->
+      </div>
+      <form id="rescheduleForm">
+        <input type="hidden" id="rescheduleSessionId">
+        <div class="form-row">
+          <div class="form-group">
+            <label>New Date *</label>
+            <input type="date" id="rescheduleDate" required>
+          </div>
+          <div class="form-group">
+            <label>New Time (IST) *</label>
+            <input type="time" id="rescheduleTime" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Reason for Reschedule</label>
+          <select id="rescheduleReason">
+            <option value="Parent Requested">Parent Requested</option>
+            <option value="Teacher Schedule Change">Teacher Schedule Change</option>
+            <option value="Holiday">Holiday</option>
+            <option value="Technical Issues">Technical Issues</option>
+            <option value="Emergency">Emergency</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div style="background: #fef5e7; border: 1px solid #f6ad55; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #c05621; font-size: 0.9rem;">
+            📧 <strong>Note:</strong> Parents will be notified via email about this reschedule.
+          </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button type="submit" class="btn btn-primary" style="flex: 1; background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);">✅ Confirm Reschedule</button>
+          <button type="button" onclick="closeRescheduleModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Group Enrollment Modal -->
   <div id="enrollModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="enrollModalTitle">Enroll Students</h2><button onclick="closeEnrollModal()" class="btn btn-danger btn-sm">✕</button></div><div id="enrollModalContent"></div></div></div>
 
@@ -1651,6 +1894,71 @@
         <div style="display: flex; gap: 10px; margin-top: 15px;">
           <button type="submit" class="btn btn-primary">Update Status</button>
           <button type="button" onclick="closeUpdateDemoStatusModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Makeup Credit Modal -->
+  <div id="addMakeupCreditModal" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h2 style="color: white;">🎁 Add Makeup Credit</h2>
+        <button onclick="closeAddMakeupCreditModal()" class="btn btn-sm" style="background: white; color: #f093fb;">✕</button>
+      </div>
+      <form id="addMakeupCreditForm">
+        <input type="hidden" id="makeupStudentId">
+        <p style="margin-bottom: 15px;">Adding makeup credit for: <strong id="makeupStudentName"></strong></p>
+        <div class="form-group">
+          <label>Reason for Makeup Credit *</label>
+          <select id="makeupReason" required>
+            <option value="Emergency - Student couldn't attend">Emergency - Student couldn't attend</option>
+            <option value="Technical issues during class">Technical issues during class</option>
+            <option value="Teacher unavailable">Teacher unavailable</option>
+            <option value="Power/Internet outage">Power/Internet outage</option>
+            <option value="Health reasons">Health reasons</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Additional Notes (Optional)</label>
+          <textarea id="makeupNotes" rows="2" placeholder="Any additional details..."></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="submit" class="btn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">Add Makeup Credit</button>
+          <button type="button" onclick="closeAddMakeupCreditModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Schedule Makeup Class Modal -->
+  <div id="scheduleMakeupModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h2 style="color: white;">📅 Schedule Makeup Class</h2>
+        <button onclick="closeScheduleMakeupModal()" class="btn btn-sm" style="background: white; color: #f093fb;">✕</button>
+      </div>
+      <form id="scheduleMakeupForm">
+        <input type="hidden" id="scheduleMakeupCreditId">
+        <input type="hidden" id="scheduleMakeupStudentId">
+        <p style="margin-bottom: 15px;">Scheduling makeup class for: <strong id="scheduleMakeupStudentName"></strong></p>
+        <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+          <p style="margin: 0; color: #718096; font-size: 0.9rem;">Original Reason: <span id="scheduleMakeupReason" style="color: #2d3748;"></span></p>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date (IST) *</label>
+            <input type="date" id="makeupClassDate" required>
+          </div>
+          <div class="form-group">
+            <label>Time (IST) *</label>
+            <input type="time" id="makeupClassTime" required>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="submit" class="btn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">Schedule Class</button>
+          <button type="button" onclick="closeScheduleMakeupModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
         </div>
       </form>
     </div>
@@ -2301,10 +2609,10 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
 
           // Different styling for demo classes
           const isDemo = cls.session_type === 'Demo';
-          const cardStyle = isDemo ? 'background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);' : '';
+          const cardClass = isDemo ? 'class-card class-card-demo' : 'class-card';
           const typeLabel = isDemo ? '<span style="background: #ffd700; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 5px;">DEMO</span>' : '';
 
-          return `<div class="class-card" style="${cardStyle}">
+          return `<div class="${cardClass}">
           <h3>${cls.student_name}${typeLabel}</h3>
           <p>📚 ${cls.class_info || 'N/A'}</p>
           <p>📅 ${dayName}, ${formatSessionTime(cls)} (IST)</p>
@@ -2312,7 +2620,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
            <a href="${cls.meet_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join Meet</a>
             ${isDemo ? `<button onclick="showTab('demoStudents', event)" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">📋 View Demo Leads</button>` : `<button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
-            <button onclick="openCancelClassModal(${cls.id}, '${cls.student_name.replace(/'/g, "\\'")}', '${cls.session_type}')" class="btn btn-sm" style="background:#e53e3e; color:white;">✕ Cancel</button>`}
+            <button onclick="openCancelClassModal(${cls.id}, decodeURIComponent('${encodeURIComponent(cls.student_name || '')}'), '${cls.session_type}')" class="btn btn-sm" style="background:#e53e3e; color:white;">✕ Cancel</button>`}
           </div>
         </div>`;
         }).join('');
@@ -2590,8 +2898,9 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           const row = document.createElement('div');
           row.className = 'schedule-row';
           row.style.cssText = 'display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px; background: #f7fafc; border-radius: 6px;';
+          const dayClass = isPrivate ? 'day-label-private' : 'day-label-group';
           row.innerHTML = `
-            <span style="min-width: 50px; font-weight: bold; color: ${isPrivate ? '#B05D9E' : '#9f7aea'};">${dayName}</span>
+            <span style="min-width: 50px; font-weight: bold;" class="${dayClass}">${dayName}</span>
             <input type="date" name="date" value="${dateStr}" required style="flex: 1;">
             <input type="time" name="time" value="${timeForDay}" required style="flex: 1;">
             <button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>
@@ -2664,12 +2973,13 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           const attendanceBtn = isPending ?
             `<button onclick="markAttendance(${s.id}, '${s.session_type}', 'Present')" class="btn btn-sm" style="background:#38a169; color:white; margin-right:5px;">✓ Present</button>
              <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Absent')" class="btn btn-sm" style="background:#e53e3e; color:white;">✗ Absent</button>` :
-            `<span style="background: ${s.status === 'Present' ? '#38a169' : s.status === 'Absent' ? '#e53e3e' : s.status === 'Completed' ? '#38a169' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.status}</span>`;
+            `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
           const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
+          const typeClass = s.session_type === 'Private' ? 'type-badge-private' : 'type-badge-group';
           return `<tr>
             <td>${formatSessionTime(s)}</td>
             <td><strong>${s.student_name}</strong></td>
-            <td><span style="background: ${s.session_type === 'Private' ? '#B05D9E' : '#9f7aea'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${s.session_type}</span></td>
+            <td><span class="type-badge ${typeClass}">${s.session_type}</span></td>
             <td>#${s.session_number}</td>
             <td>${attendanceBtn}</td>
             <td>${materials || '-'}</td>
@@ -2794,7 +3104,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             else if (isPdf) fileType = 'pdf';
             else if (isDoc) fileType = 'doc';
 
-            previewBtn = `<button onclick="previewFile('${fileUrl}', '${fileType}', '${(hw.file_name || 'File').replace(/'/g, "\\'")}')" class="btn btn-sm" style="background:#9f7aea; color:white;">View</button>`;
+            previewBtn = `<button onclick="previewFile('${fileUrl}', '${fileType}', decodeURIComponent('${encodeURIComponent(hw.file_name || 'File')}'))" class="btn btn-sm" style="background:#9f7aea; color:white;">View</button>`;
           }
 
           const feedbackDisplay = hw.feedback_comments
@@ -2812,7 +3122,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             <td>${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
             <td>${gradeDisplay}${feedbackDisplay}</td>
             <td>
-              <button onclick="openGradeHomeworkModal(${hw.id}, '${(hw.student_name || '').replace(/'/g, "\\'")}', '${(hw.file_name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-primary">Grade</button>
+              <button onclick="openGradeHomeworkModal(${hw.id}, decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'), decodeURIComponent('${encodeURIComponent(hw.file_name || '')}'))" class="btn btn-sm btn-primary">Grade</button>
               ${previewBtn}
               ${fileUrl && !isLink ? `<a href="${fileUrl}" download class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">Download</a>` : ''}
               <button onclick="deleteHomework(${hw.id})" class="btn btn-sm btn-danger">Delete</button>
@@ -3022,7 +3332,23 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         const recViewLink = recUrl ? `<button onclick="previewFile('${recUrl}', '${recType}', 'Recording - Session ${session.session_number}')" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px; cursor:pointer;">🎥 View Recording</button>` : '';
         const hwViewLink = hwUrl ? `<button onclick="previewFile('${hwUrl}', '${hwType}', 'Homework - Session ${session.session_number}')" class="btn btn-sm" style="background:#38a169; color:white; margin-left:10px; cursor:pointer;">📝 View Homework</button>` : '';
 
-        let content = `<p><strong>Date:</strong> ${formatSessionTime(session)}</p>
+        // Store session info for reschedule
+        window.currentRescheduleSession = {
+          id: sessionId,
+          session_number: session.session_number,
+          session_type: sessionType,
+          student_name: session.student_name || session.group_name || 'Student',
+          current_date: session.session_date,
+          current_time: session.session_time
+        };
+
+        const canReschedule = session.status !== 'Completed' && session.status !== 'Cancelled';
+
+        let content = `
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+          <p style="margin: 0;"><strong>Date:</strong> ${formatSessionTime(session)}</p>
+          ${canReschedule ? `<button onclick="openRescheduleModal()" class="btn btn-sm" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; font-weight: 600;">📅 Reschedule</button>` : `<span style="background: #718096; color: white; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem;">${session.status}</span>`}
+        </div>
 
         ${(pptUrl || recUrl || hwUrl) ? `
         <h3>📂 Uploaded Materials</h3>
@@ -3033,52 +3359,66 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           ${!pptUrl && !recUrl && !hwUrl ? '<span style="color:#718096;">No materials uploaded yet</span>' : ''}
         </div>` : ''}
 
-        <h3>📁 Upload Materials</h3>
-        <div style="display:grid; grid-template-columns:1fr; gap:15px; margin-bottom:20px;">
+        <h3>📁 Upload Materials <span style="font-size:0.8rem; color:#718096; font-weight:normal;">(You can upload multiple files)</span></h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:15px; margin-bottom:20px;">
           <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
-            <strong>📊 PPT / Presentation</strong> ${session.ppt_file_path ? '<span style="color:#38a169; font-size:0.85rem;">✓ Uploaded</span>' : ''}
+            <strong>📊 PPT / Presentation</strong>
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
-              <input type="file" id="pptFile" style="flex:1; min-width:200px;">
-              <button onclick="uploadMaterial(${sessionId}, 'ppt')" class="btn btn-sm btn-primary">Upload File</button>
+              <input type="file" id="pptFile" accept=".ppt,.pptx,.pdf,.doc,.docx" style="flex:1; min-width:150px;">
+              <button onclick="uploadMaterial(${sessionId}, 'ppt')" class="btn btn-sm btn-primary">Upload</button>
             </div>
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
-              <input type="url" id="pptLink" placeholder="Or paste link (Google Drive, etc.)" style="flex:1; min-width:200px; padding:8px; border:1px solid #ddd; border-radius:4px;">
+              <input type="url" id="pptLink" placeholder="Paste Canva/Google Drive link..." style="flex:1; min-width:150px; padding:6px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
               <button onclick="saveMaterialLink(${sessionId}, 'ppt')" class="btn btn-sm" style="background:#B05D9E; color:white;">Save Link</button>
             </div>
           </div>
           <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
-            <strong>🎥 Recording</strong> ${session.recording_file_path ? '<span style="color:#38a169; font-size:0.85rem;">✓ Uploaded</span>' : ''}
+            <strong>🎥 Recording</strong>
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
-              <input type="file" id="recFile" style="flex:1; min-width:200px;">
-              <button onclick="uploadMaterial(${sessionId}, 'recording')" class="btn btn-sm btn-primary">Upload File</button>
+              <input type="file" id="recFile" accept=".mp4,.mov,.avi,.mp3,.wav" style="flex:1; min-width:150px;">
+              <button onclick="uploadMaterial(${sessionId}, 'recording')" class="btn btn-sm btn-primary">Upload</button>
             </div>
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
-              <input type="url" id="recLink" placeholder="Or paste link (YouTube, Drive, etc.)" style="flex:1; min-width:200px; padding:8px; border:1px solid #ddd; border-radius:4px;">
+              <input type="url" id="recLink" placeholder="Paste YouTube/Drive link..." style="flex:1; min-width:150px; padding:6px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
               <button onclick="saveMaterialLink(${sessionId}, 'recording')" class="btn btn-sm" style="background:#B05D9E; color:white;">Save Link</button>
             </div>
           </div>
           <div style="background:#f8f9fa; padding:15px; border-radius:8px;">
-            <strong>📝 Homework</strong> ${session.homework_file_path ? '<span style="color:#38a169; font-size:0.85rem;">✓ Uploaded</span>' : ''}
+            <strong>📝 Homework</strong>
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
-              <input type="file" id="hwFile" style="flex:1; min-width:200px;">
-              <button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm btn-primary">Upload File</button>
+              <input type="file" id="hwFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt" style="flex:1; min-width:150px;">
+              <button onclick="uploadMaterial(${sessionId}, 'homework')" class="btn btn-sm btn-primary">Upload</button>
             </div>
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
-              <input type="url" id="hwLink" placeholder="Or paste link (Google Docs, etc.)" style="flex:1; min-width:200px; padding:8px; border:1px solid #ddd; border-radius:4px;">
+              <input type="url" id="hwLink" placeholder="Paste Canva/Google Drive link..." style="flex:1; min-width:150px; padding:6px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
               <button onclick="saveMaterialLink(${sessionId}, 'homework')" class="btn btn-sm" style="background:#B05D9E; color:white;">Save Link</button>
             </div>
           </div>
-        </div>`;
+        </div>
+
+        <!-- Uploaded Materials List -->
+        <div id="uploadedMaterialsList" style="margin-bottom:20px;">
+          <h4 style="color:#4a5568; margin-bottom:10px;">📂 Uploaded Files</h4>
+          <div id="materialFilesContainer" style="background:#f7fafc; padding:15px; border-radius:8px; min-height:60px;">
+            <p style="color:#718096; text-align:center;">Loading materials...</p>
+          </div>
+        </div>
+        ` + '<scr' + 'ipt>loadSessionMaterials(' + sessionId + ');<\/scr' + 'ipt>';
 
         if (sessionType === 'Group') {
           const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`);
           const students = await attRes.json();
-          content += `<h3 style="margin-top:20px;">Group Attendance</h3><table><thead><tr><th>Student</th><th>Action</th></tr></thead><tbody>` + students.map(s => `
-            <tr><td>${s.student_name}</td><td>
-              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>
-              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
-            </td></tr>
-          `).join('') + `</tbody></table>`;
+          content += `<h3 style="margin-top:20px;">Group Attendance</h3>
+          <table><thead><tr><th>Student</th><th>Current Status</th><th>Action</th></tr></thead><tbody>` + students.map(s => {
+            const statusClass = s.attendance === 'Present' ? 'att-badge-present' : s.attendance === 'Absent' ? 'att-badge-absent' : 'att-badge-pending';
+            const statusText = s.attendance === 'Present' ? 'Present' : s.attendance === 'Absent' ? 'Absent' : 'Pending';
+            const presentBtnClass = s.attendance === 'Present' ? 'btn-att-active-present' : '';
+            const absentBtnClass = s.attendance === 'Absent' ? 'btn-att-active-absent' : '';
+            return `<tr id="att-row-${s.student_id}"><td>${s.student_name}</td><td id="att-status-${s.student_id}"><span class="att-badge ${statusClass}">${statusText}</span></td><td>
+              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present', '${s.student_name}')" class="btn btn-sm btn-success ${presentBtnClass}">Present</button>
+              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Absent', '${s.student_name}')" class="btn btn-sm btn-danger ${absentBtnClass}">Absent</button>
+            </td></tr>`;
+          }).join('') + `</tbody></table>`;
         }
 
         document.getElementById('sessionDetailsContent').innerHTML = content;
@@ -3088,7 +3428,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       }
     }
 
-    async function saveGroupAttendance(sessionId, studentId, status) {
+    async function saveGroupAttendance(sessionId, studentId, status, studentName) {
       try {
         const res = await fetch(`/api/sessions/${sessionId}/group-attendance`, {
           method: 'POST',
@@ -3096,19 +3436,121 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance: status }] })
         });
         if(res.ok) {
-          alert('✅ Attendance saved');
-          openSessionModal(sessionId, 'Group');
+          // Update UI immediately using CSS classes
+          const statusCell = document.getElementById(`att-status-${studentId}`);
+          if (statusCell) {
+            const badgeClass = status === 'Present' ? 'att-badge-present' : 'att-badge-absent';
+            statusCell.innerHTML = `<span class="att-badge ${badgeClass}">${status}</span>`;
+          }
+          alert(`${status === 'Present' ? '✅' : '❌'} ${studentName} marked as ${status}`);
         } else {
-          alert('❌ Failed');
+          const err = await res.json();
+          alert('❌ Failed: ' + (err.error || 'Unknown error'));
         }
       } catch(e) {
-        alert('❌ Error');
+        alert('❌ Error: ' + e.message);
       }
     }
 
     function closeSessionModal() {
       document.getElementById('sessionModal').classList.remove('active');
     }
+
+    // ==================== RESCHEDULE FUNCTIONS ====================
+    function openRescheduleModal() {
+      const session = window.currentRescheduleSession;
+      if (!session) {
+        alert('No session selected');
+        return;
+      }
+
+      document.getElementById('rescheduleSessionId').value = session.id;
+
+      // Set minimum date to today
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('rescheduleDate').min = today;
+
+      // Format current date/time for display
+      let currentDateTime = 'Unknown';
+      try {
+        const dateStr = session.current_date.includes('T') ? session.current_date.split('T')[0] : session.current_date;
+        const d = new Date(dateStr + 'T' + session.current_time + 'Z');
+        currentDateTime = d.toLocaleString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+      } catch (e) {
+        currentDateTime = session.current_date + ' ' + session.current_time;
+      }
+
+      document.getElementById('rescheduleInfo').innerHTML =
+        '<p style="margin: 0 0 8px 0;"><strong>Session:</strong> #' + session.session_number + ' (' + session.session_type + ')</p>' +
+        '<p style="margin: 0 0 8px 0;"><strong>Student/Group:</strong> ' + session.student_name + '</p>' +
+        '<p style="margin: 0; color: #e53e3e;"><strong>Current Schedule:</strong> ' + currentDateTime + '</p>';
+
+      document.getElementById('rescheduleModal').classList.add('active');
+    }
+
+    function closeRescheduleModal() {
+      document.getElementById('rescheduleModal').classList.remove('active');
+      document.getElementById('rescheduleForm').reset();
+    }
+
+    document.getElementById('rescheduleForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const sessionId = document.getElementById('rescheduleSessionId').value;
+      const newDate = document.getElementById('rescheduleDate').value;
+      const newTime = document.getElementById('rescheduleTime').value;
+      const reason = document.getElementById('rescheduleReason').value;
+
+      if (!newDate || !newTime) {
+        alert('Please select new date and time');
+        return;
+      }
+
+      const confirmMsg = 'Are you sure you want to reschedule this class?\n\n' +
+        'New Date: ' + newDate + '\n' +
+        'New Time: ' + newTime + ' (IST)\n\n' +
+        'Parents will be notified via email.';
+
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const res = await fetch('/api/sessions/' + sessionId + '/reschedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            new_date: newDate,
+            new_time: newTime,
+            reason: reason
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert('✅ Class rescheduled successfully!\n\n' + data.students_notified + ' parent(s) notified via email.');
+          closeRescheduleModal();
+          closeSessionModal();
+          // Refresh the calendar and upcoming classes
+          loadStudents();
+          loadUpcomingClasses();
+          loadCalendar();
+        } else {
+          alert('❌ Failed to reschedule: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Reschedule error:', err);
+        alert('❌ Error rescheduling class');
+      }
+    });
 
     async function loadGroups() {
       try {
@@ -3222,17 +3664,28 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           <h3 style="color: #B05D9E; margin-bottom: 15px;">Session Statistics</h3>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
             <div><strong>Total:</strong> ${student.total_sessions}</div>
-            <div><strong>Completed:</strong> <span style="color: #38a169;">${student.completed_sessions}</span></div>
-            <div><strong>Remaining:</strong> <span style="color: #e53e3e;">${student.remaining_sessions}</span></div>
-            <div><strong>Makeup Credits:</strong> ${student.makeup_credits || 0}</div>
+            <div><strong>Completed:</strong> <span class="status-active">${student.completed_sessions}</span></div>
+            <div><strong>Remaining:</strong> <span class="status-inactive">${student.remaining_sessions}</span></div>
+            <div><strong>Makeup Credits:</strong> <span style="color: #9f7aea; font-weight: bold;">${student.makeup_credits || 0}</span></div>
           </div>
         </div>
+
+        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; color: white;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="color: white; margin: 0;">🎁 Makeup Credits</h3>
+            <button onclick="openAddMakeupCreditModal(${student.id}, '${student.name}')" class="btn btn-sm" style="background: white; color: #f093fb; font-weight: bold;">+ Add Credit</button>
+          </div>
+          <div id="makeupCreditsContainer-${student.id}" style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 15px;">
+            <p style="text-align: center; margin: 0;">Loading makeup credits...</p>
+          </div>
+        </div>
+        ` + '<scr' + 'ipt>loadStudentMakeupCredits(' + student.id + ');<\/scr' + 'ipt>' + `
 
        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
   <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: center;">
     <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${student.fees_paid || 0}</span></div>
-    <div><strong>Status:</strong> <span style="color: ${student.is_active ? '#38a169' : '#e53e3e'};">${student.is_active ? 'Active' : 'Inactive'}</span></div>
+    <div><strong>Status:</strong> <span class="${student.is_active ? 'status-active' : 'status-inactive'}">${student.is_active ? 'Active' : 'Inactive'}</span></div>
     <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.fees_paid || 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
   </div>
 </div>
@@ -3416,10 +3869,247 @@ async function saveEditedPayment() {
         fd.append('materialType', type);
         fetch(`/api/sessions/${id}/upload`, {method:'POST', body:fd})
           .then(r => r.json())
-          .then(data => alert('✅ ' + data.message))
+          .then(data => {
+            alert('✅ ' + data.message);
+            inp.value = ''; // Clear input
+            loadSessionMaterials(id); // Reload materials list
+          })
           .catch(err => alert('❌ Upload failed'));
       } else {
         alert('Please select a file first');
+      }
+    }
+
+    // Load all materials for a session
+    async function loadSessionMaterials(sessionId) {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/materials`);
+        const materials = await res.json();
+        const container = document.getElementById('materialFilesContainer');
+
+        if (!materials || materials.length === 0) {
+          container.innerHTML = '<p style="color:#718096; text-align:center; padding:10px;">No files uploaded yet. Upload using the form above.</p>';
+          return;
+        }
+
+        const typeIcons = { 'PPT': '📊', 'RECORDING': '🎥', 'HOMEWORK': '📝' };
+        const typeClasses = { 'PPT': 'mat-badge-ppt', 'RECORDING': 'mat-badge-recording', 'HOMEWORK': 'mat-badge-homework' };
+
+        container.innerHTML = materials.map(m => {
+          const icon = typeIcons[m.material_type] || '📄';
+          const badgeClass = typeClasses[m.material_type] || 'mat-badge-other';
+          const fileName = m.file_name || m.file_path.split('/').pop();
+          const isLink = m.file_path.startsWith('http');
+
+          return `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid #e2e8f0; gap:10px;">
+              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+                <span style="font-size:1.2rem;">${icon}</span>
+                <div style="min-width:0;">
+                  <span class="mat-badge ${badgeClass}">${m.material_type}</span>
+                  <div style="font-size:0.9rem; color:#2d3748; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${fileName}">${fileName}</div>
+                  <div style="font-size:0.75rem; color:#a0aec0;">${new Date(m.uploaded_at).toLocaleDateString()}</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:5px;">
+                <a href="${m.file_path}" target="_blank" class="btn btn-sm" style="background:#38b2ac; color:white; text-decoration:none;">View</a>
+                <button onclick="deleteSessionMaterial(${m.id}, ${sessionId})" class="btn btn-sm" style="background:#e53e3e; color:white;">🗑️</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error loading session materials:', err);
+        document.getElementById('materialFilesContainer').innerHTML = '<p style="color:#e53e3e; text-align:center;">Error loading materials</p>';
+      }
+    }
+
+    // Delete a session material
+    async function deleteSessionMaterial(materialId, sessionId) {
+      if (!confirm('Delete this file?')) return;
+      try {
+        const res = await fetch(`/api/session-materials/${materialId}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadSessionMaterials(sessionId);
+        } else {
+          alert('❌ Failed to delete');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // ==================== RESOURCE LIBRARY ====================
+    function toggleResourceInput() {
+      const type = document.getElementById('resourceType').value;
+      document.getElementById('resourceLinkSection').style.display = type === 'link' ? 'block' : 'none';
+      document.getElementById('resourceFileSection').style.display = type === 'file' ? 'block' : 'none';
+    }
+
+    async function loadResources() {
+      try {
+        const category = document.getElementById('filterResourceCategory')?.value || 'all';
+        let url = '/api/resources';
+
+        const res = await fetch(url);
+        const resources = await res.json();
+
+        // Filter by category if needed
+        const filtered = category === 'all' ? resources : resources.filter(r => r.category === category);
+
+        const container = document.getElementById('resourcesList');
+        if (filtered.length === 0) {
+          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 30px; grid-column: 1/-1;">No resources found. Add your first resource above!</p>';
+          return;
+        }
+
+        container.innerHTML = filtered.map(r => {
+          const typeIcon = getResourceIcon(r.category);
+          const resourceUrl = r.external_link || r.file_path;
+          const featuredBadge = r.is_featured ? '<span style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #333; padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold;">⭐ FEATURED</span>' : '';
+          const statusBadge = r.is_active
+            ? '<span style="background: #38a169; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem;">Active</span>'
+            : '<span style="background: #e53e3e; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem;">Hidden</span>';
+
+          return '<div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;">' +
+            '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; color: white;">' +
+              '<div style="display: flex; justify-content: space-between; align-items: flex-start;">' +
+                '<div style="font-size: 2rem;">' + typeIcon + '</div>' +
+                '<div style="display: flex; gap: 5px; flex-wrap: wrap;">' + featuredBadge + ' ' + statusBadge + '</div>' +
+              '</div>' +
+              '<h4 style="margin: 10px 0 5px 0; font-size: 1.1rem;">' + (r.title || 'Untitled') + '</h4>' +
+              '<span style="background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 10px; font-size: 0.8rem;">' + r.category + '</span>' +
+            '</div>' +
+            '<div style="padding: 15px;">' +
+              '<p style="color: #718096; font-size: 0.85rem; margin-bottom: 10px; min-height: 40px;">' + (r.description || 'No description') + '</p>' +
+              '<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">' +
+                '<span style="background: #e2e8f0; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem;">' + (r.grade_level || 'All Grades') + '</span>' +
+                '<span style="color: #718096; font-size: 0.75rem;">👁 ' + (r.view_count || 0) + ' views</span>' +
+              '</div>' +
+              '<div style="display: flex; gap: 8px; flex-wrap: wrap;">' +
+                '<a href="' + resourceUrl + '" target="_blank" class="btn btn-sm" style="background: #38a169; color: white; text-decoration: none;">👁 Preview</a>' +
+                '<button onclick="toggleResourceStatus(' + r.id + ', ' + !r.is_active + ')" class="btn btn-sm" style="background: ' + (r.is_active ? '#e53e3e' : '#38a169') + '; color: white;">' + (r.is_active ? '🙈 Hide' : '👁 Show') + '</button>' +
+                '<button onclick="deleteResource(' + r.id + ')" class="btn btn-sm" style="background: #718096; color: white;">🗑️</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      } catch (err) {
+        console.error('Error loading resources:', err);
+        document.getElementById('resourcesList').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading resources</p>';
+      }
+    }
+
+    function getResourceIcon(category) {
+      const icons = {
+        'Videos': '🎬',
+        'Worksheets': '📝',
+        'PDFs': '📄',
+        'Practice': '✏️',
+        'Games': '🎮',
+        'Stories': '📖',
+        'Other': '📦'
+      };
+      return icons[category] || '📚';
+    }
+
+    document.getElementById('addResourceForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const resourceType = document.getElementById('resourceType').value;
+      let filePath = null;
+      let externalLink = null;
+
+      if (resourceType === 'link') {
+        externalLink = document.getElementById('resourceLink').value;
+        if (!externalLink) {
+          alert('Please enter an external link');
+          return;
+        }
+      } else if (resourceType === 'file') {
+        const fileInput = document.getElementById('resourceFile');
+        if (!fileInput.files[0]) {
+          alert('Please select a file to upload');
+          return;
+        }
+
+        // Upload file first
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('uploadType', 'materials');
+
+        try {
+          const uploadRes = await fetch('/api/resources/upload', {
+            method: 'POST',
+            body: formData
+          });
+          const uploadData = await uploadRes.json();
+          if (!uploadRes.ok) throw new Error(uploadData.error);
+          filePath = uploadData.filePath;
+        } catch (err) {
+          alert('Failed to upload file: ' + err.message);
+          return;
+        }
+      }
+
+      const data = {
+        title: document.getElementById('resourceTitle').value,
+        description: document.getElementById('resourceDescription').value,
+        category: document.getElementById('resourceCategory').value,
+        resource_type: resourceType,
+        file_path: filePath,
+        external_link: externalLink,
+        grade_level: document.getElementById('resourceGrade').value,
+        tags: document.getElementById('resourceTags').value,
+        is_featured: document.getElementById('resourceFeatured').checked
+      };
+
+      try {
+        const res = await fetch('/api/resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Resource added successfully!');
+          e.target.reset();
+          document.getElementById('resourceLinkSection').style.display = 'none';
+          document.getElementById('resourceFileSection').style.display = 'none';
+          loadResources();
+        } else {
+          alert('❌ Failed: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('❌ Error adding resource');
+      }
+    });
+
+    async function toggleResourceStatus(id, newStatus) {
+      try {
+        const res = await fetch('/api/resources/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: newStatus })
+        });
+        if (res.ok) {
+          loadResources();
+        }
+      } catch (err) {
+        alert('Error updating resource');
+      }
+    }
+
+    async function deleteResource(id) {
+      if (!confirm('Are you sure you want to delete this resource?')) return;
+      try {
+        const res = await fetch('/api/resources/' + id, { method: 'DELETE' });
+        if (res.ok) {
+          alert('✅ Resource deleted');
+          loadResources();
+        }
+      } catch (err) {
+        alert('Error deleting resource');
       }
     }
 
@@ -3465,7 +4155,7 @@ async function saveEditedPayment() {
           const date = f.created_at ? new Date(f.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
 
           return `
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border-left: 4px solid ${f.rating >= 4 ? '#38a169' : f.rating >= 3 ? '#ecc94b' : '#e53e3e'};">
+            <div class="feedback-card ${f.rating >= 4 ? 'feedback-rating-high' : f.rating >= 3 ? 'feedback-rating-medium' : 'feedback-rating-low'}">
               <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div>
                   <strong style="font-size: 1.1rem; color: #2d3748;">${f.student_name || 'Unknown Student'}</strong>
@@ -3511,7 +4201,16 @@ async function saveEditedPayment() {
     function loadEmailLogs() {
       fetch('/api/email-logs')
         .then(r=>r.json())
-        .then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map(l=>`<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}</td><td>${l.email_type}</td><td>${l.subject}</td><td><span style="color: ${l.status === 'Sent' ? '#38a169' : '#e53e3e'};">${l.status}</span></td></tr>`).join(''))
+        .then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map(l=>{
+          const isGroup = l.email_type && l.email_type.includes('-Group');
+          const displayType = isGroup ? l.email_type.replace('-Group', '') : l.email_type;
+          const badgeClass = isGroup ? 'email-badge-group' : 'email-badge-default';
+          const typeBadge = isGroup
+            ? `<span class="email-badge ${badgeClass}">${displayType} 👥</span>`
+            : `<span class="email-badge ${badgeClass}">${displayType}</span>`;
+          const statusClass = l.status === 'Sent' ? 'status-active' : 'status-inactive';
+          return `<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}</td><td>${typeBadge}</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.subject}">${l.subject}</td><td><span class="${statusClass}">${l.status}</span></td></tr>`;
+        }).join(''))
         .catch(err => console.error(err));
     }
 
@@ -3563,7 +4262,7 @@ async function saveEditedPayment() {
             <td>${eventDateTime.split(',')[1] || e.event_time}</td>
             <td>${e.event_duration || '-'}</td>
             <td>${e.registered_count||0}${e.max_participants ? '/' + e.max_participants : ''}</td>
-            <td><span style="background: ${e.status === 'Active' ? '#38a169' : '#e53e3e'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${e.status}</span></td>
+            <td><span class="type-badge ${e.status === 'Active' ? 'event-active' : 'event-inactive'}">${e.status}</span></td>
             <td>
               <button onclick="viewEvent(${e.id})" class="btn btn-sm" style="background:#B05D9E; color:white;">View</button>
               <button onclick="editEvent(${e.id})" class="btn btn-sm btn-warning">Edit</button>
@@ -3791,6 +4490,169 @@ async function saveEditedPayment() {
       }
     });
 
+    // MAKEUP CREDIT FUNCTIONS
+    function openAddMakeupCreditModal(studentId, studentName) {
+      document.getElementById('makeupStudentId').value = studentId;
+      document.getElementById('makeupStudentName').textContent = studentName;
+      document.getElementById('makeupReason').value = 'Emergency - Student couldn\'t attend';
+      document.getElementById('makeupNotes').value = '';
+      document.getElementById('addMakeupCreditModal').classList.add('active');
+    }
+
+    function closeAddMakeupCreditModal() {
+      document.getElementById('addMakeupCreditModal').classList.remove('active');
+    }
+
+    document.getElementById('addMakeupCreditForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const studentId = document.getElementById('makeupStudentId').value;
+      const reason = document.getElementById('makeupReason').value;
+      const notes = document.getElementById('makeupNotes').value;
+
+      try {
+        const res = await fetch(`/api/students/${studentId}/makeup-credits`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ reason, notes })
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message);
+          closeAddMakeupCreditModal();
+          loadStudentMakeupCredits(studentId);
+          loadStudents(); // Refresh student list to update makeup count
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
+    async function loadStudentMakeupCredits(studentId) {
+      const container = document.getElementById(`makeupCreditsContainer-${studentId}`);
+      if (!container) return;
+
+      try {
+        const res = await fetch(`/api/students/${studentId}/makeup-history`);
+        const credits = await res.json();
+
+        if (credits.length === 0) {
+          container.innerHTML = '<p style="text-align: center; margin: 0; opacity: 0.8;">No makeup credits yet</p>';
+          return;
+        }
+
+        const available = credits.filter(c => c.status === 'Available');
+        const scheduled = credits.filter(c => c.status === 'Scheduled');
+        const used = credits.filter(c => c.status === 'Used');
+
+        let html = '';
+
+        if (available.length > 0) {
+          html += '<div style="margin-bottom: 10px;"><strong>Available Credits (${available.length}):</strong></div>';
+          html += available.map(c => `
+            <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 8px; color: #2d3748;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <span style="font-size: 0.85rem;">📋 ${c.reason}</span>
+                  <br><small style="color: #718096;">Added: ${new Date(c.credit_date).toLocaleDateString()} ${c.added_by === 'admin' ? '(by Admin)' : ''}</small>
+                </div>
+                <button onclick="openScheduleMakeupModal(${c.id}, ${studentId}, decodeURIComponent('${encodeURIComponent(c.reason)}'))" class="btn btn-sm" style="background: #38a169; color: white;">📅 Schedule</button>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        if (scheduled.length > 0) {
+          html += '<div style="margin: 10px 0;"><strong>Scheduled (${scheduled.length}):</strong></div>';
+          html += scheduled.map(c => `
+            <div style="background: rgba(255,255,255,0.5); padding: 10px; border-radius: 6px; margin-bottom: 8px; color: #2d3748;">
+              <span style="font-size: 0.85rem;">📅 Scheduled for: ${c.scheduled_date ? new Date(c.scheduled_date).toLocaleDateString() : 'N/A'} at ${c.scheduled_time || 'N/A'}</span>
+              <br><small style="color: #718096;">Original: ${c.reason}</small>
+            </div>
+          `).join('');
+        }
+
+        if (used.length > 0) {
+          html += '<div style="margin: 10px 0;"><strong>Used (${used.length}):</strong></div>';
+          html += used.map(c => `
+            <div style="background: rgba(255,255,255,0.3); padding: 10px; border-radius: 6px; margin-bottom: 8px; color: #2d3748; opacity: 0.7;">
+              <span style="font-size: 0.85rem;">✅ Used on: ${c.used_date ? new Date(c.used_date).toLocaleDateString() : 'N/A'}</span>
+              <br><small style="color: #718096;">${c.reason}</small>
+            </div>
+          `).join('');
+        }
+
+        container.innerHTML = html.replace(/\$\{available\.length\}/g, available.length)
+                                  .replace(/\$\{scheduled\.length\}/g, scheduled.length)
+                                  .replace(/\$\{used\.length\}/g, used.length);
+      } catch (err) {
+        console.error('Error loading makeup credits:', err);
+        container.innerHTML = '<p style="text-align: center; color: #fed7d7;">Error loading credits</p>';
+      }
+    }
+
+    function openScheduleMakeupModal(creditId, studentId, reason) {
+      document.getElementById('scheduleMakeupCreditId').value = creditId;
+      document.getElementById('scheduleMakeupStudentId').value = studentId;
+      document.getElementById('scheduleMakeupReason').textContent = reason;
+
+      // Get student name from the page
+      const studentNameEl = document.getElementById('makeupStudentName');
+      if (studentNameEl) {
+        document.getElementById('scheduleMakeupStudentName').textContent = studentNameEl.textContent;
+      }
+
+      // Set default date to tomorrow
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      document.getElementById('makeupClassDate').value = tomorrow.toISOString().split('T')[0];
+      document.getElementById('makeupClassTime').value = '10:00';
+
+      document.getElementById('scheduleMakeupModal').classList.add('active');
+    }
+
+    function closeScheduleMakeupModal() {
+      document.getElementById('scheduleMakeupModal').classList.remove('active');
+    }
+
+    document.getElementById('scheduleMakeupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const creditId = document.getElementById('scheduleMakeupCreditId').value;
+      const studentId = document.getElementById('scheduleMakeupStudentId').value;
+      const sessionDate = document.getElementById('makeupClassDate').value;
+      const sessionTime = document.getElementById('makeupClassTime').value;
+
+      if (!sessionDate || !sessionTime) {
+        alert('Please select date and time');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/makeup-credits/${creditId}/schedule`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            session_date: sessionDate,
+            session_time: sessionTime,
+            student_id: studentId
+          })
+        });
+        const result = await res.json();
+        if(res.ok) {
+          alert('✅ ' + result.message + ' (Session #' + result.session_number + ')');
+          closeScheduleMakeupModal();
+          loadStudentMakeupCredits(studentId);
+          loadStudents();
+          loadUpcomingClasses();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
+
     // DEMO STUDENTS FUNCTIONS
     let allDemoLeads = [];
     let currentDemoFilter = 'all';
@@ -3825,11 +4687,11 @@ async function saveEditedPayment() {
       }
 
       tbody.innerHTML = leads.map(lead => {
-        const statusColors = {
-          'Scheduled': '#3182ce',
-          'Completed': '#38a169',
-          'Converted': '#d69e2e',
-          'Lost': '#e53e3e'
+        const statusClasses = {
+          'Scheduled': 'lead-status-scheduled',
+          'Completed': 'lead-status-completed',
+          'Converted': 'lead-status-converted',
+          'Lost': 'lead-status-lost'
         };
         const statusIcons = {
           'Scheduled': '📅',
@@ -3865,7 +4727,7 @@ async function saveEditedPayment() {
           <td>${lead.phone || 'N/A'}<br><small style="color:#a0aec0;">${lead.source || ''}</small></td>
           <td>${lead.program_interest || 'Not specified'}</td>
           <td>${demoDateTime}</td>
-          <td><span style="background: ${statusColors[lead.status] || '#718096'}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem;">${statusIcons[lead.status] || ''} ${lead.status}</span></td>
+          <td><span class="lead-status ${statusClasses[lead.status] || 'lead-status-default'}">${statusIcons[lead.status] || ''} ${lead.status}</span></td>
           <td style="white-space: nowrap;">
             ${actionButtons}
             <button onclick="deleteDemoLead(${lead.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">✕</button>
@@ -4274,20 +5136,20 @@ async function saveEditedPayment() {
           let podiumHTML = '';
           podiumOrder.forEach((student, idx) => {
             const actualRank = students.indexOf(student) + 1;
-            const heights = { 1: '180px', 2: '140px', 3: '100px' };
-            const colors = { 1: 'linear-gradient(135deg, #ffd700 0%, #ffb347 100%)', 2: 'linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%)', 3: 'linear-gradient(135deg, #cd7f32 0%, #b87333 100%)' };
             const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
-            const shadowColors = { 1: 'rgba(255,215,0,0.4)', 2: 'rgba(192,192,192,0.4)', 3: 'rgba(205,127,50,0.4)' };
+            const podiumClasses = { 1: 'podium-gold', 2: 'podium-silver', 3: 'podium-bronze' };
+            const heightClasses = { 1: 'podium-height-1', 2: 'podium-height-2', 3: 'podium-height-3' };
+            const shadowClasses = { 1: 'podium-shadow-gold', 2: 'podium-shadow-silver', 3: 'podium-shadow-bronze' };
 
             podiumHTML += `
               <div style="display: flex; flex-direction: column; align-items: center; transition: transform 0.3s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                 <div style="font-size: 2.5rem; margin-bottom: 10px;">${medals[actualRank]}</div>
-                <div style="background: white; padding: 15px 20px; border-radius: 12px; text-align: center; margin-bottom: 10px; box-shadow: 0 4px 15px ${shadowColors[actualRank]}; min-width: 120px;">
+                <div class="${shadowClasses[actualRank]}" style="background: white; padding: 15px 20px; border-radius: 12px; text-align: center; margin-bottom: 10px; min-width: 120px;">
                   <div style="font-weight: bold; color: #2d3748; font-size: 1rem;">${student.name}</div>
                   <div style="color: #667eea; font-size: 1.5rem; font-weight: bold;">${student.total_badges}</div>
                   <div style="color: #718096; font-size: 0.75rem;">badges</div>
                 </div>
-                <div style="background: ${colors[actualRank]}; width: 100px; height: ${heights[actualRank]}; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 15px; box-shadow: 0 4px 15px ${shadowColors[actualRank]};">
+                <div class="${podiumClasses[actualRank]} ${heightClasses[actualRank]}" style="width: 100px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 15px;">
                   <span style="color: white; font-weight: bold; font-size: 1.5rem;">#${actualRank}</span>
                 </div>
               </div>
@@ -4308,12 +5170,12 @@ async function saveEditedPayment() {
         tbody.innerHTML = students.map((student, index) => {
           const rank = index + 1;
           const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-          const rankStyle = rank <= 3 ? 'font-size: 1.5rem;' : 'font-size: 1rem; color: #718096;';
-          const rowBg = rank <= 3 ? 'background: linear-gradient(90deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.05) 100%);' : '';
+          const rankClass = rank <= 3 ? 'rank-top3' : 'rank-normal';
+          const rowClass = rank <= 3 ? 'leaderboard-top3' : '';
 
           return `
-            <tr style="${rowBg}">
-              <td style="padding: 15px; text-align: center; ${rankStyle}">${rankBadge}</td>
+            <tr class="${rowClass}">
+              <td style="padding: 15px; text-align: center;" class="${rankClass}">${rankBadge}</td>
               <td style="padding: 15px;">
                 <strong style="color: #2d3748;">${student.name}</strong>
                 <br><small style="color: #718096;">${student.program_name || 'N/A'}</small>
@@ -4354,9 +5216,10 @@ async function saveEditedPayment() {
             'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐'
           };
           const emoji = typeEmojis[c.challenge_type] || '🎯';
+          const badgeReward = c.badge_reward || '🎯 Challenge Champion';
 
           return `
-            <div style="background: ${isActive ? 'white' : '#f7fafc'}; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); ${!isActive ? 'opacity: 0.7;' : ''}">
+            <div class="${isActive ? 'challenge-card-active' : 'challenge-card-inactive'}">
               <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div style="flex: 1;">
                   <h4 style="margin: 0 0 8px 0; color: #2d3748;">
@@ -4366,13 +5229,15 @@ async function saveEditedPayment() {
                   <p style="margin: 0 0 10px 0; color: #718096; font-size: 0.9rem;">${c.description || 'No description'}</p>
                   <div style="display: flex; gap: 15px; flex-wrap: wrap; font-size: 0.85rem; color: #4a5568;">
                     <span>📅 ${new Date(c.week_start).toLocaleDateString()} - ${new Date(c.week_end).toLocaleDateString()}</span>
-                    <span>🏆 ${c.points} points</span>
+                    <span style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 3px 10px; border-radius: 12px;">🏅 ${badgeReward}</span>
                     <span>👥 ${c.assigned_count || 0} assigned</span>
-                    <span style="color: #38a169;">✅ ${c.completed_count || 0} completed</span>
+                    ${c.submitted_count > 0 ? `<span style="background: #9f7aea; color: white; padding: 3px 10px; border-radius: 12px; font-weight: 600;">📩 ${c.submitted_count} awaiting review!</span>` : ''}
+                    <span style="color: #38a169; font-weight: 600;">✅ ${c.completed_count || 0} completed</span>
                   </div>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                  <button onclick="viewChallengeStudents(${c.id}, '${c.title.replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #667eea; color: white;">👀 View</button>
+                <div style="display: flex; gap: 8px; flex-direction: column; align-items: flex-end;">
+                  ${c.submitted_count > 0 ? `<span style="background: #e53e3e; color: white; padding: 4px 8px; border-radius: 50%; font-size: 0.75rem; font-weight: bold;">${c.submitted_count}</span>` : ''}
+                  <button onclick="viewChallengeStudents(${c.id}, decodeURIComponent('${encodeURIComponent(c.title)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm ${c.submitted_count > 0 ? 'btn-challenge-review' : 'btn-challenge-track'}">${c.submitted_count > 0 ? '🔔 Review Submissions' : '👥 Track Progress'}</button>
                   <button onclick="deleteChallenge(${c.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️</button>
                 </div>
               </div>
@@ -4392,7 +5257,7 @@ async function saveEditedPayment() {
         title: document.getElementById('challengeTitle').value,
         description: document.getElementById('challengeDescription').value,
         challenge_type: document.getElementById('challengeType').value,
-        points: parseInt(document.getElementById('challengePoints').value) || 10,
+        badge_reward: document.getElementById('challengeBadgeReward').value,
         week_start: document.getElementById('challengeWeekStart').value,
         week_end: document.getElementById('challengeWeekEnd').value,
         assign_to_all: document.getElementById('assignToAll').checked
@@ -4408,7 +5273,6 @@ async function saveEditedPayment() {
         if (res.ok) {
           alert('🎯 Challenge created successfully!');
           e.target.reset();
-          document.getElementById('challengePoints').value = '10';
           document.getElementById('assignToAll').checked = true;
           loadChallenges();
         } else {
@@ -4419,13 +5283,109 @@ async function saveEditedPayment() {
       }
     });
 
-    async function viewChallengeStudents(challengeId, challengeTitle) {
+    // View Challenge Students - Track who completed
+    async function viewChallengeStudents(challengeId, challengeTitle, badgeReward) {
+      currentChallengeTitle = challengeTitle; // Store for refresh
       try {
         const res = await fetch(`/api/challenges/${challengeId}/students`);
-        // This endpoint doesn't exist yet, but we can show from student details
-        alert(`View students for challenge: ${challengeTitle}\n\nTo mark a student's challenge complete, open their profile and go to the Challenges section.`);
+        const students = await res.json();
+
+        // Create modal
+        const existingModal = document.getElementById('challengeStudentsModal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'challengeStudentsModal';
+        modal.className = 'modal active';
+        modal.innerHTML = `
+          <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+              <h2 style="color: #667eea;">🎯 ${challengeTitle}</h2>
+              <button onclick="document.getElementById('challengeStudentsModal').remove()" class="btn btn-danger btn-sm">✕</button>
+            </div>
+            <div style="padding: 20px;">
+              <p style="color: #718096; margin-bottom: 15px;">Badge Reward: <strong style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 5px 12px; border-radius: 15px;">${badgeReward}</strong></p>
+
+              ${students.length === 0 ? '<p style="color: #718096; text-align: center; padding: 30px;">No students assigned to this challenge yet.</p>' : `
+                <table style="width: 100%; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: #f7fafc;">
+                      <th style="padding: 12px; text-align: left;">Student</th>
+                      <th style="padding: 12px; text-align: center;">Status</th>
+                      <th style="padding: 12px; text-align: center;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${students.map(s => {
+                      let statusBadge = '';
+                      let actionBtn = '';
+                      let rowClass = 'challenge-row-default';
+
+                      if (s.status === 'Completed') {
+                        statusBadge = `<span class="challenge-badge challenge-badge-completed">✅ Completed</span>
+                                       <br><small style="color: #718096;">${s.completed_at ? new Date(s.completed_at).toLocaleDateString() : ''}</small>`;
+                        actionBtn = `<span class="status-active">🏅 Badge Awarded</span>`;
+                      } else if (s.status === 'Submitted') {
+                        statusBadge = `<span class="challenge-badge challenge-badge-submitted">📩 Submitted!</span>`;
+                        actionBtn = `<button onclick="markChallengeComplete(${challengeId}, ${s.student_id}, decodeURIComponent('${encodeURIComponent(s.student_name)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm" style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: white; font-weight: bold;">✅ Approve & Award Badge</button>`;
+                        rowClass = 'challenge-row-submitted';
+                      } else {
+                        statusBadge = `<span class="challenge-badge challenge-badge-pending">⏳ Not Started</span>`;
+                        actionBtn = `<button onclick="markChallengeComplete(${challengeId}, ${s.student_id}, decodeURIComponent('${encodeURIComponent(s.student_name)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm" style="background: #718096; color: white;">✅ Mark Complete</button>`;
+                      }
+
+                      return `
+                      <tr class="${rowClass}">
+                        <td style="padding: 12px;">
+                          <strong>${s.student_name}</strong>
+                          ${s.status === 'Submitted' ? '<span class="needs-review-badge">NEEDS REVIEW</span>' : ''}
+                          <br><small style="color: #718096;">${s.program_name || ''}</small>
+                        </td>
+                        <td style="padding: 12px; text-align: center;">${statusBadge}</td>
+                        <td style="padding: 12px; text-align: center;">${actionBtn}</td>
+                      </tr>`;
+                    }).join('')}
+                  </tbody>
+                </table>
+              `}
+            </div>
+          </div>
+        `;
+
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) modal.remove();
+        });
+
+        document.body.appendChild(modal);
       } catch (err) {
-        console.error(err);
+        alert('❌ Error loading students: ' + err.message);
+      }
+    }
+
+    // Mark challenge as complete for a student
+    let currentChallengeTitle = '';
+    async function markChallengeComplete(challengeId, studentId, studentName, badgeReward) {
+      if (!confirm(`Mark challenge as COMPLETED for ${studentName}?\n\nThis will award them the "${badgeReward}" badge!`)) return;
+
+      try {
+        const res = await fetch(`/api/challenges/${challengeId}/student/${studentId}/complete`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ badge_reward: badgeReward })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(`🎉 ${studentName} completed the challenge and earned the ${badgeReward} badge!`);
+          // Refresh the modal and list
+          const modalTitle = currentChallengeTitle;
+          document.getElementById('challengeStudentsModal')?.remove();
+          viewChallengeStudents(challengeId, modalTitle, badgeReward);
+          loadChallenges();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
       }
     }
 
@@ -4462,11 +5422,12 @@ async function saveEditedPayment() {
         }
 
         tbody.innerHTML = announcements.map(a => {
+          const priorityClass = a.priority === 'Urgent' ? 'priority-urgent' : a.priority === 'High' ? 'priority-high' : 'priority-normal';
           return `
             <tr>
               <td><strong>${a.title}</strong></td>
               <td><span style="background:#e2e8f0; padding:3px 8px; border-radius:4px; font-size:0.8rem;">${a.announcement_type}</span></td>
-              <td><span style="background:${a.priority === 'Urgent' ? '#fed7d7' : a.priority === 'High' ? '#feebc8' : '#e2e8f0'}; color:${a.priority === 'Urgent' ? '#c53030' : a.priority === 'High' ? '#c05621' : '#4a5568'}; padding:3px 8px; border-radius:4px; font-size:0.8rem;">${a.priority}</span></td>
+              <td><span class="type-badge ${priorityClass}">${a.priority}</span></td>
               <td>${new Date(a.created_at).toLocaleDateString()}</td>
               <td>
                 <button onclick="openAnnouncementModal(${a.id})" class="btn btn-sm" style="background:#9f7aea;color:white;">View</button>
@@ -4921,6 +5882,9 @@ async function saveEditedPayment() {
       if (name === 'events') {
         loadEvents();
       }
+      if (name === 'resources') {
+        loadResources();
+      }
     };
 
     // ==================== SWITCH TO LEARNER VIEW ====================
@@ -5041,7 +6005,7 @@ async function saveEditedPayment() {
           tbody.innerHTML = allPayments.map(p => `
             <tr>
               <td>${new Date(p.date).toLocaleDateString()}</td>
-              <td><span style="background: ${p.type === 'Initial' ? '#38b2ac' : '#f6ad55'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${p.type}</span></td>
+              <td><span class="type-badge ${p.type === 'Initial' ? 'payment-initial' : 'payment-renewal'}">${p.type}</span></td>
               <td><strong>${p.amount}</strong></td>
               <td>${p.sessions}</td>
               <td>${p.method}</td>
@@ -5142,7 +6106,7 @@ async function saveEditedPayment() {
           <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
               <div><strong>Event Name:</strong> ${event.event_name}</div>
-              <div><strong>Status:</strong> <span style="color: ${event.status === 'Active' ? '#38a169' : '#e53e3e'};">${event.status}</span></div>
+              <div><strong>Status:</strong> <span class="${event.status === 'Active' ? 'status-active' : 'status-inactive'}">${event.status}</span></div>
               <div><strong>Date & Time (IST):</strong> ${eventDate}</div>
               <div><strong>Duration:</strong> ${event.event_duration || 'N/A'}</div>
               <div><strong>Target Audience:</strong> ${event.target_audience || 'All'}</div>
@@ -5264,7 +6228,7 @@ async function saveEditedPayment() {
                     <td>${r.parent_name}</td>
                     <td>${r.parent_email}</td>
                     <td>${new Date(r.registered_at).toLocaleDateString()}</td>
-                    <td><span style="background: ${r.attendance === 'Present' ? '#38a169' : r.attendance === 'Absent' ? '#e53e3e' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${r.attendance || 'Pending'}</span></td>
+                    <td><span class="type-badge ${r.attendance === 'Present' ? 'attendance-present' : r.attendance === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${r.attendance || 'Pending'}</span></td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -5301,7 +6265,7 @@ async function saveEditedPayment() {
                   <tr>
                     <td><strong>${r.student_name}</strong></td>
                     <td>${r.grade}</td>
-                    <td><span style="background: ${r.attendance === 'Present' ? '#38a169' : r.attendance === 'Absent' ? '#e53e3e' : '#718096'}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${r.attendance || 'Pending'}</span></td>
+                    <td><span class="type-badge ${r.attendance === 'Present' ? 'attendance-present' : r.attendance === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${r.attendance || 'Pending'}</span></td>
                     <td>
                       <button onclick="saveEventAttendance(${eventId}, ${r.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>
                       <button onclick="saveEventAttendance(${eventId}, ${r.student_id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
