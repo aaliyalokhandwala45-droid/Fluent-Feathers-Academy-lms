@@ -24,13 +24,31 @@ const DEFAULT_MEET = process.env.DEFAULT_MEET_LINK || 'https://meet.google.com/q
 
 // ==================== CLOUDINARY CONFIG ====================
 // Configure Cloudinary for persistent file storage
+// Support both CLOUDINARY_URL and individual env vars
+let cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+let apiKey = process.env.CLOUDINARY_API_KEY;
+let apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+// Parse CLOUDINARY_URL if individual vars not set (format: cloudinary://api_key:api_secret@cloud_name)
+if (!cloudName && process.env.CLOUDINARY_URL) {
+  try {
+    const url = new URL(process.env.CLOUDINARY_URL.replace('cloudinary://', 'https://'));
+    apiKey = url.username;
+    apiSecret = url.password;
+    cloudName = url.hostname;
+    console.log('☁️ Parsed Cloudinary credentials from CLOUDINARY_URL');
+  } catch (e) {
+    console.error('Failed to parse CLOUDINARY_URL:', e.message);
+  }
+}
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: cloudName,
+  api_key: apiKey,
+  api_secret: apiSecret
 });
 
-const useCloudinary = !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+const useCloudinary = !!(cloudName && apiKey && apiSecret);
 if (useCloudinary) {
   console.log('☁️ Cloudinary configured for file storage');
 } else {
@@ -5095,19 +5113,29 @@ app.delete('/api/resources/:id', async (req, res) => {
 });
 
 // Upload resource file
-app.post('/api/resources/upload', upload.single('file'), async (req, res) => {
+app.post('/api/resources/upload', (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('Upload error:', err);
+      return res.status(400).json({ error: err.message || 'File upload failed' });
+    }
+    next();
+  });
+}, async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     let filePath;
-    if (req.file.path && req.file.path.includes('cloudinary')) {
+    if (req.file.path && (req.file.path.includes('cloudinary') || req.file.path.includes('res.cloudinary.com'))) {
       filePath = req.file.path;
     } else if (req.file.filename) {
       filePath = '/uploads/materials/' + req.file.filename;
     } else {
       filePath = req.file.path;
     }
+    console.log('Resource uploaded:', filePath);
     res.json({ filePath, fileName: req.file.originalname });
   } catch (err) {
+    console.error('Resource upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
