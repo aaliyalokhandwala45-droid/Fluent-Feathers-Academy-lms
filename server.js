@@ -4038,6 +4038,41 @@ app.post('/api/students/:id/update-payment', async (req, res) => {
   }
 });
 
+// Fix session counts (for attendance correction)
+app.post('/api/students/:id/fix-sessions', async (req, res) => {
+  const { total_sessions, completed_sessions, remaining_sessions, reason } = req.body;
+  const studentId = req.params.id;
+
+  try {
+    // Get current student data for logging
+    const studentResult = await pool.query('SELECT name, total_sessions, completed_sessions, remaining_sessions FROM students WHERE id = $1', [studentId]);
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const oldData = studentResult.rows[0];
+
+    // Update session counts
+    await pool.query(`
+      UPDATE students SET
+        total_sessions = $1,
+        completed_sessions = $2,
+        remaining_sessions = $3
+      WHERE id = $4
+    `, [total_sessions, completed_sessions, remaining_sessions, studentId]);
+
+    console.log(`⚠️ SESSION FIX for ${oldData.name} (ID: ${studentId})`);
+    console.log(`   Old: Total=${oldData.total_sessions}, Completed=${oldData.completed_sessions}, Remaining=${oldData.remaining_sessions}`);
+    console.log(`   New: Total=${total_sessions}, Completed=${completed_sessions}, Remaining=${remaining_sessions}`);
+    console.log(`   Reason: ${reason || 'No reason provided'}`);
+
+    res.json({ success: true, message: 'Session counts updated successfully!' });
+  } catch (err) {
+    console.error('Error fixing sessions:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== EDIT & DELETE STUDENT ====================
 app.put('/api/students/:id', async (req, res) => {
   const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth, meet_link } = req.body;

@@ -462,7 +462,7 @@
           <!-- Session Progress Card -->
           <div id="sessionProgressCard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
             <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">📊 Session Progress</h3>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">
               <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
                 <div style="font-size: 2rem; font-weight: bold;" id="paymentTotalSessions">-</div>
                 <div style="font-size: 0.85rem; opacity: 0.9;">Total Sessions</div>
@@ -474,6 +474,10 @@
               <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
                 <div style="font-size: 2rem; font-weight: bold;" id="paymentRemainingSessions">-</div>
                 <div style="font-size: 0.85rem; opacity: 0.9;">Remaining</div>
+              </div>
+              <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 15px; border-radius: 10px;">
+                <div style="font-size: 2rem; font-weight: bold;" id="paymentMakeupCredits">0</div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">Makeup Credits</div>
               </div>
             </div>
             <div id="renewalWarning" style="display: none; margin-top: 15px; background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
@@ -1729,6 +1733,16 @@
         document.getElementById('paymentTotalSessions').textContent = totalSessions;
         document.getElementById('paymentCompletedSessions').textContent = completedSessions;
         document.getElementById('paymentRemainingSessions').textContent = remainingSessions;
+
+        // Load makeup credits count
+        try {
+          const makeupRes = await fetch('/api/students/' + currentStudent.id + '/makeup-history', { headers: authHeaders() });
+          const makeupHistory = await makeupRes.json();
+          const availableMakeup = makeupHistory.filter(c => c.status && c.status.toLowerCase() === 'available').length;
+          document.getElementById('paymentMakeupCredits').textContent = availableMakeup;
+        } catch (e) {
+          document.getElementById('paymentMakeupCredits').textContent = '0';
+        }
 
         // Show renewal warning if 2 or fewer sessions remaining
         if (remainingSessions <= 2 && remainingSessions >= 0) {
