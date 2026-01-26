@@ -402,6 +402,7 @@
         <button class="tab-btn" onclick="showTab('announcements', event)">📢 News</button>
         <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
         <button class="tab-btn" onclick="showTab('resources', event)">📚 Resources</button>
+        <button class="tab-btn" onclick="showTab('profile', event)">👤 Profile</button>
       </div>
 
       <div id="upcomingTab" class="tab-content active">
@@ -550,6 +551,73 @@
           <div id="parentResourcesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
             <p style="color: #718096; text-align: center; padding: 40px; grid-column: 1/-1;">Loading resources...</p>
           </div>
+        </div>
+      </div>
+
+      <!-- Profile Tab -->
+      <div id="profileTab" class="tab-content">
+        <div class="section">
+          <h2 style="color: #B05D9E; margin-bottom: 20px;">👤 Profile Settings</h2>
+          <p style="color: #718096; margin-bottom: 25px;">View and update your contact information</p>
+
+          <form id="profileForm">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+              <!-- Student Info (Read Only) -->
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white;">
+                <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">👧 Student Information</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <div><strong>Name:</strong> <span id="profileStudentName">-</span></div>
+                  <div><strong>Grade:</strong> <span id="profileStudentGrade">-</span></div>
+                  <div><strong>Program:</strong> <span id="profileProgram">-</span></div>
+                  <div><strong>Class Type:</strong> <span id="profileClassType">-</span></div>
+                </div>
+              </div>
+
+              <!-- Parent Info (Editable) -->
+              <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
+                <h3 style="margin: 0 0 15px 0; color: #B05D9E; font-size: 1.1rem;">👨‍👩‍👧 Parent Information</h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                  <div>
+                    <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Parent Name</label>
+                    <input type="text" id="profileParentName" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                  </div>
+                  <div>
+                    <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Email Address</label>
+                    <input type="email" id="profileEmail" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                  </div>
+                  <div>
+                    <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Primary Contact</label>
+                    <input type="text" id="profileContact" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                  </div>
+                  <div>
+                    <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Alternate Contact</label>
+                    <input type="text" id="profileAltContact" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;" placeholder="Optional">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Student Details (Editable) -->
+              <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
+                <h3 style="margin: 0 0 15px 0; color: #B05D9E; font-size: 1.1rem;">🎂 Additional Details</h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                  <div>
+                    <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Child's Date of Birth</label>
+                    <input type="date" id="profileDOB" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                  </div>
+                  <div>
+                    <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Timezone</label>
+                    <input type="text" id="profileTimezone" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; background: #f7fafc;" readonly>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 25px; text-align: center;">
+              <button type="submit" style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
+                💾 Save Changes
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -1063,6 +1131,7 @@
       if(name === 'assessments') loadAssessments();
       if(name === 'announcements') loadAnnouncements();
       if(name === 'resources') loadParentResources();
+      if(name === 'profile') loadProfile();
     }
 
     function showDashboard() {
@@ -2762,6 +2831,70 @@
         document.getElementById('announcementsContainer').innerHTML = '<p style="color: #e53e3e;">Error loading announcements</p>';
       }
     }
+
+    // ==================== PROFILE FUNCTIONS ====================
+    function loadProfile() {
+      if (!currentStudent) return;
+
+      // Student info (read-only)
+      document.getElementById('profileStudentName').textContent = currentStudent.name || '-';
+      document.getElementById('profileStudentGrade').textContent = currentStudent.grade || '-';
+      document.getElementById('profileProgram').textContent = currentStudent.program_name || '-';
+      document.getElementById('profileClassType').textContent = currentStudent.class_type || '-';
+
+      // Parent info (editable)
+      document.getElementById('profileParentName').value = currentStudent.parent_name || '';
+      document.getElementById('profileEmail').value = currentStudent.parent_email || '';
+      document.getElementById('profileContact').value = currentStudent.primary_contact || '';
+      document.getElementById('profileAltContact').value = currentStudent.alternate_contact || '';
+
+      // Additional details
+      document.getElementById('profileDOB').value = currentStudent.date_of_birth ? currentStudent.date_of_birth.split('T')[0] : '';
+      document.getElementById('profileTimezone').value = currentStudent.timezone || 'Asia/Kolkata';
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const updates = {
+        parent_name: document.getElementById('profileParentName').value,
+        parent_email: document.getElementById('profileEmail').value,
+        primary_contact: document.getElementById('profileContact').value,
+        alternate_contact: document.getElementById('profileAltContact').value,
+        date_of_birth: document.getElementById('profileDOB').value || null
+      };
+
+      try {
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        const res = await fetch(`/api/students/${currentStudent.id}/profile`, {
+          method: 'PUT',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+          alert('✅ Profile updated successfully!');
+          // Update local data
+          currentStudent.parent_name = updates.parent_name;
+          currentStudent.parent_email = updates.parent_email;
+          currentStudent.primary_contact = updates.primary_contact;
+          currentStudent.alternate_contact = updates.alternate_contact;
+          currentStudent.date_of_birth = updates.date_of_birth;
+        } else {
+          alert('❌ Failed: ' + (result.error || 'Unknown error'));
+        }
+
+        btn.disabled = false;
+        btn.textContent = '💾 Save Changes';
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
 
     function logout() {
       if(confirm('Are you sure you want to logout?')) {

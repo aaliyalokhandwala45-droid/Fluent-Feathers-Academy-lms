@@ -145,6 +145,52 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// ==================== ADMIN SETTINGS API ====================
+// Get admin settings (bio, name, title)
+app.get('/api/admin/settings', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT setting_key, setting_value FROM admin_settings');
+    const settings = {};
+    result.rows.forEach(row => {
+      settings[row.setting_key] = row.setting_value;
+    });
+    res.json(settings);
+  } catch (err) {
+    res.json({ admin_bio: '', admin_name: 'Aaliya', admin_title: 'Founder & Lead Instructor' });
+  }
+});
+
+// Update admin settings
+app.put('/api/admin/settings', async (req, res) => {
+  const { admin_bio, admin_name, admin_title } = req.body;
+  try {
+    if (admin_bio !== undefined) {
+      await pool.query(`
+        INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+        VALUES ('admin_bio', $1, CURRENT_TIMESTAMP)
+        ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
+      `, [admin_bio]);
+    }
+    if (admin_name !== undefined) {
+      await pool.query(`
+        INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+        VALUES ('admin_name', $1, CURRENT_TIMESTAMP)
+        ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
+      `, [admin_name]);
+    }
+    if (admin_title !== undefined) {
+      await pool.query(`
+        INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+        VALUES ('admin_title', $1, CURRENT_TIMESTAMP)
+        ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
+      `, [admin_title]);
+    }
+    res.json({ success: true, message: 'Settings updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== DATABASE BACKUP ENDPOINT ====================
 // Export all data as SQL for migration
 app.get('/api/backup/export', async (req, res) => {
@@ -892,6 +938,54 @@ async function runMigrations() {
       console.error('❌ Error adding image_url to announcements:', err.message);
     }
 
+    // Migration 16: Admin settings table for bio and other settings
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS admin_settings (
+          id SERIAL PRIMARY KEY,
+          setting_key TEXT UNIQUE NOT NULL,
+          setting_value TEXT,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      // Insert default bio if not exists
+      await client.query(`
+        INSERT INTO admin_settings (setting_key, setting_value)
+        VALUES ('admin_bio', '')
+        ON CONFLICT (setting_key) DO NOTHING
+      `);
+      await client.query(`
+        INSERT INTO admin_settings (setting_key, setting_value)
+        VALUES ('admin_name', 'Aaliya')
+        ON CONFLICT (setting_key) DO NOTHING
+      `);
+      await client.query(`
+        INSERT INTO admin_settings (setting_key, setting_value)
+        VALUES ('admin_title', 'Founder & Lead Instructor')
+        ON CONFLICT (setting_key) DO NOTHING
+      `);
+      console.log('✅ Admin settings table created');
+    } catch (err) {
+      console.error('❌ Error creating admin_settings table:', err.message);
+    }
+
+    // Migration 17: Add assessment_type and demo_lead_id columns to monthly_assessments
+    try {
+      // Add assessment_type column (default 'monthly' for backwards compatibility)
+      await client.query(`
+        ALTER TABLE monthly_assessments
+        ADD COLUMN IF NOT EXISTS assessment_type TEXT DEFAULT 'monthly'
+      `);
+      // Add demo_lead_id for demo assessments
+      await client.query(`
+        ALTER TABLE monthly_assessments
+        ADD COLUMN IF NOT EXISTS demo_lead_id INTEGER REFERENCES demo_leads(id) ON DELETE SET NULL
+      `);
+      console.log('✅ Migration 17: Assessment type and demo_lead_id columns added');
+    } catch (err) {
+      console.error('❌ Migration 17 error:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -1242,6 +1336,79 @@ function getAnnouncementEmail(data) {
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
         Best regards,<br>
         <strong style="color: #B05D9E;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getDemoConfirmationEmail(data) {
+  const bioHtml = data.adminBio ? `
+    <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
+      <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 18px;">👋 Meet Your Instructor</h3>
+      <div style="display: flex; align-items: flex-start; gap: 20px;">
+        <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; flex-shrink: 0;">
+          ${data.adminName ? data.adminName.charAt(0).toUpperCase() : 'A'}
+        </div>
+        <div style="flex: 1;">
+          <h4 style="margin: 0 0 5px; color: #2d3748; font-size: 18px;">${data.adminName || 'Aaliya'}</h4>
+          <p style="margin: 0 0 12px; color: #B05D9E; font-size: 14px; font-weight: 600;">${data.adminTitle || 'Founder & Lead Instructor'}</p>
+          <p style="margin: 0; color: #4a5568; font-size: 15px; line-height: 1.7; white-space: pre-wrap;">${data.adminBio}</p>
+        </div>
+      </div>
+    </div>
+  ` : '';
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Demo Class Confirmed!</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 18px; color: #2d3748; margin-bottom: 25px;">Hi <strong>${data.parentName}</strong>,</p>
+
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        Thank you for scheduling a demo class for <strong style="color: #B05D9E;">${data.childName}</strong>! We're excited to meet you and your child.
+      </p>
+
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; margin: 25px 0; border-radius: 12px; text-align: center;">
+        <h3 style="margin: 0 0 15px; font-size: 16px; opacity: 0.9;">📅 Demo Class Details</h3>
+        <p style="margin: 0 0 8px; font-size: 20px; font-weight: bold;">${data.demoDate}</p>
+        <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${data.demoTime} IST</p>
+        <p style="margin: 15px 0 0; font-size: 14px; opacity: 0.9;">Program: ${data.programInterest}</p>
+      </div>
+
+      ${bioHtml}
+
+      <div style="background: #fff8e6; border: 1px solid #f6e05e; padding: 20px; border-radius: 10px; margin: 25px 0;">
+        <h4 style="color: #744210; margin: 0 0 10px; font-size: 16px;">📝 What to Expect</h4>
+        <ul style="color: #744210; margin: 0; padding-left: 20px; line-height: 1.8;">
+          <li>Interactive and fun 30-minute session</li>
+          <li>Assessment of your child's current level</li>
+          <li>Discussion about learning goals</li>
+          <li>Q&A with the instructor</li>
+        </ul>
+      </div>
+
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        We'll send you the meeting link closer to the demo time. If you have any questions, feel free to reply to this email.
+      </p>
+
+      <p style="font-size: 16px; color: #2d3748; margin-top: 30px;">
+        Looking forward to meeting ${data.childName}!<br><br>
+        Best regards,<br>
+        <strong style="color: #B05D9E;">${data.adminName || 'Aaliya'}</strong><br>
+        <span style="color: #718096; font-size: 14px;">${data.adminTitle || 'Fluent Feathers Academy'}</span>
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
@@ -2011,14 +2178,178 @@ function getMonthlyReportCardEmail(data) {
 </html>`;
 }
 
+// Demo Assessment Email Template
+function getDemoAssessmentEmail(data) {
+  const { childName, childGrade, demoDate, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
+  const skillsList = skills && skills.length > 0 ? skills : [];
+  const formattedDate = demoDate ? new Date(demoDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Demo Class';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 700px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">🎯</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Demo Class Assessment Report</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">${formattedDate}</p>
+    </div>
+
+    <!-- Content -->
+    <div style="padding: 30px;">
+      <!-- Child Info -->
+      <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
+        <p style="margin: 0 0 5px; color: rgba(255,255,255,0.9); font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Student</p>
+        <h2 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">${childName}</h2>
+        <p style="margin: 8px 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">${childGrade || ''}</p>
+      </div>
+
+      <!-- Thank You Message -->
+      <div style="background: #e6fffa; padding: 20px; border-radius: 10px; border-left: 4px solid #38b2ac; margin-bottom: 25px;">
+        <p style="margin: 0; color: #234e52; font-size: 15px; line-height: 1.7;">
+          Thank you for attending the demo class with Fluent Feathers Academy! We were delighted to have ${childName} join us. Here's a summary of what we observed during the session.
+        </p>
+      </div>
+
+      ${certificateTitle ? `
+      <!-- Demo Certificate -->
+      <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 50%, #81e6d9 100%); border: 4px solid #38b2ac; border-radius: 20px; padding: 25px; margin-bottom: 25px; text-align: center;">
+        <!-- Stars Header -->
+        <div style="font-size: 24px; margin-bottom: 10px;">⭐ ✨ 🌟 ✨ ⭐</div>
+
+        <!-- Logo -->
+        <img src="${process.env.LOGO_URL || ''}" alt="Fluent Feathers" style="height: 60px; margin-bottom: 8px;" onerror="this.outerHTML='<div style=\\'font-size:40px;\\'>🎓</div>'">
+        <p style="margin: 0 0 15px; color: #234e52; font-size: 12px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY</p>
+
+        <!-- Demo Certificate Badge -->
+        <div style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 8px 20px; border-radius: 20px; margin: 10px 0;">
+          <span style="color: white; font-size: 14px; font-weight: 600;">🎯 DEMO CLASS CERTIFICATE</span>
+        </div>
+
+        <!-- Award Badge with Title -->
+        <div style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 10px 25px; border-radius: 25px; margin: 10px 0;">
+          <span style="font-size: 24px;">🏆</span>
+          <span style="color: #78350f; font-size: 18px; font-weight: 700; margin-left: 8px;">${certificateTitle}</span>
+        </div>
+
+        <!-- Student Name -->
+        <div style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.8); border-radius: 15px;">
+          <p style="margin: 0 0 8px; color: #6b7280; font-size: 11px; text-transform: uppercase;">Awarded to</p>
+          <h2 style="margin: 0; color: #234e52; font-size: 28px; font-family: 'Comic Sans MS', cursive, sans-serif;">🌟 ${childName} 🌟</h2>
+        </div>
+
+        <!-- Achievement -->
+        <p style="margin: 0; color: #4b5563; font-size: 13px;">
+          For showing great potential in our demo class!
+        </p>
+
+        <!-- Fun Emojis -->
+        <div style="font-size: 28px; margin: 15px 0;">🎉 🎊 🥳 🎈</div>
+
+        <!-- Signature -->
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px dashed #81e6d9;">
+          <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 22px; color: #374151;">Aaliya Lokhandwala</p>
+          <p style="margin: 3px 0 0; color: #9ca3af; font-size: 10px;">Founder & Teacher</p>
+        </div>
+      </div>
+      ` : ''}
+
+      ${skillsList.length > 0 ? `
+      <!-- Skills Observed -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>📝</span> Skills Observed During Demo
+        </h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${skillsList.map(skill => `
+          <div style="background: #e6fffa; padding: 12px; border-radius: 8px; border-left: 4px solid #38b2ac; font-size: 14px; color: #234e52; font-weight: 600;">
+            ✓ ${skill}
+          </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      ${performanceSummary ? `
+      <!-- Performance Summary -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>📈</span> Demo Session Summary
+        </h3>
+        <div style="background: #e6fffa; padding: 20px; border-radius: 10px; border-left: 4px solid #38b2ac;">
+          <p style="margin: 0; color: #234e52; font-size: 15px; line-height: 1.7;">
+            ${performanceSummary}
+          </p>
+        </div>
+      </div>
+      ` : ''}
+
+      ${areasOfImprovement ? `
+      <!-- Areas to Focus -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>🎯</span> Recommended Focus Areas
+        </h3>
+        <div style="background: #fefce8; padding: 20px; border-radius: 10px; border-left: 4px solid #eab308;">
+          <p style="margin: 0; color: #713f12; font-size: 15px; line-height: 1.7;">
+            ${areasOfImprovement}
+          </p>
+        </div>
+      </div>
+      ` : ''}
+
+      ${teacherComments ? `
+      <!-- Teacher's Comments -->
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>💬</span> Teacher's Notes
+        </h3>
+        <div style="background: #faf5ff; padding: 20px; border-radius: 10px; border-left: 4px solid #B05D9E;">
+          <p style="margin: 0; color: #4a5568; font-size: 15px; line-height: 1.7; font-style: italic;">
+            "${teacherComments}"
+          </p>
+        </div>
+      </div>
+      ` : ''}
+
+      <!-- Call to Action -->
+      <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px;">
+        <p style="margin: 0; color: white; font-size: 16px; line-height: 1.6; font-weight: 500;">
+          🌟 We'd love to have ${childName} join our classes! 🌟<br>
+          <span style="font-size: 14px; opacity: 0.95;">Contact us to enroll and continue this learning journey.</span>
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; text-align: center; line-height: 1.6;">
+        With warm regards,<br>
+        <strong style="color: #38b2ac; font-size: 16px;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 // ==================== CLASS REMINDER CRON JOB ====================
 // Runs every 15 minutes to check for upcoming classes
-cron.schedule('*/15 * * * *', async () => {
+// Function to check and send class reminders (used by both cron and manual trigger)
+async function checkAndSendReminders() {
+  const now = new Date();
+  console.log('🔔 Checking for upcoming classes to send reminders...');
+  console.log(`⏰ Current server time (UTC): ${now.toISOString()}`);
+
   try {
-    console.log('🔔 Checking for upcoming classes to send reminders...');
-
-    const now = new Date();
-
     // Find all upcoming PRIVATE sessions
     // Use session_date >= CURRENT_DATE - 1 to catch sessions that might span across midnight UTC
     const privateSessions = await pool.query(`
@@ -2070,8 +2401,8 @@ cron.schedule('*/15 * * * *', async () => {
         // Log session details for debugging
         console.log(`📌 ${sessionTypeLabel} Session #${session.session_number} for ${session.student_name}: ${session.full_datetime} (${hoursDiff.toFixed(2)} hours away)`);
 
-        // Check if we need to send 5-hour reminder
-        if (hoursDiff > 4.75 && hoursDiff <= 5.25) {
+        // Check if we need to send 5-hour reminder (widened window: 4.5 to 5.5 hours for reliability)
+        if (hoursDiff > 4.5 && hoursDiff <= 5.5) {
           const emailType5hr = session.is_group ? 'Reminder-5hrs-Group' : 'Reminder-5hrs';
           console.log(`⏰ ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 5-hour window, checking if reminder already sent...`);
           // Check if 5-hour reminder already sent for this SPECIFIC session using unique session ID
@@ -2114,8 +2445,8 @@ cron.schedule('*/15 * * * *', async () => {
           }
         }
 
-        // Check if we need to send 1-hour reminder
-        if (hoursDiff > 0.75 && hoursDiff <= 1.25) {
+        // Check if we need to send 1-hour reminder (widened window: 0.5 to 1.5 hours for reliability)
+        if (hoursDiff > 0.5 && hoursDiff <= 1.5) {
           const emailType1hr = session.is_group ? 'Reminder-1hr-Group' : 'Reminder-1hr';
           console.log(`⏰ ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 1-hour window, checking if reminder already sent...`);
           // Check if 1-hour reminder already sent for this SPECIFIC session using unique session ID
@@ -2161,6 +2492,15 @@ cron.schedule('*/15 * * * *', async () => {
         console.error(`Error processing session ${session.id}:`, sessionErr);
       }
     }
+  } catch (err) {
+    console.error('❌ Error in class reminder check:', err);
+  }
+}
+
+// Cron job to run reminders every 15 minutes
+cron.schedule('*/15 * * * *', async () => {
+  try {
+    await checkAndSendReminders();
   } catch (err) {
     console.error('❌ Error in class reminder cron job:', err);
   }
@@ -2498,7 +2838,7 @@ app.get('/api/demo-leads', async (req, res) => {
 
 // Add new demo lead
 app.post('/api/demo-leads', async (req, res) => {
-  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, notes } = req.body;
+  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, notes, send_email } = req.body;
   try {
     // Convert demo date/time to UTC
     let utcDate = demo_date;
@@ -2515,7 +2855,50 @@ app.post('/api/demo-leads', async (req, res) => {
       RETURNING *
     `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, utcDate, utcTime, source, notes]);
 
-    res.json({ success: true, lead: r.rows[0] });
+    let emailSent = false;
+
+    // Send demo confirmation email if requested
+    if (send_email && parent_email && demo_date && demo_time) {
+      try {
+        // Get admin settings (bio, name, title)
+        const settingsResult = await pool.query('SELECT setting_key, setting_value FROM admin_settings');
+        const settings = {};
+        settingsResult.rows.forEach(row => {
+          settings[row.setting_key] = row.setting_value;
+        });
+
+        // Format date and time for display (IST)
+        const displayDate = new Date(demo_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const displayTime = demo_time;
+
+        const emailHtml = getDemoConfirmationEmail({
+          parentName: parent_name || 'Parent',
+          childName: child_name,
+          demoDate: displayDate,
+          demoTime: displayTime,
+          programInterest: program_interest || 'English Communication',
+          adminName: settings.admin_name || 'Aaliya',
+          adminTitle: settings.admin_title || 'Founder & Lead Instructor',
+          adminBio: settings.admin_bio || ''
+        });
+
+        emailSent = await sendEmail(
+          parent_email,
+          `🎉 Demo Class Confirmed for ${child_name} - Fluent Feathers Academy`,
+          emailHtml,
+          parent_name,
+          'Demo Confirmation'
+        );
+      } catch (emailErr) {
+        console.error('Demo email error:', emailErr);
+      }
+    }
+
+    res.json({
+      success: true,
+      lead: r.rows[0],
+      message: emailSent ? 'Demo scheduled and confirmation email sent!' : 'Demo scheduled successfully!'
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -4196,6 +4579,22 @@ app.get('/api/students/:id/full', async (req, res) => {
   }
 });
 
+// Parent profile update (limited fields for parent self-edit)
+app.put('/api/students/:id/profile', async (req, res) => {
+  const { parent_name, parent_email, primary_contact, alternate_contact, date_of_birth } = req.body;
+  try {
+    await pool.query(`
+      UPDATE students SET
+        parent_name = $1, parent_email = $2, primary_contact = $3,
+        alternate_contact = $4, date_of_birth = $5
+      WHERE id = $6
+    `, [parent_name, parent_email, primary_contact, alternate_contact || null, date_of_birth || null, req.params.id]);
+    res.json({ success: true, message: 'Profile updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== EDIT & DELETE GROUP ====================
 app.put('/api/groups/:id', async (req, res) => {
   const { group_name, program_name, duration, timezone, max_students } = req.body;
@@ -5048,9 +5447,14 @@ app.delete('/api/certificates/:id', async (req, res) => {
 app.get('/api/assessments', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT a.*, s.name as student_name
+      SELECT a.*,
+             s.name as student_name,
+             d.child_name as demo_child_name,
+             d.demo_date as demo_date,
+             d.parent_email as demo_parent_email
       FROM monthly_assessments a
-      JOIN students s ON a.student_id = s.id
+      LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN demo_leads d ON a.demo_lead_id = d.id
       ORDER BY a.created_at DESC
     `);
     res.json(result.rows);
@@ -5062,9 +5466,15 @@ app.get('/api/assessments', async (req, res) => {
 app.get('/api/assessments/:id', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT a.*, s.name as student_name
+      SELECT a.*,
+             s.name as student_name,
+             d.child_name as demo_child_name,
+             d.demo_date as demo_date,
+             d.parent_email as demo_parent_email,
+             d.parent_name as demo_parent_name
       FROM monthly_assessments a
-      JOIN students s ON a.student_id = s.id
+      LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN demo_leads d ON a.demo_lead_id = d.id
       WHERE a.id = $1
     `, [req.params.id]);
     res.json(result.rows[0]);
@@ -5087,44 +5497,84 @@ app.get('/api/students/:id/assessments', async (req, res) => {
 });
 
 app.post('/api/assessments', async (req, res) => {
-  const { student_id, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments, send_email } = req.body;
+  const { assessment_type, student_id, demo_lead_id, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments, send_email } = req.body;
+
   try {
-    // Insert assessment into database
-    const result = await pool.query(`
-      INSERT INTO monthly_assessments (student_id, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `, [student_id, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments]);
+    const isDemo = assessment_type === 'demo';
+    let result;
 
-    // Send email if requested
-    if (send_email) {
-      const student = await pool.query('SELECT name, parent_email, parent_name FROM students WHERE id = $1', [student_id]);
-      if (student.rows[0]) {
-        const skillsArray = skills ? JSON.parse(skills) : [];
-        const reportCardEmailHTML = getMonthlyReportCardEmail({
-          studentName: student.rows[0].name,
-          month: month,
-          year: year,
-          skills: skillsArray,
-          certificateTitle: certificate_title,
-          performanceSummary: performance_summary,
-          areasOfImprovement: areas_of_improvement,
-          teacherComments: teacher_comments
-        });
+    if (isDemo) {
+      // Demo assessment - linked to demo_lead
+      result = await pool.query(`
+        INSERT INTO monthly_assessments (demo_lead_id, assessment_type, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      `, [demo_lead_id, 'demo', skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments]);
 
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        await sendEmail(
-          student.rows[0].parent_email,
-          `📊 Monthly Progress Report - ${monthNames[month - 1]} ${year}`,
-          reportCardEmailHTML,
-          student.rows[0].parent_name,
-          'Report Card'
-        );
+      // Send demo assessment email if requested
+      if (send_email) {
+        const lead = await pool.query('SELECT child_name, child_grade, parent_email, parent_name, demo_date FROM demo_leads WHERE id = $1', [demo_lead_id]);
+        if (lead.rows[0] && lead.rows[0].parent_email) {
+          const skillsArray = skills ? JSON.parse(skills) : [];
+          const demoEmailHTML = getDemoAssessmentEmail({
+            childName: lead.rows[0].child_name,
+            childGrade: lead.rows[0].child_grade,
+            demoDate: lead.rows[0].demo_date,
+            skills: skillsArray,
+            certificateTitle: certificate_title,
+            performanceSummary: performance_summary,
+            areasOfImprovement: areas_of_improvement,
+            teacherComments: teacher_comments
+          });
+
+          await sendEmail(
+            lead.rows[0].parent_email,
+            `🎯 Demo Class Assessment Report - ${lead.rows[0].child_name}`,
+            demoEmailHTML,
+            lead.rows[0].parent_name,
+            'Demo Assessment'
+          );
+        }
+      }
+    } else {
+      // Monthly assessment - linked to student
+      result = await pool.query(`
+        INSERT INTO monthly_assessments (student_id, assessment_type, month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+      `, [student_id, 'monthly', month, year, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments]);
+
+      // Send email if requested
+      if (send_email) {
+        const student = await pool.query('SELECT name, parent_email, parent_name FROM students WHERE id = $1', [student_id]);
+        if (student.rows[0]) {
+          const skillsArray = skills ? JSON.parse(skills) : [];
+          const reportCardEmailHTML = getMonthlyReportCardEmail({
+            studentName: student.rows[0].name,
+            month: month,
+            year: year,
+            skills: skillsArray,
+            certificateTitle: certificate_title,
+            performanceSummary: performance_summary,
+            areasOfImprovement: areas_of_improvement,
+            teacherComments: teacher_comments
+          });
+
+          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          await sendEmail(
+            student.rows[0].parent_email,
+            `📊 Monthly Progress Report - ${monthNames[month - 1]} ${year}`,
+            reportCardEmailHTML,
+            student.rows[0].parent_name,
+            'Report Card'
+          );
+        }
       }
     }
 
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('Assessment creation error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -5265,4 +5715,87 @@ app.post('/api/resources/upload', (req, res, next) => {
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 LMS Running on port ${PORT}`));
+// ==================== MANUAL REMINDER TRIGGER ====================
+// Endpoint to manually trigger reminder check (useful for testing or if cron misses)
+app.post('/api/admin/trigger-reminders', async (req, res) => {
+  try {
+    console.log('🔔 Manual reminder check triggered');
+    await checkAndSendReminders();
+    res.json({ success: true, message: 'Reminder check completed. Check server logs for details.' });
+  } catch (err) {
+    console.error('Error in manual reminder trigger:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to check server health and upcoming reminders
+app.get('/api/health', async (req, res) => {
+  try {
+    const now = new Date();
+
+    // Get upcoming sessions in next 6 hours
+    const upcoming = await pool.query(`
+      SELECT s.id, s.session_number, s.session_date, s.session_time, s.session_type,
+             COALESCE(st.name, 'Group') as student_name,
+             CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
+      FROM sessions s
+      LEFT JOIN students st ON s.student_id = st.id
+      WHERE s.status IN ('Pending', 'Scheduled')
+        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
+      ORDER BY s.session_date, s.session_time
+      LIMIT 10
+    `);
+
+    const sessionsWithTimes = upcoming.rows.map(s => {
+      const sessionDateTime = new Date(s.full_datetime);
+      const hoursDiff = (sessionDateTime - now) / (1000 * 60 * 60);
+      return {
+        id: s.id,
+        session_number: s.session_number,
+        student: s.student_name,
+        type: s.session_type,
+        datetime_utc: s.full_datetime,
+        hours_until: hoursDiff.toFixed(2)
+      };
+    });
+
+    res.json({
+      status: 'healthy',
+      server_time_utc: now.toISOString(),
+      upcoming_sessions: sessionsWithTimes,
+      reminder_windows: {
+        '5_hour': '4.5 to 5.5 hours before class',
+        '1_hour': '0.5 to 1.5 hours before class'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
+});
+
+// ==================== KEEPALIVE PING ====================
+// Self-ping every 14 minutes to prevent server sleep on free tier platforms
+const SELF_PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+let selfPingUrl = null;
+
+function startKeepAlive() {
+  // Only start keepalive in production
+  if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+    selfPingUrl = process.env.RENDER_EXTERNAL_URL;
+    console.log(`🏓 Keepalive ping enabled for: ${selfPingUrl}`);
+
+    setInterval(async () => {
+      try {
+        const response = await axios.get(`${selfPingUrl}/api/health`, { timeout: 10000 });
+        console.log(`🏓 Keepalive ping successful at ${new Date().toISOString()}`);
+      } catch (err) {
+        console.log(`🏓 Keepalive ping failed: ${err.message}`);
+      }
+    }, SELF_PING_INTERVAL);
+  }
+}
+
+app.listen(PORT, () => {
+  console.log(`🚀 LMS Running on port ${PORT}`);
+  startKeepAlive();
+});

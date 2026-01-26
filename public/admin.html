@@ -243,6 +243,7 @@
         <button class="nav-btn" onclick="showTab('challenges', event)">🎯 <span>Challenges</span></button>
         <button class="nav-btn" onclick="showTab('resources', event)">📚 <span>Resources</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
+        <button class="nav-btn" onclick="showTab('adminProfile', event)">👤 <span>My Profile</span></button>
       </nav>
     </aside>
 
@@ -520,6 +521,10 @@
                 </select>
               </div>
               <div class="form-group"><label>Notes (Optional)</label><input type="text" id="demoNotes" placeholder="Any additional info..."></div>
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 10px;">
+              <input type="checkbox" id="sendDemoEmail" style="width: auto; margin: 0;" checked>
+              <label for="sendDemoEmail" style="margin: 0; cursor: pointer;">📧 Send Demo Confirmation Email (includes your bio)</label>
             </div>
             <button type="submit" class="btn btn-primary">Add Demo Lead</button>
           </form>
@@ -1313,9 +1318,27 @@
 
     <div id="monthlyAssessmentTab" class="tab-content">
       <div class="section">
-        <h2>📊 Monthly Assessment & Certificate</h2>
+        <h2>📊 Assessment & Certificate</h2>
         <form id="monthlyAssessmentForm">
-          <div class="form-row">
+          <!-- Assessment Type Selection -->
+          <div class="form-row" style="margin-bottom: 20px;">
+            <div class="form-group">
+              <label>Assessment Type *</label>
+              <div style="display: flex; gap: 15px; margin-top: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 20px; border: 2px solid #e2e8f0; border-radius: 8px; transition: all 0.2s;" id="typeMonthlyLabel">
+                  <input type="radio" name="assessmentType" value="monthly" id="typeMonthly" checked style="width: 18px; height: 18px;">
+                  <span style="font-weight: 600;">📅 Monthly Assessment</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 20px; border: 2px solid #e2e8f0; border-radius: 8px; transition: all 0.2s;" id="typeDemoLabel">
+                  <input type="radio" name="assessmentType" value="demo" id="typeDemo" style="width: 18px; height: 18px;">
+                  <span style="font-weight: 600;">🎯 Demo Class Assessment</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monthly Assessment Fields -->
+          <div id="monthlyFields" class="form-row">
             <div class="form-group"><label>Student *</label>
               <select id="assessmentStudent" required>
                 <option value="">Select Student...</option>
@@ -1339,6 +1362,19 @@
             </div>
             <div class="form-group"><label>Year *</label>
               <input type="number" id="assessmentYear" required value="2026" min="2020" max="2030">
+            </div>
+          </div>
+
+          <!-- Demo Assessment Fields (hidden by default) -->
+          <div id="demoFields" class="form-row" style="display: none;">
+            <div class="form-group"><label>Demo Lead *</label>
+              <select id="assessmentDemoLead">
+                <option value="">Select Demo Lead...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Demo Date</label>
+              <input type="text" id="demoLeadDate" readonly style="background: #f7fafc; cursor: not-allowed;">
             </div>
           </div>
 
@@ -1530,6 +1566,13 @@
             <div class="form-group"><label>Certificate Title</label>
               <select id="certificateTitle">
                 <option value="">No Certificate</option>
+                <optgroup label="🎯 Demo Class" id="demoCertificateOptions" style="display: none;">
+                  <option value="Demo Star">🌟 Demo Star</option>
+                  <option value="Brilliant First Impression">✨ Brilliant First Impression</option>
+                  <option value="Shining Beginner">💫 Shining Beginner</option>
+                  <option value="Eager Learner">🎓 Eager Learner</option>
+                  <option value="Future Star">⭐ Future Star</option>
+                </optgroup>
                 <optgroup label="🔤 Phonics">
                   <option value="Phonics Star">🔤 Phonics Star</option>
                   <option value="Sound Master">🔊 Sound Master</option>
@@ -1597,10 +1640,10 @@
         </form>
       </div>
       <div class="section">
-        <h2>📋 All Monthly Assessments</h2>
+        <h2>📋 All Assessments</h2>
         <table id="assessmentsTable">
-          <thead><tr><th>Student</th><th>Month/Year</th><th>Certificate</th><th>Skills</th><th>Date</th><th>Actions</th></tr></thead>
-          <tbody id="assessmentsBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+          <thead><tr><th>Type</th><th>Student/Lead</th><th>Period</th><th>Certificate</th><th>Skills</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="assessmentsBody"><tr><td colspan="7">Loading...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1702,6 +1745,71 @@
       </div>
     </div>
   </div>
+
+    <!-- Admin Profile Tab -->
+    <div id="adminProfileTab" class="tab-content">
+      <div class="section">
+        <h2 style="color: #B05D9E; margin-bottom: 10px;">👤 My Profile & Bio</h2>
+        <p style="color: #718096; margin-bottom: 25px;">This bio will be sent to demo parents before their demo class to build trust and showcase your expertise.</p>
+
+        <form id="adminProfileForm">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px;">
+            <!-- Basic Info -->
+            <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white;">
+              <h3 style="margin: 0 0 20px 0;">✨ Basic Information</h3>
+              <div class="form-group" style="margin-bottom: 15px;">
+                <label style="color: rgba(255,255,255,0.9);">Your Name</label>
+                <input type="text" id="adminName" style="background: rgba(255,255,255,0.95); border: none; padding: 12px; border-radius: 8px; width: 100%;" placeholder="Aaliya">
+              </div>
+              <div class="form-group">
+                <label style="color: rgba(255,255,255,0.9);">Title / Role</label>
+                <input type="text" id="adminTitle" style="background: rgba(255,255,255,0.95); border: none; padding: 12px; border-radius: 8px; width: 100%;" placeholder="Founder & Lead Instructor">
+              </div>
+            </div>
+
+            <!-- Preview Card -->
+            <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
+              <h3 style="margin: 0 0 15px 0; color: #2d3748;">📧 Email Preview</h3>
+              <p style="color: #718096; font-size: 0.9rem; margin-bottom: 15px;">This is how your bio will appear in demo emails:</p>
+              <div style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #B05D9E;">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                  <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; font-weight: bold;" id="adminInitialPreview">A</div>
+                  <div>
+                    <h4 style="margin: 0; color: #2d3748;" id="adminNamePreview">Aaliya</h4>
+                    <p style="margin: 5px 0 0; color: #B05D9E; font-size: 0.9rem;" id="adminTitlePreview">Founder & Lead Instructor</p>
+                  </div>
+                </div>
+                <p style="color: #4a5568; font-size: 0.95rem; line-height: 1.7; margin: 0;" id="adminBioPreview"><em>Your bio will appear here...</em></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bio Section -->
+          <div style="margin-top: 25px; background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
+            <h3 style="margin: 0 0 15px 0; color: #B05D9E;">📝 About You / Bio</h3>
+            <p style="color: #718096; font-size: 0.9rem; margin-bottom: 15px;">Write about your experience, qualifications, teaching philosophy, and what makes your classes special. This helps parents feel confident about their child's learning journey.</p>
+            <textarea id="adminBio" rows="8" style="width: 100%; padding: 15px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; line-height: 1.6; resize: vertical;" placeholder="Hi! I'm Aaliya, the founder of Fluent Feathers Academy...
+
+I have X years of experience in teaching children...
+
+My teaching philosophy focuses on...
+
+What makes my classes unique:
+• Interactive and fun learning
+• Personalized attention
+• Regular progress updates
+
+I'm passionate about helping children develop confidence in communication!"></textarea>
+            <p style="color: #718096; font-size: 0.85rem; margin-top: 10px;">💡 Tip: Include your experience, qualifications, teaching style, and what parents can expect.</p>
+          </div>
+
+          <div style="margin-top: 25px; text-align: center;">
+            <button type="submit" class="btn btn-primary" style="padding: 12px 40px; font-size: 1rem;">💾 Save Profile</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
 <!-- Edit Payment Modal -->
 <div id="editPaymentModal" class="modal">
   <div class="modal-content" style="max-width: 500px;">
@@ -4157,6 +4265,28 @@ async function saveEditedPayment() {
       }
     }
 
+    // Convert UTC time to IST (UTC+5:30)
+    function utcToIST(timeStr) {
+      if (!timeStr) return '';
+      try {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        let istHours = hours + 5;
+        let istMinutes = minutes + 30;
+
+        if (istMinutes >= 60) {
+          istMinutes -= 60;
+          istHours += 1;
+        }
+        if (istHours >= 24) {
+          istHours -= 24;
+        }
+
+        return `${String(istHours).padStart(2, '0')}:${String(istMinutes).padStart(2, '0')}`;
+      } catch (e) {
+        return timeStr.substring(0, 5);
+      }
+    }
+
     function renderCalendar() {
       const year = calendarDate.getFullYear();
       const month = calendarDate.getMonth();
@@ -4193,7 +4323,7 @@ async function saveEditedPayment() {
           }
 
           // Convert to IST time display
-          const time = s.session_time ? s.session_time.substring(0, 5) : '';
+          const time = s.session_time ? utcToIST(s.session_time) : '';
 
           sessionsHtml += `<div style="background: ${bgColor}; color: white; padding: 2px 5px; border-radius: 3px; font-size: 0.7rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${label} - ${time} IST">${time} ${label.split(' ')[0]}</div>`;
         });
@@ -4248,7 +4378,7 @@ async function saveEditedPayment() {
             typeLabel = 'Group';
           }
 
-          const time = s.session_time ? s.session_time.substring(0, 5) : 'N/A';
+          const time = s.session_time ? utcToIST(s.session_time) : 'N/A';
 
           html += `
             <div style="background: #f7fafc; padding: 12px; border-radius: 8px; border-left: 4px solid ${bgColor};">
@@ -5084,7 +5214,8 @@ async function saveEditedPayment() {
         demo_date: document.getElementById('demoDate').value,
         demo_time: document.getElementById('demoTime').value,
         source: document.getElementById('demoSource').value,
-        notes: document.getElementById('demoNotes').value
+        notes: document.getElementById('demoNotes').value,
+        send_email: document.getElementById('sendDemoEmail').checked
       };
 
       try {
@@ -5095,8 +5226,9 @@ async function saveEditedPayment() {
         });
         const result = await res.json();
         if (res.ok) {
-          alert('✅ Demo lead added successfully!');
+          alert('✅ ' + (result.message || 'Demo lead added successfully!'));
           e.target.reset();
+          document.getElementById('sendDemoEmail').checked = true; // Reset checkbox to checked
           loadDemoLeads();
         } else {
           alert('❌ Error: ' + result.error);
@@ -5978,11 +6110,54 @@ async function saveEditedPayment() {
       }
     }
 
-    // ==================== MONTHLY ASSESSMENTS ====================
+    // ==================== ASSESSMENTS (Monthly & Demo) ====================
     // Show/hide custom certificate title field
     document.getElementById('certificateTitle').addEventListener('change', function() {
       const customGroup = document.getElementById('customTitleGroup');
       customGroup.style.display = this.value === 'Custom' ? 'block' : 'none';
+    });
+
+    // Assessment type toggle
+    document.querySelectorAll('input[name="assessmentType"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        const isDemo = this.value === 'demo';
+        document.getElementById('monthlyFields').style.display = isDemo ? 'none' : 'flex';
+        document.getElementById('demoFields').style.display = isDemo ? 'flex' : 'none';
+
+        // Update form validation
+        document.getElementById('assessmentStudent').required = !isDemo;
+        document.getElementById('assessmentMonth').required = !isDemo;
+        document.getElementById('assessmentYear').required = !isDemo;
+        document.getElementById('assessmentDemoLead').required = isDemo;
+
+        // Update button text
+        const submitBtn = document.querySelector('#monthlyAssessmentForm button[type="submit"]');
+        submitBtn.textContent = isDemo ? 'Generate & Send Demo Report' : 'Generate & Send Report Card';
+
+        // Update styling
+        document.getElementById('typeMonthlyLabel').style.borderColor = isDemo ? '#e2e8f0' : '#B05D9E';
+        document.getElementById('typeMonthlyLabel').style.background = isDemo ? 'white' : '#fdf2f8';
+        document.getElementById('typeDemoLabel').style.borderColor = isDemo ? '#38b2ac' : '#e2e8f0';
+        document.getElementById('typeDemoLabel').style.background = isDemo ? '#e6fffa' : 'white';
+
+        // Show/hide demo certificate options
+        const demoCertOptions = document.getElementById('demoCertificateOptions');
+        if (demoCertOptions) {
+          demoCertOptions.style.display = isDemo ? 'block' : 'none';
+        }
+
+        // Load demo leads if not already loaded
+        if (isDemo) {
+          loadAssessmentDemoLeads();
+        }
+      });
+    });
+
+    // Demo lead selection change
+    document.getElementById('assessmentDemoLead').addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      const demoDate = selectedOption.getAttribute('data-date') || '';
+      document.getElementById('demoLeadDate').value = demoDate;
     });
 
     async function loadAssessments() {
@@ -5992,21 +6167,25 @@ async function saveEditedPayment() {
         const tbody = document.getElementById('assessmentsBody');
 
         if (assessments.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#718096;">No assessments created</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#718096;">No assessments created</td></tr>';
           return;
         }
 
         tbody.innerHTML = assessments.map(a => {
           const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           const skills = a.skills ? JSON.parse(a.skills) : [];
-          const skillsText = skills.length > 0 ? skills.join(', ') : 'N/A';
+          const skillsText = skills.length > 0 ? (skills.length > 3 ? skills.slice(0, 3).join(', ') + '...' : skills.join(', ')) : 'N/A';
+          const isDemo = a.assessment_type === 'demo';
+          const typeLabel = isDemo ? '<span style="background:#38b2ac;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Demo</span>' : '<span style="background:#667eea;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Monthly</span>';
+          const period = isDemo ? (a.demo_date ? new Date(a.demo_date).toLocaleDateString() : 'Demo Class') : `${monthNames[a.month - 1]} ${a.year}`;
 
           return `
           <tr>
-            <td><strong>${a.student_name}</strong></td>
-            <td>${monthNames[a.month - 1]} ${a.year}</td>
+            <td>${typeLabel}</td>
+            <td><strong>${a.student_name || a.demo_child_name || 'Unknown'}</strong></td>
+            <td>${period}</td>
             <td>${a.certificate_title ? '🏆 ' + a.certificate_title : '-'}</td>
-            <td>${skillsText}</td>
+            <td title="${skillsText}">${skillsText}</td>
             <td>${new Date(a.created_at).toLocaleDateString()}</td>
             <td>
               <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
@@ -6029,6 +6208,26 @@ async function saveEditedPayment() {
           students.filter(s => s.is_active).map(s =>
             `<option value="${s.id}">${s.name} (${s.grade})</option>`
           ).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadAssessmentDemoLeads() {
+      try {
+        const res = await fetch('/api/demo-leads');
+        const leads = await res.json();
+        const select = document.getElementById('assessmentDemoLead');
+
+        // Filter to show demo_done leads or recent leads
+        const eligibleLeads = leads.filter(l => l.status === 'demo_done' || l.status === 'scheduled');
+
+        select.innerHTML = '<option value="">Select Demo Lead...</option>' +
+          eligibleLeads.map(l => {
+            const demoDate = l.demo_date ? new Date(l.demo_date).toLocaleDateString() : 'No date';
+            const statusLabel = l.status === 'demo_done' ? '✓ Demo Done' : '📅 Scheduled';
+            return `<option value="${l.id}" data-date="${demoDate}" data-email="${l.parent_email || ''}" data-parent="${l.parent_name || ''}">${l.child_name} (${l.child_grade}) - ${statusLabel} - ${demoDate}</option>`;
+          }).join('');
       } catch (err) {
         console.error(err);
       }
@@ -6112,10 +6311,11 @@ async function saveEditedPayment() {
       // Certificate title is already clean (no emoji in values)
 
       const sendEmail = document.getElementById('sendAssessmentEmail').checked;
+      const assessmentType = document.querySelector('input[name="assessmentType"]:checked').value;
+      const isDemo = assessmentType === 'demo';
+
       const data = {
-        student_id: parseInt(document.getElementById('assessmentStudent').value),
-        month: parseInt(document.getElementById('assessmentMonth').value),
-        year: parseInt(document.getElementById('assessmentYear').value),
+        assessment_type: assessmentType,
         skills: JSON.stringify(skills),
         certificate_title: certificateTitle || null,
         performance_summary: document.getElementById('performanceSummary').value,
@@ -6123,6 +6323,18 @@ async function saveEditedPayment() {
         teacher_comments: document.getElementById('teacherComments').value,
         send_email: sendEmail
       };
+
+      if (isDemo) {
+        const demoLeadSelect = document.getElementById('assessmentDemoLead');
+        const selectedOption = demoLeadSelect.options[demoLeadSelect.selectedIndex];
+        data.demo_lead_id = parseInt(demoLeadSelect.value);
+        data.demo_parent_email = selectedOption.getAttribute('data-email');
+        data.demo_parent_name = selectedOption.getAttribute('data-parent');
+      } else {
+        data.student_id = parseInt(document.getElementById('assessmentStudent').value);
+        data.month = parseInt(document.getElementById('assessmentMonth').value);
+        data.year = parseInt(document.getElementById('assessmentYear').value);
+      }
 
       try {
         const res = await fetch('/api/assessments', {
@@ -6132,11 +6344,21 @@ async function saveEditedPayment() {
         });
 
         if (res.ok) {
-          alert(`✅ Monthly assessment created! ${sendEmail ? 'Report card sent to parent.' : ''}`);
+          const typeLabel = isDemo ? 'Demo' : 'Monthly';
+          alert(`✅ ${typeLabel} assessment created! ${sendEmail ? 'Report sent to parent.' : ''}`);
           e.target.reset();
+          // Reset form to monthly view
+          document.getElementById('typeMonthly').checked = true;
+          document.getElementById('monthlyFields').style.display = 'flex';
+          document.getElementById('demoFields').style.display = 'none';
+          document.getElementById('typeMonthlyLabel').style.borderColor = '#B05D9E';
+          document.getElementById('typeMonthlyLabel').style.background = '#fdf2f8';
+          document.getElementById('typeDemoLabel').style.borderColor = '#e2e8f0';
+          document.getElementById('typeDemoLabel').style.background = 'white';
           loadAssessments();
         } else {
-          alert('❌ Failed to create assessment');
+          const result = await res.json();
+          alert('❌ Failed to create assessment: ' + (result.error || 'Unknown error'));
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);
@@ -6149,13 +6371,19 @@ async function saveEditedPayment() {
         const a = await res.json();
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const skillsArray = a.skills ? JSON.parse(a.skills) : [];
+        const isDemo = a.assessment_type === 'demo';
+        const displayName = a.student_name || a.demo_child_name || 'Unknown';
+        const period = isDemo ? (a.demo_date ? new Date(a.demo_date).toLocaleDateString() : 'Demo Class') : `${monthNames[a.month-1]} ${a.year}`;
+        const headerGradient = isDemo ? 'linear-gradient(135deg, #38b2ac 0%, #319795 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        const headerLabel = isDemo ? '🎯 Demo Class Assessment' : '📊 Monthly Assessment';
 
         let content = `
           <div style="padding: 20px;">
             <!-- Student Info -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 25px; color: white;">
-              <h2 style="margin: 0;">${a.student_name}</h2>
-              <p style="margin: 10px 0 0; opacity: 0.9;">${monthNames[a.month-1]} ${a.year}</p>
+            <div style="background: ${headerGradient}; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 25px; color: white;">
+              <p style="margin: 0 0 8px; font-size: 12px; opacity: 0.9;">${headerLabel}</p>
+              <h2 style="margin: 0;">${displayName}</h2>
+              <p style="margin: 10px 0 0; opacity: 0.9;">${period}</p>
             </div>
 
             ${a.certificate_title ? `
@@ -6290,7 +6518,75 @@ async function saveEditedPayment() {
       if (name === 'calendar') {
         loadCalendar();
       }
+      if (name === 'adminProfile') {
+        loadAdminProfile();
+      }
     };
+
+    // ==================== ADMIN PROFILE FUNCTIONS ====================
+    async function loadAdminProfile() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        const settings = await res.json();
+
+        document.getElementById('adminName').value = settings.admin_name || 'Aaliya';
+        document.getElementById('adminTitle').value = settings.admin_title || 'Founder & Lead Instructor';
+        document.getElementById('adminBio').value = settings.admin_bio || '';
+
+        updateAdminProfilePreview();
+      } catch (err) {
+        console.error('Error loading admin profile:', err);
+      }
+    }
+
+    function updateAdminProfilePreview() {
+      const name = document.getElementById('adminName').value || 'Aaliya';
+      const title = document.getElementById('adminTitle').value || 'Founder & Lead Instructor';
+      const bio = document.getElementById('adminBio').value || 'Your bio will appear here...';
+
+      document.getElementById('adminNamePreview').textContent = name;
+      document.getElementById('adminTitlePreview').textContent = title;
+      document.getElementById('adminBioPreview').innerHTML = bio ? bio.replace(/\n/g, '<br>') : '<em>Your bio will appear here...</em>';
+      document.getElementById('adminInitialPreview').textContent = name.charAt(0).toUpperCase();
+    }
+
+    // Live preview updates
+    document.getElementById('adminName').addEventListener('input', updateAdminProfilePreview);
+    document.getElementById('adminTitle').addEventListener('input', updateAdminProfilePreview);
+    document.getElementById('adminBio').addEventListener('input', updateAdminProfilePreview);
+
+    document.getElementById('adminProfileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        admin_name: document.getElementById('adminName').value,
+        admin_title: document.getElementById('adminTitle').value,
+        admin_bio: document.getElementById('adminBio').value
+      };
+
+      try {
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        const res = await fetch('/api/admin/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('✅ Profile saved successfully! Your bio will be sent to demo parents.');
+        } else {
+          alert('❌ Failed to save profile');
+        }
+
+        btn.disabled = false;
+        btn.textContent = '💾 Save Profile';
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
 
     // ==================== SWITCH TO LEARNER VIEW ====================
     function openSwitchToLearnerModal() {
