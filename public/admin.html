@@ -1749,46 +1749,25 @@
     <!-- Admin Profile Tab -->
     <div id="adminProfileTab" class="tab-content">
       <div class="section">
-        <h2 style="color: #B05D9E; margin-bottom: 10px;">👤 My Profile & Bio</h2>
-        <p style="color: #718096; margin-bottom: 25px;">This bio will be sent to demo parents before their demo class to build trust and showcase your expertise.</p>
+        <h2>👤 My Profile & Bio</h2>
+        <p style="color: #718096; margin-bottom: 20px;">This bio will be sent to demo parents before their demo class to build trust and showcase your expertise.</p>
 
         <form id="adminProfileForm">
-          <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-            <!-- Basic Info -->
-            <div style="flex: 1; min-width: 280px; max-width: 400px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 20px; border-radius: 15px; color: white; box-sizing: border-box;">
-              <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">✨ Basic Information</h3>
-              <div class="form-group" style="margin-bottom: 15px;">
-                <label style="color: rgba(255,255,255,0.9); display: block; margin-bottom: 5px;">Your Name</label>
-                <input type="text" id="adminName" style="background: rgba(255,255,255,0.95); border: none; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box;" placeholder="Aaliya">
-              </div>
-              <div class="form-group">
-                <label style="color: rgba(255,255,255,0.9); display: block; margin-bottom: 5px;">Title / Role</label>
-                <input type="text" id="adminTitle" style="background: rgba(255,255,255,0.95); border: none; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box;" placeholder="Founder & Lead Instructor">
-              </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Your Name</label>
+              <input type="text" id="adminName" placeholder="Aaliya">
             </div>
-
-            <!-- Preview Card -->
-            <div style="flex: 1; min-width: 280px; max-width: 450px; background: white; padding: 20px; border-radius: 15px; border: 2px solid #e2e8f0; box-sizing: border-box;">
-              <h3 style="margin: 0 0 10px 0; color: #2d3748; font-size: 1.1rem;">📧 Email Preview</h3>
-              <p style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">This is how your bio will appear in demo emails:</p>
-              <div style="background: #f7fafc; padding: 15px; border-radius: 10px; border-left: 4px solid #B05D9E;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
-                  <div style="width: 50px; height: 50px; flex-shrink: 0; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold;" id="adminInitialPreview">A</div>
-                  <div>
-                    <h4 style="margin: 0; color: #2d3748; font-size: 1rem;" id="adminNamePreview">Aaliya</h4>
-                    <p style="margin: 3px 0 0; color: #B05D9E; font-size: 0.85rem;" id="adminTitlePreview">Founder & Lead Instructor</p>
-                  </div>
-                </div>
-                <p style="color: #4a5568; font-size: 0.9rem; line-height: 1.5; margin: 0;" id="adminBioPreview"><em>Your bio will appear here...</em></p>
-              </div>
+            <div class="form-group">
+              <label>Title / Role</label>
+              <input type="text" id="adminTitle" placeholder="Founder & Lead Instructor">
             </div>
           </div>
 
-          <!-- Bio Section -->
-          <div style="margin-top: 20px; background: white; padding: 20px; border-radius: 15px; border: 2px solid #e2e8f0; box-sizing: border-box;">
-            <h3 style="margin: 0 0 10px 0; color: #B05D9E; font-size: 1.1rem;">📝 About You / Bio</h3>
+          <div class="form-group">
+            <label>📝 About You / Bio</label>
             <p style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Write about your experience, qualifications, teaching philosophy, and what makes your classes special.</p>
-            <textarea id="adminBio" rows="6" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; line-height: 1.5; resize: vertical; box-sizing: border-box;" placeholder="Hi! I'm Aaliya, the founder of Fluent Feathers Academy...
+            <textarea id="adminBio" rows="6" placeholder="Hi! I'm Aaliya, the founder of Fluent Feathers Academy...
 
 I have X years of experience in teaching children...
 
@@ -1798,13 +1777,25 @@ What makes my classes unique:
 • Interactive and fun learning
 • Personalized attention
 • Regular progress updates"></textarea>
-            <p style="color: #718096; font-size: 0.8rem; margin-top: 8px;">💡 Tip: Include your experience, qualifications, teaching style, and what parents can expect.</p>
           </div>
 
-          <div style="margin-top: 25px; text-align: center;">
-            <button type="submit" class="btn btn-primary" style="padding: 12px 40px; font-size: 1rem;">💾 Save Profile</button>
-          </div>
+          <button type="submit" class="btn btn-primary">💾 Save Profile</button>
         </form>
+      </div>
+
+      <div class="section">
+        <h2>📧 Email Preview</h2>
+        <p style="color: #718096; margin-bottom: 15px;">This is how your bio will appear in demo confirmation emails:</p>
+        <div style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #B05D9E; max-width: 500px;">
+          <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+            <div style="width: 50px; height: 50px; flex-shrink: 0; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold;" id="adminInitialPreview">A</div>
+            <div>
+              <h4 style="margin: 0; color: #2d3748;" id="adminNamePreview">Aaliya</h4>
+              <p style="margin: 3px 0 0; color: #B05D9E; font-size: 0.9rem;" id="adminTitlePreview">Founder & Lead Instructor</p>
+            </div>
+          </div>
+          <p style="color: #4a5568; font-size: 0.95rem; line-height: 1.6; margin: 0;" id="adminBioPreview"><em>Your bio will appear here...</em></p>
+        </div>
       </div>
     </div>
 
