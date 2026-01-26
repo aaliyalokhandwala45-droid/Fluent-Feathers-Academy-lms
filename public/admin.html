@@ -231,6 +231,7 @@
         <button class="nav-btn" onclick="showTab('groups', event)">👨‍👩‍👧 <span>Groups</span></button>
         <button class="nav-btn" onclick="showTab('schedule', event)">📆 <span>Schedule</span></button>
         <button class="nav-btn" onclick="showTab('scheduleManager', event)">📋 <span>Manage Schedules</span></button>
+        <button class="nav-btn" onclick="showTab('calendar', event)">🗓️ <span>Calendar</span></button>
         <button class="nav-btn" onclick="showTab('past', event)">📚 <span>Past Classes</span></button>
         <button class="nav-btn" onclick="showTab('homework', event)">📝 <span>Homework</span></button>
         <button class="nav-btn" onclick="showTab('payments', event)">💳 <span>Payments</span></button>
@@ -841,6 +842,45 @@
       </div>
     </div>
 
+    <!-- Calendar Tab -->
+    <div id="calendarTab" class="tab-content">
+      <div class="section">
+        <h2>🗓️ Class Calendar</h2>
+        <p style="color: #718096; margin-bottom: 20px;">View all scheduled sessions at a glance. <span style="background: #38a169; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">Paid</span> <span style="background: #f6ad55; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">Demo</span> <span style="background: #667eea; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">Group</span></p>
+
+        <!-- Calendar Navigation -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <button onclick="changeCalendarMonth(-1)" class="btn" style="background: #B05D9E; color: white;">← Previous</button>
+          <h3 id="calendarMonthYear" style="margin: 0; color: #2d3748;"></h3>
+          <button onclick="changeCalendarMonth(1)" class="btn" style="background: #B05D9E; color: white;">Next →</button>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div id="calendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; background: #e2e8f0; border-radius: 10px; overflow: hidden;">
+          <!-- Days header -->
+          <div style="background: #B05D9E; color: white; padding: 10px; text-align: center; font-weight: bold;">Sun</div>
+          <div style="background: #B05D9E; color: white; padding: 10px; text-align: center; font-weight: bold;">Mon</div>
+          <div style="background: #B05D9E; color: white; padding: 10px; text-align: center; font-weight: bold;">Tue</div>
+          <div style="background: #B05D9E; color: white; padding: 10px; text-align: center; font-weight: bold;">Wed</div>
+          <div style="background: #B05D9E; color: white; padding: 10px; text-align: center; font-weight: bold;">Thu</div>
+          <div style="background: #B05D9E; color: white; padding: 10px; text-align: center; font-weight: bold;">Fri</div>
+          <div style="background: #B05D9E; color: white; padding: 10px; text-align: center; font-weight: bold;">Sat</div>
+        </div>
+        <div id="calendarDays" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; background: #e2e8f0;"></div>
+
+        <!-- Day Details Modal -->
+        <div id="dayDetailsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+          <div style="background: white; padding: 25px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <h3 id="dayDetailsTitle" style="margin: 0; color: #B05D9E;"></h3>
+              <button onclick="closeDayDetails()" style="background: #e53e3e; color: white; border: none; padding: 5px 12px; border-radius: 5px; cursor: pointer;">✕</button>
+            </div>
+            <div id="dayDetailsContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="pastTab" class="tab-content">
       <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date (IST)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
     </div>
@@ -1179,6 +1219,9 @@
                 <option value="Holiday">Holiday</option>
                 <option value="Reminder">Reminder</option>
                 <option value="Update">Update</option>
+                <option value="Challenge Update">Challenge Update</option>
+                <option value="Competition Update">Competition Update</option>
+                <option value="Results">Results</option>
               </select>
             </div>
             <div class="form-group"><label>Priority</label>
@@ -1190,6 +1233,15 @@
             </div>
           </div>
           <div class="form-group"><label>Content *</label><textarea id="announcementContent" rows="4" required placeholder="Write your announcement here..."></textarea></div>
+          <div class="form-group">
+            <label>Attach Image (Optional)</label>
+            <input type="file" id="announcementImage" accept="image/*" style="padding: 8px;">
+            <small style="color: #718096;">Add an image for results, winners, or event photos</small>
+          </div>
+          <div id="announcementImagePreview" style="display: none; margin-bottom: 15px;">
+            <img id="announcementPreviewImg" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 2px solid #e2e8f0;">
+            <button type="button" onclick="clearAnnouncementImage()" style="margin-left: 10px; background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Remove</button>
+          </div>
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
             <input type="checkbox" id="sendAnnouncementEmail" style="width: auto; margin: 0;">
             <label for="sendAnnouncementEmail" style="margin: 0; cursor: pointer;">Send Email to All Active Students/Parents</label>
@@ -1227,6 +1279,9 @@
                 <option value="Holiday">Holiday</option>
                 <option value="Reminder">Reminder</option>
                 <option value="Update">Update</option>
+                <option value="Challenge Update">Challenge Update</option>
+                <option value="Competition Update">Competition Update</option>
+                <option value="Results">Results</option>
               </select>
             </div>
             <div class="form-group">
@@ -1241,6 +1296,12 @@
           <div class="form-group">
             <label>Content *</label>
             <textarea id="editAnnouncementContent" rows="6" required></textarea>
+          </div>
+          <div class="form-group">
+            <label>Attached Image</label>
+            <div id="editAnnouncementCurrentImage" style="margin-bottom: 10px;"></div>
+            <input type="file" id="editAnnouncementImage" accept="image/*" style="padding: 8px;">
+            <small style="color: #718096;">Upload new image to replace existing one</small>
           </div>
           <div style="display: flex; gap: 10px; margin-top: 15px;">
             <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -2561,6 +2622,13 @@
       await loadStudents();
       await loadGroups();
       await loadEmailLogs();
+      await loadCalendar(); // Pre-load calendar data
+
+      // Restore last active tab from localStorage
+      const savedTab = localStorage.getItem('adminActiveTab');
+      if (savedTab && document.getElementById(savedTab + 'Tab')) {
+        showTab(savedTab);
+      }
     });
 
     async function showTab(tabName, e) {
@@ -2575,6 +2643,8 @@
       // Update sidebar nav button
       const navBtn = document.querySelector(`.nav-btn[onclick*="'${tabName}'"]`);
       if(navBtn) navBtn.classList.add('active');
+      // Save current tab to localStorage for persistence on refresh
+      localStorage.setItem('adminActiveTab', tabName);
       if (tabName === 'emails') loadEmailLogs();
       if (tabName === 'past') loadPastSessions();
       if (tabName === 'events') loadEvents();
@@ -2998,6 +3068,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           document.getElementById('classScheduleList').innerHTML = '';
           addScheduleRow();
           loadUpcomingClasses();
+          loadCalendar(); // Refresh calendar with new sessions
         } else {
           alert('❌ Failed: ' + result.error);
         }
@@ -3973,6 +4044,7 @@ async function saveEditedPayment() {
           e.target.reset();
           document.getElementById('groupClassScheduleList').innerHTML = '';
           loadUpcomingClasses();
+          loadCalendar(); // Refresh calendar with new sessions
         } else {
           alert('❌ Failed: ' + result.error);
         }
@@ -4057,6 +4129,149 @@ async function saveEditedPayment() {
       } catch (err) {
         alert('❌ Error: ' + err.message);
       }
+    }
+
+    // ==================== CALENDAR ====================
+    let calendarDate = new Date();
+    let calendarSessions = [];
+
+    async function loadCalendar() {
+      try {
+        const year = calendarDate.getFullYear();
+        const month = calendarDate.getMonth();
+
+        // Update header
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        document.getElementById('calendarMonthYear').textContent = `${monthNames[month]} ${year}`;
+
+        // Fetch all sessions for this month
+        const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+        const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+        const res = await fetch(`/api/calendar/sessions?start=${startDate}&end=${endDate}`);
+        calendarSessions = await res.json();
+
+        renderCalendar();
+      } catch (err) {
+        console.error('Error loading calendar:', err);
+      }
+    }
+
+    function renderCalendar() {
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const today = new Date().toISOString().split('T')[0];
+
+      const container = document.getElementById('calendarDays');
+      container.innerHTML = '';
+
+      // Empty cells for days before first day
+      for (let i = 0; i < firstDay; i++) {
+        container.innerHTML += '<div style="background: #f7fafc; padding: 10px; min-height: 100px;"></div>';
+      }
+
+      // Days of the month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = dateStr === today;
+        const daySessions = calendarSessions.filter(s => {
+          const sessionDate = s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date;
+          return sessionDate === dateStr;
+        });
+
+        let sessionsHtml = '';
+        daySessions.slice(0, 4).forEach(s => {
+          let bgColor = '#38a169'; // Paid - green
+          let label = s.student_name || 'Session';
+
+          if (s.session_type === 'Demo') {
+            bgColor = '#f6ad55'; // Demo - orange
+          } else if (s.session_type === 'Group') {
+            bgColor = '#667eea'; // Group - purple
+          }
+
+          // Convert to IST time display
+          const time = s.session_time ? s.session_time.substring(0, 5) : '';
+
+          sessionsHtml += `<div style="background: ${bgColor}; color: white; padding: 2px 5px; border-radius: 3px; font-size: 0.7rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${label} - ${time} IST">${time} ${label.split(' ')[0]}</div>`;
+        });
+
+        if (daySessions.length > 4) {
+          sessionsHtml += `<div style="color: #718096; font-size: 0.7rem;">+${daySessions.length - 4} more</div>`;
+        }
+
+        const todayStyle = isToday ? 'border: 2px solid #B05D9E;' : '';
+        const hasSessionsStyle = daySessions.length > 0 ? 'cursor: pointer;' : '';
+
+        container.innerHTML += `
+          <div onclick="${daySessions.length > 0 ? `showDayDetails('${dateStr}')` : ''}" style="background: white; padding: 8px; min-height: 100px; ${todayStyle} ${hasSessionsStyle}">
+            <div style="font-weight: ${isToday ? 'bold' : 'normal'}; color: ${isToday ? '#B05D9E' : '#2d3748'}; margin-bottom: 5px;">${day}</div>
+            ${sessionsHtml}
+          </div>
+        `;
+      }
+    }
+
+    function changeCalendarMonth(delta) {
+      calendarDate.setMonth(calendarDate.getMonth() + delta);
+      loadCalendar();
+    }
+
+    function showDayDetails(dateStr) {
+      const daySessions = calendarSessions.filter(s => {
+        const sessionDate = s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date;
+        return sessionDate === dateStr;
+      });
+
+      const dateObj = new Date(dateStr + 'T00:00:00');
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('dayDetailsTitle').textContent = dateObj.toLocaleDateString('en-US', options);
+
+      if (daySessions.length === 0) {
+        document.getElementById('dayDetailsContent').innerHTML = '<p style="color: #718096; text-align: center;">No sessions scheduled</p>';
+      } else {
+        // Sort by time
+        daySessions.sort((a, b) => (a.session_time || '').localeCompare(b.session_time || ''));
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+        daySessions.forEach(s => {
+          let bgColor = '#38a169';
+          let typeLabel = 'Paid';
+
+          if (s.session_type === 'Demo') {
+            bgColor = '#f6ad55';
+            typeLabel = 'Demo';
+          } else if (s.session_type === 'Group') {
+            bgColor = '#667eea';
+            typeLabel = 'Group';
+          }
+
+          const time = s.session_time ? s.session_time.substring(0, 5) : 'N/A';
+
+          html += `
+            <div style="background: #f7fafc; padding: 12px; border-radius: 8px; border-left: 4px solid ${bgColor};">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <strong style="color: #2d3748;">${s.student_name || 'Session'}</strong>
+                <span style="background: ${bgColor}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem;">${typeLabel}</span>
+              </div>
+              <div style="color: #718096; font-size: 0.9rem;">
+                🕐 <strong>${time} IST</strong> • Session #${s.session_number || 'N/A'}
+              </div>
+              ${s.status ? `<div style="color: #718096; font-size: 0.85rem; margin-top: 5px;">Status: ${s.status}</div>` : ''}
+            </div>
+          `;
+        });
+        html += '</div>';
+        document.getElementById('dayDetailsContent').innerHTML = html;
+      }
+
+      document.getElementById('dayDetailsModal').style.display = 'flex';
+    }
+
+    function closeDayDetails() {
+      document.getElementById('dayDetailsModal').style.display = 'none';
     }
 
     // ==================== RESOURCE LIBRARY ====================
@@ -5543,9 +5758,10 @@ async function saveEditedPayment() {
 
         tbody.innerHTML = announcements.map(a => {
           const priorityClass = a.priority === 'Urgent' ? 'priority-urgent' : a.priority === 'High' ? 'priority-high' : 'priority-normal';
+          const imageIcon = a.image_url ? '🖼️ ' : '';
           return `
             <tr>
-              <td><strong>${a.title}</strong></td>
+              <td><strong>${imageIcon}${a.title}</strong></td>
               <td><span style="background:#e2e8f0; padding:3px 8px; border-radius:4px; font-size:0.8rem;">${a.announcement_type}</span></td>
               <td><span class="type-badge ${priorityClass}">${a.priority}</span></td>
               <td>${new Date(a.created_at).toLocaleDateString()}</td>
@@ -5562,16 +5778,40 @@ async function saveEditedPayment() {
       }
     }
 
+    // Image preview for create announcement
+    document.getElementById('announcementImage').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('announcementPreviewImg').src = e.target.result;
+          document.getElementById('announcementImagePreview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function clearAnnouncementImage() {
+      document.getElementById('announcementImage').value = '';
+      document.getElementById('announcementImagePreview').style.display = 'none';
+    }
+
     document.getElementById('createAnnouncementForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const sendEmail = document.getElementById('sendAnnouncementEmail').checked;
-      const data = {
-        title: document.getElementById('announcementTitle').value,
-        content: document.getElementById('announcementContent').value,
-        announcement_type: document.getElementById('announcementType').value,
-        priority: document.getElementById('announcementPriority').value,
-        send_email: sendEmail
-      };
+
+      // Use FormData for file upload
+      const formData = new FormData();
+      formData.append('title', document.getElementById('announcementTitle').value);
+      formData.append('content', document.getElementById('announcementContent').value);
+      formData.append('announcement_type', document.getElementById('announcementType').value);
+      formData.append('priority', document.getElementById('announcementPriority').value);
+      formData.append('send_email', sendEmail);
+
+      const imageFile = document.getElementById('announcementImage').files[0];
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
 
       try {
         const btn = e.target.querySelector('button[type="submit"]');
@@ -5580,8 +5820,7 @@ async function saveEditedPayment() {
 
         const res = await fetch('/api/announcements', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(data)
+          body: formData
         });
 
         const result = await res.json();
@@ -5589,6 +5828,7 @@ async function saveEditedPayment() {
         if (res.ok) {
           alert(result.message || '✅ Announcement created!');
           e.target.reset();
+          clearAnnouncementImage();
           loadAnnouncements();
         } else {
           alert('❌ Failed: ' + (result.error || 'Unknown error'));
@@ -5615,7 +5855,44 @@ async function saveEditedPayment() {
       document.getElementById('editAnnouncementType').value = a.announcement_type || 'General';
       document.getElementById('editAnnouncementPriority').value = a.priority || 'Normal';
       document.getElementById('announcementModalTitle').textContent = 'View Announcement';
+
+      // Show current image if exists
+      const imageContainer = document.getElementById('editAnnouncementCurrentImage');
+      if (a.image_url) {
+        imageContainer.innerHTML = `
+          <div style="margin-bottom: 10px;">
+            <img src="${a.image_url}" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 2px solid #e2e8f0;">
+            <button type="button" onclick="removeAnnouncementImage(${a.id})" style="margin-left: 10px; background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Remove Image</button>
+          </div>
+        `;
+      } else {
+        imageContainer.innerHTML = '<span style="color: #718096;">No image attached</span>';
+      }
+      document.getElementById('editAnnouncementImage').value = '';
+
       document.getElementById('announcementModal').classList.add('active');
+    }
+
+    async function removeAnnouncementImage(id) {
+      if (!confirm('Remove the attached image?')) return;
+      try {
+        const formData = new FormData();
+        const a = announcementsData.find(ann => ann.id === id);
+        formData.append('title', a.title);
+        formData.append('content', a.content);
+        formData.append('announcement_type', a.announcement_type);
+        formData.append('priority', a.priority);
+        formData.append('remove_image', 'true');
+
+        const res = await fetch(`/api/announcements/${id}`, { method: 'PUT', body: formData });
+        if (res.ok) {
+          alert('✅ Image removed!');
+          loadAnnouncements();
+          closeAnnouncementModal();
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
     }
 
     function openEditAnnouncement(id) {
@@ -5631,18 +5908,23 @@ async function saveEditedPayment() {
     document.getElementById('editAnnouncementForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('editAnnouncementId').value;
-      const data = {
-        title: document.getElementById('editAnnouncementTitle').value,
-        content: document.getElementById('editAnnouncementContent').value,
-        announcement_type: document.getElementById('editAnnouncementType').value,
-        priority: document.getElementById('editAnnouncementPriority').value
-      };
+
+      // Use FormData for file upload
+      const formData = new FormData();
+      formData.append('title', document.getElementById('editAnnouncementTitle').value);
+      formData.append('content', document.getElementById('editAnnouncementContent').value);
+      formData.append('announcement_type', document.getElementById('editAnnouncementType').value);
+      formData.append('priority', document.getElementById('editAnnouncementPriority').value);
+
+      const imageFile = document.getElementById('editAnnouncementImage').files[0];
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
 
       try {
         const res = await fetch(`/api/announcements/${id}`, {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(data)
+          body: formData
         });
 
         if (res.ok) {
@@ -6004,6 +6286,9 @@ async function saveEditedPayment() {
       }
       if (name === 'resources') {
         loadResources();
+      }
+      if (name === 'calendar') {
+        loadCalendar();
       }
     };
 

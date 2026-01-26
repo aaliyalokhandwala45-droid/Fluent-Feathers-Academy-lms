@@ -884,6 +884,14 @@ async function runMigrations() {
       console.error('❌ Error creating resource_library table:', err.message);
     }
 
+    // Migration 15: Add image_url to announcements table
+    try {
+      await client.query(`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS image_url TEXT`);
+      console.log('✅ Announcements image_url column added');
+    } catch (err) {
+      console.error('❌ Error adding image_url to announcements:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -1224,6 +1232,7 @@ function getAnnouncementEmail(data) {
         </div>
         <h2 style="color: #2d3748; margin: 0 0 15px; font-size: 22px;">${data.title}</h2>
         <p style="color: #4a5568; margin: 0; font-size: 16px; line-height: 1.8; white-space: pre-wrap;">${data.content}</p>
+        ${data.imageUrl ? `<div style="margin-top: 20px; text-align: center;"><img src="${data.imageUrl}" style="max-width: 100%; max-height: 400px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);" alt="Announcement Image"></div>` : ''}
       </div>
 
       <p style="font-size: 16px; color: #4a5568; margin-top: 30px; line-height: 1.8;">
@@ -2282,6 +2291,63 @@ app.get('/api/dashboard/stats', async (req, res) => {
       activeEvents: parseInt(e.rows[0].total)||0
     });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Calendar API - Get all sessions for a date range
+app.get('/api/calendar/sessions', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Start and end dates required' });
+    }
+
+    // Get private sessions (student_id set, no group_id - these are 1-on-1 sessions)
+    const privateSessions = await pool.query(`
+      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
+             'Private' as session_type,
+             st.name as student_name
+      FROM sessions s
+      JOIN students st ON s.student_id = st.id
+      WHERE s.student_id IS NOT NULL
+        AND s.group_id IS NULL
+        AND s.session_date >= $1 AND s.session_date <= $2
+      ORDER BY s.session_date, s.session_time
+    `, [start, end]);
+
+    // Get group sessions (group_id set - these are group classes)
+    const groupSessions = await pool.query(`
+      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
+             'Group' as session_type,
+             g.group_name as student_name
+      FROM sessions s
+      JOIN groups g ON s.group_id = g.id
+      WHERE s.group_id IS NOT NULL
+        AND s.session_date >= $1 AND s.session_date <= $2
+      ORDER BY s.session_date, s.session_time
+    `, [start, end]);
+
+    // Get demo sessions
+    const demoSessions = await pool.query(`
+      SELECT id, demo_date as session_date, demo_time as session_time,
+             1 as session_number, status, 'Demo' as session_type,
+             child_name as student_name
+      FROM demo_leads
+      WHERE demo_date >= $1 AND demo_date <= $2
+        AND status IN ('Scheduled', 'Demo Scheduled', 'Pending')
+      ORDER BY demo_date, demo_time
+    `, [start, end]);
+
+    const allSessions = [
+      ...privateSessions.rows,
+      ...groupSessions.rows,
+      ...demoSessions.rows
+    ];
+
+    res.json(allSessions);
+  } catch (err) {
+    console.error('Calendar error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -4728,20 +4794,46 @@ app.get('/api/announcements', async (req, res) => {
   }
 });
 
-app.post('/api/announcements', async (req, res) => {
+app.post('/api/announcements', upload.single('image'), async (req, res) => {
   const { title, content, announcement_type, priority, send_email } = req.body;
   try {
+    let imageUrl = null;
+
+    // Handle image upload if present
+    if (req.file) {
+      if (cloudinary) {
+        // Upload to Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            { folder: 'fluentfeathers/announcements', resource_type: 'image' },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          ).end(req.file.buffer);
+        });
+        imageUrl = result.secure_url;
+      } else {
+        // Save locally
+        const fileName = Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const filePath = path.join(__dirname, 'public/uploads/announcements', fileName);
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, req.file.buffer);
+        imageUrl = '/uploads/announcements/' + fileName;
+      }
+    }
+
     const result = await pool.query(`
-      INSERT INTO announcements (title, content, announcement_type, priority, is_active)
-      VALUES ($1, $2, $3, $4, true)
+      INSERT INTO announcements (title, content, announcement_type, priority, is_active, image_url)
+      VALUES ($1, $2, $3, $4, true, $5)
       RETURNING *
-    `, [title, content, announcement_type || 'General', priority || 'Normal']);
+    `, [title, content, announcement_type || 'General', priority || 'Normal', imageUrl]);
 
     const announcement = result.rows[0];
     let emailsSent = 0;
 
     // Send emails if requested
-    if (send_email) {
+    if (send_email === 'true' || send_email === true) {
       const students = await pool.query(`
         SELECT DISTINCT parent_email, parent_name, name as student_name
         FROM students
@@ -4754,7 +4846,8 @@ app.post('/api/announcements', async (req, res) => {
           content,
           type: announcement_type || 'General',
           priority: priority || 'Normal',
-          parentName: student.parent_name || 'Parent'
+          parentName: student.parent_name || 'Parent',
+          imageUrl: imageUrl
         });
 
         const sent = await sendEmail(
@@ -4770,11 +4863,12 @@ app.post('/api/announcements', async (req, res) => {
 
     res.json({
       ...announcement,
-      message: send_email
+      message: (send_email === 'true' || send_email === true)
         ? `✅ Announcement created and ${emailsSent} email(s) sent!`
         : '✅ Announcement created!'
     });
   } catch (err) {
+    console.error('Announcement error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -4821,17 +4915,48 @@ app.post('/api/announcements/:id/send-email', async (req, res) => {
   }
 });
 
-app.put('/api/announcements/:id', async (req, res) => {
-  const { title, content, announcement_type, priority } = req.body;
+app.put('/api/announcements/:id', upload.single('image'), async (req, res) => {
+  const { title, content, announcement_type, priority, remove_image } = req.body;
   try {
-    const result = await pool.query(`
-      UPDATE announcements
-      SET title = $1, content = $2, announcement_type = $3, priority = $4
-      WHERE id = $5
-      RETURNING *
-    `, [title, content, announcement_type, priority, req.params.id]);
+    let imageUrl = undefined; // undefined means don't update
+
+    // Handle image upload if present
+    if (req.file) {
+      if (cloudinary) {
+        const result = await new Promise((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            { folder: 'fluentfeathers/announcements', resource_type: 'image' },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          ).end(req.file.buffer);
+        });
+        imageUrl = result.secure_url;
+      } else {
+        const fileName = Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const filePath = path.join(__dirname, 'public/uploads/announcements', fileName);
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, req.file.buffer);
+        imageUrl = '/uploads/announcements/' + fileName;
+      }
+    } else if (remove_image === 'true') {
+      imageUrl = null; // Remove existing image
+    }
+
+    let query, params;
+    if (imageUrl !== undefined) {
+      query = `UPDATE announcements SET title = $1, content = $2, announcement_type = $3, priority = $4, image_url = $5 WHERE id = $6 RETURNING *`;
+      params = [title, content, announcement_type, priority, imageUrl, req.params.id];
+    } else {
+      query = `UPDATE announcements SET title = $1, content = $2, announcement_type = $3, priority = $4 WHERE id = $5 RETURNING *`;
+      params = [title, content, announcement_type, priority, req.params.id];
+    }
+
+    const result = await pool.query(query, params);
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('Update announcement error:', err);
     res.status(500).json({ error: err.message });
   }
 });
