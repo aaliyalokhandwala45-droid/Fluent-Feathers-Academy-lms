@@ -59,10 +59,9 @@ if (useCloudinary) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 20000,
+  max: 1, // IMPORTANT for session pooler
 });
+
 
 
 pool.connect(async (err, client, release) => {
