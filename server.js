@@ -58,22 +58,23 @@ if (useCloudinary) {
 // ==================== DATABASE CONNECTION ====================
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  max: 1, // IMPORTANT for session pooler
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-
-
-(async () => {
-  try {
+pool.connect(async (err, client, release) => {
+  if (err) { 
+    console.error('❌ Database connection error:', err); 
+  } else { 
+    console.log('✅ Connected to PostgreSQL'); 
+    release(); 
+    
+    // Run initialization first (creates tables if they don't exist)
     await initializeDatabase();
+    
+    // Then run migrations (adds missing columns to existing tables)
     await runMigrations();
-    console.log('✅ DB initialized & migrations complete');
-  } catch (err) {
-    console.error('❌ DB init/migration failed:', err);
   }
-})();
-
+});
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
@@ -283,14 +284,14 @@ app.use('/api/events', verifyParentAccess);
 
 // ==================== DATABASE INITIALIZATION ====================
 async function initializeDatabase() {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
 
     console.log('🔧 Checking database tables...');
 
     // Check if tables already exist
-    const checkTable = await pool.query(`
+    const checkTable = await client.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables
         WHERE table_schema = 'public'
@@ -300,7 +301,7 @@ async function initializeDatabase() {
 
     if (checkTable.rows[0].exists) {
       console.log('✅ Database tables already exist. Skipping initialization to preserve data.');
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
       return;
     }
 
@@ -308,7 +309,7 @@ async function initializeDatabase() {
 
     // 1. Create Tables with ALL required columns from the start
     console.log('🔧 Creating students table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE students (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
@@ -337,7 +338,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating groups table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE groups (
         id SERIAL PRIMARY KEY,
         group_name TEXT NOT NULL,
@@ -351,7 +352,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating sessions table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE sessions (
         id SERIAL PRIMARY KEY,
         student_id INTEGER,
@@ -375,7 +376,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating session_attendance table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE session_attendance (
         id SERIAL PRIMARY KEY,
         session_id INTEGER NOT NULL,
@@ -391,7 +392,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating materials table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE materials (
         id SERIAL PRIMARY KEY,
         student_id INTEGER,
@@ -414,7 +415,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating makeup_classes table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE makeup_classes (
         id SERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
@@ -430,7 +431,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating payment_history table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE payment_history (
         id SERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
@@ -448,7 +449,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating events table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE events (
         id SERIAL PRIMARY KEY,
         event_name TEXT NOT NULL,
@@ -467,7 +468,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating event_registrations table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE event_registrations (
         id SERIAL PRIMARY KEY,
         event_id INTEGER NOT NULL,
@@ -482,7 +483,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating email_log table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE email_log (
         id SERIAL PRIMARY KEY,
         recipient_name TEXT NOT NULL,
@@ -495,7 +496,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating demo_leads table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE demo_leads (
         id SERIAL PRIMARY KEY,
         child_name TEXT NOT NULL,
@@ -516,7 +517,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating parent_credentials table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE parent_credentials (
         id SERIAL PRIMARY KEY,
         parent_email TEXT UNIQUE NOT NULL,
@@ -530,7 +531,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating class_feedback table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE class_feedback (
         id SERIAL PRIMARY KEY,
         session_id INTEGER NOT NULL,
@@ -545,7 +546,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating student_badges table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE student_badges (
         id SERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
@@ -558,7 +559,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating payment_renewals table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE payment_renewals (
         id SERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
@@ -575,7 +576,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating announcements table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE announcements (
         id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
@@ -588,7 +589,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating student_certificates table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE student_certificates (
         id SERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
@@ -604,7 +605,7 @@ async function initializeDatabase() {
     `);
 
     console.log('🔧 Creating monthly_assessments table...');
-    await pool.query(`
+    await client.query(`
       CREATE TABLE monthly_assessments (
         id SERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
@@ -622,33 +623,33 @@ async function initializeDatabase() {
 
     // Create indexes
     console.log('🔧 Creating indexes...');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_sessions_student ON sessions(student_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_certificates_student ON student_certificates(student_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_students_birthday ON students(date_of_birth)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_student ON sessions(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_certificates_student ON student_certificates(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_students_birthday ON students(date_of_birth)');
 
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
     console.log('✅ Database initialized successfully with all tables and columns');
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     console.error('❌ Database initialization error:', err);
     throw err;
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 }
 // ==================== DATABASE MIGRATION ====================
 async function runMigrations() {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
     console.log('🔧 Running database migrations...');
 
     // Migration 1: Add date_of_birth to students
     try {
-      await pool.query(`
+      await client.query(`
         ALTER TABLE students 
         ADD COLUMN IF NOT EXISTS date_of_birth DATE;
       `);
@@ -663,7 +664,7 @@ async function runMigrations() {
 
     // Migration 2: Add payment_method to students
     try {
-      await pool.query(`
+      await client.query(`
         ALTER TABLE students 
         ADD COLUMN IF NOT EXISTS payment_method TEXT;
       `);
@@ -678,7 +679,7 @@ async function runMigrations() {
 
     // Migration 3: Ensure announcements table exists
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS announcements (
           id SERIAL PRIMARY KEY,
           title TEXT NOT NULL,
@@ -696,7 +697,7 @@ async function runMigrations() {
 
     // Migration 4: Ensure student_certificates table exists
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS student_certificates (
           id SERIAL PRIMARY KEY,
           student_id INTEGER NOT NULL,
@@ -717,7 +718,7 @@ async function runMigrations() {
 
     // Migration 5: Ensure monthly_assessments table exists
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS monthly_assessments (
           id SERIAL PRIMARY KEY,
           student_id INTEGER NOT NULL,
@@ -739,7 +740,7 @@ async function runMigrations() {
 
     // Migration 6: Ensure student_badges table exists
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS student_badges (
           id SERIAL PRIMARY KEY,
           student_id INTEGER NOT NULL,
@@ -750,7 +751,7 @@ async function runMigrations() {
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
         );
       `);
-      await pool.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
       console.log('✅ Student badges table checked/created');
     } catch (err) {
       console.error('❌ Error with badges table:', err.message);
@@ -758,7 +759,7 @@ async function runMigrations() {
 
     // Migration 7: Ensure class_feedback table exists
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS class_feedback (
           id SERIAL PRIMARY KEY,
           session_id INTEGER NOT NULL,
@@ -770,10 +771,10 @@ async function runMigrations() {
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
         );
       `);
-      await pool.query('CREATE INDEX IF NOT EXISTS idx_feedback_session ON class_feedback(session_id)');
-      await pool.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_session ON class_feedback(session_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
       // Add unique constraint for session_id + student_id
-      await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_unique ON class_feedback(session_id, student_id)');
+      await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_unique ON class_feedback(session_id, student_id)');
       console.log('✅ Class feedback table checked/created');
     } catch (err) {
       console.error('❌ Error with class_feedback table:', err.message);
@@ -781,7 +782,7 @@ async function runMigrations() {
 
     // Migration 8: Ensure payment_renewals table exists
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS payment_renewals (
           id SERIAL PRIMARY KEY,
           student_id INTEGER NOT NULL,
@@ -803,7 +804,7 @@ async function runMigrations() {
 
     // Migration 9: Ensure demo_leads table exists
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS demo_leads (
           id SERIAL PRIMARY KEY,
           child_name TEXT NOT NULL,
@@ -829,7 +830,7 @@ async function runMigrations() {
 
     // Migration 10: Weekly challenges table
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS weekly_challenges (
           id SERIAL PRIMARY KEY,
           title TEXT NOT NULL,
@@ -842,7 +843,7 @@ async function runMigrations() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `);
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS student_challenges (
           id SERIAL PRIMARY KEY,
           student_id INTEGER NOT NULL,
@@ -862,12 +863,12 @@ async function runMigrations() {
 
     // Migration 11: Parent expectations column
     try {
-      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_expectations TEXT`);
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_expectations TEXT`);
       // Add badge_reward column to weekly_challenges
-      await pool.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS badge_reward TEXT DEFAULT '🎯 Challenge Champion'`);
-      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS renewal_reminder_sent BOOLEAN DEFAULT false`);
+      await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS badge_reward TEXT DEFAULT '🎯 Challenge Champion'`);
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS renewal_reminder_sent BOOLEAN DEFAULT false`);
       // Add meet_link column to students table
-      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS meet_link TEXT`);
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS meet_link TEXT`);
       console.log('✅ Parent expectations, renewal reminder & meet_link columns added');
     } catch (err) {
       console.error('❌ Error adding columns:', err.message);
@@ -875,7 +876,7 @@ async function runMigrations() {
 
     // Migration 12: Session materials table for multiple files
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS session_materials (
           id SERIAL PRIMARY KEY,
           session_id INTEGER NOT NULL,
@@ -894,10 +895,10 @@ async function runMigrations() {
 
     // Migration 13: Add columns to makeup_classes for tracking scheduled makeup sessions
     try {
-      await pool.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_session_id INTEGER REFERENCES sessions(id)`);
-      await pool.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS added_by TEXT DEFAULT 'system'`);
-      await pool.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_date DATE`);
-      await pool.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_time TIME`);
+      await client.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_session_id INTEGER REFERENCES sessions(id)`);
+      await client.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS added_by TEXT DEFAULT 'system'`);
+      await client.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_date DATE`);
+      await client.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_time TIME`);
       console.log('✅ Makeup classes columns added for tracking');
     } catch (err) {
       console.error('❌ Error adding makeup_classes columns:', err.message);
@@ -905,7 +906,7 @@ async function runMigrations() {
 
     // Migration 14: Resource Library table
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS resource_library (
           id SERIAL PRIMARY KEY,
           title TEXT NOT NULL,
@@ -931,7 +932,7 @@ async function runMigrations() {
 
     // Migration 15: Add image_url to announcements table
     try {
-      await pool.query(`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS image_url TEXT`);
+      await client.query(`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS image_url TEXT`);
       console.log('✅ Announcements image_url column added');
     } catch (err) {
       console.error('❌ Error adding image_url to announcements:', err.message);
@@ -939,7 +940,7 @@ async function runMigrations() {
 
     // Migration 16: Admin settings table for bio and other settings
     try {
-      await pool.query(`
+      await client.query(`
         CREATE TABLE IF NOT EXISTS admin_settings (
           id SERIAL PRIMARY KEY,
           setting_key TEXT UNIQUE NOT NULL,
@@ -948,17 +949,17 @@ async function runMigrations() {
         )
       `);
       // Insert default bio if not exists
-      await pool.query(`
+      await client.query(`
         INSERT INTO admin_settings (setting_key, setting_value)
         VALUES ('admin_bio', '')
         ON CONFLICT (setting_key) DO NOTHING
       `);
-      await pool.query(`
+      await client.query(`
         INSERT INTO admin_settings (setting_key, setting_value)
         VALUES ('admin_name', 'Aaliya')
         ON CONFLICT (setting_key) DO NOTHING
       `);
-      await pool.query(`
+      await client.query(`
         INSERT INTO admin_settings (setting_key, setting_value)
         VALUES ('admin_title', 'Founder & Lead Instructor')
         ON CONFLICT (setting_key) DO NOTHING
@@ -971,12 +972,12 @@ async function runMigrations() {
     // Migration 17: Add assessment_type and demo_lead_id columns to monthly_assessments
     try {
       // Add assessment_type column (default 'monthly' for backwards compatibility)
-      await pool.query(`
+      await client.query(`
         ALTER TABLE monthly_assessments
         ADD COLUMN IF NOT EXISTS assessment_type TEXT DEFAULT 'monthly'
       `);
       // Add demo_lead_id for demo assessments
-      await pool.query(`
+      await client.query(`
         ALTER TABLE monthly_assessments
         ADD COLUMN IF NOT EXISTS demo_lead_id INTEGER REFERENCES demo_leads(id) ON DELETE SET NULL
       `);
@@ -989,31 +990,31 @@ async function runMigrations() {
 
     // Auto-sync badges for students who should have them
     try {
-      const students = await pool.query('SELECT id, completed_sessions FROM students WHERE is_active = true');
+      const students = await client.query('SELECT id, completed_sessions FROM students WHERE is_active = true');
       let awarded = 0;
 
       for (const student of students.rows) {
         const count = student.completed_sessions || 0;
         if (count >= 1) {
-          const existing = await pool.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, 'first_class']);
+          const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, 'first_class']);
           if (existing.rows.length === 0) {
-            await pool.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
+            await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
               [student.id, 'first_class', '🌟 First Class Star', 'Attended first class!']);
             awarded++;
           }
         }
         if (count >= 5) {
-          const existing = await pool.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '5_classes']);
+          const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '5_classes']);
           if (existing.rows.length === 0) {
-            await pool.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
+            await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
               [student.id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!']);
             awarded++;
           }
         }
         if (count >= 10) {
-          const existing = await pool.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '10_classes']);
+          const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '10_classes']);
           if (existing.rows.length === 0) {
-            await pool.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
+            await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
               [student.id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!']);
             awarded++;
           }
@@ -1027,7 +1028,7 @@ async function runMigrations() {
   } catch (err) {
     console.error('❌ Migration error:', err);
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 }
 // ==================== HELPERS ====================
@@ -3139,41 +3140,41 @@ app.get('/api/groups/:groupId/students', async (req, res) => {
 });
 
 app.delete('/api/groups/:id', async (req, res) => {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
-    await pool.query('BEGIN');
-    await pool.query('DELETE FROM session_attendance WHERE session_id IN (SELECT id FROM sessions WHERE group_id = $1)', [req.params.id]);
-    await pool.query('DELETE FROM sessions WHERE group_id = $1', [req.params.id]);
-    await pool.query('DELETE FROM groups WHERE id = $1', [req.params.id]);
-    await pool.query('COMMIT');
+    await client.query('BEGIN');
+    await client.query('DELETE FROM session_attendance WHERE session_id IN (SELECT id FROM sessions WHERE group_id = $1)', [req.params.id]);
+    await client.query('DELETE FROM sessions WHERE group_id = $1', [req.params.id]);
+    await client.query('DELETE FROM groups WHERE id = $1', [req.params.id]);
+    await client.query('COMMIT');
     res.json({ success: true });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
 // Schedule private classes
 app.post('/api/schedule/private-classes', async (req, res) => {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
     const { student_id, classes, send_email } = req.body;
-    const student = (await pool.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0];
+    const student = (await client.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0];
     if(!student) return res.status(404).json({ error: 'Student not found' });
     if(student.remaining_sessions < classes.length) return res.status(400).json({ error: 'Not enough sessions' });
 
-    const count = (await pool.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id])).rows[0].count;
+    const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id])).rows[0].count;
     let sessionNumber = parseInt(count)+1;
 
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
 
     const scheduledSessions = [];
     for(const cls of classes) {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
-      await pool.query(`
+      await client.query(`
         INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status)
         VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Pending')
       `, [student_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
@@ -3185,7 +3186,7 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       sessionNumber++;
     }
 
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
 
     // Send Schedule Email (if enabled)
     if (send_email !== false) {
@@ -3209,32 +3210,32 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       : 'Classes scheduled successfully!';
     res.json({ success: true, message });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
 // Schedule group classes
 app.post('/api/schedule/group-classes', async (req, res) => {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
     const { group_id, classes, send_email } = req.body;
-    const group = (await pool.query('SELECT * FROM groups WHERE id = $1', [group_id])).rows[0];
+    const group = (await client.query('SELECT * FROM groups WHERE id = $1', [group_id])).rows[0];
     if(!group) return res.status(404).json({ error: 'Group not found' });
 
-    const count = (await pool.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [group_id])).rows[0].count;
+    const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [group_id])).rows[0].count;
     let sessionNumber = parseInt(count)+1;
 
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
 
     const scheduledSessions = [];
 
     for(const cls of classes) {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
-      const r = await pool.query(`
+      const r = await client.query(`
         INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, meet_link, status)
         VALUES ($1, 'Group', $2, $3::date, $4::time, $5, 'Pending')
         RETURNING id
@@ -3243,9 +3244,9 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       const sessionId = r.rows[0].id;
 
       // Add all group students to session_attendance
-      const students = await pool.query('SELECT id FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
+      const students = await client.query('SELECT id FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
       for(const s of students.rows) {
-        await pool.query('INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, \'Pending\')', [sessionId, s.id]);
+        await client.query('INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, \'Pending\')', [sessionId, s.id]);
       }
 
       const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
@@ -3254,12 +3255,12 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       sessionNumber++;
     }
 
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
 
     // Send schedule email to all students in the group (if enabled)
     let emailsSent = 0;
     if (send_email !== false) {
-      const students = await pool.query('SELECT * FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
+      const students = await client.query('SELECT * FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
       for (const student of students.rows) {
         const scheduleHTML = getScheduleEmail({
           parent_name: student.parent_name,
@@ -3283,10 +3284,10 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       : 'Group classes scheduled successfully!';
     res.json({ success: true, message });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
@@ -3554,18 +3555,18 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 });
 
 app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
     const { attendanceData } = req.body;
     const sessionId = req.params.sessionId;
 
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
 
     for (const record of attendanceData) {
-      const prev = await pool.query('SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2', [sessionId, record.student_id]);
+      const prev = await client.query('SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2', [sessionId, record.student_id]);
 
       // Use UPSERT to ensure record exists and is updated
-      await pool.query(`
+      await client.query(`
         INSERT INTO session_attendance (session_id, student_id, attendance)
         VALUES ($1, $2, $3)
         ON CONFLICT (session_id, student_id)
@@ -3573,10 +3574,10 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
       `, [sessionId, record.student_id, record.attendance]);
 
       if (prev.rows[0]?.attendance !== 'Present' && record.attendance === 'Present') {
-        await pool.query(`UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+        await client.query(`UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
 
         // Award badges for group class attendance
-        const student = await pool.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
+        const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
         const completedCount = student.rows[0].completed_sessions;
 
         if (completedCount === 1) await awardBadge(record.student_id, 'first_class', '🌟 First Class Star', 'Attended first class!');
@@ -3587,14 +3588,14 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
       }
     }
 
-    await pool.query('UPDATE sessions SET status = $1 WHERE id = $2', ['Completed', sessionId]);
-    await pool.query('COMMIT');
+    await client.query('UPDATE sessions SET status = $1 WHERE id = $2', ['Completed', sessionId]);
+    await client.query('COMMIT');
     res.json({ message: 'Group attendance marked successfully!' });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
@@ -3607,12 +3608,12 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     return res.status(400).json({ error: 'New date and time are required' });
   }
 
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
 
     // Get current session details
-    const sessionRes = await pool.query('SELECT * FROM sessions WHERE id = $1', [sessionId]);
+    const sessionRes = await client.query('SELECT * FROM sessions WHERE id = $1', [sessionId]);
     if (sessionRes.rows.length === 0) {
       throw new Error('Session not found');
     }
@@ -3624,7 +3625,7 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     const converted = istToUTC(new_date, new_time);
 
     // Update the session with new date and time
-    await pool.query(
+    await client.query(
       'UPDATE sessions SET session_date = $1, session_time = $2, status = $3 WHERE id = $4',
       [converted.date, converted.time, 'Scheduled', sessionId]
     );
@@ -3632,17 +3633,17 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     // Get students to notify
     let studentsToNotify = [];
     if (session.session_type === 'Group' && session.group_id) {
-      const groupStudents = await pool.query(
+      const groupStudents = await client.query(
         'SELECT s.*, g.name as group_name FROM students s JOIN groups g ON s.group_id = g.id WHERE s.group_id = $1 AND s.is_active = true',
         [session.group_id]
       );
       studentsToNotify = groupStudents.rows;
     } else if (session.student_id) {
-      const student = await pool.query('SELECT * FROM students WHERE id = $1', [session.student_id]);
+      const student = await client.query('SELECT * FROM students WHERE id = $1', [session.student_id]);
       studentsToNotify = student.rows;
     }
 
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
 
     // Send reschedule notification emails
     for (const student of studentsToNotify) {
@@ -3677,10 +3678,10 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
       students_notified: studentsToNotify.length
     });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
@@ -3688,9 +3689,9 @@ app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, r
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const col = { ppt:'ppt_file_path', recording:'recording_file_path', homework:'homework_file_path' }[req.body.materialType];
   if (!col) return res.status(400).json({ error: 'Invalid type' });
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
     // Get file path - Cloudinary returns path in req.file.path, local storage uses filename
     let filePath;
     if (useCloudinary && req.file.path) {
@@ -3700,30 +3701,30 @@ app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, r
       // Local storage - use relative path
       filePath = '/uploads/materials/' + req.file.filename;
     }
-    await pool.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, [filePath, req.params.sessionId]);
-    const session = (await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId])).rows[0];
+    await client.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, [filePath, req.params.sessionId]);
+    const session = (await client.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId])).rows[0];
 
     // Also add to session_materials table for multiple file support
-    await pool.query(`
+    await client.query(`
       INSERT INTO session_materials (session_id, material_type, file_name, file_path, file_size)
       VALUES ($1, $2, $3, $4, $5)
     `, [req.params.sessionId, req.body.materialType.toUpperCase(), req.file.originalname, filePath, req.file.size || 0]);
 
     const studentsQuery = session.session_type === 'Group' ? `SELECT id FROM students WHERE group_id = $1 AND is_active = true` : `SELECT $1 as id`;
-    const students = await pool.query(studentsQuery, [session.group_id || session.student_id]);
+    const students = await client.query(studentsQuery, [session.group_id || session.student_id]);
     for(const s of students.rows) {
-      await pool.query(`
+      await client.query(`
         INSERT INTO materials (student_id, group_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'Teacher')
       `, [s.id, session.group_id, req.params.sessionId, session.session_date, req.body.materialType.toUpperCase(), req.file.originalname, filePath]);
     }
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
     res.json({ message: 'Material uploaded successfully!', filename: req.file.filename });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
@@ -3765,49 +3766,49 @@ app.post('/api/sessions/:sessionId/save-link', async (req, res) => {
   const col = { ppt:'ppt_file_path', recording:'recording_file_path', homework:'homework_file_path' }[materialType];
   if (!col) return res.status(400).json({ error: 'Invalid material type' });
 
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
     // Save link with LINK: prefix to identify it as a link
-    await pool.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, ['LINK:' + link, req.params.sessionId]);
+    await client.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, ['LINK:' + link, req.params.sessionId]);
 
     // Also save to materials table for tracking
-    const session = (await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId])).rows[0];
+    const session = (await client.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId])).rows[0];
     const studentsQuery = session.session_type === 'Group' ? `SELECT id FROM students WHERE group_id = $1 AND is_active = true` : `SELECT $1 as id`;
-    const students = await pool.query(studentsQuery, [session.group_id || session.student_id]);
+    const students = await client.query(studentsQuery, [session.group_id || session.student_id]);
 
     for(const s of students.rows) {
-      await pool.query(`
+      await client.query(`
         INSERT INTO materials (student_id, group_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'Teacher')
       `, [s.id, session.group_id, req.params.sessionId, session.session_date, materialType.toUpperCase(), 'External Link', 'LINK:' + link]);
     }
 
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
     res.json({ message: 'Link saved successfully!' });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
 app.post('/api/sessions/:sessionId/grade/:studentId', async (req, res) => {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
     const { grade, comments } = req.body;
     const { sessionId, studentId } = req.params;
-    await pool.query('BEGIN');
-    await pool.query('UPDATE session_attendance SET homework_grade = $1, homework_comments = $2 WHERE session_id = $3 AND student_id = $4', [grade, comments, sessionId, studentId]);
-    await pool.query(`UPDATE materials SET feedback_grade = $1, feedback_comments = $2, feedback_given = 1, feedback_date = CURRENT_TIMESTAMP WHERE session_id = $3 AND student_id = $4 AND file_type = 'Homework'`, [grade, comments, sessionId, studentId]);
-    await pool.query('COMMIT');
+    await client.query('BEGIN');
+    await client.query('UPDATE session_attendance SET homework_grade = $1, homework_comments = $2 WHERE session_id = $3 AND student_id = $4', [grade, comments, sessionId, studentId]);
+    await client.query(`UPDATE materials SET feedback_grade = $1, feedback_comments = $2, feedback_given = 1, feedback_date = CURRENT_TIMESTAMP WHERE session_id = $3 AND student_id = $4 AND file_type = 'Homework'`, [grade, comments, sessionId, studentId]);
+    await client.query('COMMIT');
     res.json({ message: 'Homework graded successfully!' });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
@@ -3941,7 +3942,7 @@ app.post('/api/events', async (req, res) => {
 });
 
 app.post('/api/events/:eventId/register', async (req, res) => {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
     const { student_id } = req.body;
     const eventId = req.params.eventId;
@@ -3954,20 +3955,20 @@ app.post('/api/events/:eventId/register', async (req, res) => {
       return res.status(400).json({ error: 'Event is full' });
     }
 
-    await pool.query('BEGIN');
-    await pool.query(`INSERT INTO event_registrations (event_id, student_id, registration_method) VALUES ($1, $2, 'Parent')`, [eventId, student_id]);
-    await pool.query('UPDATE events SET current_participants = current_participants + 1 WHERE id = $1', [eventId]);
-    await pool.query('COMMIT');
+    await client.query('BEGIN');
+    await client.query(`INSERT INTO event_registrations (event_id, student_id, registration_method) VALUES ($1, $2, 'Parent')`, [eventId, student_id]);
+    await client.query('UPDATE events SET current_participants = current_participants + 1 WHERE id = $1', [eventId]);
+    await client.query('COMMIT');
     res.json({ message: 'Successfully registered for event!' });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     if (err.constraint === 'event_registrations_event_id_student_id_key') {
       res.status(400).json({ error: 'Already registered for this event' });
     } else {
       res.status(500).json({ error: err.message });
     }
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
@@ -4206,34 +4207,34 @@ app.post('/api/students/:studentId/makeup-credits', async (req, res) => {
 
 // Admin: Schedule a makeup class using a credit
 app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
-  const client = await pool.query();
+  const client = await pool.connect();
   try {
     const { creditId } = req.params;
     const { session_date, session_time, student_id } = req.body;
 
     // Verify credit exists and is available
-    const credit = await pool.query('SELECT * FROM makeup_classes WHERE id = $1 AND status = $2', [creditId, 'Available']);
+    const credit = await client.query('SELECT * FROM makeup_classes WHERE id = $1 AND status = $2', [creditId, 'Available']);
     if (credit.rows.length === 0) {
       return res.status(400).json({ error: 'Makeup credit not found or already used' });
     }
 
     // Get student info for timezone and meet link
-    const student = await pool.query('SELECT * FROM students WHERE id = $1', [student_id]);
+    const student = await client.query('SELECT * FROM students WHERE id = $1', [student_id]);
     if (student.rows.length === 0) {
       return res.status(400).json({ error: 'Student not found' });
     }
 
-    await pool.query('BEGIN');
+    await client.query('BEGIN');
 
     // Convert to UTC
     const utc = istToUTC(session_date, session_time);
 
     // Get next session number for this student
-    const countResult = await pool.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id]);
+    const countResult = await client.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id]);
     const sessionNumber = parseInt(countResult.rows[0].count) + 1;
 
     // Create the makeup session
-    const sessionResult = await pool.query(`
+    const sessionResult = await client.query(`
       INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status, notes)
       VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Scheduled', 'Makeup Class')
       RETURNING id
@@ -4242,13 +4243,13 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
     const newSessionId = sessionResult.rows[0].id;
 
     // Mark the credit as used and link to the new session
-    await pool.query(`
+    await client.query(`
       UPDATE makeup_classes
       SET status = 'Scheduled', used_date = CURRENT_DATE, scheduled_session_id = $1, scheduled_date = $2, scheduled_time = $3
       WHERE id = $4
     `, [newSessionId, session_date, session_time, creditId]);
 
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
 
     // Send email notification to parent
     const studentData = student.rows[0];
@@ -4295,10 +4296,10 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       session_number: sessionNumber
     });
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally {
-    pool.queryrelease();
+    client.release();
   }
 });
 
