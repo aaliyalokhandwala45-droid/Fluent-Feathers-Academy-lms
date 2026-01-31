@@ -78,29 +78,27 @@
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
 
-    /* Clean mode for whiteboard and profile - completely remove top space */
+    /* Clean mode for whiteboard and profile - absolute positioning to fix layout */
+    body.clean-view .main-content {
+      position: relative !important;
+    }
     body.clean-view .main-content > header,
     body.clean-view .stats-grid,
-    body.clean-view .tabs {
+    body.clean-view .tabs,
+    body.clean-view .tab-content:not(#whiteboardTab):not(#adminProfileTab) {
       display: none !important;
-      visibility: hidden !important;
-      height: 0 !important;
-      min-height: 0 !important;
-      max-height: 0 !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-    }
-    body.clean-view .main-content {
-      padding: 0 15px !important;
-      padding-top: 0 !important;
     }
     body.clean-view #whiteboardTab.active,
     body.clean-view #adminProfileTab.active {
+      position: absolute !important;
+      top: 15px !important;
+      left: 20px !important;
+      right: 20px !important;
+      bottom: 0 !important;
+      width: auto !important;
       margin: 0 !important;
-      padding: 10px 0 !important;
-      width: 100% !important;
-      box-sizing: border-box !important;
+      padding: 0 !important;
+      overflow-y: auto !important;
     }
     body.clean-view .tab-content.active .section {
       margin: 0 !important;
