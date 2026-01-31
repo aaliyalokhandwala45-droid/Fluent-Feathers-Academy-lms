@@ -278,12 +278,12 @@ I'm passionate about helping children develop confidence in communication!"></te
     // Load existing profile data
     async function loadProfile() {
       try {
-        const res = await fetch('/api/admin/profile');
+        const res = await fetch('/api/admin/settings');
         const data = await res.json();
         if (data) {
-          document.getElementById('adminName').value = data.name || '';
-          document.getElementById('adminTitle').value = data.title || '';
-          document.getElementById('adminBio').value = data.bio || '';
+          document.getElementById('adminName').value = data.admin_name || '';
+          document.getElementById('adminTitle').value = data.admin_title || '';
+          document.getElementById('adminBio').value = data.admin_bio || '';
           updatePreview();
         }
       } catch (err) {
@@ -313,14 +313,14 @@ I'm passionate about helping children develop confidence in communication!"></te
       e.preventDefault();
 
       const data = {
-        name: document.getElementById('adminName').value,
-        title: document.getElementById('adminTitle').value,
-        bio: document.getElementById('adminBio').value
+        admin_name: document.getElementById('adminName').value,
+        admin_title: document.getElementById('adminTitle').value,
+        admin_bio: document.getElementById('adminBio').value
       };
 
       try {
-        const res = await fetch('/api/admin/profile', {
-          method: 'POST',
+        const res = await fetch('/api/admin/settings', {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
