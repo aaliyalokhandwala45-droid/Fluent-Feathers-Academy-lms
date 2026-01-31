@@ -3688,9 +3688,9 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
 
     // If grant makeup credit is checked, add a makeup credit to the student
     if (grant_makeup_credit) {
-      // Increment sessions_remaining for the student
+      // Increment remaining_sessions for the student
       await pool.query(
-        'UPDATE students SET sessions_remaining = sessions_remaining + 1 WHERE id = $1',
+        'UPDATE students SET remaining_sessions = remaining_sessions + 1 WHERE id = $1',
         [session.student_id]
       );
     }
