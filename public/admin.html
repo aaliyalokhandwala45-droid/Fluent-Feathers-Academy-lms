@@ -78,8 +78,8 @@
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
 
-    /* Fullscreen mode for whiteboard and profile */
-    .main-content.fullscreen-mode { padding: 0 !important; }
+    /* Fullscreen mode for whiteboard and profile - keep side padding, remove top */
+    .main-content.fullscreen-mode { padding: 10px 20px !important; }
     .main-content.fullscreen-mode header,
     .main-content.fullscreen-mode .stats-grid,
     .main-content.fullscreen-mode .tabs { display: none !important; }
@@ -1757,7 +1757,7 @@
 
     <!-- Admin Profile Tab -->
     <div id="adminProfileTab" class="tab-content">
-      <div class="section" style="max-width: 900px; margin: 20px auto;">
+      <div class="section" style="max-width: 900px; margin: 0 auto;">
         <h2 style="color: #B05D9E; margin-bottom: 10px;">👤 My Profile & Bio</h2>
         <p style="color: #718096; margin-bottom: 25px;">This bio will be sent to demo parents before their demo class to build trust and showcase your expertise.</p>
 
@@ -1821,7 +1821,7 @@ I'm passionate about helping children develop confidence in communication!"></te
 
     <!-- Whiteboard Tab -->
     <div id="whiteboardTab" class="tab-content">
-      <div style="padding: 15px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box;">
+      <div style="height: calc(100vh - 30px); display: flex; flex-direction: column; box-sizing: border-box;">
         <!-- Toolbar at top -->
         <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 10px;">
           <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
