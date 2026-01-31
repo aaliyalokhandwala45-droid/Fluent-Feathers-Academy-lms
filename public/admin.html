@@ -82,7 +82,12 @@
     body.clean-view .main-content > header { display: none !important; }
     body.clean-view .stats-grid { display: none !important; }
     body.clean-view .tabs { display: none !important; }
-    body.clean-view .main-content { padding: 15px 25px !important; }
+    body.clean-view .main-content { padding: 10px 20px !important; }
+    body.clean-view .tab-content.active .section { margin-top: 0 !important; margin-bottom: 0 !important; }
+
+    /* Whiteboard specific - ensure toolbar doesn't overflow left edge */
+    #whiteboardTab .section { overflow: visible; width: 100%; box-sizing: border-box; }
+    #whiteboardTab .section > div { width: 100%; box-sizing: border-box; }
     .section h2 { color: #2d3748; margin-bottom: 20px; font-size: 1.5rem; }
     .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
     .form-group { display: flex; flex-direction: column; }
@@ -1821,8 +1826,8 @@ I'm passionate about helping children develop confidence in communication!"></te
 
     <!-- Whiteboard Tab -->
     <div id="whiteboardTab" class="tab-content">
-      <div class="section" style="margin: 0 0 25px 0; padding: 20px;">
-        <h2 style="color: #B05D9E; margin: 0 0 15px 0;">🎨 Teaching Whiteboard</h2>
+      <div class="section" style="margin: 0; padding: 15px 20px;">
+        <h2 style="color: #B05D9E; margin: 0 0 10px 0;">🎨 Teaching Whiteboard</h2>
         <!-- Toolbar -->
         <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px; background: #f7fafc; border-radius: 8px; margin-bottom: 15px;">
           <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
@@ -4152,7 +4157,6 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             <p style="text-align: center; margin: 0;">Loading makeup credits...</p>
           </div>
         </div>
-        ` + '<scr' + 'ipt>loadStudentMakeupCredits(' + student.id + ');<\/scr' + 'ipt>' + `
 
        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
   <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
@@ -4177,8 +4181,9 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       document.getElementById('modalInfoTab').classList.add('active');
       document.querySelector('.modal-tab').classList.add('active');
 
-      // Load parent expectations
+      // Load parent expectations and makeup credits
       loadParentExpectations(id);
+      loadStudentMakeupCredits(id);
       document.getElementById('studentModal').classList.add('active');
     }
 
