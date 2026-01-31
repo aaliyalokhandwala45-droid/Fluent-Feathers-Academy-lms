@@ -2236,13 +2236,35 @@
       modal.id = 'protectedFileModal';
       modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
 
-      if (viewerUrl && (fileType === 'pdf' || fileType === 'doc')) {
+      if (fileType === 'doc') {
+        // PPT/Word/Excel - Don't embed (viewers allow download). Show protected message instead.
+        modal.innerHTML = `
+          <div style="position: absolute; top: 20px; right: 20px;">
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+          </div>
+          <div style="background: white; padding: 50px; border-radius: 16px; text-align: center; max-width: 500px;">
+            <div style="font-size: 4rem; margin-bottom: 20px;">🔒</div>
+            <h2 style="color: #B05D9E; margin-bottom: 15px;">Protected Class Material</h2>
+            <p style="color: #4a5568; font-size: 1.1rem; margin-bottom: 10px;"><strong>${fileName}</strong></p>
+            <div style="background: #fef3c7; border: 2px solid #f6ad55; border-radius: 10px; padding: 20px; margin: 20px 0;">
+              <p style="color: #744210; margin: 0; font-size: 0.95rem;">
+                📚 This presentation is shown during <strong>live class</strong> by your teacher.<br><br>
+                For revision, please refer to your class notes or contact your teacher.
+              </p>
+            </div>
+            <p style="color: #718096; font-size: 0.85rem; margin-top: 15px;">
+              Viewing as: ${parentName} | ${studentName}
+            </p>
+          </div>
+        `;
+      } else if (viewerUrl && fileType === 'pdf') {
+        // PDF - Can use Google Docs viewer with blockers
         modal.innerHTML = `
           <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center;">
             <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only - No Downloads</span>
             <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
           </div>
-          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📊 ${fileName}</p>
+          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📄 ${fileName}</p>
           <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">📋 Viewing as: ${parentName} | ${dateStr}</p>
           <div style="position: relative; width: 95vw; max-width: 1200px; height: 80vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
             <iframe src="${viewerUrl}" style="width: 100%; height: 100%; border: none;" sandbox="allow-scripts allow-same-origin" allow=""></iframe>
@@ -2251,11 +2273,11 @@
               ${watermarkHtml}
             </div>
             <!-- Top toolbar blocker -->
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 45px; background: linear-gradient(to bottom, rgba(176,93,158,0.95), rgba(176,93,158,0.8)); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001;">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 50px; background: linear-gradient(to bottom, rgba(176,93,158,0.98), rgba(176,93,158,0.85)); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001;">
               <span style="color: white; font-weight: 600; font-size: 0.9rem;">🔒 Class Material - View Only | ${watermarkText}</span>
             </div>
             <!-- Bottom blocker -->
-            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, rgba(176,93,158,0.9), transparent); pointer-events: auto; z-index: 1001;"></div>
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 45px; background: linear-gradient(to top, rgba(176,93,158,0.95), transparent); pointer-events: auto; z-index: 1001;"></div>
           </div>
           <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">⚠️ This material is for viewing only. Downloading or sharing is not permitted.</p>
         `;
