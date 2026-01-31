@@ -474,22 +474,26 @@
           <!-- Session Progress Card -->
           <div id="sessionProgressCard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
             <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">📊 Session Progress</h3>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">
-              <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
-                <div style="font-size: 2rem; font-weight: bold;" id="paymentTotalSessions">-</div>
-                <div style="font-size: 0.85rem; opacity: 0.9;">Total Sessions</div>
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+              <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 1.75rem; font-weight: bold;" id="paymentTotalSessions">-</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">Total</div>
               </div>
-              <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
-                <div style="font-size: 2rem; font-weight: bold;" id="paymentCompletedSessions">-</div>
-                <div style="font-size: 0.85rem; opacity: 0.9;">Completed</div>
+              <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 1.75rem; font-weight: bold;" id="paymentCompletedSessions">-</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">Completed</div>
               </div>
-              <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px;">
-                <div style="font-size: 2rem; font-weight: bold;" id="paymentRemainingSessions">-</div>
-                <div style="font-size: 0.85rem; opacity: 0.9;">Remaining</div>
+              <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 1.75rem; font-weight: bold;" id="paymentMissedSessions">0</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">Missed</div>
               </div>
-              <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 15px; border-radius: 10px;">
-                <div style="font-size: 2rem; font-weight: bold;" id="paymentMakeupCredits">0</div>
-                <div style="font-size: 0.85rem; opacity: 0.9;">Makeup Credits</div>
+              <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 1.75rem; font-weight: bold;" id="paymentRemainingSessions">-</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">Remaining</div>
+              </div>
+              <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 1.75rem; font-weight: bold;" id="paymentMakeupCredits">0</div>
+                <div style="font-size: 0.8rem; opacity: 0.9;">Makeup</div>
               </div>
             </div>
             <div id="renewalWarning" style="display: none; margin-top: 15px; background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
@@ -1880,13 +1884,15 @@
 
     async function loadPayments() {
       try {
-        // Load session progress
+        // Load session progress - use actual data from student object
         const totalSessions = parseInt(currentStudent.total_sessions) || 0;
+        const completedSessions = parseInt(currentStudent.completed_sessions) || 0;
+        const missedSessions = parseInt(currentStudent.missed_sessions) || 0;
         const remainingSessions = parseInt(currentStudent.remaining_sessions) || 0;
-        const completedSessions = totalSessions - remainingSessions;
 
         document.getElementById('paymentTotalSessions').textContent = totalSessions;
         document.getElementById('paymentCompletedSessions').textContent = completedSessions;
+        document.getElementById('paymentMissedSessions').textContent = missedSessions;
         document.getElementById('paymentRemainingSessions').textContent = remainingSessions;
 
         // Load makeup credits count

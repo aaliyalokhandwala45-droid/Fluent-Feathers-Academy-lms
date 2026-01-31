@@ -132,9 +132,11 @@
     /* Attendance status badges */
     .att-badge { padding: 4px 12px; border-radius: 12px; font-size: 13px; color: white; }
     .att-badge-present { background: #38a169; }
+    .att-badge-excused { background: #dd6b20; }
     .att-badge-absent { background: #e53e3e; }
     .att-badge-pending { background: #718096; }
     .btn-att-active-present { background: #276749 !important; }
+    .btn-att-active-excused { background: #c05621 !important; }
     .btn-att-active-absent { background: #c53030 !important; }
     /* Status colors */
     .status-active { color: #38a169; }
@@ -177,6 +179,7 @@
     .type-badge-group { background: #9f7aea; }
     /* Attendance status */
     .attendance-present { background: #38a169; }
+    .attendance-excused { background: #dd6b20; }
     .attendance-absent { background: #e53e3e; }
     .attendance-pending { background: #718096; }
     .attendance-completed { background: #38a169; }
@@ -3388,8 +3391,9 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           const isPending = s.status === 'Pending' || s.status === 'Scheduled';
           const attendanceBtn = isPending ?
             `<button onclick="markAttendance(${s.id}, '${s.session_type}', 'Present')" class="btn btn-sm" style="background:#38a169; color:white; margin-right:5px;">✓ Present</button>
-             <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Absent')" class="btn btn-sm" style="background:#e53e3e; color:white;">✗ Absent</button>` :
-            `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
+             <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Excused')" class="btn btn-sm" style="background:#dd6b20; color:white; margin-right:5px;" title="Absent with makeup credit">⚠️ Excused</button>
+             <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Unexcused')" class="btn btn-sm" style="background:#e53e3e; color:white;" title="Absent without makeup credit">✗ Unexcused</button>` :
+            `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Excused' ? 'attendance-excused' : s.status === 'Absent' || s.status === 'Unexcused' || s.status === 'Missed' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
           const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
           const typeClass = s.session_type === 'Private' ? 'type-badge-private' : 'type-badge-group';
           return `<tr>
@@ -3704,7 +3708,10 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             body: JSON.stringify({ attendance })
           });
           if(res.ok) {
-            alert(`✅ Marked as ${attendance}`);
+            const emoji = attendance === 'Present' ? '✅' : attendance === 'Excused' ? '⚠️' : '❌';
+            const extraMsg = attendance === 'Excused' ? '\n(Makeup credit granted)' :
+                            attendance === 'Unexcused' ? '\n(No makeup credit)' : '';
+            alert(`${emoji} Marked as ${attendance}${extraMsg}`);
             loadPastSessions();
             loadDashboardStats();
           } else {
@@ -3839,14 +3846,17 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`);
           const students = await attRes.json();
           content += `<h3 style="margin-top:20px;">Group Attendance</h3>
+          <p style="color:#718096; font-size:0.85rem; margin-bottom:10px;">⚠️ Excused = Absent with makeup credit | ✗ Unexcused = Absent without makeup credit</p>
           <table><thead><tr><th>Student</th><th>Current Status</th><th>Action</th></tr></thead><tbody>` + students.map(s => {
-            const statusClass = s.attendance === 'Present' ? 'att-badge-present' : s.attendance === 'Absent' ? 'att-badge-absent' : 'att-badge-pending';
-            const statusText = s.attendance === 'Present' ? 'Present' : s.attendance === 'Absent' ? 'Absent' : 'Pending';
+            const statusClass = s.attendance === 'Present' ? 'att-badge-present' : s.attendance === 'Excused' ? 'att-badge-excused' : (s.attendance === 'Absent' || s.attendance === 'Unexcused') ? 'att-badge-absent' : 'att-badge-pending';
+            const statusText = s.attendance === 'Present' ? 'Present' : s.attendance === 'Excused' ? 'Excused' : s.attendance === 'Unexcused' ? 'Unexcused' : s.attendance === 'Absent' ? 'Absent' : 'Pending';
             const presentBtnClass = s.attendance === 'Present' ? 'btn-att-active-present' : '';
-            const absentBtnClass = s.attendance === 'Absent' ? 'btn-att-active-absent' : '';
+            const excusedBtnClass = s.attendance === 'Excused' ? 'btn-att-active-excused' : '';
+            const unexcusedBtnClass = (s.attendance === 'Absent' || s.attendance === 'Unexcused') ? 'btn-att-active-absent' : '';
             return `<tr id="att-row-${s.student_id}"><td>${s.student_name}</td><td id="att-status-${s.student_id}"><span class="att-badge ${statusClass}">${statusText}</span></td><td>
-              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present', '${s.student_name}')" class="btn btn-sm btn-success ${presentBtnClass}">Present</button>
-              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Absent', '${s.student_name}')" class="btn btn-sm btn-danger ${absentBtnClass}">Absent</button>
+              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present', '${s.student_name}')" class="btn btn-sm btn-success ${presentBtnClass}">✓ Present</button>
+              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Excused', '${s.student_name}')" class="btn btn-sm" style="background:#dd6b20; color:white; ${excusedBtnClass}" title="Absent with makeup credit">⚠️ Excused</button>
+              <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Unexcused', '${s.student_name}')" class="btn btn-sm btn-danger ${unexcusedBtnClass}" title="Absent without makeup credit">✗ Unexcused</button>
             </td></tr>`;
           }).join('') + `</tbody></table>`;
         }
@@ -3869,10 +3879,12 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           // Update UI immediately using CSS classes
           const statusCell = document.getElementById(`att-status-${studentId}`);
           if (statusCell) {
-            const badgeClass = status === 'Present' ? 'att-badge-present' : 'att-badge-absent';
+            const badgeClass = status === 'Present' ? 'att-badge-present' : status === 'Excused' ? 'att-badge-excused' : 'att-badge-absent';
             statusCell.innerHTML = `<span class="att-badge ${badgeClass}">${status}</span>`;
           }
-          alert(`${status === 'Present' ? '✅' : '❌'} ${studentName} marked as ${status}`);
+          const emoji = status === 'Present' ? '✅' : status === 'Excused' ? '⚠️' : '❌';
+          const extraMsg = status === 'Excused' ? ' (makeup credit granted)' : status === 'Unexcused' ? ' (no makeup credit)' : '';
+          alert(`${emoji} ${studentName} marked as ${status}${extraMsg}`);
         } else {
           const err = await res.json();
           alert('❌ Failed: ' + (err.error || 'Unknown error'));
@@ -4169,11 +4181,12 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             <h3 style="color: #B05D9E; margin: 0;">Session Statistics</h3>
             <button onclick="openEditSessionsModal(${student.id}, '${student.name}', ${student.total_sessions}, ${student.completed_sessions}, ${student.remaining_sessions})" class="btn btn-sm" style="background: #e53e3e; color: white;">✏️ Fix Sessions</button>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px;">
             <div><strong>Total:</strong> <span id="statTotal-${student.id}">${student.total_sessions}</span></div>
             <div><strong>Completed:</strong> <span id="statCompleted-${student.id}" class="status-active">${student.completed_sessions}</span></div>
-            <div><strong>Remaining:</strong> <span id="statRemaining-${student.id}" class="status-inactive">${student.remaining_sessions}</span></div>
-            <div><strong>Makeup Credits:</strong> <span style="color: #9f7aea; font-weight: bold;">${student.makeup_credits || 0}</span></div>
+            <div><strong>Missed:</strong> <span id="statMissed-${student.id}" style="color: #e53e3e;">${student.missed_sessions || 0}</span></div>
+            <div><strong>Remaining:</strong> <span id="statRemaining-${student.id}" style="color: #dd6b20;">${student.remaining_sessions}</span></div>
+            <div><strong>Makeup:</strong> <span style="color: #9f7aea; font-weight: bold;">${student.makeup_credits || 0}</span></div>
           </div>
         </div>
 
@@ -5529,7 +5542,10 @@ async function saveEditedPayment() {
                   <span style="font-size: 0.85rem;">📋 ${c.reason}</span>
                   <br><small style="color: #718096;">Added: ${new Date(c.credit_date).toLocaleDateString()} ${c.added_by === 'admin' ? '(by Admin)' : ''}</small>
                 </div>
-                <button onclick="openScheduleMakeupModal(${c.id}, ${studentId}, '${c.reason.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="btn btn-sm" style="background: #38a169; color: white;">📅 Schedule</button>
+                <div style="display: flex; gap: 5px;">
+                  <button onclick="openScheduleMakeupModal(${c.id}, ${studentId}, '${c.reason.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="btn btn-sm" style="background: #38a169; color: white;">📅 Schedule</button>
+                  <button onclick="deleteMakeupCredit(${c.id}, ${studentId})" class="btn btn-sm" style="background: #e53e3e; color: white;" title="Delete this makeup credit">🗑️</button>
+                </div>
               </div>
             </div>
           `).join('');
@@ -5561,6 +5577,29 @@ async function saveEditedPayment() {
       } catch (err) {
         console.error('Error loading makeup credits:', err);
         container.innerHTML = '<p style="text-align: center; color: #fed7d7;">Error loading credits</p>';
+      }
+    }
+
+    async function deleteMakeupCredit(creditId, studentId) {
+      if (!confirm('Are you sure you want to delete this makeup credit? This cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/makeup-credits/${creditId}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          alert('✅ Makeup credit deleted successfully!');
+          loadStudentMakeupCredits(studentId);
+          loadStudents(); // Refresh student list to update counts
+        } else {
+          const err = await res.json();
+          alert('❌ Error: ' + (err.error || 'Failed to delete makeup credit'));
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
       }
     }
 

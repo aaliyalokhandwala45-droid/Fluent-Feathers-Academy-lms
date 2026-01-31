@@ -3262,7 +3262,9 @@ app.delete('/api/demo-leads/:id', async (req, res) => {
 app.get('/api/students', async (req, res) => {
   try {
     const r = await executeQuery(`
-      SELECT s.*, COUNT(m.id) as makeup_credits
+      SELECT s.*,
+        COUNT(DISTINCT m.id) as makeup_credits,
+        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available'
       WHERE s.is_active = true
@@ -3718,7 +3720,12 @@ app.get('/api/parent/admin-view', async (req, res) => {
   const studentId = req.adminStudentId;
   if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const student = await pool.query('SELECT * FROM students WHERE id = $1 AND is_active = true', [studentId]);
+    const student = await pool.query(`
+      SELECT s.*,
+        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
+      FROM students s
+      WHERE s.id = $1 AND s.is_active = true
+    `, [studentId]);
     res.json({ student: student.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3757,12 +3764,28 @@ app.get('/api/sessions/:sessionId/details', async (req, res) => {
 app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
   try {
     const { attendance } = req.body;
-    await pool.query('UPDATE sessions SET status = $1 WHERE id = $2', [attendance === 'Present' ? 'Completed' : 'Missed', req.params.sessionId]);
+    const sessionId = req.params.sessionId;
 
+    // Determine session status based on attendance
+    let sessionStatus;
     if (attendance === 'Present') {
-      const session = await pool.query('SELECT student_id FROM sessions WHERE id = $1', [req.params.sessionId]);
-      if (session.rows[0] && session.rows[0].student_id) {
-        const studentId = session.rows[0].student_id;
+      sessionStatus = 'Completed';
+    } else if (attendance === 'Excused') {
+      sessionStatus = 'Excused';
+    } else {
+      sessionStatus = 'Missed'; // Unexcused or Absent
+    }
+
+    await pool.query('UPDATE sessions SET status = $1 WHERE id = $2', [sessionStatus, sessionId]);
+
+    // Get student info for the session
+    const session = await pool.query('SELECT student_id FROM sessions WHERE id = $1', [sessionId]);
+
+    if (session.rows[0] && session.rows[0].student_id) {
+      const studentId = session.rows[0].student_id;
+
+      if (attendance === 'Present') {
+        // Mark as completed and update student stats
         await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [studentId]);
 
         // Award attendance badges
@@ -3774,10 +3797,26 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
         if (completedCount === 10) await awardBadge(studentId, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
         if (completedCount === 25) await awardBadge(studentId, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
         if (completedCount === 50) await awardBadge(studentId, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
+      } else if (attendance === 'Excused') {
+        // Excused absence - grant makeup credit
+        await pool.query(`
+          INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by)
+          VALUES ($1, $2, 'Excused absence', CURRENT_DATE, 'Available', 'admin')
+        `, [studentId, sessionId]);
+
+        // Decrement remaining_sessions as the class was used
+        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [studentId]);
+      } else {
+        // Unexcused absence - no makeup credit, just decrement remaining sessions
+        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [studentId]);
       }
     }
 
-    res.json({ success: true });
+    const message = attendance === 'Present' ? 'Marked as Present' :
+                    attendance === 'Excused' ? 'Marked as Excused (makeup credit granted)' :
+                    'Marked as Unexcused (no makeup credit)';
+
+    res.json({ success: true, message });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3842,6 +3881,7 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
     for (const record of attendanceData) {
       const prev = await client.query('SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2', [sessionId, record.student_id]);
+      const prevAttendance = prev.rows[0]?.attendance;
 
       // Use UPSERT to ensure record exists and is updated
       await client.query(`
@@ -3851,18 +3891,50 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
         DO UPDATE SET attendance = $3
       `, [sessionId, record.student_id, record.attendance]);
 
-      if (prev.rows[0]?.attendance !== 'Present' && record.attendance === 'Present') {
-        await client.query(`UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+      // Handle state transitions
+      const wasPresent = prevAttendance === 'Present';
+      const wasExcused = prevAttendance === 'Excused';
+      const wasUnexcused = prevAttendance === 'Unexcused' || prevAttendance === 'Absent';
+      const wasPending = !prevAttendance || prevAttendance === 'Pending';
 
-        // Award badges for group class attendance
-        const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
-        const completedCount = student.rows[0].completed_sessions;
+      if (record.attendance === 'Present') {
+        // If changing TO Present from non-Present
+        if (!wasPresent) {
+          await client.query(`UPDATE students SET completed_sessions = completed_sessions + 1 WHERE id = $1`, [record.student_id]);
 
-        if (completedCount === 1) await awardBadge(record.student_id, 'first_class', '🌟 First Class Star', 'Attended first class!');
-        if (completedCount === 5) await awardBadge(record.student_id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
-        if (completedCount === 10) await awardBadge(record.student_id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
-        if (completedCount === 25) await awardBadge(record.student_id, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
-        if (completedCount === 50) await awardBadge(record.student_id, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
+          // Only decrement remaining if coming from Pending (not already decremented)
+          if (wasPending) {
+            await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+          }
+
+          // Award badges for group class attendance
+          const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
+          const completedCount = student.rows[0].completed_sessions;
+
+          if (completedCount === 1) await awardBadge(record.student_id, 'first_class', '🌟 First Class Star', 'Attended first class!');
+          if (completedCount === 5) await awardBadge(record.student_id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
+          if (completedCount === 10) await awardBadge(record.student_id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
+          if (completedCount === 25) await awardBadge(record.student_id, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
+          if (completedCount === 50) await awardBadge(record.student_id, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
+        }
+      } else if (record.attendance === 'Excused') {
+        // Excused absence - grant makeup credit (only if not already excused)
+        if (!wasExcused) {
+          await client.query(`
+            INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by)
+            VALUES ($1, $2, 'Excused absence (group class)', CURRENT_DATE, 'Available', 'admin')
+          `, [record.student_id, sessionId]);
+
+          // Decrement remaining sessions if coming from Pending
+          if (wasPending) {
+            await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+          }
+        }
+      } else if (record.attendance === 'Unexcused' || record.attendance === 'Absent') {
+        // Unexcused absence - no makeup credit, just decrement remaining sessions if from Pending
+        if (wasPending) {
+          await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+        }
       }
     }
 
@@ -4483,6 +4555,28 @@ app.post('/api/students/:studentId/makeup-credits', async (req, res) => {
   }
 });
 
+// Admin: Delete a makeup credit
+app.delete('/api/makeup-credits/:creditId', async (req, res) => {
+  try {
+    const { creditId } = req.params;
+
+    // Check if credit exists and is available (not already used)
+    const credit = await pool.query('SELECT * FROM makeup_classes WHERE id = $1', [creditId]);
+    if (credit.rows.length === 0) {
+      return res.status(404).json({ error: 'Makeup credit not found' });
+    }
+
+    if (credit.rows[0].status === 'Scheduled' || credit.rows[0].status === 'Used') {
+      return res.status(400).json({ error: 'Cannot delete a makeup credit that has already been scheduled or used' });
+    }
+
+    await pool.query('DELETE FROM makeup_classes WHERE id = $1', [creditId]);
+    res.json({ success: true, message: 'Makeup credit deleted successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: Schedule a makeup class using a credit
 app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
   const client = await pool.connect();
@@ -4609,7 +4703,12 @@ app.post('/api/parent/login-password', async (req, res) => {
     if(!c || !(await bcrypt.compare(req.body.password, c.password))) {
       return res.status(401).json({ error: 'Incorrect password' });
     }
-    const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
+    const s = (await pool.query(`
+      SELECT s.*,
+        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
+      FROM students s
+      WHERE s.parent_email = $1 AND s.is_active = true
+    `, [req.body.email])).rows;
     res.json({ students: s });
   } catch(e) {
     res.status(500).json({error:e.message});
@@ -4651,7 +4750,12 @@ app.post('/api/parent/verify-otp', async (req, res) => {
     if(!c || c.otp !== req.body.otp || new Date() > new Date(c.otp_expiry)) {
       return res.status(401).json({ error: 'Invalid or Expired OTP' });
     }
-    const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
+    const s = (await pool.query(`
+      SELECT s.*,
+        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
+      FROM students s
+      WHERE s.parent_email = $1 AND s.is_active = true
+    `, [req.body.email])).rows;
     await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE parent_email = $1', [req.body.email]);
     res.json({ students: s });
   } catch(e) {
