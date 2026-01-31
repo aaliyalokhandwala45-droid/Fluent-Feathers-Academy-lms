@@ -260,8 +260,8 @@
         <button class="nav-btn" onclick="showTab('challenges', event)">🎯 <span>Challenges</span></button>
         <button class="nav-btn" onclick="showTab('resources', event)">📚 <span>Resources</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
-        <button class="nav-btn" onclick="showTab('adminProfile', event)">👤 <span>My Profile</span></button>
-        <button class="nav-btn" onclick="showTab('whiteboard', event)">🖊️ <span>Whiteboard</span></button>
+        <button class="nav-btn" onclick="window.location.href='profile.html'">👤 <span>My Profile</span></button>
+        <button class="nav-btn" onclick="window.location.href='whiteboard.html'">🖊️ <span>Whiteboard</span></button>
       </nav>
     </aside>
 
@@ -2888,7 +2888,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       revenueVisible = !revenueVisible;
       const revenueEl = document.getElementById('totalRevenue');
       if (revenueVisible) {
-        revenueEl.textContent = actualRevenue.toFixed(2) + ' (Mixed)';
+        revenueEl.textContent = '₹' + actualRevenue.toLocaleString('en-IN');
       } else {
         revenueEl.textContent = '*****';
       }
@@ -2999,9 +2999,9 @@ I'm passionate about helping children develop confidence in communication!"></te
         const stats = await res.json();
         document.getElementById('totalStudents').textContent = stats.totalStudents;
         document.getElementById('upcomingSessions').textContent = stats.upcomingSessions;
-        // Store revenue but keep hidden by default
+        // Store revenue (already converted to INR by server) but keep hidden by default
         actualRevenue = stats.totalRevenue;
-        document.getElementById('totalRevenue').textContent = revenueVisible ? (actualRevenue.toFixed(2) + ' (Mixed)') : '*****';
+        document.getElementById('totalRevenue').textContent = revenueVisible ? ('₹' + actualRevenue.toLocaleString('en-IN')) : '*****';
         document.getElementById('totalGroups').textContent = stats.totalGroups;
         document.getElementById('activeEvents').textContent = stats.activeEvents;
       } catch (err) {

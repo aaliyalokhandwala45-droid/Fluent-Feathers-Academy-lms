@@ -2753,15 +2753,46 @@ cron.schedule('0 9 * * *', async () => {
 console.log('✅ Payment renewal reminder system initialized - checking daily at 9:00 AM');
 
 // ==================== API ROUTES ====================
+
+// Currency conversion rates to INR (approximate)
+const currencyToINR = {
+  '₹': 1,
+  'INR': 1,
+  '$': 83,
+  'USD': 83,
+  '£': 105,
+  'GBP': 105,
+  '€': 90,
+  'EUR': 90,
+  'AED': 23,
+  'د.إ': 23
+};
+
+function convertToINR(amount, currency) {
+  const rate = currencyToINR[currency] || currencyToINR[currency?.toUpperCase()] || 1;
+  return amount * rate;
+}
+
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    const s = await executeQuery('SELECT COUNT(*) as total, SUM(fees_paid) as revenue FROM students WHERE is_active = true');
+    // Get student count
+    const countResult = await executeQuery('SELECT COUNT(*) as total FROM students WHERE is_active = true');
+
+    // Get all students with fees and currency to convert to INR
+    const studentsResult = await executeQuery('SELECT fees_paid, currency FROM students WHERE is_active = true');
+    let totalRevenueINR = 0;
+    for (const student of studentsResult.rows) {
+      const fees = parseFloat(student.fees_paid) || 0;
+      const currency = student.currency || '₹';
+      totalRevenueINR += convertToINR(fees, currency);
+    }
+
     const sess = await executeQuery(`SELECT COUNT(*) as upcoming FROM sessions WHERE status IN ('Pending', 'Scheduled') AND session_date >= CURRENT_DATE`);
     const g = await executeQuery('SELECT COUNT(*) as total FROM groups');
     const e = await executeQuery('SELECT COUNT(*) as total FROM events WHERE status = \'Active\'');
     res.json({
-      totalStudents: parseInt(s.rows[0].total)||0,
-      totalRevenue: parseFloat(s.rows[0].revenue)||0,
+      totalStudents: parseInt(countResult.rows[0].total)||0,
+      totalRevenue: Math.round(totalRevenueINR),
       upcomingSessions: parseInt(sess.rows[0].upcoming)||0,
       totalGroups: parseInt(g.rows[0].total)||0,
       activeEvents: parseInt(e.rows[0].total)||0
