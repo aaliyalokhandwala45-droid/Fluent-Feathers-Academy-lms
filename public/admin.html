@@ -81,21 +81,18 @@
     /* Clean mode for whiteboard and profile - simple approach */
     body.clean-view .main-content {
       padding-top: 15px !important;
-      overflow-x: hidden !important;
     }
     body.clean-view .tabs {
       display: none !important;
     }
-    body.clean-view .tab-content.active {
-      width: 100% !important;
-      max-width: 100% !important;
-      box-sizing: border-box !important;
-    }
     body.clean-view .tab-content.active .section {
       margin-top: 0 !important;
-      width: 100% !important;
-      max-width: 100% !important;
-      box-sizing: border-box !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+    /* Ensure whiteboard toolbar wraps properly */
+    #whiteboardTab .section > div:first-of-type {
+      flex-wrap: wrap !important;
     }
     .section h2 { color: #2d3748; margin-bottom: 20px; font-size: 1.5rem; }
     .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
