@@ -2122,6 +2122,11 @@ I'm passionate about helping children develop confidence in communication!"></te
           <small style="color: #718096;">Sessions already attended</small>
         </div>
         <div class="form-group">
+          <label>Missed Sessions</label>
+          <input type="number" id="editMissedSessions" min="0" required>
+          <small style="color: #718096;">Excused + Unexcused absences</small>
+        </div>
+        <div class="form-group">
           <label>Remaining Sessions</label>
           <input type="number" id="editRemainingSessions" min="0" required>
           <small style="color: #718096;">Sessions left to attend</small>
@@ -3995,11 +4000,12 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
     });
 
     // ==================== EDIT SESSION COUNTS ====================
-    function openEditSessionsModal(studentId, studentName, total, completed, remaining) {
+    function openEditSessionsModal(studentId, studentName, total, completed, missed, remaining) {
       document.getElementById('editSessionsStudentId').value = studentId;
       document.getElementById('editSessionsStudentName').textContent = studentName;
       document.getElementById('editTotalSessions').value = total;
       document.getElementById('editCompletedSessions').value = completed;
+      document.getElementById('editMissedSessions').value = missed || 0;
       document.getElementById('editRemainingSessions').value = remaining;
       document.getElementById('editSessionsReason').value = '';
       document.getElementById('editSessionsModal').classList.add('active');
@@ -4016,11 +4022,13 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       const studentId = document.getElementById('editSessionsStudentId').value;
       const total = parseInt(document.getElementById('editTotalSessions').value);
       const completed = parseInt(document.getElementById('editCompletedSessions').value);
+      const missed = parseInt(document.getElementById('editMissedSessions').value);
       const remaining = parseInt(document.getElementById('editRemainingSessions').value);
       const reason = document.getElementById('editSessionsReason').value;
 
-      if (completed + remaining !== total) {
-        if (!confirm('⚠️ Warning: Completed (' + completed + ') + Remaining (' + remaining + ') does not equal Total (' + total + ').\n\nAre you sure you want to save these values?')) {
+      // Validate: Total should equal Completed + Missed + Remaining
+      if (completed + missed + remaining !== total) {
+        if (!confirm('⚠️ Warning: Completed (' + completed + ') + Missed (' + missed + ') + Remaining (' + remaining + ') = ' + (completed + missed + remaining) + ', but Total is ' + total + '.\n\nAre you sure you want to save these values?')) {
           return;
         }
       }
@@ -4028,6 +4036,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       const confirmMsg = 'Update session counts?\n\n' +
         'Total: ' + total + '\n' +
         'Completed: ' + completed + '\n' +
+        'Missed: ' + missed + '\n' +
         'Remaining: ' + remaining + '\n\n' +
         'Reason: ' + reason;
 
@@ -4040,6 +4049,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           body: JSON.stringify({
             total_sessions: total,
             completed_sessions: completed,
+            missed_sessions: missed,
             remaining_sessions: remaining,
             reason: reason
           })
@@ -4053,9 +4063,11 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           // Update the display
           const statTotal = document.getElementById('statTotal-' + studentId);
           const statCompleted = document.getElementById('statCompleted-' + studentId);
+          const statMissed = document.getElementById('statMissed-' + studentId);
           const statRemaining = document.getElementById('statRemaining-' + studentId);
           if (statTotal) statTotal.textContent = total;
           if (statCompleted) statCompleted.textContent = completed;
+          if (statMissed) statMissed.textContent = missed;
           if (statRemaining) statRemaining.textContent = remaining;
           // Refresh student list
           loadStudents();
@@ -4179,7 +4191,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="color: #B05D9E; margin: 0;">Session Statistics</h3>
-            <button onclick="openEditSessionsModal(${student.id}, '${student.name}', ${student.total_sessions}, ${student.completed_sessions}, ${student.remaining_sessions})" class="btn btn-sm" style="background: #e53e3e; color: white;">✏️ Fix Sessions</button>
+            <button onclick="openEditSessionsModal(${student.id}, '${student.name}', ${student.total_sessions}, ${student.completed_sessions}, ${student.missed_sessions || 0}, ${student.remaining_sessions})" class="btn btn-sm" style="background: #e53e3e; color: white;">✏️ Fix Sessions</button>
           </div>
           <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px;">
             <div><strong>Total:</strong> <span id="statTotal-${student.id}">${student.total_sessions}</span></div>

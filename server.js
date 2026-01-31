@@ -1146,6 +1146,14 @@ async function runMigrations() {
       console.log('Migration 19 note:', err.message);
     }
 
+    // Migration 20: Add missed_sessions column to students table
+    try {
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS missed_sessions INTEGER DEFAULT 0`);
+      console.log('✅ Migration 20: Added missed_sessions column to students');
+    } catch (err) {
+      console.log('Migration 20 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -3264,7 +3272,7 @@ app.get('/api/students', async (req, res) => {
     const r = await executeQuery(`
       SELECT s.*,
         COUNT(DISTINCT m.id) as makeup_credits,
-        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
+        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available'
       WHERE s.is_active = true
@@ -3722,7 +3730,7 @@ app.get('/api/parent/admin-view', async (req, res) => {
   try {
     const student = await pool.query(`
       SELECT s.*,
-        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
+        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
       WHERE s.id = $1 AND s.is_active = true
     `, [studentId]);
@@ -4705,7 +4713,7 @@ app.post('/api/parent/login-password', async (req, res) => {
     }
     const s = (await pool.query(`
       SELECT s.*,
-        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
+        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
       WHERE s.parent_email = $1 AND s.is_active = true
     `, [req.body.email])).rows;
@@ -4752,7 +4760,7 @@ app.post('/api/parent/verify-otp', async (req, res) => {
     }
     const s = (await pool.query(`
       SELECT s.*,
-        COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0) as missed_sessions
+        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
       WHERE s.parent_email = $1 AND s.is_active = true
     `, [req.body.email])).rows;
@@ -4900,30 +4908,31 @@ app.post('/api/students/:id/update-payment', async (req, res) => {
 
 // Fix session counts (for attendance correction)
 app.post('/api/students/:id/fix-sessions', async (req, res) => {
-  const { total_sessions, completed_sessions, remaining_sessions, reason } = req.body;
+  const { total_sessions, completed_sessions, missed_sessions, remaining_sessions, reason } = req.body;
   const studentId = req.params.id;
 
   try {
     // Get current student data for logging
-    const studentResult = await pool.query('SELECT name, total_sessions, completed_sessions, remaining_sessions FROM students WHERE id = $1', [studentId]);
+    const studentResult = await pool.query('SELECT name, total_sessions, completed_sessions, missed_sessions, remaining_sessions FROM students WHERE id = $1', [studentId]);
     if (studentResult.rows.length === 0) {
       return res.status(404).json({ error: 'Student not found' });
     }
 
     const oldData = studentResult.rows[0];
 
-    // Update session counts
+    // Update session counts including missed_sessions
     await pool.query(`
       UPDATE students SET
         total_sessions = $1,
         completed_sessions = $2,
-        remaining_sessions = $3
-      WHERE id = $4
-    `, [total_sessions, completed_sessions, remaining_sessions, studentId]);
+        missed_sessions = $3,
+        remaining_sessions = $4
+      WHERE id = $5
+    `, [total_sessions, completed_sessions, missed_sessions || 0, remaining_sessions, studentId]);
 
     console.log(`⚠️ SESSION FIX for ${oldData.name} (ID: ${studentId})`);
-    console.log(`   Old: Total=${oldData.total_sessions}, Completed=${oldData.completed_sessions}, Remaining=${oldData.remaining_sessions}`);
-    console.log(`   New: Total=${total_sessions}, Completed=${completed_sessions}, Remaining=${remaining_sessions}`);
+    console.log(`   Old: Total=${oldData.total_sessions}, Completed=${oldData.completed_sessions}, Missed=${oldData.missed_sessions || 0}, Remaining=${oldData.remaining_sessions}`);
+    console.log(`   New: Total=${total_sessions}, Completed=${completed_sessions}, Missed=${missed_sessions || 0}, Remaining=${remaining_sessions}`);
     console.log(`   Reason: ${reason || 'No reason provided'}`);
 
     res.json({ success: true, message: 'Session counts updated successfully!' });

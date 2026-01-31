@@ -323,11 +323,31 @@
 
       <div class="info-card">
         <h2 style="color: #B05D9E; margin-bottom: 15px;">👤 Student Information</h2>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;">
           <div><strong>Name:</strong> <span id="displayName">-</span></div>
           <div><strong>Grade:</strong> <span id="displayGrade">-</span></div>
-          <div><strong>Total Sessions:</strong> <span id="displayTotal">-</span></div>
-          <div><strong>Remaining:</strong> <span id="displayRemaining" style="color: #e53e3e;">-</span></div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+          <div style="background: #f7fafc; padding: 12px; border-radius: 8px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #2d3748;" id="displayTotal">-</div>
+            <div style="font-size: 0.75rem; color: #718096;">Total</div>
+          </div>
+          <div style="background: #c6f6d5; padding: 12px; border-radius: 8px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #276749;" id="displayCompleted">-</div>
+            <div style="font-size: 0.75rem; color: #276749;">Completed</div>
+          </div>
+          <div style="background: #fed7d7; padding: 12px; border-radius: 8px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #c53030;" id="displayMissed">0</div>
+            <div style="font-size: 0.75rem; color: #c53030;">Missed</div>
+          </div>
+          <div style="background: #feebc8; padding: 12px; border-radius: 8px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #c05621;" id="displayRemaining">-</div>
+            <div style="font-size: 0.75rem; color: #c05621;">Remaining</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 12px; border-radius: 8px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: white;" id="displayMakeup">0</div>
+            <div style="font-size: 0.75rem; color: white;">Makeup</div>
+          </div>
         </div>
       </div>
 
@@ -1147,6 +1167,8 @@
       document.getElementById('displayName').textContent = currentStudent.name;
       document.getElementById('displayGrade').textContent = currentStudent.grade;
       document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
+      document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions || 0;
+      document.getElementById('displayMissed').textContent = currentStudent.missed_sessions || 0;
       document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
 
       // Update current child badge in header (for siblings)
@@ -1459,6 +1481,10 @@
         // Count available credits (not used and not scheduled) - case insensitive check
         const availableCredits = history.filter(c => c.status && c.status.toLowerCase() === 'available').length;
         const hasHistory = history.length > 0;
+
+        // Update top card makeup display
+        const topMakeupDisplay = document.getElementById('displayMakeup');
+        if (topMakeupDisplay) topMakeupDisplay.textContent = availableCredits;
 
         if (hasHistory) {
           document.getElementById('makeupCreditCard').style.display = 'block';
