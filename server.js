@@ -3655,7 +3655,7 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
 
     // Update session status to Cancelled
     await pool.query(
-      'UPDATE sessions SET status = $1, notes = COALESCE(notes, \'\') || $2 WHERE id = $3',
+      'UPDATE sessions SET status = $1, teacher_notes = COALESCE(teacher_notes, \'\') || $2 WHERE id = $3',
       ['Cancelled', `\n[Cancelled: ${reason}${notes ? ' - ' + notes : ''}]`, req.params.sessionId]
     );
 
