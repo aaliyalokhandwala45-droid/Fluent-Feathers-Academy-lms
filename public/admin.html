@@ -244,6 +244,7 @@
         <button class="nav-btn" onclick="showTab('resources', event)">📚 <span>Resources</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
         <button class="nav-btn" onclick="showTab('adminProfile', event)">👤 <span>My Profile</span></button>
+        <button class="nav-btn" onclick="showTab('whiteboard', event)">🖊️ <span>Whiteboard</span></button>
       </nav>
     </aside>
 
@@ -1566,12 +1567,14 @@
             <div class="form-group"><label>Certificate Title</label>
               <select id="certificateTitle">
                 <option value="">No Certificate</option>
-                <optgroup label="🎯 Demo Class" id="demoCertificateOptions" style="display: none;">
+                <optgroup label="🎯 Demo Class Certificates" id="demoCertificateOptions" style="display: none;">
+                  <option value="Demo Participation Certificate">🎉 Demo Participation Certificate</option>
                   <option value="Demo Star">🌟 Demo Star</option>
                   <option value="Brilliant First Impression">✨ Brilliant First Impression</option>
                   <option value="Shining Beginner">💫 Shining Beginner</option>
                   <option value="Eager Learner">🎓 Eager Learner</option>
                   <option value="Future Star">⭐ Future Star</option>
+                  <option value="Promising Talent">💎 Promising Talent</option>
                 </optgroup>
                 <optgroup label="🔤 Phonics">
                   <option value="Phonics Star">🔤 Phonics Star</option>
@@ -1748,47 +1751,31 @@
 
     <!-- Admin Profile Tab -->
     <div id="adminProfileTab" class="tab-content">
-      <div class="section">
+      <div class="section" style="max-width: 900px; margin: 0 auto;">
         <h2 style="color: #B05D9E; margin-bottom: 10px;">👤 My Profile & Bio</h2>
         <p style="color: #718096; margin-bottom: 25px;">This bio will be sent to demo parents before their demo class to build trust and showcase your expertise.</p>
 
         <form id="adminProfileForm">
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px;">
-            <!-- Basic Info -->
-            <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white;">
-              <h3 style="margin: 0 0 20px 0;">✨ Basic Information</h3>
-              <div class="form-group" style="margin-bottom: 15px;">
+          <!-- Basic Info Card -->
+          <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 20px 0;">✨ Basic Information</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+              <div class="form-group" style="margin-bottom: 0;">
                 <label style="color: rgba(255,255,255,0.9);">Your Name</label>
-                <input type="text" id="adminName" style="background: rgba(255,255,255,0.95); border: none; padding: 12px; border-radius: 8px; width: 100%;" placeholder="Aaliya">
+                <input type="text" id="adminName" style="background: rgba(255,255,255,0.95); border: none; padding: 12px; border-radius: 8px; width: 100%; box-sizing: border-box;" placeholder="Aaliya">
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin-bottom: 0;">
                 <label style="color: rgba(255,255,255,0.9);">Title / Role</label>
-                <input type="text" id="adminTitle" style="background: rgba(255,255,255,0.95); border: none; padding: 12px; border-radius: 8px; width: 100%;" placeholder="Founder & Lead Instructor">
-              </div>
-            </div>
-
-            <!-- Preview Card -->
-            <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
-              <h3 style="margin: 0 0 15px 0; color: #2d3748;">📧 Email Preview</h3>
-              <p style="color: #718096; font-size: 0.9rem; margin-bottom: 15px;">This is how your bio will appear in demo emails:</p>
-              <div style="background: #f7fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #B05D9E;">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                  <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; font-weight: bold;" id="adminInitialPreview">A</div>
-                  <div>
-                    <h4 style="margin: 0; color: #2d3748;" id="adminNamePreview">Aaliya</h4>
-                    <p style="margin: 5px 0 0; color: #B05D9E; font-size: 0.9rem;" id="adminTitlePreview">Founder & Lead Instructor</p>
-                  </div>
-                </div>
-                <p style="color: #4a5568; font-size: 0.95rem; line-height: 1.7; margin: 0;" id="adminBioPreview"><em>Your bio will appear here...</em></p>
+                <input type="text" id="adminTitle" style="background: rgba(255,255,255,0.95); border: none; padding: 12px; border-radius: 8px; width: 100%; box-sizing: border-box;" placeholder="Founder & Lead Instructor">
               </div>
             </div>
           </div>
 
           <!-- Bio Section -->
-          <div style="margin-top: 25px; background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
+          <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0; margin-bottom: 25px;">
             <h3 style="margin: 0 0 15px 0; color: #B05D9E;">📝 About You / Bio</h3>
             <p style="color: #718096; font-size: 0.9rem; margin-bottom: 15px;">Write about your experience, qualifications, teaching philosophy, and what makes your classes special. This helps parents feel confident about their child's learning journey.</p>
-            <textarea id="adminBio" rows="8" style="width: 100%; padding: 15px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; line-height: 1.6; resize: vertical;" placeholder="Hi! I'm Aaliya, the founder of Fluent Feathers Academy...
+            <textarea id="adminBio" rows="8" style="width: 100%; padding: 15px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; line-height: 1.6; resize: vertical; box-sizing: border-box;" placeholder="Hi! I'm Aaliya, the founder of Fluent Feathers Academy...
 
 I have X years of experience in teaching children...
 
@@ -1803,11 +1790,125 @@ I'm passionate about helping children develop confidence in communication!"></te
             <p style="color: #718096; font-size: 0.85rem; margin-top: 10px;">💡 Tip: Include your experience, qualifications, teaching style, and what parents can expect.</p>
           </div>
 
-          <div style="margin-top: 25px; text-align: center;">
+          <!-- Preview Card -->
+          <div style="background: #f7fafc; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 15px 0; color: #2d3748;">📧 Email Preview</h3>
+            <p style="color: #718096; font-size: 0.9rem; margin-bottom: 15px;">This is how your bio will appear in demo confirmation emails:</p>
+            <div style="background: white; padding: 20px; border-radius: 10px; border-left: 4px solid #B05D9E;">
+              <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; font-weight: bold; flex-shrink: 0;" id="adminInitialPreview">A</div>
+                <div>
+                  <h4 style="margin: 0; color: #2d3748;" id="adminNamePreview">Aaliya</h4>
+                  <p style="margin: 5px 0 0; color: #B05D9E; font-size: 0.9rem;" id="adminTitlePreview">Founder & Lead Instructor</p>
+                </div>
+              </div>
+              <p style="color: #4a5568; font-size: 0.95rem; line-height: 1.7; margin: 0; white-space: pre-wrap;" id="adminBioPreview"><em>Your bio will appear here...</em></p>
+            </div>
+          </div>
+
+          <div style="text-align: center;">
             <button type="submit" class="btn btn-primary" style="padding: 12px 40px; font-size: 1rem;">💾 Save Profile</button>
           </div>
         </form>
       </div>
+    </div>
+
+    <!-- Whiteboard Tab -->
+    <div id="whiteboardTab" class="tab-content">
+      <div class="section" style="padding: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+          <h2 style="color: #B05D9E; margin: 0;">🖊️ Teaching Whiteboard</h2>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="undoWhiteboard()" class="btn btn-sm" style="background: #718096; color: white;" title="Undo">↩️ Undo</button>
+            <button onclick="redoWhiteboard()" class="btn btn-sm" style="background: #718096; color: white;" title="Redo">↪️ Redo</button>
+            <button onclick="downloadWhiteboard()" class="btn btn-sm" style="background: #38a169; color: white;">💾 Save Image</button>
+            <button onclick="clearWhiteboard()" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️ Clear All</button>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div style="background: #f7fafc; padding: 12px 15px; border-radius: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+          <!-- Tools -->
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <span style="color: #718096; font-size: 0.85rem; margin-right: 5px;">Tool:</span>
+            <button onclick="setWhiteboardTool('pen')" id="toolPen" class="wb-tool-btn active" title="Pen">🖊️</button>
+            <button onclick="setWhiteboardTool('pencil')" id="toolPencil" class="wb-tool-btn" title="Pencil">✏️</button>
+            <button onclick="setWhiteboardTool('highlighter')" id="toolHighlighter" class="wb-tool-btn" title="Highlighter">🖍️</button>
+            <button onclick="setWhiteboardTool('eraser')" id="toolEraser" class="wb-tool-btn" title="Eraser">🧽</button>
+            <button onclick="setWhiteboardTool('text')" id="toolText" class="wb-tool-btn" title="Text">T</button>
+          </div>
+
+          <!-- Colors -->
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <span style="color: #718096; font-size: 0.85rem; margin-right: 5px;">Color:</span>
+            <button onclick="setWhiteboardColor('#000000')" class="wb-color-btn" style="background: #000000;" title="Black"></button>
+            <button onclick="setWhiteboardColor('#e53e3e')" class="wb-color-btn" style="background: #e53e3e;" title="Red"></button>
+            <button onclick="setWhiteboardColor('#dd6b20')" class="wb-color-btn" style="background: #dd6b20;" title="Orange"></button>
+            <button onclick="setWhiteboardColor('#d69e2e')" class="wb-color-btn" style="background: #d69e2e;" title="Yellow"></button>
+            <button onclick="setWhiteboardColor('#38a169')" class="wb-color-btn" style="background: #38a169;" title="Green"></button>
+            <button onclick="setWhiteboardColor('#3182ce')" class="wb-color-btn" style="background: #3182ce;" title="Blue"></button>
+            <button onclick="setWhiteboardColor('#805ad5')" class="wb-color-btn" style="background: #805ad5;" title="Purple"></button>
+            <button onclick="setWhiteboardColor('#B05D9E')" class="wb-color-btn" style="background: #B05D9E;" title="Pink"></button>
+            <button onclick="setWhiteboardColor('#ffffff')" class="wb-color-btn" style="background: #ffffff; border: 2px solid #cbd5e0;" title="White"></button>
+          </div>
+
+          <!-- Brush Size -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="color: #718096; font-size: 0.85rem;">Size:</span>
+            <input type="range" id="brushSize" min="1" max="50" value="3" style="width: 100px;" onchange="updateBrushSize(this.value)">
+            <span id="brushSizeLabel" style="color: #2d3748; font-size: 0.85rem; min-width: 30px;">3px</span>
+          </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="whiteboardContainer" style="background: white; border: 3px solid #e2e8f0; border-radius: 10px; overflow: hidden; position: relative;">
+          <canvas id="whiteboardCanvas" style="display: block; cursor: crosshair;"></canvas>
+        </div>
+
+        <p style="color: #718096; font-size: 0.85rem; margin-top: 10px; text-align: center;">
+          💡 Tip: Use pen for writing, highlighter for marking, eraser to correct. Click "Save Image" to download your whiteboard.
+        </p>
+      </div>
+
+      <style>
+        .wb-tool-btn {
+          width: 36px;
+          height: 36px;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          background: white;
+          cursor: pointer;
+          font-size: 1.1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+        .wb-tool-btn:hover {
+          border-color: #B05D9E;
+          background: #fdf2f8;
+        }
+        .wb-tool-btn.active {
+          border-color: #B05D9E;
+          background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%);
+          color: white;
+        }
+        .wb-color-btn {
+          width: 28px;
+          height: 28px;
+          border: 2px solid #e2e8f0;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: transform 0.2s;
+        }
+        .wb-color-btn:hover {
+          transform: scale(1.15);
+        }
+        .wb-color-btn.active {
+          border-color: #2d3748;
+          box-shadow: 0 0 0 2px white, 0 0 0 4px #B05D9E;
+        }
+      </style>
     </div>
 
 <!-- Edit Payment Modal -->
@@ -2106,6 +2207,77 @@ I'm passionate about helping children develop confidence in communication!"></te
         <div style="display: flex; gap: 10px; margin-top: 15px;">
           <button type="submit" class="btn btn-primary">Update Status</button>
           <button type="button" onclick="closeUpdateDemoStatusModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Demo Lead Modal -->
+  <div id="editDemoModal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h2 style="color: white;">✏️ Edit Demo Details</h2>
+        <button onclick="closeEditDemoModal()" class="btn btn-sm" style="background: white; color: #667eea;">✕</button>
+      </div>
+      <form id="editDemoForm">
+        <input type="hidden" id="editDemoId">
+        <div class="form-row">
+          <div class="form-group"><label>Child's Name *</label><input type="text" id="editDemoChildName" required></div>
+          <div class="form-group"><label>Child's Grade *</label><input type="text" id="editDemoChildGrade" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Parent Name *</label><input type="text" id="editDemoParentName" required></div>
+          <div class="form-group"><label>Parent Email *</label><input type="email" id="editDemoParentEmail" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Phone Number</label><input type="tel" id="editDemoPhone"></div>
+          <div class="form-group"><label>Program Interest</label>
+            <select id="editDemoProgramInterest">
+              <option value="">Select Program...</option>
+              <option value="Phonics">Phonics</option>
+              <option value="Reading">Reading</option>
+              <option value="Creative Writing">Creative Writing</option>
+              <option value="Grammar">Grammar</option>
+              <option value="Public Speaking">Public Speaking</option>
+              <option value="English Fluency">English Fluency</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Demo Date *</label><input type="date" id="editDemoDate" required></div>
+          <div class="form-group"><label>Demo Time *</label><input type="time" id="editDemoTime" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Source</label>
+            <select id="editDemoSource">
+              <option value="">Select...</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Referral">Referral</option>
+              <option value="Google">Google</option>
+              <option value="Website">Website</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Status</label>
+            <select id="editDemoStatus">
+              <option value="Scheduled">📅 Scheduled</option>
+              <option value="Completed">✅ Demo Completed</option>
+              <option value="Converted">🎉 Converted</option>
+              <option value="Lost">❌ Lost</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label>Notes</label><textarea id="editDemoNotes" rows="2" placeholder="Any additional notes..."></textarea></div>
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+          <input type="checkbox" id="editDemoSendEmail" style="width: auto; margin: 0;">
+          <label for="editDemoSendEmail" style="margin: 0; cursor: pointer;">📧 Send updated confirmation email with new date/time</label>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="submit" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Save Changes</button>
+          <button type="button" onclick="closeEditDemoModal()" class="btn" style="background: #718096; color: white;">Cancel</button>
         </div>
       </form>
     </div>
@@ -2762,6 +2934,9 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'demoStudents') loadDemoLeads();
       if (tabName === 'leaderboard') loadLeaderboard();
       if (tabName === 'challenges') loadChallenges();
+      if (tabName === 'whiteboard') {
+        setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
+      }
     }
 
     function showModalTab(tabName, e) {
@@ -3333,6 +3508,9 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             ? `<br><small style="color:#4a5568;">💬 ${hw.feedback_comments}</small>`
             : '';
 
+          // Create download URL with proper filename
+          const downloadUrl = fileUrl && !isLink ? getDownloadUrl(fileUrl, hw.file_name || 'homework') : '';
+
           return `<tr>
             <td><strong>${hw.student_name || 'Unknown'}</strong></td>
             <td>#${hw.session_number || 'N/A'}</td>
@@ -3346,7 +3524,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             <td>
               <button onclick="openGradeHomeworkModal(${hw.id}, decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'), decodeURIComponent('${encodeURIComponent(hw.file_name || '')}'))" class="btn btn-sm btn-primary">Grade</button>
               ${previewBtn}
-              ${fileUrl && !isLink ? `<a href="${fileUrl}" download class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">Download</a>` : ''}
+              ${downloadUrl ? `<a href="${downloadUrl}" download="${hw.file_name || 'homework'}" class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">⬇️ Download</a>` : ''}
               <button onclick="deleteHomework(${hw.id})" class="btn btn-sm btn-danger">Delete</button>
             </td>
           </tr>`;
@@ -4253,8 +4431,10 @@ async function saveEditedPayment() {
         document.getElementById('calendarMonthYear').textContent = `${monthNames[month]} ${year}`;
 
         // Fetch all sessions for this month
-        const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-        const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+        // Use local date formatting to avoid timezone issues with toISOString()
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
         const res = await fetch(`/api/calendar/sessions?start=${startDate}&end=${endDate}`);
         calendarSessions = await res.json();
@@ -4404,6 +4584,254 @@ async function saveEditedPayment() {
       document.getElementById('dayDetailsModal').style.display = 'none';
     }
 
+    // ==================== WHITEBOARD ====================
+    let wbCanvas, wbCtx;
+    let wbIsDrawing = false;
+    let wbTool = 'pen';
+    let wbColor = '#000000';
+    let wbBrushSize = 3;
+    let wbLastX = 0, wbLastY = 0;
+    let wbHistory = [];
+    let wbHistoryIndex = -1;
+    let wbTextMode = false;
+
+    function initWhiteboard() {
+      wbCanvas = document.getElementById('whiteboardCanvas');
+      if (!wbCanvas) return;
+
+      wbCtx = wbCanvas.getContext('2d');
+      resizeWhiteboard();
+
+      // Mouse events
+      wbCanvas.addEventListener('mousedown', wbStartDrawing);
+      wbCanvas.addEventListener('mousemove', wbDraw);
+      wbCanvas.addEventListener('mouseup', wbStopDrawing);
+      wbCanvas.addEventListener('mouseout', wbStopDrawing);
+
+      // Touch events for tablets
+      wbCanvas.addEventListener('touchstart', wbTouchStart);
+      wbCanvas.addEventListener('touchmove', wbTouchMove);
+      wbCanvas.addEventListener('touchend', wbStopDrawing);
+
+      // Click for text tool
+      wbCanvas.addEventListener('click', wbHandleClick);
+
+      // Initial state
+      clearWhiteboard();
+
+      // Resize on window resize
+      window.addEventListener('resize', resizeWhiteboard);
+    }
+
+    function resizeWhiteboard() {
+      if (!wbCanvas) return;
+      const container = document.getElementById('whiteboardContainer');
+      if (!container) return;
+
+      const savedImage = wbCanvas.toDataURL();
+      const width = container.clientWidth;
+      const height = Math.max(500, window.innerHeight - 280);
+
+      wbCanvas.width = width;
+      wbCanvas.height = height;
+
+      // Restore drawing after resize
+      if (savedImage && wbHistoryIndex >= 0) {
+        const img = new Image();
+        img.onload = () => {
+          wbCtx.fillStyle = 'white';
+          wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
+          wbCtx.drawImage(img, 0, 0);
+        };
+        img.src = savedImage;
+      } else {
+        wbCtx.fillStyle = 'white';
+        wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
+      }
+    }
+
+    function wbStartDrawing(e) {
+      if (wbTool === 'text') return;
+      wbIsDrawing = true;
+      const rect = wbCanvas.getBoundingClientRect();
+      wbLastX = e.clientX - rect.left;
+      wbLastY = e.clientY - rect.top;
+    }
+
+    function wbTouchStart(e) {
+      e.preventDefault();
+      if (wbTool === 'text') return;
+      wbIsDrawing = true;
+      const rect = wbCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      wbLastX = touch.clientX - rect.left;
+      wbLastY = touch.clientY - rect.top;
+    }
+
+    function wbDraw(e) {
+      if (!wbIsDrawing) return;
+
+      const rect = wbCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      wbDrawLine(wbLastX, wbLastY, x, y);
+      wbLastX = x;
+      wbLastY = y;
+    }
+
+    function wbTouchMove(e) {
+      e.preventDefault();
+      if (!wbIsDrawing) return;
+
+      const rect = wbCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      wbDrawLine(wbLastX, wbLastY, x, y);
+      wbLastX = x;
+      wbLastY = y;
+    }
+
+    function wbDrawLine(x1, y1, x2, y2) {
+      wbCtx.beginPath();
+      wbCtx.moveTo(x1, y1);
+      wbCtx.lineTo(x2, y2);
+
+      if (wbTool === 'eraser') {
+        wbCtx.strokeStyle = 'white';
+        wbCtx.lineWidth = wbBrushSize * 3;
+        wbCtx.lineCap = 'round';
+        wbCtx.lineJoin = 'round';
+      } else if (wbTool === 'highlighter') {
+        wbCtx.strokeStyle = wbColor + '40'; // 25% opacity
+        wbCtx.lineWidth = wbBrushSize * 4;
+        wbCtx.lineCap = 'round';
+        wbCtx.lineJoin = 'round';
+      } else if (wbTool === 'pencil') {
+        wbCtx.strokeStyle = wbColor;
+        wbCtx.lineWidth = Math.max(1, wbBrushSize * 0.5);
+        wbCtx.lineCap = 'round';
+        wbCtx.lineJoin = 'round';
+      } else {
+        // Pen
+        wbCtx.strokeStyle = wbColor;
+        wbCtx.lineWidth = wbBrushSize;
+        wbCtx.lineCap = 'round';
+        wbCtx.lineJoin = 'round';
+      }
+
+      wbCtx.stroke();
+    }
+
+    function wbStopDrawing() {
+      if (wbIsDrawing) {
+        wbIsDrawing = false;
+        wbSaveState();
+      }
+    }
+
+    function wbHandleClick(e) {
+      if (wbTool !== 'text') return;
+
+      const rect = wbCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const text = prompt('Enter text:');
+      if (text) {
+        wbCtx.font = `${Math.max(16, wbBrushSize * 5)}px Arial`;
+        wbCtx.fillStyle = wbColor;
+        wbCtx.fillText(text, x, y);
+        wbSaveState();
+      }
+    }
+
+    function wbSaveState() {
+      // Remove any future states if we're not at the end
+      wbHistory = wbHistory.slice(0, wbHistoryIndex + 1);
+
+      // Save current state
+      wbHistory.push(wbCanvas.toDataURL());
+      wbHistoryIndex++;
+
+      // Limit history to 50 states
+      if (wbHistory.length > 50) {
+        wbHistory.shift();
+        wbHistoryIndex--;
+      }
+    }
+
+    function setWhiteboardTool(tool) {
+      wbTool = tool;
+
+      // Update button states
+      document.querySelectorAll('.wb-tool-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('tool' + tool.charAt(0).toUpperCase() + tool.slice(1))?.classList.add('active');
+
+      // Update cursor
+      if (tool === 'text') {
+        wbCanvas.style.cursor = 'text';
+      } else if (tool === 'eraser') {
+        wbCanvas.style.cursor = 'cell';
+      } else {
+        wbCanvas.style.cursor = 'crosshair';
+      }
+    }
+
+    function setWhiteboardColor(color) {
+      wbColor = color;
+
+      // Update button states
+      document.querySelectorAll('.wb-color-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    function updateBrushSize(size) {
+      wbBrushSize = parseInt(size);
+      document.getElementById('brushSizeLabel').textContent = size + 'px';
+    }
+
+    function undoWhiteboard() {
+      if (wbHistoryIndex > 0) {
+        wbHistoryIndex--;
+        const img = new Image();
+        img.onload = () => {
+          wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
+          wbCtx.drawImage(img, 0, 0);
+        };
+        img.src = wbHistory[wbHistoryIndex];
+      }
+    }
+
+    function redoWhiteboard() {
+      if (wbHistoryIndex < wbHistory.length - 1) {
+        wbHistoryIndex++;
+        const img = new Image();
+        img.onload = () => {
+          wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
+          wbCtx.drawImage(img, 0, 0);
+        };
+        img.src = wbHistory[wbHistoryIndex];
+      }
+    }
+
+    function clearWhiteboard() {
+      if (wbCtx) {
+        wbCtx.fillStyle = 'white';
+        wbCtx.fillRect(0, 0, wbCanvas.width, wbCanvas.height);
+        wbSaveState();
+      }
+    }
+
+    function downloadWhiteboard() {
+      const link = document.createElement('a');
+      link.download = 'whiteboard-' + new Date().toISOString().slice(0, 10) + '.png';
+      link.href = wbCanvas.toDataURL('image/png');
+      link.click();
+    }
+
     // ==================== RESOURCE LIBRARY ====================
     function toggleResourceInput() {
       const type = document.getElementById('resourceType').value;
@@ -4431,6 +4859,8 @@ async function saveEditedPayment() {
         container.innerHTML = filtered.map(r => {
           const typeIcon = getResourceIcon(r.category);
           const resourceUrl = r.external_link || r.file_path;
+          const downloadUrl = getDownloadUrl(resourceUrl, r.title);
+          const isFile = r.file_path && !r.external_link;
           const featuredBadge = r.is_featured ? '<span style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #333; padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold;">⭐ FEATURED</span>' : '';
           const statusBadge = r.is_active
             ? '<span style="background: #38a169; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem;">Active</span>'
@@ -4452,7 +4882,8 @@ async function saveEditedPayment() {
                 '<span style="color: #718096; font-size: 0.75rem;">👁 ' + (r.view_count || 0) + ' views</span>' +
               '</div>' +
               '<div style="display: flex; gap: 8px; flex-wrap: wrap;">' +
-                '<a href="' + resourceUrl + '" target="_blank" class="btn btn-sm" style="background: #38a169; color: white; text-decoration: none;">👁 Preview</a>' +
+                '<a href="' + resourceUrl + '" target="_blank" class="btn btn-sm" style="background: #38a169; color: white; text-decoration: none;">👁 View</a>' +
+                (isFile ? '<a href="' + downloadUrl + '" download class="btn btn-sm" style="background: #3182ce; color: white; text-decoration: none;">⬇️ Download</a>' : '') +
                 '<button onclick="toggleResourceStatus(' + r.id + ', ' + !r.is_active + ')" class="btn btn-sm" style="background: ' + (r.is_active ? '#e53e3e' : '#38a169') + '; color: white;">' + (r.is_active ? '🙈 Hide' : '👁 Show') + '</button>' +
                 '<button onclick="deleteResource(' + r.id + ')" class="btn btn-sm" style="background: #718096; color: white;">🗑️</button>' +
               '</div>' +
@@ -4476,6 +4907,35 @@ async function saveEditedPayment() {
         'Other': '📦'
       };
       return icons[category] || '📚';
+    }
+
+    // Helper to create proper download URL for Cloudinary files
+    function getDownloadUrl(url, filename) {
+      if (!url) return url;
+
+      // For Cloudinary URLs, add fl_attachment transformation
+      if (url.includes('cloudinary.com')) {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split('/');
+          const uploadIndex = pathParts.indexOf('upload');
+
+          if (uploadIndex !== -1) {
+            // Get file extension from URL
+            const lastPart = pathParts[pathParts.length - 1];
+            const ext = lastPart.includes('.') ? '.' + lastPart.split('.').pop() : '.pdf';
+            const safeFilename = (filename || 'download').replace(/[^a-zA-Z0-9]/g, '_') + ext;
+
+            // Insert fl_attachment after 'upload' for forced download
+            pathParts.splice(uploadIndex + 1, 0, 'fl_attachment:' + safeFilename);
+            urlObj.pathname = pathParts.join('/');
+            return urlObj.toString();
+          }
+        } catch (e) {
+          console.error('Error creating download URL:', e);
+        }
+      }
+      return url;
     }
 
     document.getElementById('addResourceForm').addEventListener('submit', async function(e) {
@@ -5179,12 +5639,14 @@ async function saveEditedPayment() {
           });
         }
 
+        const editBtn = `<button onclick="openEditDemoModal(${lead.id})" class="btn btn-sm" style="background: #667eea; color: white;">✏️</button>`;
         const actionButtons = lead.status === 'Completed'
-          ? `<button onclick="openConvertDemoModal(${lead.id})" class="btn btn-sm" style="background: #38a169; color: white;">🎉 Convert</button>
+          ? `${editBtn}
+             <button onclick="openConvertDemoModal(${lead.id})" class="btn btn-sm" style="background: #38a169; color: white;">🎉 Convert</button>
              <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Status</button>`
           : lead.status === 'Converted'
-          ? `<span style="color: #38a169;">Student #${lead.converted_student_id || ''}</span>`
-          : `<button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Update</button>`;
+          ? `${editBtn} <span style="color: #38a169;">Student #${lead.converted_student_id || ''}</span>`
+          : `${editBtn} <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Update</button>`;
 
         return `<tr>
           <td><strong>${lead.child_name}</strong><br><small style="color:#718096;">Grade: ${lead.child_grade || 'N/A'}</small></td>
@@ -5252,6 +5714,78 @@ async function saveEditedPayment() {
     function closeUpdateDemoStatusModal() {
       document.getElementById('updateDemoStatusModal').classList.remove('active');
     }
+
+    function openEditDemoModal(leadId) {
+      const lead = allDemoLeads.find(l => l.id === leadId);
+      if (!lead) return;
+
+      document.getElementById('editDemoId').value = leadId;
+      document.getElementById('editDemoChildName').value = lead.child_name || '';
+      document.getElementById('editDemoChildGrade').value = lead.child_grade || '';
+      document.getElementById('editDemoParentName').value = lead.parent_name || '';
+      document.getElementById('editDemoParentEmail').value = lead.parent_email || '';
+      document.getElementById('editDemoPhone').value = lead.phone || '';
+      document.getElementById('editDemoProgramInterest').value = lead.program_interest || '';
+      document.getElementById('editDemoSource').value = lead.source || '';
+      document.getElementById('editDemoStatus').value = lead.status || 'Scheduled';
+      document.getElementById('editDemoNotes').value = lead.notes || '';
+      document.getElementById('editDemoSendEmail').checked = false;
+
+      // Handle date - extract date part from ISO string
+      if (lead.demo_date) {
+        const dateStr = lead.demo_date.includes('T') ? lead.demo_date.split('T')[0] : lead.demo_date;
+        document.getElementById('editDemoDate').value = dateStr;
+      } else {
+        document.getElementById('editDemoDate').value = '';
+      }
+
+      // Handle time
+      document.getElementById('editDemoTime').value = lead.demo_time || '';
+
+      document.getElementById('editDemoModal').classList.add('active');
+    }
+
+    function closeEditDemoModal() {
+      document.getElementById('editDemoModal').classList.remove('active');
+    }
+
+    document.getElementById('editDemoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const leadId = document.getElementById('editDemoId').value;
+
+      const data = {
+        child_name: document.getElementById('editDemoChildName').value,
+        child_grade: document.getElementById('editDemoChildGrade').value,
+        parent_name: document.getElementById('editDemoParentName').value,
+        parent_email: document.getElementById('editDemoParentEmail').value,
+        phone: document.getElementById('editDemoPhone').value,
+        program_interest: document.getElementById('editDemoProgramInterest').value,
+        demo_date: document.getElementById('editDemoDate').value,
+        demo_time: document.getElementById('editDemoTime').value,
+        source: document.getElementById('editDemoSource').value,
+        status: document.getElementById('editDemoStatus').value,
+        notes: document.getElementById('editDemoNotes').value,
+        send_email: document.getElementById('editDemoSendEmail').checked
+      };
+
+      try {
+        const res = await fetch(`/api/demo-leads/${leadId}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + (result.message || 'Demo details updated!'));
+          closeEditDemoModal();
+          loadDemoLeads();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    });
 
     document.getElementById('updateDemoStatusForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -6219,13 +6753,13 @@ async function saveEditedPayment() {
         const leads = await res.json();
         const select = document.getElementById('assessmentDemoLead');
 
-        // Filter to show demo_done leads or recent leads
-        const eligibleLeads = leads.filter(l => l.status === 'demo_done' || l.status === 'scheduled');
+        // Filter to show completed demos or scheduled demos
+        const eligibleLeads = leads.filter(l => l.status === 'Completed' || l.status === 'Scheduled');
 
         select.innerHTML = '<option value="">Select Demo Lead...</option>' +
           eligibleLeads.map(l => {
             const demoDate = l.demo_date ? new Date(l.demo_date).toLocaleDateString() : 'No date';
-            const statusLabel = l.status === 'demo_done' ? '✓ Demo Done' : '📅 Scheduled';
+            const statusLabel = l.status === 'Completed' ? '✅ Demo Completed' : '📅 Scheduled';
             return `<option value="${l.id}" data-date="${demoDate}" data-email="${l.parent_email || ''}" data-parent="${l.parent_name || ''}">${l.child_name} (${l.child_grade}) - ${statusLabel} - ${demoDate}</option>`;
           }).join('');
       } catch (err) {

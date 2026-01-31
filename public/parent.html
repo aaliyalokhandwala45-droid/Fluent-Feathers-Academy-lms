@@ -429,6 +429,10 @@
       <div id="pastTab" class="tab-content">
         <div class="section">
           <h2>📚 Completed Classes</h2>
+          <div style="background: linear-gradient(135deg, #fff8e6 0%, #fef3c7 100%); border: 1px solid #f6ad55; border-radius: 10px; padding: 12px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 1.5rem;">⏰</span>
+            <p style="margin: 0; color: #744210; font-size: 0.9rem;"><strong>Note:</strong> Class recordings are available for <strong>15 days only</strong> from the class date. Please download them if you wish to keep a copy.</p>
+          </div>
           <div class="table-responsive">
             <table id="pastTable">
               <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th><th>Feedback</th></tr></thead>
@@ -1637,7 +1641,12 @@
               return `<button onclick="previewProtectedFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" class="btn-download" style="cursor:pointer; border:none; background:transparent; color:#B05D9E;">${icon} 🔒${label}</button>`;
             }
 
-            return `<button onclick="previewFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" class="btn-download" style="cursor:pointer; border:none; background:transparent;">${icon} ${label}</button>`;
+            // Non-protected files - show View and Download buttons
+            const downloadUrl = getDownloadUrl(fileUrl, fileName);
+            return `<span style="display:inline-flex; gap:5px; align-items:center;">
+              <button onclick="previewFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" class="btn-download" style="cursor:pointer; border:none; background:transparent;">${icon} ${label}</button>
+              <a href="${downloadUrl}" download="${fileName}" style="color:#38a169; font-size:0.8rem; text-decoration:none;" title="Download ${label}">⬇️</a>
+            </span>`;
           }
 
           let materials = '';
@@ -1814,6 +1823,9 @@
             viewButton = `<a href="${fileUrl}" target="_blank" style="background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none;">Open Link</a>`;
           }
 
+          // Create proper download URL with filename
+          const downloadUrl = fileUrl && !hw.file_path.startsWith('LINK:') ? getDownloadUrl(fileUrl, hw.file_name || 'homework') : '';
+
           return `
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -1826,7 +1838,7 @@
                 <div style="display: flex; align-items: center; gap: 10px;">
                   ${gradeDisplay}
                   ${viewButton}
-                  ${fileUrl && !hw.file_path.startsWith('LINK:') ? `<a href="${fileUrl}" download="${hw.file_name || 'download'}" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none;">Download</a>` : ''}
+                  ${downloadUrl ? `<a href="${downloadUrl}" download="${hw.file_name || 'download'}" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none;">⬇️ Download</a>` : ''}
                   <button onclick="deleteHomework(${hw.id})" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>
                 </div>
               </div>
@@ -2193,16 +2205,16 @@
       const parentName = currentStudent?.parent_name || 'Parent';
       const studentName = currentStudent?.name || 'Student';
       const watermarkText = `${parentName} | ${studentName} | FluentFeathers`;
+      const dateStr = new Date().toLocaleDateString();
 
-      let content = '';
       let viewerUrl = '';
 
       if (fileType === 'pdf') {
-        // Use Google Docs viewer for PDFs
+        // Use Google Docs viewer for PDFs - disable toolbar
         viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
       } else if (fileType === 'doc') {
-        // Use Microsoft Office Online viewer for PPT/Word/Excel
-        viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+        // Use Google Docs viewer for PPT/Word/Excel (more restrictive than Office Online)
+        viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
       } else if (fileType === 'image') {
         viewerUrl = url;
       } else {
@@ -2210,12 +2222,14 @@
         viewerUrl = '';
       }
 
-      // Create watermark pattern (multiple diagonal watermarks)
+      // Create dense watermark pattern (multiple diagonal watermarks covering entire area)
       let watermarkHtml = '';
-      for (let i = 0; i < 20; i++) {
-        const top = (i * 15) % 100;
-        const left = ((i * 23) + 10) % 100;
-        watermarkHtml += `<div style="position: absolute; top: ${top}%; left: ${left}%; transform: rotate(-30deg); white-space: nowrap; color: rgba(176, 93, 158, 0.15); font-size: 14px; font-weight: bold; pointer-events: none; user-select: none;">${watermarkText}</div>`;
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 5; col++) {
+          const top = row * 14;
+          const left = col * 22 + (row % 2) * 10;
+          watermarkHtml += `<div style="position: absolute; top: ${top}%; left: ${left}%; transform: rotate(-25deg); white-space: nowrap; color: rgba(176, 93, 158, 0.25); font-size: 16px; font-weight: bold; pointer-events: none; user-select: none; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">${watermarkText}</div>`;
+        }
       }
 
       const modal = document.createElement('div');
@@ -2225,35 +2239,48 @@
       if (viewerUrl && (fileType === 'pdf' || fileType === 'doc')) {
         modal.innerHTML = `
           <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center;">
-            <span style="background: #f6ad55; color: #744210; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only - Downloads Disabled</span>
+            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only - No Downloads</span>
             <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
           </div>
-          <p style="color: white; margin-bottom: 15px; font-size: 1.1rem;">📊 ${fileName}</p>
-          <div style="position: relative; width: 95vw; max-width: 1200px; height: 85vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;">
-            <iframe src="${viewerUrl}" style="width: 100%; height: 100%; border: none;" sandbox="allow-scripts allow-same-origin"></iframe>
-            <!-- Watermark overlay -->
-            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 100;">
+          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📊 ${fileName}</p>
+          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">📋 Viewing as: ${parentName} | ${dateStr}</p>
+          <div style="position: relative; width: 95vw; max-width: 1200px; height: 80vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
+            <iframe src="${viewerUrl}" style="width: 100%; height: 100%; border: none;" sandbox="allow-scripts allow-same-origin" allow=""></iframe>
+            <!-- Dense watermark overlay -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 1000;">
               ${watermarkHtml}
             </div>
-            <!-- Block download clicks overlay -->
-            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 50px; background: linear-gradient(transparent, rgba(176,93,158,0.1)); pointer-events: auto; cursor: not-allowed;" title="Downloads are disabled for class materials"></div>
+            <!-- Top toolbar blocker -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 45px; background: linear-gradient(to bottom, rgba(176,93,158,0.95), rgba(176,93,158,0.8)); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001;">
+              <span style="color: white; font-weight: 600; font-size: 0.9rem;">🔒 Class Material - View Only | ${watermarkText}</span>
+            </div>
+            <!-- Bottom blocker -->
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, rgba(176,93,158,0.9), transparent); pointer-events: auto; z-index: 1001;"></div>
           </div>
-          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">This material is for viewing only. Screenshots and downloads are not permitted.</p>
+          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">⚠️ This material is for viewing only. Downloading or sharing is not permitted.</p>
         `;
       } else if (fileType === 'image') {
+        // Create multiple watermarks for images
+        let imgWatermarks = '';
+        for (let i = 0; i < 5; i++) {
+          const top = 15 + i * 18;
+          imgWatermarks += `<div style="position: absolute; top: ${top}%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); white-space: nowrap; color: rgba(176, 93, 158, 0.35); font-size: 20px; font-weight: bold; pointer-events: none; user-select: none; text-shadow: 2px 2px 4px rgba(255,255,255,0.8);">${watermarkText}</div>`;
+        }
         modal.innerHTML = `
           <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center;">
-            <span style="background: #f6ad55; color: #744210; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only</span>
+            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only</span>
             <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
           </div>
-          <p style="color: white; margin-bottom: 15px; font-size: 1.1rem;">📊 ${fileName}</p>
-          <div style="position: relative; display: inline-block;" oncontextmenu="return false;">
-            <img src="${url}" style="max-width: 95vw; max-height: 80vh; border-radius: 8px;" draggable="false" onmousedown="return false;">
-            <!-- Watermark overlay for images -->
-            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; display: flex; align-items: center; justify-content: center;">
-              <span style="color: rgba(176, 93, 158, 0.3); font-size: 24px; font-weight: bold; transform: rotate(-30deg); white-space: nowrap;">${watermarkText}</span>
+          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📊 ${fileName}</p>
+          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">📋 Viewing as: ${parentName} | ${dateStr}</p>
+          <div style="position: relative; display: inline-block;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
+            <img src="${url}" style="max-width: 95vw; max-height: 75vh; border-radius: 8px;" draggable="false" onmousedown="return false;" oncopy="return false;">
+            <!-- Multiple watermark overlays for images -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden;">
+              ${imgWatermarks}
             </div>
           </div>
+          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">⚠️ This material is for viewing only. Downloading or sharing is not permitted.</p>
         `;
       } else {
         modal.innerHTML = `
@@ -2426,6 +2453,8 @@
 
           // Check if it's a downloadable file (uploaded file, not external link)
           const isDownloadable = r.file_path && !r.external_link;
+          // Create proper download URL with filename
+          const downloadUrl = isDownloadable ? getDownloadUrl(resourceUrl, r.title) : '';
 
           let html = '<div class="resource-card" style="background: ' + cardBg + '; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; border: ' + borderStyle + ';">';
           html += '<div style="padding: 20px; text-align: center;">';
@@ -2447,8 +2476,8 @@
           html += '<button data-action="view" data-id="' + r.id + '" data-url="' + encodedUrl + '" style="background: #B05D9E; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s;">👁 View</button>';
 
           if (isDownloadable) {
-            // For uploaded files - show download button
-            html += '<a href="' + resourceUrl + '" download style="background: #38a169; color: white; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block;">📥 Download</a>';
+            // For uploaded files - show download button with proper filename
+            html += '<a href="' + downloadUrl + '" download="' + escapeHtml(r.title || 'download') + '" style="background: #38a169; color: white; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block;">📥 Download</a>';
           } else {
             // For external links (YouTube, Canva, etc.) - show link indicator
             html += '<span style="background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.8rem;">🔗 Opens in Browser</span>';
@@ -2507,6 +2536,35 @@
         'Other': '📦'
       };
       return icons[category] || '📚';
+    }
+
+    // Helper to create proper download URL for Cloudinary files
+    function getDownloadUrl(url, filename) {
+      if (!url) return url;
+
+      // For Cloudinary URLs, add fl_attachment transformation
+      if (url.includes('cloudinary.com')) {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split('/');
+          const uploadIndex = pathParts.indexOf('upload');
+
+          if (uploadIndex !== -1) {
+            // Get file extension from URL
+            const lastPart = pathParts[pathParts.length - 1];
+            const ext = lastPart.includes('.') ? '.' + lastPart.split('.').pop() : '.pdf';
+            const safeFilename = (filename || 'download').replace(/[^a-zA-Z0-9]/g, '_') + ext;
+
+            // Insert fl_attachment after 'upload' for forced download
+            pathParts.splice(uploadIndex + 1, 0, 'fl_attachment:' + safeFilename);
+            urlObj.pathname = pathParts.join('/');
+            return urlObj.toString();
+          }
+        } catch (e) {
+          console.error('Error creating download URL:', e);
+        }
+      }
+      return url;
     }
 
     function openResource(resourceId, url) {

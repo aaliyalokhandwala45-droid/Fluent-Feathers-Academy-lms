@@ -56,25 +56,127 @@ if (useCloudinary) {
 }
 
 // ==================== DATABASE CONNECTION ====================
+// Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // Pool configuration optimized for free-tier hosting
+  max: 5,                          // Maximum 5 connections (free tier friendly)
+  min: 0,                          // Allow pool to shrink to 0 when idle
+  idleTimeoutMillis: 30000,        // Close idle connections after 30 seconds
+  connectionTimeoutMillis: 10000,  // Wait 10 seconds for connection
+  allowExitOnIdle: true            // Allow process to exit when pool is empty
 });
 
-pool.connect(async (err, client, release) => {
-  if (err) { 
-    console.error('❌ Database connection error:', err); 
-  } else { 
-    console.log('✅ Connected to PostgreSQL'); 
-    release(); 
-    
-    // Run initialization first (creates tables if they don't exist)
-    await initializeDatabase();
-    
-    // Then run migrations (adds missing columns to existing tables)
-    await runMigrations();
-  }
+// Track database readiness
+let dbReady = false;
+let dbInitializing = false;
+
+// Pool error handler - critical for catching connection issues
+pool.on('error', (err, client) => {
+  console.error('❌ Unexpected database pool error:', err.message);
+  dbReady = false;
+  // Don't crash - the pool will attempt to reconnect on next query
 });
+
+pool.on('connect', (client) => {
+  console.log('🔗 New database connection established');
+});
+
+pool.on('remove', (client) => {
+  console.log('🔌 Database connection removed from pool');
+});
+
+// Robust query wrapper with retry logic for transient errors
+async function executeQuery(queryText, params = [], retries = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const result = await pool.query(queryText, params);
+      // Mark DB as ready on successful query
+      if (!dbReady) {
+        dbReady = true;
+        console.log('✅ Database connection restored');
+      }
+      return result;
+    } catch (err) {
+      lastError = err;
+
+      // Check if it's a transient/connection error worth retrying
+      const isTransientError =
+        err.code === 'ECONNRESET' ||
+        err.code === 'ENOTFOUND' ||
+        err.code === 'ETIMEDOUT' ||
+        err.code === 'ECONNREFUSED' ||
+        err.code === '57P01' ||  // admin_shutdown
+        err.code === '57P02' ||  // crash_shutdown
+        err.code === '57P03' ||  // cannot_connect_now
+        err.code === '08006' ||  // connection_failure
+        err.code === '08001' ||  // sqlclient_unable_to_establish_sqlconnection
+        err.code === '08004' ||  // sqlserver_rejected_establishment_of_sqlconnection
+        err.message.includes('Connection terminated') ||
+        err.message.includes('connection timeout') ||
+        err.message.includes('Client has encountered a connection error');
+
+      if (isTransientError && attempt < retries) {
+        console.warn(`⚠️ Database query failed (attempt ${attempt}/${retries}): ${err.message}`);
+        dbReady = false;
+        // Exponential backoff: 500ms, 1000ms, 2000ms
+        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt - 1)));
+        continue;
+      }
+
+      // Non-transient error or final attempt, throw
+      throw err;
+    }
+  }
+
+  throw lastError;
+}
+
+// Initialize database with retry logic
+async function initializeDatabaseConnection() {
+  if (dbInitializing) return;
+  dbInitializing = true;
+
+  const maxAttempts = 5;
+  const retryDelay = 3000; // 3 seconds
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`🔄 Attempting database connection (attempt ${attempt}/${maxAttempts})...`);
+
+      // Test the connection
+      const client = await pool.connect();
+      console.log('✅ Connected to PostgreSQL');
+      client.release();
+
+      dbReady = true;
+
+      // Run initialization
+      await initializeDatabase();
+      await runMigrations();
+
+      dbInitializing = false;
+      return true;
+    } catch (err) {
+      console.error(`❌ Database connection attempt ${attempt} failed:`, err.message);
+
+      if (attempt < maxAttempts) {
+        console.log(`⏳ Retrying in ${retryDelay / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+  }
+
+  console.error('❌ Failed to connect to database after all attempts. Server will retry on first request.');
+  dbInitializing = false;
+  return false;
+}
+
+// Start database connection
+initializeDatabaseConnection();
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
@@ -111,14 +213,42 @@ if (useCloudinary) {
       const isVideo = ['.mp4', '.mov', '.avi', '.webm'].includes(ext);
       const folder = req.body.uploadType === 'homework' ? 'fluentfeathers/homework' : 'fluentfeathers/materials';
 
+      // Create unique filename - include extension for raw files (PDFs, docs, etc.)
+      const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      // For raw files, append extension to public_id so it downloads correctly
+      const publicId = (isImage || isVideo) ? uniqueName : uniqueName + ext;
+
       return {
         folder: folder,
         resource_type: isVideo ? 'video' : isImage ? 'image' : 'raw',
-        public_id: Date.now() + '-' + Math.round(Math.random() * 1E9),
+        public_id: publicId,
         allowed_formats: null // Allow all formats
       };
     }
   });
+}
+
+// Helper function to get proper download URL from Cloudinary
+function getCloudinaryDownloadUrl(url, originalFilename) {
+  if (!url || !url.includes('cloudinary')) return url;
+
+  // For Cloudinary URLs, add fl_attachment to force download with proper filename
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    const uploadIndex = pathParts.indexOf('upload');
+
+    if (uploadIndex !== -1) {
+      // Insert transformation after 'upload'
+      const filename = originalFilename || 'download';
+      pathParts.splice(uploadIndex + 1, 0, `fl_attachment:${encodeURIComponent(filename)}`);
+      urlObj.pathname = pathParts.join('/');
+      return urlObj.toString();
+    }
+  } catch (e) {
+    console.error('Error creating download URL:', e);
+  }
+  return url;
 }
 
 // File filter for security
@@ -1386,6 +1516,7 @@ function getDemoConfirmationEmail(data) {
         <p style="margin: 0 0 8px; font-size: 20px; font-weight: bold;">${data.demoDate}</p>
         <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${data.demoTime} IST</p>
         <p style="margin: 15px 0 0; font-size: 14px; opacity: 0.9;">Program: ${data.programInterest}</p>
+        ${data.meetLink ? `<a href="${data.meetLink}" style="display: inline-block; margin-top: 20px; background: white; color: #667eea; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">🎥 Join Demo Class</a>` : ''}
       </div>
 
       ${bioHtml}
@@ -1401,7 +1532,7 @@ function getDemoConfirmationEmail(data) {
       </div>
 
       <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
-        We'll send you the meeting link closer to the demo time. If you have any questions, feel free to reply to this email.
+        ${data.meetLink ? 'Click the "Join Demo Class" button above at the scheduled time to join the demo.' : 'We\'ll send you the meeting link closer to the demo time.'} If you have any questions, feel free to reply to this email.
       </p>
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 30px;">
@@ -2619,10 +2750,10 @@ console.log('✅ Payment renewal reminder system initialized - checking daily at
 // ==================== API ROUTES ====================
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    const s = await pool.query('SELECT COUNT(*) as total, SUM(fees_paid) as revenue FROM students WHERE is_active = true');
-    const sess = await pool.query(`SELECT COUNT(*) as upcoming FROM sessions WHERE status IN ('Pending', 'Scheduled') AND session_date >= CURRENT_DATE`);
-    const g = await pool.query('SELECT COUNT(*) as total FROM groups');
-    const e = await pool.query('SELECT COUNT(*) as total FROM events WHERE status = \'Active\'');
+    const s = await executeQuery('SELECT COUNT(*) as total, SUM(fees_paid) as revenue FROM students WHERE is_active = true');
+    const sess = await executeQuery(`SELECT COUNT(*) as upcoming FROM sessions WHERE status IN ('Pending', 'Scheduled') AND session_date >= CURRENT_DATE`);
+    const g = await executeQuery('SELECT COUNT(*) as total FROM groups');
+    const e = await executeQuery('SELECT COUNT(*) as total FROM events WHERE status = \'Active\'');
     res.json({
       totalStudents: parseInt(s.rows[0].total)||0,
       totalRevenue: parseFloat(s.rows[0].revenue)||0,
@@ -2631,7 +2762,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
       activeEvents: parseInt(e.rows[0].total)||0
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Dashboard stats error:', err.message);
+    res.status(500).json({ error: 'Database temporarily unavailable. Please refresh.' });
   }
 });
 
@@ -2694,8 +2826,8 @@ app.get('/api/calendar/sessions', async (req, res) => {
 
 app.get('/api/dashboard/upcoming-classes', async (req, res) => {
   try {
-    // Get private sessions (only for active students)
-    const priv = await pool.query(`
+    // Get private sessions (only for active students) - using retry-enabled query
+    const priv = await executeQuery(`
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
       CONCAT(st.program_name, ' - ', st.duration) as class_info,
       'Private' as display_type,
@@ -2708,7 +2840,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     `, [DEFAULT_MEET]);
 
     // Get group sessions
-    const grp = await pool.query(`
+    const grp = await executeQuery(`
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
       CONCAT(g.program_name, ' - ', g.duration) as class_info,
       'Group' as display_type,
@@ -2720,7 +2852,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     `, [DEFAULT_MEET]);
 
     // Get upcoming events as well
-    const events = await pool.query(`
+    const events = await executeQuery(`
   SELECT id,
     event_name as student_name,
     event_date as session_date,
@@ -2737,7 +2869,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
 `);
 
     // Get scheduled demo classes
-    const demos = await pool.query(`
+    const demos = await executeQuery(`
       SELECT id,
         child_name || ' (DEMO)' as student_name,
         demo_date as session_date,
@@ -2879,7 +3011,8 @@ app.post('/api/demo-leads', async (req, res) => {
           programInterest: program_interest || 'English Communication',
           adminName: settings.admin_name || 'Aaliya',
           adminTitle: settings.admin_title || 'Founder & Lead Instructor',
-          adminBio: settings.admin_bio || ''
+          adminBio: settings.admin_bio || '',
+          meetLink: DEFAULT_MEET
         });
 
         emailSent = await sendEmail(
@@ -2918,6 +3051,84 @@ app.put('/api/demo-leads/:id/status', async (req, res) => {
       [status, updatedNotes, req.params.id]
     );
     res.json({ success: true, message: 'Status updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update demo lead details (edit)
+app.put('/api/demo-leads/:id', async (req, res) => {
+  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, status, notes, send_email } = req.body;
+
+  try {
+    // Get original lead data for comparison
+    const originalLead = await pool.query('SELECT * FROM demo_leads WHERE id = $1', [req.params.id]);
+    if (originalLead.rows.length === 0) {
+      return res.status(404).json({ error: 'Demo lead not found' });
+    }
+    const original = originalLead.rows[0];
+
+    // Convert demo time to UTC for storage
+    let utcTime = demo_time;
+    if (demo_date && demo_time) {
+      const istDateTime = new Date(`${demo_date}T${demo_time}:00+05:30`);
+      utcTime = istDateTime.toISOString().substr(11, 5);
+    }
+
+    // Update the demo lead
+    const r = await pool.query(`
+      UPDATE demo_leads
+      SET child_name = $1, child_grade = $2, parent_name = $3, parent_email = $4,
+          phone = $5, program_interest = $6, demo_date = $7, demo_time = $8,
+          source = $9, status = $10, notes = $11, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $12
+      RETURNING *
+    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, utcTime, source, status, notes, req.params.id]);
+
+    // Send updated confirmation email if requested and date/time changed
+    let emailSent = false;
+    if (send_email && parent_email && (original.demo_date !== demo_date || original.demo_time !== utcTime)) {
+      try {
+        // Get admin settings for email
+        const settingsResult = await pool.query('SELECT setting_key, setting_value FROM admin_settings');
+        const settings = {};
+        settingsResult.rows.forEach(row => {
+          settings[row.setting_key] = row.setting_value;
+        });
+
+        // Format date and time for display
+        const displayDate = new Date(demo_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const displayTime = demo_time;
+
+        const emailHtml = getDemoConfirmationEmail({
+          parentName: parent_name || 'Parent',
+          childName: child_name,
+          demoDate: displayDate,
+          demoTime: displayTime,
+          programInterest: program_interest || 'English Communication',
+          adminName: settings.admin_name || 'Aaliya',
+          adminTitle: settings.admin_title || 'Founder & Lead Instructor',
+          adminBio: settings.admin_bio || '',
+          meetLink: DEFAULT_MEET
+        });
+
+        emailSent = await sendEmail(
+          parent_email,
+          `📅 Updated Demo Class Details for ${child_name} - Fluent Feathers Academy`,
+          emailHtml,
+          parent_name,
+          'Demo Reschedule'
+        );
+      } catch (emailErr) {
+        console.error('Demo update email error:', emailErr);
+      }
+    }
+
+    res.json({
+      success: true,
+      lead: r.rows[0],
+      message: emailSent ? 'Demo details updated and confirmation email sent!' : 'Demo details updated successfully!'
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2989,7 +3200,7 @@ app.delete('/api/demo-leads/:id', async (req, res) => {
 // ==================== STUDENTS API ====================
 app.get('/api/students', async (req, res) => {
   try {
-    const r = await pool.query(`
+    const r = await executeQuery(`
       SELECT s.*, COUNT(m.id) as makeup_credits
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available'
@@ -2999,7 +3210,8 @@ app.get('/api/students', async (req, res) => {
     `);
     res.json(r.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Students list error:', err.message);
+    res.status(500).json({ error: 'Database temporarily unavailable. Please refresh.' });
   }
 });
 
@@ -3079,7 +3291,7 @@ app.post('/api/students/:id/payment', async (req, res) => {
 
 app.get('/api/groups', async (req, res) => {
   try {
-    const r = await pool.query(`
+    const r = await executeQuery(`
       SELECT g.*, COUNT(DISTINCT s.id) as enrolled_students
       FROM groups g
       LEFT JOIN students s ON g.id = s.group_id AND s.is_active = true
@@ -3088,7 +3300,8 @@ app.get('/api/groups', async (req, res) => {
     `);
     res.json(r.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Groups list error:', err.message);
+    res.status(500).json({ error: 'Database temporarily unavailable. Please refresh.' });
   }
 });
 
@@ -3299,8 +3512,8 @@ app.get('/api/sessions/:studentId', async (req, res) => {
   }
 
   try {
-    // Get private sessions with homework info and feedback status
-    const privateSessions = await pool.query(`
+    // Get private sessions with homework info and feedback status - using retry-enabled query
+    const privateSessions = await executeQuery(`
       SELECT s.*, 'Private' as source_type,
         m.file_path as homework_submission_path,
         m.feedback_grade as homework_grade,
@@ -3313,11 +3526,11 @@ app.get('/api/sessions/:studentId', async (req, res) => {
     `, [id]);
 
     // Get group sessions for this student
-    const student = await pool.query('SELECT group_id FROM students WHERE id = $1', [id]);
+    const student = await executeQuery('SELECT group_id FROM students WHERE id = $1', [id]);
     let groupSessions = [];
 
     if (student.rows[0] && student.rows[0].group_id) {
-      const groupSessionsResult = await pool.query(`
+      const groupSessionsResult = await executeQuery(`
         SELECT s.*, 'Group' as source_type,
           m.file_path as homework_submission_path,
           m.feedback_grade as homework_grade,
@@ -5200,25 +5413,30 @@ app.post('/api/announcements', upload.single('image'), async (req, res) => {
 
     // Handle image upload if present
     if (req.file) {
-      if (cloudinary) {
-        // Upload to Cloudinary
-        const result = await new Promise((resolve, reject) => {
-          cloudinary.uploader.upload_stream(
-            { folder: 'fluentfeathers/announcements', resource_type: 'image' },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          ).end(req.file.buffer);
-        });
-        imageUrl = result.secure_url;
-      } else {
-        // Save locally
-        const fileName = Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = path.join(__dirname, 'public/uploads/announcements', fileName);
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
-        await fs.writeFile(filePath, req.file.buffer);
-        imageUrl = '/uploads/announcements/' + fileName;
+      // When using CloudinaryStorage, file is already uploaded and path contains the URL
+      if (req.file.path) {
+        imageUrl = req.file.path;
+      } else if (req.file.buffer) {
+        // Fallback for memory storage - upload to Cloudinary manually
+        if (cloudinary) {
+          const result = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_stream(
+              { folder: 'fluentfeathers/announcements', resource_type: 'image' },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            ).end(req.file.buffer);
+          });
+          imageUrl = result.secure_url;
+        } else {
+          // Save locally
+          const fileName = Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const filePath = path.join(__dirname, 'public/uploads/announcements', fileName);
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+          await fs.writeFile(filePath, req.file.buffer);
+          imageUrl = '/uploads/announcements/' + fileName;
+        }
       }
     }
 
@@ -5321,23 +5539,29 @@ app.put('/api/announcements/:id', upload.single('image'), async (req, res) => {
 
     // Handle image upload if present
     if (req.file) {
-      if (cloudinary) {
-        const result = await new Promise((resolve, reject) => {
-          cloudinary.uploader.upload_stream(
-            { folder: 'fluentfeathers/announcements', resource_type: 'image' },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          ).end(req.file.buffer);
-        });
-        imageUrl = result.secure_url;
-      } else {
-        const fileName = Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = path.join(__dirname, 'public/uploads/announcements', fileName);
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
-        await fs.writeFile(filePath, req.file.buffer);
-        imageUrl = '/uploads/announcements/' + fileName;
+      // When using CloudinaryStorage, file is already uploaded and path contains the URL
+      if (req.file.path) {
+        imageUrl = req.file.path;
+      } else if (req.file.buffer) {
+        // Fallback for memory storage
+        if (cloudinary) {
+          const result = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_stream(
+              { folder: 'fluentfeathers/announcements', resource_type: 'image' },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            ).end(req.file.buffer);
+          });
+          imageUrl = result.secure_url;
+        } else {
+          const fileName = Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const filePath = path.join(__dirname, 'public/uploads/announcements', fileName);
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+          await fs.writeFile(filePath, req.file.buffer);
+          imageUrl = '/uploads/announcements/' + fileName;
+        }
       }
     } else if (remove_image === 'true') {
       imageUrl = null; // Remove existing image
@@ -5728,40 +5952,105 @@ app.post('/api/admin/trigger-reminders', async (req, res) => {
   }
 });
 
+// Endpoint to manually reconnect database (useful after cold starts)
+app.post('/api/admin/reconnect-db', async (req, res) => {
+  try {
+    console.log('🔄 Manual database reconnection triggered');
+    dbReady = false;
+
+    // Try to establish a fresh connection
+    const testResult = await executeQuery('SELECT NOW() as current_time');
+
+    res.json({
+      success: true,
+      message: 'Database reconnected successfully',
+      server_time: testResult.rows[0].current_time,
+      pool_stats: {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount
+      }
+    });
+  } catch (err) {
+    console.error('Database reconnection failed:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      hint: 'Database may be starting up. Try again in a few seconds.'
+    });
+  }
+});
+
 // Endpoint to check server health and upcoming reminders
 app.get('/api/health', async (req, res) => {
   try {
     const now = new Date();
+    let dbStatus = 'unknown';
+    let dbLatency = null;
+    let poolStats = null;
 
-    // Get upcoming sessions in next 6 hours
-    const upcoming = await pool.query(`
-      SELECT s.id, s.session_number, s.session_date, s.session_time, s.session_type,
-             COALESCE(st.name, 'Group') as student_name,
-             CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
-      FROM sessions s
-      LEFT JOIN students st ON s.student_id = st.id
-      WHERE s.status IN ('Pending', 'Scheduled')
-        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
-      ORDER BY s.session_date, s.session_time
-      LIMIT 10
-    `);
+    // Test database connection with timing
+    const dbStart = Date.now();
+    try {
+      await executeQuery('SELECT 1');
+      dbLatency = Date.now() - dbStart;
+      dbStatus = 'connected';
+    } catch (dbErr) {
+      dbStatus = 'disconnected';
+      console.error('Health check DB error:', dbErr.message);
+    }
 
-    const sessionsWithTimes = upcoming.rows.map(s => {
-      const sessionDateTime = new Date(s.full_datetime);
-      const hoursDiff = (sessionDateTime - now) / (1000 * 60 * 60);
-      return {
-        id: s.id,
-        session_number: s.session_number,
-        student: s.student_name,
-        type: s.session_type,
-        datetime_utc: s.full_datetime,
-        hours_until: hoursDiff.toFixed(2)
-      };
-    });
+    // Get pool statistics
+    poolStats = {
+      totalCount: pool.totalCount,
+      idleCount: pool.idleCount,
+      waitingCount: pool.waitingCount
+    };
+
+    // Get upcoming sessions (only if DB is connected)
+    let sessionsWithTimes = [];
+    if (dbStatus === 'connected') {
+      try {
+        const upcoming = await executeQuery(`
+          SELECT s.id, s.session_number, s.session_date, s.session_time, s.session_type,
+                 COALESCE(st.name, 'Group') as student_name,
+                 CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
+          FROM sessions s
+          LEFT JOIN students st ON s.student_id = st.id
+          WHERE s.status IN ('Pending', 'Scheduled')
+            AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
+          ORDER BY s.session_date, s.session_time
+          LIMIT 10
+        `);
+
+        sessionsWithTimes = upcoming.rows.map(s => {
+          const sessionDateTime = new Date(s.full_datetime);
+          const hoursDiff = (sessionDateTime - now) / (1000 * 60 * 60);
+          return {
+            id: s.id,
+            session_number: s.session_number,
+            student: s.student_name,
+            type: s.session_type,
+            datetime_utc: s.full_datetime,
+            hours_until: hoursDiff.toFixed(2)
+          };
+        });
+      } catch (err) {
+        console.error('Error fetching sessions for health check:', err.message);
+      }
+    }
+
+    const overallStatus = dbStatus === 'connected' ? 'healthy' : 'degraded';
 
     res.json({
-      status: 'healthy',
+      status: overallStatus,
       server_time_utc: now.toISOString(),
+      database: {
+        status: dbStatus,
+        latency_ms: dbLatency,
+        pool: poolStats,
+        ready: dbReady
+      },
       upcoming_sessions: sessionsWithTimes,
       reminder_windows: {
         '5_hour': '4.5 to 5.5 hours before class',
@@ -5769,31 +6058,86 @@ app.get('/api/health', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ status: 'error', error: err.message });
+    res.status(500).json({
+      status: 'error',
+      error: err.message,
+      database: { status: 'error', ready: dbReady }
+    });
   }
 });
 
 // ==================== KEEPALIVE PING ====================
 // Self-ping every 14 minutes to prevent server sleep on free tier platforms
 const SELF_PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+const DB_CHECK_INTERVAL = 5 * 60 * 1000;   // Check DB every 5 minutes
 let selfPingUrl = null;
 
+// Database health check - tries to reconnect if disconnected
+async function checkDatabaseHealth() {
+  try {
+    if (!dbReady) {
+      console.log('🔄 Database not ready, attempting to reconnect...');
+      await executeQuery('SELECT 1');
+      console.log('✅ Database reconnected successfully');
+    }
+  } catch (err) {
+    console.error('❌ Database health check failed:', err.message);
+    dbReady = false;
+  }
+}
+
 function startKeepAlive() {
-  // Only start keepalive in production
+  // Database health check - runs every 5 minutes
+  setInterval(async () => {
+    await checkDatabaseHealth();
+  }, DB_CHECK_INTERVAL);
+
+  // Only start external keepalive in production
   if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
     selfPingUrl = process.env.RENDER_EXTERNAL_URL;
     console.log(`🏓 Keepalive ping enabled for: ${selfPingUrl}`);
 
     setInterval(async () => {
       try {
-        const response = await axios.get(`${selfPingUrl}/api/health`, { timeout: 10000 });
-        console.log(`🏓 Keepalive ping successful at ${new Date().toISOString()}`);
+        const response = await axios.get(`${selfPingUrl}/api/health`, { timeout: 15000 });
+        const data = response.data;
+        const dbStatus = data.database?.status || 'unknown';
+        console.log(`🏓 Keepalive: ${data.status}, DB: ${dbStatus}, Pool: ${JSON.stringify(data.database?.pool || {})} at ${new Date().toISOString()}`);
+
+        // If database is disconnected, try to reconnect
+        if (dbStatus !== 'connected') {
+          console.log('🔄 Database disconnected, triggering reconnect...');
+          await checkDatabaseHealth();
+        }
       } catch (err) {
         console.log(`🏓 Keepalive ping failed: ${err.message}`);
       }
     }, SELF_PING_INTERVAL);
   }
 }
+
+// Graceful shutdown handler
+process.on('SIGTERM', async () => {
+  console.log('🛑 SIGTERM received, closing database pool...');
+  try {
+    await pool.end();
+    console.log('✅ Database pool closed');
+  } catch (err) {
+    console.error('Error closing pool:', err.message);
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('🛑 SIGINT received, closing database pool...');
+  try {
+    await pool.end();
+    console.log('✅ Database pool closed');
+  } catch (err) {
+    console.error('Error closing pool:', err.message);
+  }
+  process.exit(0);
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 LMS Running on port ${PORT}`);
