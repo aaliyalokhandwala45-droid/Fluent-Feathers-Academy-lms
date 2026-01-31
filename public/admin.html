@@ -77,6 +77,12 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
+
+    /* Fullscreen mode for whiteboard and profile */
+    .main-content.fullscreen-mode { padding: 0 !important; }
+    .main-content.fullscreen-mode header,
+    .main-content.fullscreen-mode .stats-grid,
+    .main-content.fullscreen-mode .tabs { display: none !important; }
     .section h2 { color: #2d3748; margin-bottom: 20px; font-size: 1.5rem; }
     .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
     .form-group { display: flex; flex-direction: column; }
@@ -1750,8 +1756,8 @@
   </div>
 
     <!-- Admin Profile Tab -->
-    <div id="adminProfileTab" class="tab-content" style="margin-top: 0 !important;">
-      <div class="section" style="max-width: 900px; margin: 0 auto; margin-top: 0;">
+    <div id="adminProfileTab" class="tab-content">
+      <div class="section" style="max-width: 900px; margin: 20px auto;">
         <h2 style="color: #B05D9E; margin-bottom: 10px;">👤 My Profile & Bio</h2>
         <p style="color: #718096; margin-bottom: 25px;">This bio will be sent to demo parents before their demo class to build trust and showcase your expertise.</p>
 
@@ -1814,8 +1820,8 @@ I'm passionate about helping children develop confidence in communication!"></te
     </div>
 
     <!-- Whiteboard Tab -->
-    <div id="whiteboardTab" class="tab-content" style="margin-top: 0 !important;">
-      <div style="padding: 10px; height: calc(100vh - 40px); display: flex; flex-direction: column;">
+    <div id="whiteboardTab" class="tab-content">
+      <div style="padding: 15px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box;">
         <!-- Toolbar at top -->
         <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 10px;">
           <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
@@ -2910,18 +2916,12 @@ I'm passionate about helping children develop confidence in communication!"></te
       // Save current tab to localStorage for persistence on refresh
       localStorage.setItem('adminActiveTab', tabName);
 
-      // Hide header, stats grid and reduce padding on Profile and Whiteboard tabs for full-screen experience
-      const statsGrid = document.querySelector('.stats-grid');
-      const header = document.querySelector('.main-content > header');
+      // Fullscreen mode for Profile and Whiteboard tabs (no header, no stats, no padding)
       const mainContent = document.querySelector('.main-content');
       if (tabName === 'adminProfile' || tabName === 'whiteboard') {
-        if (statsGrid) statsGrid.style.display = 'none';
-        if (header) header.style.display = 'none';
-        if (mainContent) mainContent.style.paddingTop = '0';
+        mainContent.classList.add('fullscreen-mode');
       } else {
-        if (statsGrid) statsGrid.style.display = 'grid';
-        if (header) header.style.display = 'flex';
-        if (mainContent) mainContent.style.paddingTop = '20px';
+        mainContent.classList.remove('fullscreen-mode');
       }
 
       if (tabName === 'emails') loadEmailLogs();
