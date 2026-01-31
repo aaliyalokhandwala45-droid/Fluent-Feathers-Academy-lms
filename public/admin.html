@@ -1815,73 +1815,68 @@ I'm passionate about helping children develop confidence in communication!"></te
 
     <!-- Whiteboard Tab -->
     <div id="whiteboardTab" class="tab-content">
-      <div class="section" style="padding: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-          <h2 style="color: #B05D9E; margin: 0;">🖊️ Teaching Whiteboard</h2>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button onclick="undoWhiteboard()" class="btn btn-sm" style="background: #718096; color: white;" title="Undo">↩️ Undo</button>
-            <button onclick="redoWhiteboard()" class="btn btn-sm" style="background: #718096; color: white;" title="Redo">↪️ Redo</button>
-            <button onclick="downloadWhiteboard()" class="btn btn-sm" style="background: #38a169; color: white;">💾 Save Image</button>
-            <button onclick="clearWhiteboard()" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️ Clear All</button>
+      <div class="section" style="padding: 10px; max-width: 100%; overflow: hidden;">
+        <!-- Header with title and action buttons -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h2 style="color: #B05D9E; margin: 0; font-size: 1.3rem;">Whiteboard</h2>
+          <div style="display: flex; gap: 8px;">
+            <button onclick="undoWhiteboard()" class="btn btn-sm" style="background: #718096; color: white; padding: 5px 10px; font-size: 0.8rem;">Undo</button>
+            <button onclick="redoWhiteboard()" class="btn btn-sm" style="background: #718096; color: white; padding: 5px 10px; font-size: 0.8rem;">Redo</button>
+            <button onclick="downloadWhiteboard()" class="btn btn-sm" style="background: #38a169; color: white; padding: 5px 10px; font-size: 0.8rem;">Save</button>
+            <button onclick="clearWhiteboard()" class="btn btn-sm" style="background: #e53e3e; color: white; padding: 5px 10px; font-size: 0.8rem;">Clear</button>
           </div>
         </div>
 
-        <!-- Toolbar -->
-        <div style="background: #f7fafc; padding: 12px 15px; border-radius: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
-          <!-- Tools -->
-          <div style="display: flex; gap: 5px; align-items: center;">
-            <span style="color: #718096; font-size: 0.85rem; margin-right: 5px;">Tool:</span>
-            <button onclick="setWhiteboardTool('pen')" id="toolPen" class="wb-tool-btn active" title="Pen">🖊️</button>
-            <button onclick="setWhiteboardTool('pencil')" id="toolPencil" class="wb-tool-btn" title="Pencil">✏️</button>
-            <button onclick="setWhiteboardTool('highlighter')" id="toolHighlighter" class="wb-tool-btn" title="Highlighter">🖍️</button>
-            <button onclick="setWhiteboardTool('eraser')" id="toolEraser" class="wb-tool-btn" title="Eraser">🧽</button>
-            <button onclick="setWhiteboardTool('text')" id="toolText" class="wb-tool-btn" title="Text">T</button>
-          </div>
+        <!-- Compact Toolbar -->
+        <div style="background: #f7fafc; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <!-- Tools -->
+            <div style="display: flex; gap: 3px; align-items: center;">
+              <span style="color: #718096; font-size: 0.75rem; margin-right: 3px;">Tool:</span>
+              <button onclick="setWhiteboardTool('pen')" id="toolPen" class="wb-tool-btn active" title="Pen">Pen</button>
+              <button onclick="setWhiteboardTool('pencil')" id="toolPencil" class="wb-tool-btn" title="Pencil">Pencil</button>
+              <button onclick="setWhiteboardTool('highlighter')" id="toolHighlighter" class="wb-tool-btn" title="Highlighter">Mark</button>
+              <button onclick="setWhiteboardTool('eraser')" id="toolEraser" class="wb-tool-btn" title="Eraser">Erase</button>
+              <button onclick="setWhiteboardTool('text')" id="toolText" class="wb-tool-btn" title="Text">Text</button>
+            </div>
 
-          <!-- Colors -->
-          <div style="display: flex; gap: 4px; align-items: center;">
-            <span style="color: #718096; font-size: 0.85rem; margin-right: 5px;">Color:</span>
-            <button onclick="setWhiteboardColor('#000000')" class="wb-color-btn" style="background: #000000;" title="Black"></button>
-            <button onclick="setWhiteboardColor('#e53e3e')" class="wb-color-btn" style="background: #e53e3e;" title="Red"></button>
-            <button onclick="setWhiteboardColor('#dd6b20')" class="wb-color-btn" style="background: #dd6b20;" title="Orange"></button>
-            <button onclick="setWhiteboardColor('#d69e2e')" class="wb-color-btn" style="background: #d69e2e;" title="Yellow"></button>
-            <button onclick="setWhiteboardColor('#38a169')" class="wb-color-btn" style="background: #38a169;" title="Green"></button>
-            <button onclick="setWhiteboardColor('#3182ce')" class="wb-color-btn" style="background: #3182ce;" title="Blue"></button>
-            <button onclick="setWhiteboardColor('#805ad5')" class="wb-color-btn" style="background: #805ad5;" title="Purple"></button>
-            <button onclick="setWhiteboardColor('#B05D9E')" class="wb-color-btn" style="background: #B05D9E;" title="Pink"></button>
-            <button onclick="setWhiteboardColor('#ffffff')" class="wb-color-btn" style="background: #ffffff; border: 2px solid #cbd5e0;" title="White"></button>
-          </div>
+            <!-- Colors -->
+            <div style="display: flex; gap: 3px; align-items: center;">
+              <span style="color: #718096; font-size: 0.75rem; margin-right: 3px;">Color:</span>
+              <button onclick="setWhiteboardColor('#000000')" class="wb-color-btn active" style="background: #000000;" title="Black"></button>
+              <button onclick="setWhiteboardColor('#e53e3e')" class="wb-color-btn" style="background: #e53e3e;" title="Red"></button>
+              <button onclick="setWhiteboardColor('#dd6b20')" class="wb-color-btn" style="background: #dd6b20;" title="Orange"></button>
+              <button onclick="setWhiteboardColor('#38a169')" class="wb-color-btn" style="background: #38a169;" title="Green"></button>
+              <button onclick="setWhiteboardColor('#3182ce')" class="wb-color-btn" style="background: #3182ce;" title="Blue"></button>
+              <button onclick="setWhiteboardColor('#805ad5')" class="wb-color-btn" style="background: #805ad5;" title="Purple"></button>
+              <button onclick="setWhiteboardColor('#B05D9E')" class="wb-color-btn" style="background: #B05D9E;" title="Pink"></button>
+            </div>
 
-          <!-- Brush Size -->
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <span style="color: #718096; font-size: 0.85rem;">Size:</span>
-            <input type="range" id="brushSize" min="1" max="50" value="3" style="width: 100px;" onchange="updateBrushSize(this.value)">
-            <span id="brushSizeLabel" style="color: #2d3748; font-size: 0.85rem; min-width: 30px;">3px</span>
+            <!-- Brush Size -->
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <span style="color: #718096; font-size: 0.75rem;">Size:</span>
+              <input type="range" id="brushSize" min="1" max="50" value="3" style="width: 80px;" onchange="updateBrushSize(this.value)">
+              <span id="brushSizeLabel" style="color: #2d3748; font-size: 0.75rem; min-width: 25px;">3px</span>
+            </div>
           </div>
         </div>
 
-        <!-- Canvas Container -->
-        <div id="whiteboardContainer" style="background: white; border: 3px solid #e2e8f0; border-radius: 10px; overflow: hidden; position: relative;">
-          <canvas id="whiteboardCanvas" style="display: block; cursor: crosshair;"></canvas>
+        <!-- Canvas Container - Full Width -->
+        <div id="whiteboardContainer" style="background: white; border: 2px solid #B05D9E; border-radius: 8px; overflow: hidden;">
+          <canvas id="whiteboardCanvas" style="display: block; cursor: crosshair; width: 100%;"></canvas>
         </div>
-
-        <p style="color: #718096; font-size: 0.85rem; margin-top: 10px; text-align: center;">
-          💡 Tip: Use pen for writing, highlighter for marking, eraser to correct. Click "Save Image" to download your whiteboard.
-        </p>
       </div>
 
       <style>
         .wb-tool-btn {
-          width: 36px;
-          height: 36px;
+          padding: 5px 10px;
           border: 2px solid #e2e8f0;
-          border-radius: 8px;
+          border-radius: 5px;
           background: white;
           cursor: pointer;
-          font-size: 1.1rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #4a5568;
           transition: all 0.2s;
         }
         .wb-tool-btn:hover {
@@ -1890,7 +1885,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         }
         .wb-tool-btn.active {
           border-color: #B05D9E;
-          background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%);
+          background: #B05D9E;
           color: white;
         }
         .wb-color-btn {
