@@ -275,9 +275,13 @@ const upload = multer({
 // ==================== CONFIG API ====================
 // Endpoint to get logo URL for frontend
 app.get('/api/config', (req, res) => {
-  res.json({
-    logoUrl: process.env.LOGO_URL || '/logo.png'
-  });
+  try {
+    res.json({
+      logoUrl: process.env.LOGO_URL || '/logo.png'
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load config' });
+  }
 });
 
 // ==================== ADMIN SETTINGS API ====================
@@ -3726,6 +3730,10 @@ app.get('/api/sessions/:sessionId/details', async (req, res) => {
     const result = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
     const session = result.rows[0];
 
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
     // Fix file paths for backwards compatibility (skip Cloudinary URLs)
     if (session) {
       const needsPrefix = (path) => path && !path.startsWith('/uploads/') && !path.startsWith('LINK:') && !path.startsWith('https://') && !path.startsWith('http://');
@@ -3759,7 +3767,7 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
 
         // Award attendance badges
         const student = await pool.query('SELECT completed_sessions FROM students WHERE id = $1', [studentId]);
-        const completedCount = student.rows[0].completed_sessions;
+        const completedCount = student.rows[0]?.completed_sessions || 0;
 
         if (completedCount === 1) await awardBadge(studentId, 'first_class', '🌟 First Class Star', 'Attended first class!');
         if (completedCount === 5) await awardBadge(studentId, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
