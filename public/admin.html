@@ -78,24 +78,15 @@
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
 
-    /* Clean mode for whiteboard and profile - flexbox to push content to top */
+    /* Clean mode for whiteboard and profile - simple approach */
     body.clean-view .main-content {
-      display: flex !important;
-      flex-direction: column !important;
       padding-top: 15px !important;
     }
-    body.clean-view .main-content > header,
-    body.clean-view .stats-grid,
-    body.clean-view .tabs,
-    body.clean-view .tab-content:not(.active) {
+    body.clean-view .tabs {
       display: none !important;
     }
-    body.clean-view .tab-content.active {
-      order: -1 !important;
-      margin: 0 !important;
-    }
     body.clean-view .tab-content.active .section {
-      margin: 0 !important;
+      margin-top: 0 !important;
     }
     .section h2 { color: #2d3748; margin-bottom: 20px; font-size: 1.5rem; }
     .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
@@ -2928,11 +2919,23 @@ I'm passionate about helping children develop confidence in communication!"></te
       // Save current tab to localStorage for persistence on refresh
       localStorage.setItem('adminActiveTab', tabName);
 
-      // Clean view for Profile and Whiteboard tabs - add class to body
+      // Clean view for Profile and Whiteboard tabs - directly hide elements with JS
+      const header = document.querySelector('.main-content > header');
+      const statsGrid = document.querySelector('.stats-grid');
+
       if (tabName === 'adminProfile' || tabName === 'whiteboard') {
         document.body.classList.add('clean-view');
+        // Directly hide header and stats with JS
+        if (header) header.style.display = 'none';
+        if (statsGrid) statsGrid.style.display = 'none';
+        // Scroll to top
+        document.querySelector('.main-content').scrollTop = 0;
+        window.scrollTo(0, 0);
       } else {
         document.body.classList.remove('clean-view');
+        // Show header and stats again
+        if (header) header.style.display = '';
+        if (statsGrid) statsGrid.style.display = '';
       }
 
       if (tabName === 'emails') loadEmailLogs();
