@@ -60,12 +60,14 @@ if (useCloudinary) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  // Pool configuration optimized for free-tier hosting
-  max: 5,                          // Maximum 5 connections (free tier friendly)
+  // Pool configuration optimized for free-tier hosting (Supabase)
+  max: 3,                          // Reduce to 3 connections (Supabase free tier limit)
   min: 0,                          // Allow pool to shrink to 0 when idle
-  idleTimeoutMillis: 30000,        // Close idle connections after 30 seconds
-  connectionTimeoutMillis: 10000,  // Wait 10 seconds for connection
-  allowExitOnIdle: true            // Allow process to exit when pool is empty
+  idleTimeoutMillis: 20000,        // Close idle connections after 20 seconds
+  connectionTimeoutMillis: 30000,  // Wait 30 seconds for connection (cold start)
+  allowExitOnIdle: true,           // Allow process to exit when pool is empty
+  statement_timeout: 30000,        // 30 second query timeout
+  query_timeout: 30000             // 30 second query timeout
 });
 
 // Track database readiness
@@ -88,7 +90,7 @@ pool.on('remove', (client) => {
 });
 
 // Robust query wrapper with retry logic for transient errors
-async function executeQuery(queryText, params = [], retries = 3) {
+async function executeQuery(queryText, params = [], retries = 5) {
   let lastError;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -117,13 +119,16 @@ async function executeQuery(queryText, params = [], retries = 3) {
         err.code === '08004' ||  // sqlserver_rejected_establishment_of_sqlconnection
         err.message.includes('Connection terminated') ||
         err.message.includes('connection timeout') ||
+        err.message.includes('timeout expired') ||
         err.message.includes('Client has encountered a connection error');
 
       if (isTransientError && attempt < retries) {
         console.warn(`⚠️ Database query failed (attempt ${attempt}/${retries}): ${err.message}`);
         dbReady = false;
-        // Exponential backoff: 500ms, 1000ms, 2000ms
-        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt - 1)));
+        // Longer exponential backoff: 1s, 2s, 4s, 8s for cold starts
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        console.log(`⏳ Retrying in ${delay/1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
 
