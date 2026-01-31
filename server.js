@@ -1121,6 +1121,27 @@ async function runMigrations() {
       console.error('❌ Migration 17 error:', err.message);
     }
 
+    // Migration 18: Allow NULL student_id for demo assessments
+    try {
+      await client.query(`
+        ALTER TABLE monthly_assessments
+        ALTER COLUMN student_id DROP NOT NULL
+      `);
+      console.log('✅ Migration 18: student_id now allows NULL for demo assessments');
+    } catch (err) {
+      // Ignore if already nullable or other issues
+      console.log('Migration 18 note:', err.message);
+    }
+
+    // Migration 19: Allow NULL month/year for demo assessments
+    try {
+      await client.query(`ALTER TABLE monthly_assessments ALTER COLUMN month DROP NOT NULL`);
+      await client.query(`ALTER TABLE monthly_assessments ALTER COLUMN year DROP NOT NULL`);
+      console.log('✅ Migration 19: month/year now allow NULL for demo assessments');
+    } catch (err) {
+      console.log('Migration 19 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
