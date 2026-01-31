@@ -4490,6 +4490,16 @@ async function saveEditedPayment() {
           return sessionDate === dateStr;
         });
 
+        // Sort sessions by time
+        daySessions.sort((a, b) => {
+          const timeToMinutes = (t) => {
+            if (!t) return 0;
+            const parts = t.toString().split(':');
+            return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
+          };
+          return timeToMinutes(a.session_time) - timeToMinutes(b.session_time);
+        });
+
         let sessionsHtml = '';
         daySessions.slice(0, 4).forEach(s => {
           let bgColor = '#38a169'; // Paid - green
@@ -4541,8 +4551,15 @@ async function saveEditedPayment() {
       if (daySessions.length === 0) {
         document.getElementById('dayDetailsContent').innerHTML = '<p style="color: #718096; text-align: center;">No sessions scheduled</p>';
       } else {
-        // Sort by time
-        daySessions.sort((a, b) => (a.session_time || '').localeCompare(b.session_time || ''));
+        // Sort by time (convert to minutes for proper numeric sorting)
+        daySessions.sort((a, b) => {
+          const timeToMinutes = (t) => {
+            if (!t) return 0;
+            const parts = t.toString().split(':');
+            return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
+          };
+          return timeToMinutes(a.session_time) - timeToMinutes(b.session_time);
+        });
 
         let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
         daySessions.forEach(s => {
