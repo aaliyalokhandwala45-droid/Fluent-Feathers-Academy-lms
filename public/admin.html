@@ -5500,7 +5500,7 @@ async function saveEditedPayment() {
                   <span style="font-size: 0.85rem;">📋 ${c.reason}</span>
                   <br><small style="color: #718096;">Added: ${new Date(c.credit_date).toLocaleDateString()} ${c.added_by === 'admin' ? '(by Admin)' : ''}</small>
                 </div>
-                <button onclick="openScheduleMakeupModal(${c.id}, ${studentId}, decodeURIComponent('${encodeURIComponent(c.reason)}'))" class="btn btn-sm" style="background: #38a169; color: white;">📅 Schedule</button>
+                <button onclick="openScheduleMakeupModal(${c.id}, ${studentId}, '${c.reason.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="btn btn-sm" style="background: #38a169; color: white;">📅 Schedule</button>
               </div>
             </div>
           `).join('');
