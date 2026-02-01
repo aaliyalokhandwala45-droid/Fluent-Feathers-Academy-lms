@@ -3660,18 +3660,20 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             Your browser does not support video playback.
           </video>`;
       } else if (fileType === 'pdf') {
-        // Check if it's a local file or external URL
+        // Check if it's a local file, Cloudinary raw URL, or other external URL
         const isLocalFile = url.startsWith('/') || url.startsWith(window.location.origin);
-        if (isLocalFile) {
-          // For local files, use direct iframe or object embed
+        const isCloudinaryRaw = url.includes('cloudinary.com') && url.includes('/raw/');
+        const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+
+        if (isLocalFile || isCloudinaryRaw) {
+          // For local files and Cloudinary raw PDFs, use direct object embed (faster and more reliable)
           content = `
             <object data="${url}" type="application/pdf" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;">
-              <iframe src="${url}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;"></iframe>
+              <iframe src="${googleViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;"></iframe>
             </object>
-            <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to download</a></p>`;
+            <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to open directly</a></p>`;
         } else {
-          // For external URLs (like Cloudinary), use Google Docs viewer
-          const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+          // For other external URLs, use Google Docs viewer
           content = `
             <iframe src="${googleViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;"></iframe>
             <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to download</a></p>`;
