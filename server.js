@@ -2392,26 +2392,16 @@ function getMonthlyReportCardEmail(data) {
       </div>
 
       ${certificateTitle ? `
-      <!-- Certificate with Background Image -->
-      <div style="margin-bottom: 25px; text-align: center;">
-        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-          <tr>
-            <td>
-              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769931490/Pink_and_Red_Playful_Student_Certificate_kry0o6.png" alt="Certificate" style="width: 100%; display: block;">
-            </td>
-          </tr>
-        </table>
-        <p style="margin: 15px 0 5px; color: #667eea; font-size: 16px; font-weight: bold;">🏆 ${certificateTitle}</p>
-        <p style="margin: 0 0 5px; color: #B05D9E; font-size: 20px; font-weight: bold; text-transform: uppercase;">${studentName}</p>
-        <p style="margin: 0; color: #718096; font-size: 14px;">${monthNames[month - 1]} ${year}</p>
-      </div>
-
-      <!-- Download Certificate Button -->
-      <div style="text-align: center; margin-bottom: 25px;">
+      <!-- Certificate Award Notice & Download Button -->
+      <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 25px; border: 2px solid #f59e0b;">
+        <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+        <h3 style="margin: 0 0 10px; color: #92400e; font-size: 22px; font-weight: bold;">${certificateTitle}</h3>
+        <p style="margin: 0 0 5px; color: #b45309; font-size: 14px;">Congratulations to</p>
+        <p style="margin: 0 0 15px; color: #92400e; font-size: 20px; font-weight: bold; text-transform: uppercase;">${studentName}</p>
         <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
-          📥 View & Download Full Certificate
+          📥 Download Certificate
         </a>
-        <p style="margin: 10px 0 0; color: #718096; font-size: 12px;">Click to view the certificate with name & date overlay and download as PDF</p>
+        <p style="margin: 15px 0 0; color: #92400e; font-size: 12px;">Click to view and download the full certificate as PDF</p>
       </div>
       ` : ''}
 
@@ -2538,26 +2528,16 @@ function getDemoAssessmentEmail(data) {
       </div>
 
       ${certificateTitle ? `
-      <!-- Demo Certificate with Background Image -->
-      <div style="margin-bottom: 25px; text-align: center;">
-        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-          <tr>
-            <td style="position: relative;">
-              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769931490/Pink_and_Red_Playful_Student_Certificate_kry0o6.png" alt="Certificate" style="width: 100%; display: block;">
-            </td>
-          </tr>
-        </table>
-        <p style="margin: 15px 0 5px; color: #234e52; font-size: 16px; font-weight: bold;">🏆 ${certificateTitle}</p>
-        <p style="margin: 0 0 5px; color: #38b2ac; font-size: 20px; font-weight: bold; text-transform: uppercase;">${childName}</p>
-        <p style="margin: 0; color: #718096; font-size: 14px;">${formattedDate}</p>
-      </div>
-
-      <!-- Download Certificate Button -->
-      <div style="text-align: center; margin-bottom: 25px;">
+      <!-- Demo Certificate Award Notice & Download Button -->
+      <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 25px; border: 2px solid #38b2ac;">
+        <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+        <h3 style="margin: 0 0 10px; color: #234e52; font-size: 22px; font-weight: bold;">${certificateTitle}</h3>
+        <p style="margin: 0 0 5px; color: #319795; font-size: 14px;">Congratulations to</p>
+        <p style="margin: 0 0 15px; color: #234e52; font-size: 20px; font-weight: bold; text-transform: uppercase;">${childName}</p>
         <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
-          📥 View & Download Full Certificate
+          📥 Download Certificate
         </a>
-        <p style="margin: 10px 0 0; color: #718096; font-size: 12px;">Click to view the certificate with name & date overlay and download as PDF</p>
+        <p style="margin: 15px 0 0; color: #234e52; font-size: 12px;">Click to view and download the full certificate as PDF</p>
       </div>
       ` : ''}
 

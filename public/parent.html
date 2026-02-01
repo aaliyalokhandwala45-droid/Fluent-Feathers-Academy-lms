@@ -2800,20 +2800,22 @@
               <!-- Certificate Background Image -->
               <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769931490/Pink_and_Red_Playful_Student_Certificate_kry0o6.png" alt="Certificate" style="width: 100%; display: block;">
 
-              <!-- Title Overlay - Pink banner area below Fluent Feathers logo -->
-              <div style="position: absolute; top: 18%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
+              <!-- ========== LOCKED POSITIONS - DO NOT CHANGE ========== -->
+              <!-- TITLE - LOCKED at top: 22% -->
+              <div style="position: absolute; top: 22%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
                 <h2 style="margin: 0; color: #C41E3A; font-size: clamp(16px, 3.5vw, 26px); font-weight: bold; font-family: 'Georgia', serif; letter-spacing: 1px;">${a.certificate_title}</h2>
               </div>
 
-              <!-- Student Name Overlay - Below "presented to" text (around 48%) -->
-              <div style="position: absolute; top: 48%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
+              <!-- STUDENT NAME - LOCKED at top: 56% -->
+              <div style="position: absolute; top: 56%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
                 <h1 style="margin: 0; color: #C41E3A; font-size: clamp(22px, 5.5vw, 40px); font-weight: bold; font-family: 'Georgia', serif; text-transform: uppercase; letter-spacing: 2px;">${currentStudent.name}</h1>
               </div>
 
-              <!-- Date Overlay - Bottom right above the line -->
-              <div style="position: absolute; bottom: 7%; right: 5%; text-align: right;">
+              <!-- DATE - LOCKED at bottom: 10%, right: 5% -->
+              <div style="position: absolute; bottom: 10%; right: 5%; text-align: right;">
                 <p style="margin: 0; color: #555; font-size: clamp(10px, 2vw, 14px); font-weight: 600;">${monthNames[a.month - 1]} ${a.year}</p>
               </div>
+              <!-- ========== END LOCKED POSITIONS ========== -->
             </div>
 
             <!-- Download Button -->
