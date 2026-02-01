@@ -453,6 +453,19 @@
             <span style="font-size: 1.5rem;">⏰</span>
             <p style="margin: 0; color: #744210; font-size: 0.9rem;"><strong>Note:</strong> Class recordings are available for <strong>15 days only</strong> from the class date. Please download them if you wish to keep a copy.</p>
           </div>
+          <!-- Search and Filter Controls -->
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px;">
+            <div style="flex: 1; min-width: 200px;">
+              <input type="text" id="pastClassSearch" placeholder="🔍 Search by session #, date, status..."
+                     style="width: 100%; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;"
+                     oninput="filterPastClasses()">
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="showRecentClasses(10)" class="past-filter-btn active" id="btnRecent10" style="padding: 8px 16px; border: 2px solid #B05D9E; background: #B05D9E; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Recent 10</button>
+              <button onclick="showAllClasses()" class="past-filter-btn" id="btnAllClasses" style="padding: 8px 16px; border: 2px solid #B05D9E; background: white; color: #B05D9E; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">All Classes</button>
+            </div>
+          </div>
+          <p id="pastClassCount" style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Showing recent 10 classes</p>
           <div class="table-responsive">
             <table id="pastTable">
               <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th><th>Feedback</th></tr></thead>
@@ -1643,12 +1656,15 @@
       }
     }
 
+    let allPastSessions = []; // Store all past sessions for filtering
+    let showAllPastClasses = false;
+
     async function loadPast() {
       try {
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
         const today = new Date().toISOString().split('T')[0];
-        const past = sessions.filter(s => {
+        allPastSessions = sessions.filter(s => {
           if (!s.session_date) return false;
           return s.session_date < today || ['Completed', 'Missed'].includes(s.status);
         }).sort((a, b) => {
@@ -1658,10 +1674,66 @@
           return dateB - dateA;
         });
 
+        // Show recent 10 by default
+        renderPastClasses(showAllPastClasses ? allPastSessions : allPastSessions.slice(0, 10));
+        updatePastClassCount();
+      } catch(e) {
+        console.error('Error loading past:', e);
+      }
+    }
+
+    function showRecentClasses(count) {
+      showAllPastClasses = false;
+      document.getElementById('btnRecent10').style.background = '#B05D9E';
+      document.getElementById('btnRecent10').style.color = 'white';
+      document.getElementById('btnAllClasses').style.background = 'white';
+      document.getElementById('btnAllClasses').style.color = '#B05D9E';
+      document.getElementById('pastClassSearch').value = '';
+      renderPastClasses(allPastSessions.slice(0, count));
+      updatePastClassCount();
+    }
+
+    function showAllClasses() {
+      showAllPastClasses = true;
+      document.getElementById('btnAllClasses').style.background = '#B05D9E';
+      document.getElementById('btnAllClasses').style.color = 'white';
+      document.getElementById('btnRecent10').style.background = 'white';
+      document.getElementById('btnRecent10').style.color = '#B05D9E';
+      document.getElementById('pastClassSearch').value = '';
+      renderPastClasses(allPastSessions);
+      updatePastClassCount();
+    }
+
+    function filterPastClasses() {
+      const searchTerm = document.getElementById('pastClassSearch').value.toLowerCase().trim();
+      if (!searchTerm) {
+        renderPastClasses(showAllPastClasses ? allPastSessions : allPastSessions.slice(0, 10));
+        updatePastClassCount();
+        return;
+      }
+
+      const filtered = allPastSessions.filter(s => {
+        const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+        const searchStr = `#${s.session_number} ${t.date} ${t.time} ${s.status || ''} ${s.student_attendance || ''}`.toLowerCase();
+        return searchStr.includes(searchTerm);
+      });
+      renderPastClasses(filtered);
+      document.getElementById('pastClassCount').textContent = `Found ${filtered.length} class${filtered.length !== 1 ? 'es' : ''} matching "${searchTerm}"`;
+    }
+
+    function updatePastClassCount() {
+      const total = allPastSessions.length;
+      const showing = showAllPastClasses ? total : Math.min(10, total);
+      document.getElementById('pastClassCount').textContent = showAllPastClasses
+        ? `Showing all ${total} classes`
+        : `Showing recent ${showing} of ${total} classes`;
+    }
+
+    function renderPastClasses(past) {
         const tbody = document.getElementById('pastBody');
 
         if (past.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #718096;">No past classes</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No past classes found</td></tr>';
           return;
         }
 
@@ -1792,9 +1864,6 @@
             <td>${feedbackBtn}</td>
           </tr>`;
         }).join('');
-      } catch(e) {
-        console.error('Error loading past:', e);
-      }
     }
 
     async function loadHomeworkSessions() {
@@ -2314,25 +2383,33 @@
       modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
 
       if (fileType === 'doc') {
-        // PPT/Word/Excel - Don't embed (viewers allow download). Show protected message instead.
+        // PPT/Word/Excel - Use Google Docs viewer with protective overlays
+        const docViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
         modal.innerHTML = `
-          <div style="position: absolute; top: 20px; right: 20px;">
+          <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center; z-index: 1002;">
+            <span style="background: linear-gradient(135deg, #B05D9E, #8B4789); color: white; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only - No Downloads</span>
             <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
           </div>
-          <div style="background: white; padding: 50px; border-radius: 16px; text-align: center; max-width: 500px;">
-            <div style="font-size: 4rem; margin-bottom: 20px;">🔒</div>
-            <h2 style="color: #B05D9E; margin-bottom: 15px;">Protected Class Material</h2>
-            <p style="color: #4a5568; font-size: 1.1rem; margin-bottom: 10px;"><strong>${fileName}</strong></p>
-            <div style="background: #fef3c7; border: 2px solid #f6ad55; border-radius: 10px; padding: 20px; margin: 20px 0;">
-              <p style="color: #744210; margin: 0; font-size: 0.95rem;">
-                📚 This presentation is shown during <strong>live class</strong> by your teacher.<br><br>
-                For revision, please refer to your class notes or contact your teacher.
-              </p>
+          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📊 ${fileName}</p>
+          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">📋 Viewing as: ${parentName} | ${dateStr}</p>
+          <div style="position: relative; width: 95vw; max-width: 1200px; height: 80vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
+            <iframe src="${docViewerUrl}" style="width: 100%; height: 100%; border: none;" sandbox="allow-scripts allow-same-origin" allow=""></iframe>
+            <!-- Dense watermark overlay -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 1000;">
+              ${watermarkHtml}
             </div>
-            <p style="color: #718096; font-size: 0.85rem; margin-top: 15px;">
-              Viewing as: ${parentName} | ${studentName}
-            </p>
+            <!-- Top toolbar blocker with Fluent Feathers Academy branding -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 55px; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+              <span style="color: white; font-weight: 700; font-size: 1.1rem; letter-spacing: 1px;">🎓 FLUENT FEATHERS ACADEMY - Class Material</span>
+            </div>
+            <!-- Bottom blocker to hide download options -->
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 50px; background: linear-gradient(to top, #B05D9E, rgba(176,93,158,0.8)); pointer-events: auto; z-index: 1001; display: flex; align-items: center; justify-content: center;">
+              <span style="color: white; font-size: 0.85rem; opacity: 0.9;">🔒 Protected Material - For Learning Purposes Only</span>
+            </div>
+            <!-- Right side blocker for any side menus -->
+            <div style="position: absolute; top: 55px; right: 0; width: 50px; height: calc(100% - 105px); background: linear-gradient(to left, rgba(176,93,158,0.95), transparent); pointer-events: auto; z-index: 1001;"></div>
           </div>
+          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">⚠️ This material is for viewing only. Downloading or sharing is not permitted.</p>
         `;
       } else if (viewerUrl && fileType === 'pdf') {
         // PDF - Can use Google Docs viewer with blockers
@@ -2349,9 +2426,9 @@
             <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 1000;">
               ${watermarkHtml}
             </div>
-            <!-- Top toolbar blocker -->
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 50px; background: linear-gradient(to bottom, rgba(176,93,158,0.98), rgba(176,93,158,0.85)); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001;">
-              <span style="color: white; font-weight: 600; font-size: 0.9rem;">🔒 Class Material - View Only | ${watermarkText}</span>
+            <!-- Top toolbar blocker with Fluent Feathers Academy branding -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 55px; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+              <span style="color: white; font-weight: 700; font-size: 1.1rem; letter-spacing: 1px;">🎓 FLUENT FEATHERS ACADEMY - Class Material</span>
             </div>
             <!-- Bottom blocker -->
             <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 45px; background: linear-gradient(to top, rgba(176,93,158,0.95), transparent); pointer-events: auto; z-index: 1001;"></div>
