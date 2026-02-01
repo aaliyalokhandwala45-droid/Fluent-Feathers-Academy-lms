@@ -2832,6 +2832,22 @@
               <p style="color: #78716c; font-size: 13px; margin: 0;">${monthNames[a.month - 1]} ${a.year}</p>
             </div>
 
+            <!-- Hidden Certificate for PDF Generation -->
+            <div id="certificate-${a.id}" style="position: absolute; left: -9999px; width: 800px;">
+              <div style="position: relative; width: 800px;">
+                <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769931490/Pink_and_Red_Playful_Student_Certificate_kry0o6.png" style="width: 100%; display: block;" crossorigin="anonymous">
+                <div style="position: absolute; top: 17%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
+                  <h2 style="margin: 0; color: #C41E3A; font-size: 24px; font-weight: bold; font-family: 'Georgia', serif;">${a.certificate_title}</h2>
+                </div>
+                <div style="position: absolute; top: 36%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
+                  <h1 style="margin: 0; color: #C41E3A; font-size: 32px; font-weight: bold; font-family: 'Georgia', serif; text-transform: uppercase;">${currentStudent.name}</h1>
+                </div>
+                <div style="position: absolute; top: 87%; right: 8%; text-align: right;">
+                  <p style="margin: 0; color: #555; font-size: 14px; font-weight: 600;">${monthNames[a.month - 1]} ${a.year}</p>
+                </div>
+              </div>
+            </div>
+
             <!-- Download Button -->
             <div style="text-align: center; margin-bottom: 15px;">
               <button onclick="downloadCertificate(${a.id}, '${currentStudent.name.replace(/'/g, "\\'")}', '${a.certificate_title.replace(/'/g, "\\'")}', '${monthNames[a.month - 1]}', ${a.year})"
