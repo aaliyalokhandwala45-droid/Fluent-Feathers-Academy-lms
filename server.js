@@ -2137,6 +2137,118 @@ function getRenewalReminderEmail(data) {
 </html>`;
 }
 
+function getClassCancelledEmail(data) {
+  const { parentName, studentName, sessionDate, sessionTime, cancelledBy, reason, hasMakeupCredit } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #f56565 0%, #c53030 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">📅</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Class Cancelled</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Session Update Notification</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        We wanted to inform you that <strong>${studentName}</strong>'s scheduled class has been cancelled.
+      </p>
+
+      <div style="background: #f7fafc; padding: 25px; border-radius: 12px; border-left: 4px solid #f56565; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td style="padding: 10px 0; color: #4a5568;">Scheduled Date:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${sessionDate}</td></tr>
+          <tr><td style="padding: 10px 0; color: #4a5568;">Scheduled Time:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${sessionTime}</td></tr>
+          <tr><td style="padding: 10px 0; color: #4a5568;">Cancelled By:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${cancelledBy}</td></tr>
+          ${reason ? `<tr><td style="padding: 10px 0; color: #4a5568;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${reason}</td></tr>` : ''}
+        </table>
+      </div>
+
+      ${hasMakeupCredit ? `
+      <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #38b2ac; margin: 20px 0;">
+        <h3 style="margin: 0 0 10px; color: #234e52; font-size: 18px;">🎁 Makeup Credit Added!</h3>
+        <p style="margin: 0; color: #234e52; font-size: 15px; line-height: 1.6;">
+          A makeup credit has been added to <strong>${studentName}</strong>'s account. You can use this credit during renewal to book an extra session. The credit will remain available until used.
+        </p>
+      </div>
+      ` : ''}
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        If you have any questions, please don't hesitate to reach out to us.<br><br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getMakeupCreditAddedEmail(data) {
+  const { parentName, studentName, reason, notes } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">🎁</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Makeup Credit Added!</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Extra Session Available</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        Great news! A makeup credit has been added to <strong>${studentName}</strong>'s account.
+      </p>
+
+      <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #38b2ac; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td style="padding: 10px 0; color: #234e52;">Credit Type:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">Exception Class / Makeup Session</td></tr>
+          <tr><td style="padding: 10px 0; color: #234e52;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">${reason || 'Added by teacher'}</td></tr>
+          ${notes ? `<tr><td style="padding: 10px 0; color: #234e52;">Notes:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">${notes}</td></tr>` : ''}
+          <tr><td style="padding: 10px 0; color: #234e52;">Status:</td><td style="padding: 10px 0; font-weight: bold; color: #38b2ac;">✅ Available</td></tr>
+        </table>
+      </div>
+
+      <div style="background: #fffbeb; padding: 20px; border-radius: 12px; border-left: 4px solid #f59e0b; margin: 20px 0;">
+        <h3 style="margin: 0 0 10px; color: #92400e; font-size: 16px;">📅 How to Use This Credit</h3>
+        <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+          This exception class credit will be available during your next renewal. You can use it to book an additional session at no extra cost. The credit will remain in your account until used.
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        If you have any questions, please don't hesitate to reach out to us.<br><br>
+        <strong style="color: #38b2ac;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function getCertificateEmail(data) {
   const { studentName, awardTitle, month, year, description } = data;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -2349,9 +2461,11 @@ function getMonthlyReportCardEmail(data) {
 
 // Demo Assessment Email Template
 function getDemoAssessmentEmail(data) {
-  const { childName, childGrade, demoDate, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
+  const { assessmentId, childName, childGrade, demoDate, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
   const skillsList = skills && skills.length > 0 ? skills : [];
   const formattedDate = demoDate ? new Date(demoDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Demo Class';
+  const appUrl = process.env.APP_URL || 'https://fluentfeathers.onrender.com';
+  const certificateUrl = `${appUrl}/demo-certificate.html?id=${assessmentId}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -2424,6 +2538,14 @@ function getDemoAssessmentEmail(data) {
           <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 22px; color: #374151;">Aaliya Lokhandwala</p>
           <p style="margin: 3px 0 0; color: #9ca3af; font-size: 10px;">Founder & Teacher</p>
         </div>
+      </div>
+
+      <!-- Download Certificate Button -->
+      <div style="text-align: center; margin-bottom: 25px;">
+        <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
+          📥 View & Download Certificate
+        </a>
+        <p style="margin: 10px 0 0; color: #718096; font-size: 12px;">Click to view the certificate online and download as PDF</p>
       </div>
       ` : ''}
 
@@ -3223,11 +3345,11 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
 
     const newStudent = studentResult.rows[0];
 
-    // Record the payment
+    // Record the payment in payment_history table
     await pool.query(`
-      INSERT INTO payments (student_id, amount, currency, sessions_added, payment_method, notes)
-      VALUES ($1, $2, $3, $4, $5, 'Initial payment - converted from demo')
-    `, [newStudent.id, amount_paid, currency, total_sessions, payment_method]);
+      INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
+      VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, 'Initial payment - converted from demo', 'Paid')
+    `, [newStudent.id, amount_paid, currency, payment_method, String(total_sessions)]);
 
     // Update demo lead status to Converted
     await pool.query(
@@ -3235,18 +3357,46 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
       ['Converted', newStudent.id, req.params.id]
     );
 
-    // Send welcome email if requested
+    // Send emails if requested
     if (send_welcome_email) {
       try {
+        // Send payment confirmation email
+        const paymentEmailHTML = getPaymentConfirmationEmail({
+          parentName: demoLead.parent_name,
+          studentName: demoLead.child_name,
+          amount: amount_paid,
+          currency: currency,
+          paymentType: 'Initial Enrollment',
+          sessionsAdded: total_sessions,
+          paymentMethod: payment_method,
+          receiptNumber: `FFA-${Date.now()}`
+        });
+
         await sendEmail(
           demoLead.parent_email,
+          `💳 Payment Confirmation - ${demoLead.child_name}`,
+          paymentEmailHTML,
           demoLead.parent_name,
+          'Payment Confirmation'
+        );
+
+        // Send welcome email
+        const welcomeEmailHTML = getWelcomeEmail({
+          parent_name: demoLead.parent_name,
+          student_name: demoLead.child_name,
+          program_name,
+          meet_link: DEFAULT_MEET
+        });
+
+        await sendEmail(
+          demoLead.parent_email,
           `🎉 Welcome to Fluent Feathers Academy - ${demoLead.child_name}`,
-          getWelcomeEmail({ parent_name: demoLead.parent_name, student_name: demoLead.child_name, program_name, meet_link: DEFAULT_MEET }),
+          welcomeEmailHTML,
+          demoLead.parent_name,
           'Welcome'
         );
       } catch (emailErr) {
-        console.error('Failed to send welcome email:', emailErr);
+        console.error('Failed to send emails:', emailErr);
       }
     }
 
@@ -3688,19 +3838,53 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
     }
     const session = sessionResult.rows[0];
 
-    // Update session status to Cancelled
+    // Get student details for email
+    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [session.student_id]);
+    const student = studentResult.rows[0];
+
+    // Update session status to Cancelled with cancelled_by = 'Teacher'
     await pool.query(
-      'UPDATE sessions SET status = $1, teacher_notes = COALESCE(teacher_notes, \'\') || $2 WHERE id = $3',
-      ['Cancelled', `\n[Cancelled: ${reason}${notes ? ' - ' + notes : ''}]`, req.params.sessionId]
+      'UPDATE sessions SET status = $1, cancelled_by = $2, teacher_notes = COALESCE(teacher_notes, \'\') || $3 WHERE id = $4',
+      ['Cancelled', 'Teacher', `\n[Cancelled: ${reason}${notes ? ' - ' + notes : ''}]`, req.params.sessionId]
     );
 
     // If grant makeup credit is checked, add a makeup credit to the student
     if (grant_makeup_credit) {
-      // Increment remaining_sessions for the student
-      await pool.query(
-        'UPDATE students SET remaining_sessions = remaining_sessions + 1 WHERE id = $1',
-        [session.student_id]
-      );
+      // Add to makeup_classes table
+      await pool.query(`
+        INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by, notes)
+        VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'admin', $4)
+      `, [session.student_id, session.id, reason || 'Teacher cancelled', notes || '']);
+    }
+
+    // Send cancellation email to parent
+    if (student && student.parent_email) {
+      try {
+        const sessionDate = new Date(session.session_date).toLocaleDateString('en-IN', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const sessionTime = session.session_time;
+
+        const emailHTML = getClassCancelledEmail({
+          parentName: student.parent_name || 'Parent',
+          studentName: student.name,
+          sessionDate: sessionDate,
+          sessionTime: sessionTime,
+          cancelledBy: 'Teacher',
+          reason: reason,
+          hasMakeupCredit: grant_makeup_credit
+        });
+
+        await sendEmail(
+          student.parent_email,
+          `📅 Class Cancelled - ${student.name}`,
+          emailHTML,
+          student.parent_name,
+          'Class-Cancelled'
+        );
+      } catch (emailErr) {
+        console.error('Failed to send cancellation email:', emailErr);
+      }
     }
 
     res.json({
@@ -4512,8 +4696,43 @@ app.post('/api/parent/cancel-class', async (req, res) => {
     if((sessionTime - new Date()) < oneHour) {
       return res.status(400).json({ error: 'Cannot cancel class less than 1 hour before start.' });
     }
+
+    // Get student details for email
+    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [id]);
+    const student = studentResult.rows[0];
+
     await pool.query('UPDATE sessions SET status = $1, cancelled_by = $2 WHERE id = $3', ['Cancelled by Parent', 'Parent', session.id]);
-    await pool.query(`INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status) VALUES ($1, $2, $3, CURRENT_DATE, 'Available')`, [id, session.id, req.body.reason || 'Parent cancelled']);
+    await pool.query(`INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by) VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'parent')`, [id, session.id, req.body.reason || 'Parent cancelled']);
+
+    // Send cancellation confirmation email to parent
+    if (student && student.parent_email) {
+      try {
+        const sessionDate = new Date(session.session_date).toLocaleDateString('en-IN', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        const emailHTML = getClassCancelledEmail({
+          parentName: student.parent_name || 'Parent',
+          studentName: student.name,
+          sessionDate: sessionDate,
+          sessionTime: session.session_time,
+          cancelledBy: 'Parent',
+          reason: req.body.reason || 'Parent cancelled',
+          hasMakeupCredit: true
+        });
+
+        await sendEmail(
+          student.parent_email,
+          `📅 Class Cancelled - ${student.name}`,
+          emailHTML,
+          student.parent_name,
+          'Class-Cancelled'
+        );
+      } catch (emailErr) {
+        console.error('Failed to send cancellation email:', emailErr);
+      }
+    }
+
     res.json({ message: 'Class cancelled! Makeup credit added.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4552,10 +4771,36 @@ app.post('/api/students/:studentId/makeup-credits', async (req, res) => {
     const { reason, notes } = req.body;
     const studentId = req.params.studentId;
 
+    // Get student details for email
+    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [studentId]);
+    const student = studentResult.rows[0];
+
     await pool.query(`
       INSERT INTO makeup_classes (student_id, reason, credit_date, status, added_by, notes)
       VALUES ($1, $2, CURRENT_DATE, 'Available', 'admin', $3)
     `, [studentId, reason || 'Emergency - added by admin', notes || '']);
+
+    // Send email to parent about makeup credit
+    if (student && student.parent_email) {
+      try {
+        const emailHTML = getMakeupCreditAddedEmail({
+          parentName: student.parent_name || 'Parent',
+          studentName: student.name,
+          reason: reason || 'Emergency - added by admin',
+          notes: notes
+        });
+
+        await sendEmail(
+          student.parent_email,
+          `🎁 Makeup Credit Added - ${student.name}`,
+          emailHTML,
+          student.parent_name,
+          'Makeup-Credit'
+        );
+      } catch (emailErr) {
+        console.error('Failed to send makeup credit email:', emailErr);
+      }
+    }
 
     res.json({ success: true, message: 'Makeup credit added successfully!' });
   } catch (err) {
@@ -4688,7 +4933,8 @@ app.post('/api/parent/check-email', async (req, res) => {
     const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
     if(s.length===0) return res.status(404).json({ error: 'No student found.' });
     const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
-    res.json({ hasPassword: c && c.password ? true : false });
+    // Include students list for session restoration (persistent login)
+    res.json({ hasPassword: c && c.password ? true : false, students: s });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
@@ -5885,6 +6131,28 @@ app.get('/api/assessments/:id', async (req, res) => {
   }
 });
 
+// Public endpoint for viewing demo assessment certificates (no auth required)
+app.get('/api/demo-assessment/:id', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.id, a.assessment_type, a.skills, a.certificate_title,
+             a.performance_summary, a.areas_of_improvement, a.teacher_comments, a.created_at,
+             d.child_name as demo_child_name,
+             d.demo_date as demo_date
+      FROM monthly_assessments a
+      LEFT JOIN demo_leads d ON a.demo_lead_id = d.id
+      WHERE a.id = $1 AND a.assessment_type = 'demo'
+    `, [req.params.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Demo assessment not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/students/:id/assessments', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -5919,6 +6187,7 @@ app.post('/api/assessments', async (req, res) => {
         if (lead.rows[0] && lead.rows[0].parent_email) {
           const skillsArray = skills ? JSON.parse(skills) : [];
           const demoEmailHTML = getDemoAssessmentEmail({
+            assessmentId: result.rows[0].id,
             childName: lead.rows[0].child_name,
             childGrade: lead.rows[0].child_grade,
             demoDate: lead.rows[0].demo_date,

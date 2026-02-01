@@ -488,7 +488,13 @@
           <button type="submit" class="btn btn-primary">Add Student</button>
         </form>
       </div>
-      <div class="section"><h2>📋 All Students</h2><table id="studentsTable"><thead><tr><th>Name</th><th>Grade</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📋 All Students</h2>
+        <div style="margin-bottom: 15px;">
+          <input type="text" id="studentSearchInput" placeholder="🔍 Search students by name, grade, or program..." oninput="filterStudents()" style="width: 100%; max-width: 400px; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
+          <span id="studentCount" style="margin-left: 15px; color: #718096; font-size: 14px;"></span>
+        </div>
+        <table id="studentsTable"><thead><tr><th>Name</th><th>Grade</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table>
+      </div>
     </div>
 
     <!-- Demo Students Tab -->
@@ -514,13 +520,9 @@
               <div class="form-group"><label>Program Interest</label>
                 <select id="demoProgramInterest">
                   <option value="">Select Program...</option>
-                  <option value="Phonics">Phonics</option>
-                  <option value="Reading">Reading</option>
-                  <option value="Creative Writing">Creative Writing</option>
-                  <option value="Grammar">Grammar</option>
-                  <option value="Public Speaking">Public Speaking</option>
-                  <option value="English Fluency">English Fluency</option>
-                  <option value="Other">Other</option>
+                  <option value="Fluent Communicators Program">Fluent Communicators Program</option>
+                  <option value="Fluent Readers Program">Fluent Readers Program</option>
+                  <option value="Fluent Writers Program">Fluent Writers Program</option>
                 </select>
               </div>
             </div>
@@ -552,13 +554,19 @@
         </div>
 
         <!-- Filter by Status -->
-        <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
           <strong>Filter:</strong>
           <button onclick="filterDemoLeads('all')" class="btn btn-sm" style="background: #B05D9E; color: white;">All</button>
           <button onclick="filterDemoLeads('Scheduled')" class="btn btn-sm" style="background: #3182ce; color: white;">📅 Scheduled</button>
           <button onclick="filterDemoLeads('Completed')" class="btn btn-sm" style="background: #38a169; color: white;">✅ Completed</button>
           <button onclick="filterDemoLeads('Converted')" class="btn btn-sm" style="background: #d69e2e; color: white;">🎉 Converted</button>
           <button onclick="filterDemoLeads('Lost')" class="btn btn-sm" style="background: #e53e3e; color: white;">❌ Lost</button>
+        </div>
+
+        <!-- Search Demo Leads -->
+        <div style="margin-bottom: 15px;">
+          <input type="text" id="demoSearchInput" placeholder="🔍 Search demo leads by name, parent, email, or phone..." oninput="renderDemoLeads()" style="width: 100%; max-width: 400px; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
+          <span id="demoLeadCount" style="margin-left: 15px; color: #718096; font-size: 14px;"></span>
         </div>
 
         <!-- Demo Leads Table -->
@@ -2241,13 +2249,9 @@ I'm passionate about helping children develop confidence in communication!"></te
           <div class="form-group"><label>Program Interest</label>
             <select id="editDemoProgramInterest">
               <option value="">Select Program...</option>
-              <option value="Phonics">Phonics</option>
-              <option value="Reading">Reading</option>
-              <option value="Creative Writing">Creative Writing</option>
-              <option value="Grammar">Grammar</option>
-              <option value="Public Speaking">Public Speaking</option>
-              <option value="English Fluency">English Fluency</option>
-              <option value="Other">Other</option>
+              <option value="Fluent Communicators Program">Fluent Communicators Program</option>
+              <option value="Fluent Readers Program">Fluent Readers Program</option>
+              <option value="Fluent Writers Program">Fluent Writers Program</option>
             </select>
           </div>
         </div>
@@ -3056,13 +3060,42 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       try {
         const res = await fetch('/api/students');
         allStudents = await res.json();
-        const tbody = document.getElementById('studentsBody');
-        tbody.innerHTML = allStudents.map(s => `<tr><td><strong>${s.name}</strong></td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join('');
+        filterStudents(); // Render with search filter
         document.getElementById('scheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
         document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
       } catch (err) {
         console.error(err);
       }
+    }
+
+    function filterStudents() {
+      const searchInput = document.getElementById('studentSearchInput');
+      const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const tbody = document.getElementById('studentsBody');
+
+      let filtered = allStudents;
+      if (searchTerm) {
+        filtered = allStudents.filter(s =>
+          s.name.toLowerCase().includes(searchTerm) ||
+          (s.grade && s.grade.toLowerCase().includes(searchTerm)) ||
+          (s.program_name && s.program_name.toLowerCase().includes(searchTerm)) ||
+          (s.parent_name && s.parent_name.toLowerCase().includes(searchTerm)) ||
+          (s.parent_email && s.parent_email.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      // Update count display
+      const countSpan = document.getElementById('studentCount');
+      if (countSpan) {
+        countSpan.textContent = `Showing ${filtered.length} of ${allStudents.length} students`;
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No students found matching your search</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(s => `<tr><td><strong>${s.name}</strong></td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join('');
     }
 
     // EDIT STUDENT
@@ -5359,19 +5392,23 @@ async function saveEditedPayment() {
 
         container.innerHTML = `
           <h3 style="margin-bottom: 20px;">Schedule for ${student.name}</h3>
-          ${sessions.map(s => `
+          ${sessions.map(s => {
+            const isCancelled = s.status === 'Cancelled' || s.status === 'Cancelled by Parent';
+            const cancelledByText = isCancelled && s.cancelled_by ? ` (by ${s.cancelled_by})` : '';
+            const statusColor = isCancelled ? '#e53e3e' : (s.status === 'Completed' ? '#38a169' : '#718096');
+            return `
             <div class="session-item">
               <div>
                 <strong>Session #${s.session_number}</strong> - ${s.session_type}
                 <br>
-                <span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: ${s.status}</span>
+                <span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${s.status}${cancelledByText}</span></span>
               </div>
               <div style="display: flex; gap: 10px;">
                 <button onclick="editSession(${s.id}, '${s.session_date}', '${s.session_time}')" class="btn btn-sm btn-primary">Edit</button>
                 <button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button>
               </div>
             </div>
-          `).join('')}
+          `}).join('')}
         `;
       } catch(err) {
         container.innerHTML = '<p style="color: #e53e3e;">Error loading schedule</p>';
@@ -5700,8 +5737,28 @@ async function saveEditedPayment() {
       const tbody = document.getElementById('demoLeadsBody');
       let leads = allDemoLeads;
 
+      // Apply status filter
       if (currentDemoFilter !== 'all') {
         leads = leads.filter(l => l.status === currentDemoFilter);
+      }
+
+      // Apply search filter
+      const searchInput = document.getElementById('demoSearchInput');
+      const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      if (searchTerm) {
+        leads = leads.filter(l =>
+          (l.child_name && l.child_name.toLowerCase().includes(searchTerm)) ||
+          (l.parent_name && l.parent_name.toLowerCase().includes(searchTerm)) ||
+          (l.parent_email && l.parent_email.toLowerCase().includes(searchTerm)) ||
+          (l.phone && l.phone.toLowerCase().includes(searchTerm)) ||
+          (l.program_interest && l.program_interest.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      // Update count display
+      const countSpan = document.getElementById('demoLeadCount');
+      if (countSpan) {
+        countSpan.textContent = `Showing ${leads.length} of ${allDemoLeads.length} demo leads`;
       }
 
       if (leads.length === 0) {
@@ -7050,11 +7107,11 @@ async function saveEditedPayment() {
                 <p style="margin: 15px 0 5px; color: #718096; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">Proudly Presented To</p>
 
                 <!-- Student Name -->
-                <h4 style="margin: 0; color: #2d3748; font-size: 22px; font-weight: 700; font-family: 'Georgia', serif;">${a.student_name}</h4>
+                <h4 style="margin: 0; color: #2d3748; font-size: 22px; font-weight: 700; font-family: 'Georgia', serif;">${displayName}</h4>
 
                 <!-- Achievement Description -->
                 <div style="margin: 15px auto; padding: 10px 15px; background: rgba(176,93,158,0.08); border-radius: 8px; max-width: 320px;">
-                  <p style="margin: 0; color: #4a5568; font-size: 11px; line-height: 1.5;">For outstanding achievement and dedication in <strong style="color: #B05D9E;">${monthNames[a.month-1]} ${a.year}</strong></p>
+                  <p style="margin: 0; color: #4a5568; font-size: 11px; line-height: 1.5;">For outstanding achievement and dedication in <strong style="color: #B05D9E;">${period}</strong></p>
                 </div>
 
                 <!-- Signature -->

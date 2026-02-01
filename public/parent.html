@@ -885,6 +885,40 @@
         });
         return;
       }
+
+      // Check for persistent login session in localStorage
+      const storedSession = localStorage.getItem('parentSession');
+      if (storedSession) {
+        try {
+          const session = JSON.parse(storedSession);
+          // Verify session is still valid (refresh student data from server)
+          fetch('/api/parent/check-email', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email: session.email })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.students && data.students.length > 0) {
+              // Session is still valid - restore login
+              handleMultipleStudents(data.students, true);
+            } else {
+              // Session invalid - clear storage and show login
+              localStorage.removeItem('parentSession');
+              setupLoginHandlers();
+            }
+          })
+          .catch(() => {
+            // Error checking - clear storage and show login
+            localStorage.removeItem('parentSession');
+            setupLoginHandlers();
+          });
+          return;
+        } catch (e) {
+          localStorage.removeItem('parentSession');
+        }
+      }
+
       setupLoginHandlers();
     });
 
@@ -1074,10 +1108,20 @@
       }
     }
 
-    function handleMultipleStudents(students) {
+    function handleMultipleStudents(students, skipSave = false) {
       allMyStudents = students;
       document.getElementById('loginSection').style.display = 'none';
       document.getElementById('dashboardSection').style.display = 'block';
+
+      // Store session in localStorage for persistent login (unless restoring from storage)
+      if (!skipSave) {
+        const parentEmail = document.getElementById('parentEmail').value.trim();
+        localStorage.setItem('parentSession', JSON.stringify({
+          email: parentEmail,
+          students: students,
+          timestamp: Date.now()
+        }));
+      }
 
       if (students.length > 1) {
         // Show Switch Child button in header
@@ -1730,8 +1774,9 @@
               attendanceDisplay = `<span style="color:#38a169; font-weight:600;">✓ Present</span>`;
             } else if (s.status === 'Missed') {
               attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">✗ Absent</span>`;
-            } else if (s.status === 'Cancelled') {
-              attendanceDisplay = `<span style="color:#718096;">Cancelled</span>`;
+            } else if (s.status === 'Cancelled' || s.status === 'Cancelled by Parent') {
+              const cancelledByText = s.cancelled_by ? ` (by ${s.cancelled_by})` : '';
+              attendanceDisplay = `<span style="color:#718096;">Cancelled${cancelledByText}</span>`;
             } else {
               attendanceDisplay = s.status || '-';
             }
@@ -3011,6 +3056,10 @@
 
     function logout() {
       if(confirm('Are you sure you want to logout?')) {
+        // Clear persistent login session
+        localStorage.removeItem('parentSession');
+        localStorage.removeItem('parentActiveTab');
+        // Clear admin view session
         sessionStorage.removeItem('adminParentToken');
         sessionStorage.removeItem('parentViewStudent');
         sessionStorage.removeItem('parentViewMode');
