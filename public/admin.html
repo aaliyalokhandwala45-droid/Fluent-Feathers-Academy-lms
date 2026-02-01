@@ -3180,11 +3180,17 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
     }
 
     async function deleteStudent(id) {
-      if(!confirm('Are you sure you want to delete this student? This will also delete all related data.')) return;
+      const choice = confirm('Delete this student?\n\nClick OK for PERMANENT DELETE (removes all data including past classes, materials, assessments)\n\nClick Cancel to keep the student');
+      if (!choice) return;
+
+      // Double confirm for permanent delete
+      const confirmPermanent = confirm('⚠️ FINAL WARNING ⚠️\n\nThis will PERMANENTLY delete:\n• All past class sessions\n• All materials & recordings\n• All assessments & certificates\n• All payment history\n• All feedback & badges\n\nThis action CANNOT be undone!\n\nType OK to proceed with permanent deletion.');
+      if (!confirmPermanent) return;
+
       try {
-        const res = await fetch(`/api/students/${id}`, {method:'DELETE'});
+        const res = await fetch(`/api/students/${id}?permanent=true`, {method:'DELETE'});
         if(res.ok) {
-          alert('✅ Student deleted successfully!');
+          alert('✅ Student and all related data permanently deleted!');
           loadStudents();
           loadDashboardStats();
         } else {

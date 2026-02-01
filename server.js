@@ -3476,9 +3476,28 @@ app.post('/api/students', async (req, res) => {
 
 app.delete('/api/students/:id', async (req, res) => {
   try {
-    await pool.query('UPDATE students SET is_active = false WHERE id = $1', [req.params.id]);
-    res.json({ success: true });
+    const studentId = req.params.id;
+    const permanent = req.query.permanent === 'true';
+
+    if (permanent) {
+      // Permanently delete student and all related data (CASCADE will handle related tables)
+      // First, delete from tables that might not have CASCADE
+      await pool.query('DELETE FROM demo_assessments WHERE student_id = $1', [studentId]);
+
+      // Now delete the student - CASCADE will delete from:
+      // sessions, session_attendance, materials, makeup_classes, payment_history,
+      // event_registrations, class_feedback, student_badges, payment_renewals,
+      // student_certificates, monthly_assessments, student_challenges
+      await pool.query('DELETE FROM students WHERE id = $1', [studentId]);
+
+      res.json({ success: true, message: 'Student and all related data permanently deleted' });
+    } else {
+      // Soft delete - just mark as inactive
+      await pool.query('UPDATE students SET is_active = false WHERE id = $1', [studentId]);
+      res.json({ success: true, message: 'Student deactivated' });
+    }
   } catch (err) {
+    console.error('Error deleting student:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -3872,16 +3891,16 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
     // Send cancellation email to parent
     if (student && student.parent_email) {
       try {
-        const sessionDate = new Date(session.session_date).toLocaleDateString('en-IN', {
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
-        const sessionTime = session.session_time;
+        // Convert UTC time to student's local timezone
+        const studentTimezone = student.timezone || 'Asia/Kolkata';
+        const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
+        const timezoneLabel = getTimezoneLabel(studentTimezone);
 
         const emailHTML = getClassCancelledEmail({
           parentName: student.parent_name || 'Parent',
           studentName: student.name,
-          sessionDate: sessionDate,
-          sessionTime: sessionTime,
+          sessionDate: `${localTime.day}, ${localTime.date}`,
+          sessionTime: `${localTime.time} (${timezoneLabel})`,
           cancelledBy: 'Teacher',
           reason: reason,
           hasMakeupCredit: grant_makeup_credit
@@ -4723,15 +4742,16 @@ app.post('/api/parent/cancel-class', async (req, res) => {
     // Send cancellation confirmation email to parent
     if (student && student.parent_email) {
       try {
-        const sessionDate = new Date(session.session_date).toLocaleDateString('en-IN', {
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
+        // Convert UTC time to student's local timezone
+        const studentTimezone = student.timezone || 'Asia/Kolkata';
+        const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
+        const timezoneLabel = getTimezoneLabel(studentTimezone);
 
         const emailHTML = getClassCancelledEmail({
           parentName: student.parent_name || 'Parent',
           studentName: student.name,
-          sessionDate: sessionDate,
-          sessionTime: session.session_time,
+          sessionDate: `${localTime.day}, ${localTime.date}`,
+          sessionTime: `${localTime.time} (${timezoneLabel})`,
           cancelledBy: 'Parent',
           reason: req.body.reason || 'Parent cancelled',
           hasMakeupCredit: true
