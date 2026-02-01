@@ -273,14 +273,72 @@ const upload = multer({
 });
 
 // ==================== CONFIG API ====================
-// Endpoint to get logo URL for frontend
+// Endpoint to get logo URL and storage status for frontend
 app.get('/api/config', (req, res) => {
   try {
     res.json({
-      logoUrl: process.env.LOGO_URL || '/logo.png'
+      logoUrl: process.env.LOGO_URL || '/logo.png',
+      storageType: useCloudinary ? 'cloudinary' : 'local',
+      cloudinaryConfigured: useCloudinary,
+      cloudName: useCloudinary ? cloudName : null
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load config' });
+  }
+});
+
+// Debug endpoint to check recent file uploads and their URLs
+app.get('/api/debug/files', async (req, res) => {
+  try {
+    // Get recent sessions with files
+    const sessions = await pool.query(`
+      SELECT id, session_number, ppt_file_path, recording_file_path, homework_file_path
+      FROM sessions
+      WHERE ppt_file_path IS NOT NULL OR recording_file_path IS NOT NULL OR homework_file_path IS NOT NULL
+      ORDER BY id DESC LIMIT 10
+    `);
+
+    res.json({
+      cloudinaryConfigured: useCloudinary,
+      cloudName: useCloudinary ? cloudName : 'NOT SET',
+      recentFileSessions: sessions.rows.map(s => ({
+        sessionId: s.id,
+        sessionNumber: s.session_number,
+        ppt: s.ppt_file_path ? { url: s.ppt_file_path, isCloudinary: s.ppt_file_path?.includes('cloudinary'), isLink: s.ppt_file_path?.startsWith('LINK:') } : null,
+        recording: s.recording_file_path ? { url: s.recording_file_path, isCloudinary: s.recording_file_path?.includes('cloudinary'), isLink: s.recording_file_path?.startsWith('LINK:') } : null,
+        homework: s.homework_file_path ? { url: s.homework_file_path, isCloudinary: s.homework_file_path?.includes('cloudinary'), isLink: s.homework_file_path?.startsWith('LINK:') } : null
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test upload endpoint - to verify Cloudinary is working
+app.post('/api/debug/test-upload', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    res.json({
+      success: true,
+      storageType: useCloudinary ? 'cloudinary' : 'local',
+      fileInfo: {
+        originalName: req.file.originalname,
+        path: req.file.path,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        // Cloudinary specific fields
+        publicId: req.file.public_id,
+        secureUrl: req.file.secure_url,
+        url: req.file.url,
+        format: req.file.format,
+        resourceType: req.file.resource_type
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -4188,11 +4246,15 @@ app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, r
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Get file path - Cloudinary returns path in req.file.path, local storage uses filename
+    // Get file path - Cloudinary returns URL in path/secure_url, local storage uses filename
     let filePath;
-    if (useCloudinary && req.file.path) {
-      // Cloudinary returns full URL in path
-      filePath = req.file.path;
+    if (useCloudinary) {
+      // Cloudinary - check multiple possible fields for the URL
+      filePath = req.file.path || req.file.secure_url || req.file.url;
+      console.log('📁 Cloudinary upload:', { path: req.file.path, secure_url: req.file.secure_url, url: req.file.url, filename: req.file.filename });
+      if (!filePath) {
+        throw new Error('Cloudinary did not return a file URL. Check your Cloudinary credentials.');
+      }
     } else {
       // Local storage - use relative path
       filePath = '/uploads/materials/' + req.file.filename;

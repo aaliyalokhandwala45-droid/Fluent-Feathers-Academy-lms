@@ -278,7 +278,8 @@
             <p style="color: #718096; font-size: 13px; margin: 0;">Empowering Young Minds Through Language & Communication</p>
           </div>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span id="storageStatus" style="padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 600; cursor: help;" title="File storage status">⏳ Checking...</span>
           <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">👁️ Learner View</button>
           <button onclick="location.href='index.html'" class="btn btn-sm" style="background: #718096; color: white; font-size: 12px;">Logout</button>
         </div>
@@ -2892,6 +2893,21 @@ I'm passionate about helping children develop confidence in communication!"></te
         const headerLogo = document.getElementById('headerLogo');
         if (headerLogo && appConfig.logoUrl) {
           headerLogo.src = appConfig.logoUrl;
+        }
+        // Update storage status indicator
+        const statusEl = document.getElementById('storageStatus');
+        if (statusEl) {
+          if (appConfig.cloudinaryConfigured) {
+            statusEl.innerHTML = '☁️ Cloud Storage';
+            statusEl.style.background = '#c6f6d5';
+            statusEl.style.color = '#22543d';
+            statusEl.title = 'Files stored on Cloudinary (persistent)';
+          } else {
+            statusEl.innerHTML = '⚠️ Local Storage';
+            statusEl.style.background = '#fed7d7';
+            statusEl.style.color = '#c53030';
+            statusEl.title = 'WARNING: Files stored locally - will be lost on restart! Configure Cloudinary in environment variables.';
+          }
         }
       } catch (e) { console.log('Using default config'); }
     }
