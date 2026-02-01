@@ -2332,47 +2332,19 @@ function getMonthlyReportCardEmail(data) {
       </div>
 
       ${certificateTitle ? `
-      <!-- Child-Friendly Certificate for Email -->
-      <div style="background: linear-gradient(135deg, #fff5f8 0%, #fef3c7 50%, #e0f2fe 100%); border: 4px solid #f472b6; border-radius: 20px; padding: 25px; margin-bottom: 25px; text-align: center;">
-        <!-- Stars Header -->
-        <div style="font-size: 24px; margin-bottom: 10px;">⭐ ✨ 🌟 ✨ ⭐</div>
-
-        <!-- Logo -->
-        <img src="${process.env.LOGO_URL || ''}" alt="Fluent Feathers" style="height: 60px; margin-bottom: 8px;" onerror="this.outerHTML='<div style=\\'font-size:40px;\\'>🎓</div>'">
-        <p style="margin: 0 0 15px; color: #B05D9E; font-size: 12px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY</p>
-
-        <!-- Award Badge with FULL Title -->
-        <div style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 10px 25px; border-radius: 25px; margin: 10px 0;">
-          <span style="font-size: 24px;">🏆</span>
-          <span style="color: #78350f; font-size: 18px; font-weight: 700; margin-left: 8px;">${certificateTitle}</span>
-        </div>
-
-        <!-- Student Name -->
-        <div style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.8); border-radius: 15px;">
-          <p style="margin: 0 0 8px; color: #6b7280; font-size: 11px; text-transform: uppercase;">Awarded to</p>
-          <h2 style="margin: 0; color: #B05D9E; font-size: 28px; font-family: 'Comic Sans MS', cursive, sans-serif;">🌟 ${studentName} 🌟</h2>
-        </div>
-
-        <!-- Achievement -->
-        <p style="margin: 0; color: #4b5563; font-size: 13px;">
-          For amazing progress in <strong style="color: #B05D9E;">${monthNames[month - 1]} ${year}</strong>
-        </p>
-
-        <!-- Fun Emojis -->
-        <div style="font-size: 28px; margin: 15px 0;">🎉 🎊 🥳 🎈</div>
-
-        <!-- Signature -->
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px dashed #f9a8d4;">
-          <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 22px; color: #374151;">Aaliya Lokhandwala</p>
-          <p style="margin: 3px 0 0; color: #9ca3af; font-size: 10px;">Founder & Teacher</p>
-        </div>
-
-        <!-- Footer -->
-        <div style="margin-top: 15px;">
-          <span style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 6px 15px; border-radius: 15px; font-size: 11px; font-weight: 600;">
-            🎊 Keep Shining Bright! 🎊
-          </span>
-        </div>
+      <!-- Certificate with Background Image -->
+      <div style="margin-bottom: 25px; text-align: center;">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+          <tr>
+            <td>
+              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769930972/Student_Certificate_pol23n.png" alt="Certificate" style="width: 100%; display: block;">
+            </td>
+          </tr>
+        </table>
+        <p style="margin: 15px 0 5px; color: #667eea; font-size: 16px; font-weight: bold;">🏆 ${certificateTitle}</p>
+        <p style="margin: 0 0 5px; color: #B05D9E; font-size: 20px; font-weight: bold; text-transform: uppercase;">${studentName}</p>
+        <p style="margin: 0; color: #718096; font-size: 14px;">${monthNames[month - 1]} ${year}</p>
+        <p style="margin: 10px 0 0; color: #9ca3af; font-size: 12px;">View the full certificate with name overlay on the Parent Portal</p>
       </div>
       ` : ''}
 
@@ -2499,53 +2471,26 @@ function getDemoAssessmentEmail(data) {
       </div>
 
       ${certificateTitle ? `
-      <!-- Demo Certificate -->
-      <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 50%, #81e6d9 100%); border: 4px solid #38b2ac; border-radius: 20px; padding: 25px; margin-bottom: 25px; text-align: center;">
-        <!-- Stars Header -->
-        <div style="font-size: 24px; margin-bottom: 10px;">⭐ ✨ 🌟 ✨ ⭐</div>
-
-        <!-- Logo -->
-        <img src="${process.env.LOGO_URL || ''}" alt="Fluent Feathers" style="height: 60px; margin-bottom: 8px;" onerror="this.outerHTML='<div style=\\'font-size:40px;\\'>🎓</div>'">
-        <p style="margin: 0 0 15px; color: #234e52; font-size: 12px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY</p>
-
-        <!-- Demo Certificate Badge -->
-        <div style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 8px 20px; border-radius: 20px; margin: 10px 0;">
-          <span style="color: white; font-size: 14px; font-weight: 600;">🎯 DEMO CLASS CERTIFICATE</span>
-        </div>
-
-        <!-- Award Badge with Title -->
-        <div style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 10px 25px; border-radius: 25px; margin: 10px 0;">
-          <span style="font-size: 24px;">🏆</span>
-          <span style="color: #78350f; font-size: 18px; font-weight: 700; margin-left: 8px;">${certificateTitle}</span>
-        </div>
-
-        <!-- Student Name -->
-        <div style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.8); border-radius: 15px;">
-          <p style="margin: 0 0 8px; color: #6b7280; font-size: 11px; text-transform: uppercase;">Awarded to</p>
-          <h2 style="margin: 0; color: #234e52; font-size: 28px; font-family: 'Comic Sans MS', cursive, sans-serif;">🌟 ${childName} 🌟</h2>
-        </div>
-
-        <!-- Achievement -->
-        <p style="margin: 0; color: #4b5563; font-size: 13px;">
-          For showing great potential in our demo class!
-        </p>
-
-        <!-- Fun Emojis -->
-        <div style="font-size: 28px; margin: 15px 0;">🎉 🎊 🥳 🎈</div>
-
-        <!-- Signature -->
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px dashed #81e6d9;">
-          <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 22px; color: #374151;">Aaliya Lokhandwala</p>
-          <p style="margin: 3px 0 0; color: #9ca3af; font-size: 10px;">Founder & Teacher</p>
-        </div>
+      <!-- Demo Certificate with Background Image -->
+      <div style="margin-bottom: 25px; text-align: center;">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+          <tr>
+            <td style="position: relative;">
+              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769930972/Student_Certificate_pol23n.png" alt="Certificate" style="width: 100%; display: block;">
+            </td>
+          </tr>
+        </table>
+        <p style="margin: 15px 0 5px; color: #234e52; font-size: 16px; font-weight: bold;">🏆 ${certificateTitle}</p>
+        <p style="margin: 0 0 5px; color: #38b2ac; font-size: 20px; font-weight: bold; text-transform: uppercase;">${childName}</p>
+        <p style="margin: 0; color: #718096; font-size: 14px;">${formattedDate}</p>
       </div>
 
       <!-- Download Certificate Button -->
       <div style="text-align: center; margin-bottom: 25px;">
         <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
-          📥 View & Download Certificate
+          📥 View & Download Full Certificate
         </a>
-        <p style="margin: 10px 0 0; color: #718096; font-size: 12px;">Click to view the certificate online and download as PDF</p>
+        <p style="margin: 10px 0 0; color: #718096; font-size: 12px;">Click to view the certificate with name & date overlay and download as PDF</p>
       </div>
       ` : ''}
 

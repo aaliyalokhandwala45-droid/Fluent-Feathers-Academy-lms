@@ -7076,49 +7076,24 @@ async function saveEditedPayment() {
             </div>
 
             ${a.certificate_title ? `
-            <!-- Elegant Certificate with Scattered Stars -->
-            <div style="background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%); border-radius: 12px; padding: 0; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-width: 500px; margin-left: auto; margin-right: auto; overflow: hidden; border: 3px solid #B05D9E; position: relative;">
+            <!-- Certificate with Background Image -->
+            <div style="position: relative; max-width: 550px; margin: 0 auto 20px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12);">
+              <!-- Certificate Background Image -->
+              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769930972/Student_Certificate_pol23n.png" alt="Certificate" style="width: 100%; display: block;">
 
-              <!-- Scattered Stars Background -->
-              <div style="position: absolute; top: 8px; left: 12px; color: #ffd700; font-size: 14px; opacity: 0.7;">★</div>
-              <div style="position: absolute; top: 25px; right: 20px; color: #ffd700; font-size: 18px; opacity: 0.8;">★</div>
-              <div style="position: absolute; top: 60px; left: 30px; color: #ffd700; font-size: 10px; opacity: 0.6;">★</div>
-              <div style="position: absolute; bottom: 50px; right: 15px; color: #ffd700; font-size: 12px; opacity: 0.7;">★</div>
-              <div style="position: absolute; bottom: 30px; left: 20px; color: #ffd700; font-size: 16px; opacity: 0.6;">★</div>
-              <div style="position: absolute; top: 45%; right: 8px; color: #ffd700; font-size: 10px; opacity: 0.5;">★</div>
-              <div style="position: absolute; top: 35%; left: 8px; color: #ffd700; font-size: 12px; opacity: 0.5;">★</div>
-
-              <!-- Header with Company Name -->
-              <div style="background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); padding: 12px 20px; text-align: center;">
-                <h4 style="margin: 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY BY AALIYA</h4>
+              <!-- Title Overlay -->
+              <div style="position: absolute; top: 17%; left: 50%; transform: translateX(-50%); text-align: center; width: 80%;">
+                <h2 style="margin: 0; color: #8B1538; font-size: clamp(14px, 3vw, 22px); font-weight: bold; font-family: 'Georgia', serif;">${a.certificate_title}</h2>
               </div>
 
-              <!-- Certificate Content -->
-              <div style="padding: 20px 25px; text-align: center; position: relative;">
-                <!-- Certificate Title -->
-                <h3 style="margin: 0 0 12px; color: #B05D9E; font-size: 20px; font-weight: 700; letter-spacing: 1px;">Certificate of Achievement</h3>
+              <!-- Student Name Overlay -->
+              <div style="position: absolute; top: 38%; left: 50%; transform: translateX(-50%); text-align: center; width: 80%;">
+                <h1 style="margin: 0; color: #8B1538; font-size: clamp(16px, 4vw, 28px); font-weight: bold; font-family: 'Georgia', serif; text-transform: uppercase;">${displayName}</h1>
+              </div>
 
-                <!-- Award Type -->
-                <div style="margin: 12px 0;">
-                  <span style="background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%); color: #5d4e00; padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 8px rgba(255,215,0,0.3);">${a.certificate_title}</span>
-                </div>
-
-                <!-- Presented To -->
-                <p style="margin: 15px 0 5px; color: #718096; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">Proudly Presented To</p>
-
-                <!-- Student Name -->
-                <h4 style="margin: 0; color: #2d3748; font-size: 22px; font-weight: 700; font-family: 'Georgia', serif;">${displayName}</h4>
-
-                <!-- Achievement Description -->
-                <div style="margin: 15px auto; padding: 10px 15px; background: rgba(176,93,158,0.08); border-radius: 8px; max-width: 320px;">
-                  <p style="margin: 0; color: #4a5568; font-size: 11px; line-height: 1.5;">For outstanding achievement and dedication in <strong style="color: #B05D9E;">${period}</strong></p>
-                </div>
-
-                <!-- Signature -->
-                <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                  <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 16px; color: #2d3748;">Aaliya Lokhandwala</p>
-                  <p style="margin: 2px 0 0; color: #718096; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">Founder & Teacher</p>
-                </div>
+              <!-- Date Overlay -->
+              <div style="position: absolute; bottom: 11%; right: 12%; text-align: center;">
+                <p style="margin: 0; color: #333; font-size: clamp(8px, 1.5vw, 12px); font-weight: 600;">${period}</p>
               </div>
             </div>
             ` : ''}

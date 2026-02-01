@@ -140,51 +140,39 @@
         }) : 'Demo Class';
         const skills = data.skills ? JSON.parse(data.skills) : [];
 
+        // Format date nicely for certificate
+        const certDate = data.demo_date ? new Date(data.demo_date).toLocaleDateString('en-IN', {
+          day: 'numeric', month: 'long', year: 'numeric'
+        }) : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
         document.getElementById('content').innerHTML = `
           <div class="certificate-wrapper">
-            <!-- Certificate -->
-            <div id="certificate" style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 50%, #81e6d9 100%); border: 4px solid #38b2ac; border-radius: 20px; padding: 30px; text-align: center;">
-              <!-- Stars Header -->
-              <div style="font-size: 28px; margin-bottom: 12px;">⭐ ✨ 🌟 ✨ ⭐</div>
-
-              <!-- Logo -->
-              <img src="${appConfig.logoUrl}" alt="Fluent Feathers" style="height: 70px; margin-bottom: 10px;" onerror="this.outerHTML='<div style=\\'font-size:50px;\\'>🎓</div>'">
-              <p style="margin: 0 0 18px; color: #234e52; font-size: 14px; font-weight: 600; letter-spacing: 1px;">FLUENT FEATHERS ACADEMY</p>
-
-              <!-- Demo Certificate Badge -->
-              <div style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 10px 25px; border-radius: 25px; margin: 12px 0;">
-                <span style="color: white; font-size: 16px; font-weight: 600;">🎯 DEMO CLASS CERTIFICATE</span>
+            ${data.certificate_title ? `
+            <!-- Certificate with Background Image -->
+            <div id="certificate" class="certificate-container" style="position: relative; max-width: 700px; margin: 0 auto 20px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.15);">
+              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769930972/Student_Certificate_pol23n.png" alt="Certificate" style="width: 100%; display: block;" crossorigin="anonymous">
+              <!-- Title Overlay -->
+              <div style="position: absolute; top: 17%; left: 50%; transform: translateX(-50%); text-align: center; width: 80%;">
+                <h2 style="margin: 0; color: #8B1538; font-size: clamp(18px, 4vw, 28px); font-weight: bold; font-family: 'Georgia', serif;">${data.certificate_title}</h2>
               </div>
-
-              ${data.certificate_title ? `
-              <!-- Award Badge -->
-              <div style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 12px 30px; border-radius: 30px; margin: 12px 0;">
-                <span style="font-size: 28px;">🏆</span>
-                <span style="color: #78350f; font-size: 20px; font-weight: 700; margin-left: 10px;">${data.certificate_title}</span>
+              <!-- Student Name Overlay -->
+              <div style="position: absolute; top: 38%; left: 50%; transform: translateX(-50%); text-align: center; width: 80%;">
+                <h1 style="margin: 0; color: #8B1538; font-size: clamp(22px, 5vw, 36px); font-weight: bold; font-family: 'Georgia', serif; text-transform: uppercase;">${childName}</h1>
               </div>
-              ` : ''}
-
-              <!-- Student Name -->
-              <div style="margin: 25px 0; padding: 20px; background: rgba(255,255,255,0.8); border-radius: 15px;">
-                <p style="margin: 0 0 10px; color: #6b7280; font-size: 12px; text-transform: uppercase;">Awarded to</p>
-                <h2 style="margin: 0; color: #234e52; font-size: 32px; font-family: 'Comic Sans MS', cursive, sans-serif;">🌟 ${childName} 🌟</h2>
-              </div>
-
-              <!-- Achievement -->
-              <p style="margin: 0; color: #4b5563; font-size: 15px;">
-                For showing great potential in our demo class!<br>
-                <strong style="color: #38b2ac;">${demoDate}</strong>
-              </p>
-
-              <!-- Fun Emojis -->
-              <div style="font-size: 32px; margin: 18px 0;">🎉 🎊 🥳 🎈</div>
-
-              <!-- Signature -->
-              <div style="margin-top: 18px; padding-top: 18px; border-top: 2px dashed #81e6d9;">
-                <p style="margin: 0; font-family: 'Brush Script MT', cursive; font-size: 26px; color: #374151;">Aaliya Lokhandwala</p>
-                <p style="margin: 4px 0 0; color: #9ca3af; font-size: 12px;">Founder & Teacher</p>
+              <!-- Date Overlay -->
+              <div style="position: absolute; bottom: 11%; right: 12%; text-align: center;">
+                <p style="margin: 0; color: #333; font-size: clamp(10px, 2vw, 14px); font-weight: 600;">${certDate}</p>
               </div>
             </div>
+            ` : `
+            <!-- No certificate title - show simple demo badge -->
+            <div id="certificate" style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 50%, #81e6d9 100%); border: 4px solid #38b2ac; border-radius: 20px; padding: 30px; text-align: center; max-width: 700px; margin: 0 auto;">
+              <div style="font-size: 28px; margin-bottom: 12px;">🎓</div>
+              <h2 style="color: #234e52; margin-bottom: 15px;">Demo Class Completed!</h2>
+              <h1 style="color: #38b2ac; font-size: 32px; margin-bottom: 15px;">${childName}</h1>
+              <p style="color: #4b5563;">${demoDate}</p>
+            </div>
+            `}
 
             ${skills.length > 0 ? `
             <!-- Skills Observed -->
