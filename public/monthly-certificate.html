@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Demo Class Certificate - Fluent Feathers Academy</title>
+  <title>Monthly Certificate - Fluent Feathers Academy</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       padding: 20px;
     }
@@ -23,18 +23,19 @@
       margin-bottom: 30px;
     }
     .header h1 {
-      color: #234e52;
+      color: white;
       font-size: 28px;
       margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     .header p {
-      color: #4a5568;
+      color: rgba(255,255,255,0.9);
       font-size: 16px;
     }
     .loading {
       text-align: center;
       padding: 60px;
-      color: #38b2ac;
+      color: white;
       font-size: 18px;
     }
     .error {
@@ -48,7 +49,7 @@
       background: white;
       border-radius: 20px;
       padding: 30px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
       margin-bottom: 20px;
     }
     .download-btn {
@@ -57,19 +58,19 @@
       max-width: 300px;
       margin: 20px auto;
       padding: 15px 30px;
-      background: linear-gradient(135deg, #38b2ac 0%, #319795 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
       border-radius: 30px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
       transition: transform 0.2s, box-shadow 0.2s;
     }
     .download-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(56, 178, 172, 0.5);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
     }
     .download-btn:disabled {
       background: #a0aec0;
@@ -81,7 +82,7 @@
       margin-top: 20px;
     }
     .back-link a {
-      color: #38b2ac;
+      color: white;
       text-decoration: none;
       font-weight: 600;
     }
@@ -90,22 +91,20 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>Demo Class Certificate</h1>
+      <h1>Monthly Progress Certificate</h1>
       <p>Fluent Feathers Academy By Aaliya</p>
     </div>
 
     <div id="content">
       <div class="loading">
-        <div style="font-size: 40px; margin-bottom: 15px;">🎓</div>
+        <div style="font-size: 40px; margin-bottom: 15px;">📊</div>
         Loading certificate...
       </div>
     </div>
   </div>
 
   <script>
-    const appConfig = {
-      logoUrl: 'https://res.cloudinary.com/dsrc9bcns/image/upload/v1742401365/cld-sample-5.jpg'
-    };
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     async function loadCertificate() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -123,27 +122,24 @@
       }
 
       try {
-        const res = await fetch(`/api/demo-assessment/${assessmentId}`);
+        const res = await fetch(`/api/monthly-assessment/${assessmentId}`);
         if (!res.ok) {
           throw new Error('Certificate not found');
         }
 
         const data = await res.json();
 
-        if (!data || !data.assessment_type || data.assessment_type !== 'demo') {
+        if (!data || !data.assessment_type || data.assessment_type !== 'monthly') {
           throw new Error('Invalid certificate');
         }
 
-        const childName = data.demo_child_name || 'Student';
-        const demoDate = data.demo_date ? new Date(data.demo_date).toLocaleDateString('en-IN', {
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        }) : 'Demo Class';
+        const studentName = data.student_name || 'Student';
+        const month = data.month;
+        const year = data.year;
         const skills = data.skills ? JSON.parse(data.skills) : [];
 
         // Format date nicely for certificate
-        const certDate = data.demo_date ? new Date(data.demo_date).toLocaleDateString('en-IN', {
-          day: 'numeric', month: 'long', year: 'numeric'
-        }) : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+        const certDate = `${monthNames[month - 1]} ${year}`;
 
         document.getElementById('content').innerHTML = `
           <div class="certificate-wrapper">
@@ -157,7 +153,7 @@
               </div>
               <!-- Student Name Overlay - Middle space -->
               <div style="position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 80%;">
-                <h1 style="margin: 0; color: #8B1538; font-size: clamp(24px, 6vw, 42px); font-weight: bold; font-family: 'Georgia', serif; text-transform: uppercase; letter-spacing: 2px;">${childName}</h1>
+                <h1 style="margin: 0; color: #8B1538; font-size: clamp(24px, 6vw, 42px); font-weight: bold; font-family: 'Georgia', serif; text-transform: uppercase; letter-spacing: 2px;">${studentName}</h1>
               </div>
               <!-- Date Overlay - Bottom right before date area -->
               <div style="position: absolute; bottom: 8%; right: 10%; text-align: center;">
@@ -165,22 +161,22 @@
               </div>
             </div>
             ` : `
-            <!-- No certificate title - show simple demo badge -->
-            <div id="certificate" style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 50%, #81e6d9 100%); border: 4px solid #38b2ac; border-radius: 20px; padding: 30px; text-align: center; max-width: 700px; margin: 0 auto;">
-              <div style="font-size: 28px; margin-bottom: 12px;">🎓</div>
-              <h2 style="color: #234e52; margin-bottom: 15px;">Demo Class Completed!</h2>
-              <h1 style="color: #38b2ac; font-size: 32px; margin-bottom: 15px;">${childName}</h1>
-              <p style="color: #4b5563;">${demoDate}</p>
+            <!-- No certificate title - show simple progress badge -->
+            <div id="certificate" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; padding: 30px; text-align: center; max-width: 700px; margin: 0 auto;">
+              <div style="font-size: 28px; margin-bottom: 12px;">📊</div>
+              <h2 style="color: white; margin-bottom: 15px;">Monthly Progress Report</h2>
+              <h1 style="color: #ffd700; font-size: 32px; margin-bottom: 15px;">${studentName}</h1>
+              <p style="color: rgba(255,255,255,0.9);">${certDate}</p>
             </div>
             `}
 
             ${skills.length > 0 ? `
-            <!-- Skills Observed -->
-            <div style="margin-top: 25px; padding: 20px; background: #f0fdf4; border-radius: 12px;">
-              <h3 style="color: #234e52; font-size: 18px; margin: 0 0 15px;">📝 Skills Observed During Demo</h3>
+            <!-- Skills Assessed -->
+            <div style="margin-top: 25px; padding: 20px; background: #f7fafc; border-radius: 12px;">
+              <h3 style="color: #2d3748; font-size: 18px; margin: 0 0 15px;">📝 Skills Assessed This Month</h3>
               <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                 ${skills.map(skill => `
-                <span style="background: #e6fffa; padding: 10px 15px; border-radius: 8px; border-left: 4px solid #38b2ac; font-size: 14px; color: #234e52; font-weight: 600;">✓ ${skill}</span>
+                <span style="background: #e6fffa; padding: 10px 15px; border-radius: 8px; border-left: 4px solid #667eea; font-size: 14px; color: #2d3748; font-weight: 600;">✓ ${skill}</span>
                 `).join('')}
               </div>
             </div>
@@ -188,32 +184,32 @@
 
             ${data.performance_summary ? `
             <div style="margin-top: 20px; padding: 20px; background: #e6fffa; border-radius: 12px; border-left: 4px solid #38b2ac;">
-              <h3 style="color: #234e52; font-size: 16px; margin: 0 0 10px;">📈 Demo Session Summary</h3>
+              <h3 style="color: #234e52; font-size: 16px; margin: 0 0 10px;">📈 Performance Summary</h3>
               <p style="margin: 0; color: #234e52; font-size: 14px; line-height: 1.6;">${data.performance_summary}</p>
             </div>
             ` : ''}
 
             ${data.areas_of_improvement ? `
-            <div style="margin-top: 20px; padding: 20px; background: #fefce8; border-radius: 12px; border-left: 4px solid #eab308;">
-              <h3 style="color: #713f12; font-size: 16px; margin: 0 0 10px;">🎯 Recommended Focus Areas</h3>
-              <p style="margin: 0; color: #713f12; font-size: 14px; line-height: 1.6;">${data.areas_of_improvement}</p>
+            <div style="margin-top: 20px; padding: 20px; background: #fff5f5; border-radius: 12px; border-left: 4px solid #fc8181;">
+              <h3 style="color: #742a2a; font-size: 16px; margin: 0 0 10px;">📌 Areas to Focus On</h3>
+              <p style="margin: 0; color: #742a2a; font-size: 14px; line-height: 1.6;">${data.areas_of_improvement}</p>
             </div>
             ` : ''}
 
             ${data.teacher_comments ? `
-            <div style="margin-top: 20px; padding: 20px; background: #faf5ff; border-radius: 12px; border-left: 4px solid #B05D9E;">
-              <h3 style="color: #4a5568; font-size: 16px; margin: 0 0 10px;">💬 Teacher's Notes</h3>
-              <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6; font-style: italic;">"${data.teacher_comments}"</p>
+            <div style="margin-top: 20px; padding: 20px; background: #fef5e7; border-radius: 12px; border-left: 4px solid #f6ad55;">
+              <h3 style="color: #744210; font-size: 16px; margin: 0 0 10px;">💬 Teacher's Comments</h3>
+              <p style="margin: 0; color: #744210; font-size: 14px; line-height: 1.6; font-style: italic;">"${data.teacher_comments}"</p>
             </div>
             ` : ''}
           </div>
 
-          <button class="download-btn" onclick="downloadCertificate('${childName.replace(/'/g, "\\'")}', '${demoDate.replace(/'/g, "\\'")}')">
+          <button class="download-btn" onclick="downloadCertificate('${studentName.replace(/'/g, "\\'")}', '${certDate.replace(/'/g, "\\'")}')">
             📥 Download Certificate as PDF
           </button>
 
           <div class="back-link">
-            <p style="color: #718096; font-size: 14px;">Interested in enrolling? Contact us to continue the learning journey!</p>
+            <p style="color: rgba(255,255,255,0.9); font-size: 14px;">Keep up the amazing progress!</p>
           </div>
         `;
       } catch (err) {
@@ -228,7 +224,7 @@
       }
     }
 
-    async function downloadCertificate(childName, demoDate) {
+    async function downloadCertificate(studentName, certDate) {
       const certElement = document.getElementById('certificate');
       if (!certElement) {
         alert('Certificate not found');
@@ -263,7 +259,7 @@
 
         pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, yOffset, imgWidth, imgHeight);
 
-        const fileName = `Demo_Certificate_${childName.replace(/\s+/g, '_')}.pdf`;
+        const fileName = `Certificate_${studentName.replace(/\s+/g, '_')}_${certDate.replace(/\s+/g, '_')}.pdf`;
         pdf.save(fileName);
 
         btn.innerHTML = '✅ Downloaded!';

@@ -2305,9 +2305,11 @@ function getCertificateEmail(data) {
 }
 
 function getMonthlyReportCardEmail(data) {
-  const { studentName, month, year, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
+  const { assessmentId, studentName, month, year, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const skillsList = skills && skills.length > 0 ? skills : [];
+  const appUrl = process.env.APP_URL || 'https://fluentfeathers.onrender.com';
+  const certificateUrl = `${appUrl}/monthly-certificate.html?id=${assessmentId}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -2337,14 +2339,21 @@ function getMonthlyReportCardEmail(data) {
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
           <tr>
             <td>
-              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769930972/Student_Certificate_pol23n.png" alt="Certificate" style="width: 100%; display: block;">
+              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769931490/Pink_and_Red_Playful_Student_Certificate_kry0o6.png" alt="Certificate" style="width: 100%; display: block;">
             </td>
           </tr>
         </table>
         <p style="margin: 15px 0 5px; color: #667eea; font-size: 16px; font-weight: bold;">🏆 ${certificateTitle}</p>
         <p style="margin: 0 0 5px; color: #B05D9E; font-size: 20px; font-weight: bold; text-transform: uppercase;">${studentName}</p>
         <p style="margin: 0; color: #718096; font-size: 14px;">${monthNames[month - 1]} ${year}</p>
-        <p style="margin: 10px 0 0; color: #9ca3af; font-size: 12px;">View the full certificate with name overlay on the Parent Portal</p>
+      </div>
+
+      <!-- Download Certificate Button -->
+      <div style="text-align: center; margin-bottom: 25px;">
+        <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
+          📥 View & Download Full Certificate
+        </a>
+        <p style="margin: 10px 0 0; color: #718096; font-size: 12px;">Click to view the certificate with name & date overlay and download as PDF</p>
       </div>
       ` : ''}
 
@@ -2476,7 +2485,7 @@ function getDemoAssessmentEmail(data) {
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
           <tr>
             <td style="position: relative;">
-              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769930972/Student_Certificate_pol23n.png" alt="Certificate" style="width: 100%; display: block;">
+              <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769931490/Pink_and_Red_Playful_Student_Certificate_kry0o6.png" alt="Certificate" style="width: 100%; display: block;">
             </td>
           </tr>
         </table>
@@ -6098,6 +6107,27 @@ app.get('/api/demo-assessment/:id', async (req, res) => {
   }
 });
 
+// Public endpoint for viewing monthly assessment certificates (no auth required)
+app.get('/api/monthly-assessment/:id', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.id, a.assessment_type, a.month, a.year, a.skills, a.certificate_title,
+             a.performance_summary, a.areas_of_improvement, a.teacher_comments, a.created_at,
+             s.name as student_name
+      FROM monthly_assessments a
+      LEFT JOIN students s ON a.student_id = s.id
+      WHERE a.id = $1 AND a.assessment_type = 'monthly'
+    `, [req.params.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Monthly assessment not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/students/:id/assessments', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -6166,6 +6196,7 @@ app.post('/api/assessments', async (req, res) => {
         if (student.rows[0]) {
           const skillsArray = skills ? JSON.parse(skills) : [];
           const reportCardEmailHTML = getMonthlyReportCardEmail({
+            assessmentId: result.rows[0].id,
             studentName: student.rows[0].name,
             month: month,
             year: year,
