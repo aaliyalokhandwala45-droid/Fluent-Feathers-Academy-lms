@@ -57,19 +57,25 @@ if (useCloudinary) {
 
 // ==================== DATABASE CONNECTION ====================
 // Log which database we're connecting to (hide password)
-const dbUrl = process.env.DATABASE_URL || '';
+let dbUrl = process.env.DATABASE_URL || '';
 const dbHost = dbUrl.includes('@') ? dbUrl.split('@')[1]?.split('/')[0] : 'NOT SET';
 console.log(`🔌 Connecting to database: ${dbHost}`);
 
+// Add pgbouncer flag for Supabase transaction pooler (port 6543)
+if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('pgbouncer=true')) {
+  dbUrl += dbUrl.includes('?') ? '&pgbouncer=true' : '?pgbouncer=true';
+  console.log('📌 Added pgbouncer=true for Supabase pooler');
+}
+
 // Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString: dbUrl,
+  ssl: { rejectUnauthorized: false },  // Always use SSL for Supabase
   // Pool configuration optimized for free-tier hosting (Supabase)
-  max: 3,                          // Reduce to 3 connections (Supabase free tier limit)
+  max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
   min: 0,                          // Allow pool to shrink to 0 when idle
-  idleTimeoutMillis: 20000,        // Close idle connections after 20 seconds
-  connectionTimeoutMillis: 30000,  // Wait 30 seconds for connection (cold start)
+  idleTimeoutMillis: 10000,        // Close idle connections after 10 seconds
+  connectionTimeoutMillis: 60000,  // Wait 60 seconds for connection (cold start)
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
   statement_timeout: 30000,        // 30 second query timeout
   query_timeout: 30000             // 30 second query timeout
