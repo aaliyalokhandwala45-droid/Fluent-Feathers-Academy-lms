@@ -292,6 +292,7 @@
         <div class="stat-card" onclick="toggleRevenue()" style="cursor: pointer;"><h3>Total Revenue <span style="font-size: 0.7rem; color: #718096;">(click)</span></h3><div class="value" id="totalRevenue">*****</div></div>
         <div class="stat-card"><h3>Total Groups</h3><div class="value" id="totalGroups">0</div></div>
         <div class="stat-card"><h3>Active Events</h3><div class="value" id="activeEvents">0</div></div>
+        <div class="stat-card" onclick="showTab('monthlyAssessment', event)" style="cursor: pointer; border-left-color: #f59e0b;"><h3>📊 Due for Assessment</h3><div class="value" id="dueAssessments" style="color: #f59e0b;">0</div></div>
       </div>
 
       <!-- Old tabs - HIDDEN (using sidebar navigation instead) -->
@@ -1537,6 +1538,15 @@
     </div>
 
     <div id="monthlyAssessmentTab" class="tab-content">
+      <!-- Students Due for Assessment Alert -->
+      <div id="dueAssessmentAlert" style="display: none; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #92400e; margin: 0 0 15px; display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">📊</span> Students Due for Assessment
+        </h3>
+        <p style="color: #78350f; margin-bottom: 15px; font-size: 14px;">These students have completed 7+ sessions since their last assessment:</p>
+        <div id="dueAssessmentList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+      </div>
+
       <div class="section">
         <h2>📊 Assessment & Certificate</h2>
         <form id="monthlyAssessmentForm">
@@ -3172,6 +3182,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'leaderboard') loadLeaderboard();
       if (tabName === 'challenges') loadChallenges();
       if (tabName === 'financials') loadFinancialReports();
+      if (tabName === 'monthlyAssessment') loadDueAssessments();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
@@ -3270,6 +3281,14 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         filterStudents(); // Render with search filter
         document.getElementById('scheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
         document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+        // Update due assessments count
+        const dueCount = allStudents.filter(s => s.assessment_due).length;
+        const dueEl = document.getElementById('dueAssessments');
+        if (dueEl) {
+          dueEl.textContent = dueCount;
+          dueEl.parentElement.style.display = dueCount > 0 ? 'block' : 'block'; // Always show
+        }
       } catch (err) {
         console.error(err);
       }
@@ -3302,7 +3321,12 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         return;
       }
 
-      tbody.innerHTML = filtered.map(s => `<tr><td><strong>${s.name}</strong></td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`).join('');
+      tbody.innerHTML = filtered.map(s => {
+        const assessmentBadge = s.assessment_due
+          ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; cursor: pointer;" onclick="showTab('monthlyAssessment', event); setTimeout(() => document.getElementById('assessmentStudent').value = '${s.id}', 100);" title="Due for assessment (${s.sessions_since_assessment} sessions since last)">📊 Due</span>`
+          : '';
+        return `<tr><td><strong>${s.name}</strong>${assessmentBadge}</td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
+      }).join('');
     }
 
     // EDIT STUDENT
@@ -8136,6 +8160,37 @@ async function saveEditedPayment() {
 
     // Initialize financial year dropdown on page load
     initFinancialYearDropdown();
+
+    // Load students due for assessment
+    function loadDueAssessments() {
+      const dueStudents = allStudents.filter(s => s.assessment_due);
+      const alertDiv = document.getElementById('dueAssessmentAlert');
+      const listDiv = document.getElementById('dueAssessmentList');
+
+      if (dueStudents.length === 0) {
+        alertDiv.style.display = 'none';
+        return;
+      }
+
+      alertDiv.style.display = 'block';
+      listDiv.innerHTML = dueStudents.map(s => `
+        <button onclick="document.getElementById('assessmentStudent').value='${s.id}'; document.getElementById('assessmentStudent').scrollIntoView({behavior:'smooth'});"
+          style="background: white; border: 2px solid #f59e0b; color: #92400e; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+          onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">
+          <span>${s.name}</span>
+          <span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">${s.sessions_since_assessment} sessions</span>
+        </button>
+      `).join('');
+
+      // Also populate the assessment student dropdown
+      const select = document.getElementById('assessmentStudent');
+      if (select) {
+        select.innerHTML = '<option value="">Select Student...</option>' + allStudents.map(s => {
+          const dueBadge = s.assessment_due ? ' ⚠️ DUE' : '';
+          return `<option value="${s.id}">${s.name}${dueBadge}</option>`;
+        }).join('');
+      }
+    }
   </script>
 
       <!-- Footer -->

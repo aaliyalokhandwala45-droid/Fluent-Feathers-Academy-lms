@@ -3541,17 +3541,74 @@ app.get('/api/students', async (req, res) => {
     const r = await executeQuery(`
       SELECT s.*,
         COUNT(DISTINCT m.id) as makeup_credits,
-        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
+        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions,
+        (SELECT MAX(created_at) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as last_assessment_date,
+        (SELECT COUNT(*) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as total_assessments
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available'
       WHERE s.is_active = true
       GROUP BY s.id
       ORDER BY s.created_at DESC
     `);
-    res.json(r.rows);
+
+    // Calculate assessment due status for each student
+    // Due for assessment if: completed 7+ sessions since last assessment (or 7+ total if never assessed)
+    const studentsWithAssessmentStatus = r.rows.map(student => {
+      const completedSessions = student.completed_sessions || 0;
+      const totalAssessments = parseInt(student.total_assessments) || 0;
+
+      // Sessions since last assessment = completed - (assessments * 7)
+      // This assumes each assessment covers ~7 sessions
+      const sessionsAccountedFor = totalAssessments * 7;
+      const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
+
+      return {
+        ...student,
+        assessment_due: sessionsSinceAssessment >= 7,
+        sessions_since_assessment: sessionsSinceAssessment
+      };
+    });
+
+    res.json(studentsWithAssessmentStatus);
   } catch (err) {
     console.error('Students list error:', err.message);
     res.status(500).json({ error: 'Database temporarily unavailable. Please refresh.' });
+  }
+});
+
+// Get students due for monthly assessment (7+ sessions since last assessment)
+app.get('/api/students/due-for-assessment', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT s.id, s.name, s.grade, s.program_name, s.completed_sessions, s.parent_name,
+        (SELECT COUNT(*) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as total_assessments,
+        (SELECT MAX(created_at) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as last_assessment_date
+      FROM students s
+      WHERE s.is_active = true
+      ORDER BY s.completed_sessions DESC
+    `);
+
+    // Filter to only students due for assessment
+    const dueStudents = r.rows.filter(student => {
+      const completedSessions = student.completed_sessions || 0;
+      const totalAssessments = parseInt(student.total_assessments) || 0;
+      const sessionsAccountedFor = totalAssessments * 7;
+      const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
+      return sessionsSinceAssessment >= 7;
+    }).map(student => {
+      const completedSessions = student.completed_sessions || 0;
+      const totalAssessments = parseInt(student.total_assessments) || 0;
+      const sessionsAccountedFor = totalAssessments * 7;
+      return {
+        ...student,
+        sessions_since_assessment: Math.max(0, completedSessions - sessionsAccountedFor)
+      };
+    });
+
+    res.json(dueStudents);
+  } catch (err) {
+    console.error('Due for assessment error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
