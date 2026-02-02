@@ -263,6 +263,7 @@
         <button class="nav-btn" onclick="showTab('challenges', event)">🎯 <span>Challenges</span></button>
         <button class="nav-btn" onclick="showTab('resources', event)">📚 <span>Resources</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
+        <button class="nav-btn" onclick="showTab('financials', event)">💰 <span>Financial Reports</span></button>
         <button class="nav-btn" onclick="window.location.href='profile.html'">👤 <span>My Profile</span></button>
         <button class="nav-btn" onclick="window.location.href='whiteboard.html'">🖊️ <span>Whiteboard</span></button>
       </nav>
@@ -1239,6 +1240,194 @@
           </button>
         </div>
         <p style="color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 15px;">⚠️ Keep this backup file safe. It contains all your student data, sessions, and records.</p>
+      </div>
+    </div>
+
+    <!-- Financial Reports Tab -->
+    <div id="financialsTab" class="tab-content">
+      <div class="section">
+        <h2>💰 Financial Reports</h2>
+        <p style="color: #718096; margin-bottom: 20px;">Track income, expenses, and generate reports for tax filing</p>
+
+        <!-- Financial Year Filter -->
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; padding: 20px; background: #f7fafc; border-radius: 10px;">
+          <div style="flex: 1; min-width: 200px;">
+            <label style="font-weight: 600; color: #4a5568; display: block; margin-bottom: 5px;">Financial Year</label>
+            <select id="financialYear" onchange="loadFinancialReports()" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <option value="">All Time</option>
+            </select>
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            <label style="font-weight: 600; color: #4a5568; display: block; margin-bottom: 5px;">Start Date</label>
+            <input type="date" id="finStartDate" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            <label style="font-weight: 600; color: #4a5568; display: block; margin-bottom: 5px;">End Date</label>
+            <input type="date" id="finEndDate" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 10px;">
+            <button onclick="loadFinancialReports()" class="btn" style="background: #B05D9E; color: white; padding: 10px 20px;">Apply Filter</button>
+            <button onclick="clearFinancialFilters()" class="btn" style="background: #718096; color: white; padding: 10px 20px;">Clear</button>
+          </div>
+        </div>
+
+        <!-- Income Summary Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); padding: 25px; border-radius: 12px; color: white;">
+            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Income (INR)</h3>
+            <div id="totalIncomeINR" style="font-size: 28px; font-weight: bold;">₹0</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); padding: 25px; border-radius: 12px; color: white;">
+            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Income (USD)</h3>
+            <div id="totalIncomeUSD" style="font-size: 28px; font-weight: bold;">$0</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); padding: 25px; border-radius: 12px; color: white;">
+            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Expenses (INR)</h3>
+            <div id="totalExpensesINR" style="font-size: 28px; font-weight: bold;">₹0</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); padding: 25px; border-radius: 12px; color: white;">
+            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Net Profit (INR)</h3>
+            <div id="netProfitINR" style="font-size: 28px; font-weight: bold;">₹0</div>
+          </div>
+        </div>
+
+        <!-- Export Buttons -->
+        <div style="display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap;">
+          <button onclick="exportIncomeReport()" class="btn" style="background: #38a169; color: white; padding: 12px 25px;">
+            📥 Export Income (CSV)
+          </button>
+          <button onclick="exportExpensesReport()" class="btn" style="background: #dd6b20; color: white; padding: 12px 25px;">
+            📥 Export Expenses (CSV)
+          </button>
+        </div>
+
+        <!-- Monthly Income Summary -->
+        <h3 style="margin-bottom: 15px; color: #2d3748;">📊 Monthly Income Summary</h3>
+        <div style="overflow-x: auto; margin-bottom: 30px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f7fafc;">
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Month</th>
+                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">INR</th>
+                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">USD</th>
+                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Payments</th>
+              </tr>
+            </thead>
+            <tbody id="monthlyIncomeBody">
+              <tr><td colspan="4" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Recent Payments -->
+        <h3 style="margin-bottom: 15px; color: #2d3748;">💳 Recent Payments</h3>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f7fafc;">
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Date</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Student</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Parent</th>
+                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Amount</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Method</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Sessions</th>
+              </tr>
+            </thead>
+            <tbody id="recentPaymentsBody">
+              <tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Expense Tracker Section -->
+      <div class="section" style="margin-top: 25px;">
+        <h2>📋 Expense Tracker</h2>
+        <p style="color: #718096; margin-bottom: 20px;">Track your business expenses to calculate net taxable income</p>
+
+        <!-- Add Expense Form -->
+        <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+          <h3 style="margin-bottom: 15px; color: #2d3748;">Add New Expense</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+            <div class="form-group">
+              <label>Date *</label>
+              <input type="date" id="expenseDate" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            </div>
+            <div class="form-group">
+              <label>Category *</label>
+              <select id="expenseCategory" required style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <option value="">Select Category</option>
+                <option value="Platform Subscription">Platform Subscription (Zoom, etc.)</option>
+                <option value="Teaching Materials">Teaching Materials</option>
+                <option value="Internet & Phone">Internet & Phone</option>
+                <option value="Software & Tools">Software & Tools</option>
+                <option value="Marketing & Ads">Marketing & Ads</option>
+                <option value="Office Supplies">Office Supplies</option>
+                <option value="Professional Development">Professional Development</option>
+                <option value="Bank Charges">Bank Charges</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Description *</label>
+              <input type="text" id="expenseDescription" required placeholder="e.g., Zoom Annual Plan" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            </div>
+            <div class="form-group">
+              <label>Amount *</label>
+              <input type="number" id="expenseAmount" required step="0.01" placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            </div>
+            <div class="form-group">
+              <label>Currency</label>
+              <select id="expenseCurrency" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <option value="INR">INR (₹)</option>
+                <option value="USD">USD ($)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Payment Method</label>
+              <select id="expensePaymentMethod" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="UPI">UPI</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="Debit Card">Debit Card</option>
+                <option value="Cash">Cash</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top: 15px;">
+            <label>Notes (Optional)</label>
+            <input type="text" id="expenseNotes" placeholder="Any additional notes..." style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          </div>
+          <button onclick="addExpense()" class="btn" style="background: #B05D9E; color: white; padding: 12px 25px; margin-top: 15px;">
+            ➕ Add Expense
+          </button>
+        </div>
+
+        <!-- Expense Summary by Category -->
+        <h3 style="margin-bottom: 15px; color: #2d3748;">📊 Expense Summary by Category</h3>
+        <div id="expenseCategorySummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+          <p style="color: #718096;">Loading...</p>
+        </div>
+
+        <!-- Expenses List -->
+        <h3 style="margin-bottom: 15px; color: #2d3748;">📝 All Expenses</h3>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f7fafc;">
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Date</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Category</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Description</th>
+                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Amount</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Method</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="expensesBody">
+              <tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -2981,6 +3170,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'demoStudents') loadDemoLeads();
       if (tabName === 'leaderboard') loadLeaderboard();
       if (tabName === 'challenges') loadChallenges();
+      if (tabName === 'financials') loadFinancialReports();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
@@ -7683,6 +7873,249 @@ async function saveEditedPayment() {
         alert('❌ Error: ' + err.message);
       }
     }
+
+    // ==================== FINANCIAL REPORTS ====================
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    function initFinancialYearDropdown() {
+      const select = document.getElementById('financialYear');
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth();
+      // If before April, current FY started last year
+      const currentFY = currentMonth < 3 ? currentYear - 1 : currentYear;
+
+      select.innerHTML = '<option value="">All Time</option>';
+      for (let y = currentFY; y >= currentFY - 5; y--) {
+        select.innerHTML += `<option value="${y}">FY ${y}-${(y + 1).toString().slice(-2)}</option>`;
+      }
+    }
+
+    async function loadFinancialReports() {
+      const year = document.getElementById('financialYear').value;
+      const startDate = document.getElementById('finStartDate').value;
+      const endDate = document.getElementById('finEndDate').value;
+
+      let url = '/api/financial-reports?';
+      if (year) url += `year=${year}&`;
+      if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}&`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // Update income totals
+        let inrTotal = 0, usdTotal = 0;
+        data.totals.forEach(t => {
+          if (t.currency === 'INR') inrTotal = parseFloat(t.total_amount) || 0;
+          if (t.currency === 'USD') usdTotal = parseFloat(t.total_amount) || 0;
+        });
+        document.getElementById('totalIncomeINR').textContent = '₹' + inrTotal.toLocaleString('en-IN');
+        document.getElementById('totalIncomeUSD').textContent = '$' + usdTotal.toLocaleString('en-US');
+
+        // Load expenses for totals
+        let expUrl = '/api/expenses?';
+        if (year) expUrl += `year=${year}&`;
+        if (startDate && endDate) expUrl += `startDate=${startDate}&endDate=${endDate}&`;
+
+        const expRes = await fetch(expUrl);
+        const expData = await expRes.json();
+
+        let expInrTotal = 0;
+        expData.grandTotal.forEach(t => {
+          if (t.currency === 'INR') expInrTotal = parseFloat(t.total_amount) || 0;
+        });
+        document.getElementById('totalExpensesINR').textContent = '₹' + expInrTotal.toLocaleString('en-IN');
+        document.getElementById('netProfitINR').textContent = '₹' + (inrTotal - expInrTotal).toLocaleString('en-IN');
+
+        // Monthly summary table
+        const monthlyBody = document.getElementById('monthlyIncomeBody');
+        if (data.monthlySummary.length === 0) {
+          monthlyBody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #718096;">No payments found</td></tr>';
+        } else {
+          // Group by month/year
+          const monthlyData = {};
+          data.monthlySummary.forEach(m => {
+            const key = `${m.year}-${m.month}`;
+            if (!monthlyData[key]) monthlyData[key] = { year: m.year, month: m.month, INR: 0, USD: 0, count: 0 };
+            if (m.currency === 'INR') monthlyData[key].INR = parseFloat(m.total_amount);
+            if (m.currency === 'USD') monthlyData[key].USD = parseFloat(m.total_amount);
+            monthlyData[key].count += parseInt(m.payment_count);
+          });
+
+          monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${monthNames[m.month - 1]} ${m.year}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #38a169;">₹${m.INR.toLocaleString('en-IN')}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #3182ce;">$${m.USD.toLocaleString('en-US')}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">${m.count}</td>
+            </tr>
+          `).join('');
+        }
+
+        // Recent payments table
+        const paymentsBody = document.getElementById('recentPaymentsBody');
+        if (data.payments.length === 0) {
+          paymentsBody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">No payments found</td></tr>';
+        } else {
+          paymentsBody.innerHTML = data.payments.slice(0, 50).map(p => `
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${new Date(p.payment_date).toLocaleDateString('en-IN')}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.student_name || '-'}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.parent_name || '-'}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${p.currency === 'USD' ? '$' : '₹'}${parseFloat(p.amount).toLocaleString()}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.payment_method || '-'}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.sessions_covered || '-'}</td>
+            </tr>
+          `).join('');
+        }
+
+        // Load expenses list
+        loadExpenses();
+      } catch (err) {
+        console.error('Error loading financial reports:', err);
+      }
+    }
+
+    async function loadExpenses() {
+      const year = document.getElementById('financialYear').value;
+      const startDate = document.getElementById('finStartDate').value;
+      const endDate = document.getElementById('finEndDate').value;
+
+      let url = '/api/expenses?';
+      if (year) url += `year=${year}&`;
+      if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}&`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // Category summary cards
+        const summaryDiv = document.getElementById('expenseCategorySummary');
+        if (data.categoryTotals.length === 0) {
+          summaryDiv.innerHTML = '<p style="color: #718096;">No expenses recorded</p>';
+        } else {
+          summaryDiv.innerHTML = data.categoryTotals.map(c => `
+            <div style="background: #fff5f5; padding: 15px; border-radius: 10px; border-left: 4px solid #ed8936;">
+              <h4 style="margin: 0 0 5px; color: #744210; font-size: 13px;">${c.category}</h4>
+              <p style="margin: 0; font-size: 20px; font-weight: bold; color: #c05621;">${c.currency === 'USD' ? '$' : '₹'}${parseFloat(c.total_amount).toLocaleString()}</p>
+              <p style="margin: 5px 0 0; font-size: 12px; color: #975a16;">${c.count} expense(s)</p>
+            </div>
+          `).join('');
+        }
+
+        // Expenses table
+        const expBody = document.getElementById('expensesBody');
+        if (data.expenses.length === 0) {
+          expBody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">No expenses found. Add your first expense above!</td></tr>';
+        } else {
+          expBody.innerHTML = data.expenses.map(e => `
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${new Date(e.expense_date).toLocaleDateString('en-IN')}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;"><span style="background: #feebc8; padding: 3px 8px; border-radius: 4px; font-size: 12px;">${e.category}</span></td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${e.description}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #c05621;">${e.currency === 'USD' ? '$' : '₹'}${parseFloat(e.amount).toLocaleString()}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${e.payment_method || '-'}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                <button onclick="deleteExpense(${e.id})" class="btn btn-sm btn-danger">Delete</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Error loading expenses:', err);
+      }
+    }
+
+    async function addExpense() {
+      const expense = {
+        expense_date: document.getElementById('expenseDate').value,
+        category: document.getElementById('expenseCategory').value,
+        description: document.getElementById('expenseDescription').value,
+        amount: document.getElementById('expenseAmount').value,
+        currency: document.getElementById('expenseCurrency').value,
+        payment_method: document.getElementById('expensePaymentMethod').value,
+        notes: document.getElementById('expenseNotes').value
+      };
+
+      if (!expense.expense_date || !expense.category || !expense.description || !expense.amount) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(expense)
+        });
+
+        if (res.ok) {
+          alert('✅ Expense added successfully!');
+          // Clear form
+          document.getElementById('expenseDate').value = '';
+          document.getElementById('expenseCategory').value = '';
+          document.getElementById('expenseDescription').value = '';
+          document.getElementById('expenseAmount').value = '';
+          document.getElementById('expenseNotes').value = '';
+          // Reload data
+          loadFinancialReports();
+        } else {
+          alert('❌ Failed to add expense');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function deleteExpense(id) {
+      if (!confirm('Are you sure you want to delete this expense?')) return;
+
+      try {
+        const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('✅ Expense deleted');
+          loadFinancialReports();
+        } else {
+          alert('❌ Failed to delete expense');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    function clearFinancialFilters() {
+      document.getElementById('financialYear').value = '';
+      document.getElementById('finStartDate').value = '';
+      document.getElementById('finEndDate').value = '';
+      loadFinancialReports();
+    }
+
+    function exportIncomeReport() {
+      const year = document.getElementById('financialYear').value;
+      const startDate = document.getElementById('finStartDate').value;
+      const endDate = document.getElementById('finEndDate').value;
+
+      let url = '/api/financial-reports/export?';
+      if (year) url += `year=${year}&`;
+      if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}&`;
+
+      window.location.href = url;
+    }
+
+    function exportExpensesReport() {
+      const year = document.getElementById('financialYear').value;
+      const startDate = document.getElementById('finStartDate').value;
+      const endDate = document.getElementById('finEndDate').value;
+
+      let url = '/api/expenses/export?';
+      if (year) url += `year=${year}&`;
+      if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}&`;
+
+      window.location.href = url;
+    }
+
+    // Initialize financial year dropdown on page load
+    initFinancialYearDropdown();
   </script>
 
       <!-- Footer -->

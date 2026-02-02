@@ -840,6 +840,22 @@ async function initializeDatabase() {
       )
     `);
 
+    console.log('🔧 Creating expenses table...');
+    await client.query(`
+      CREATE TABLE expenses (
+        id SERIAL PRIMARY KEY,
+        expense_date DATE NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        currency TEXT DEFAULT 'INR',
+        payment_method TEXT,
+        receipt_url TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes
     console.log('🔧 Creating indexes...');
     await client.query('CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)');
@@ -1232,6 +1248,27 @@ async function runMigrations() {
       console.log('✅ Migration 20: Added missed_sessions column to students');
     } catch (err) {
       console.log('Migration 20 note:', err.message);
+    }
+
+    // Migration 21: Create expenses table for financial tracking
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS expenses (
+          id SERIAL PRIMARY KEY,
+          expense_date DATE NOT NULL,
+          category TEXT NOT NULL,
+          description TEXT NOT NULL,
+          amount DECIMAL(10,2) NOT NULL,
+          currency TEXT DEFAULT 'INR',
+          payment_method TEXT,
+          receipt_url TEXT,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Migration 21: Created expenses table');
+    } catch (err) {
+      console.log('Migration 21 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -5250,6 +5287,315 @@ app.post('/api/students/:id/fix-sessions', async (req, res) => {
     res.json({ success: true, message: 'Session counts updated successfully!' });
   } catch (err) {
     console.error('Error fixing sessions:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== FINANCIAL REPORTS & EXPENSE TRACKER ====================
+
+// Get financial summary (income from payments)
+app.get('/api/financial-reports', async (req, res) => {
+  try {
+    const { startDate, endDate, year } = req.query;
+
+    let dateFilter = '';
+    let params = [];
+
+    if (startDate && endDate) {
+      dateFilter = 'WHERE payment_date >= $1 AND payment_date <= $2';
+      params = [startDate, endDate];
+    } else if (year) {
+      // Indian Financial Year: April 1 to March 31
+      const fyStart = `${year}-04-01`;
+      const fyEnd = `${parseInt(year) + 1}-03-31`;
+      dateFilter = 'WHERE payment_date >= $1 AND payment_date <= $2';
+      params = [fyStart, fyEnd];
+    }
+
+    // Get all payments
+    const paymentsQuery = `
+      SELECT ph.*, s.name as student_name, s.parent_name
+      FROM payment_history ph
+      LEFT JOIN students s ON ph.student_id = s.id
+      ${dateFilter}
+      ORDER BY ph.payment_date DESC
+    `;
+    const payments = await pool.query(paymentsQuery, params);
+
+    // Get monthly summary
+    const monthlyQuery = `
+      SELECT
+        EXTRACT(YEAR FROM payment_date) as year,
+        EXTRACT(MONTH FROM payment_date) as month,
+        currency,
+        SUM(amount) as total_amount,
+        COUNT(*) as payment_count
+      FROM payment_history
+      ${dateFilter}
+      GROUP BY EXTRACT(YEAR FROM payment_date), EXTRACT(MONTH FROM payment_date), currency
+      ORDER BY year DESC, month DESC
+    `;
+    const monthlySummary = await pool.query(monthlyQuery, params);
+
+    // Get total by currency
+    const totalQuery = `
+      SELECT currency, SUM(amount) as total_amount, COUNT(*) as payment_count
+      FROM payment_history
+      ${dateFilter}
+      GROUP BY currency
+    `;
+    const totals = await pool.query(totalQuery, params);
+
+    // Get session stats
+    const sessionStats = await pool.query(`
+      SELECT COUNT(*) as total_sessions,
+             COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed_sessions
+      FROM sessions
+    `);
+
+    // Get active students count
+    const studentCount = await pool.query(`SELECT COUNT(*) as count FROM students WHERE is_active = true`);
+
+    res.json({
+      payments: payments.rows,
+      monthlySummary: monthlySummary.rows,
+      totals: totals.rows,
+      sessionStats: sessionStats.rows[0],
+      activeStudents: parseInt(studentCount.rows[0].count)
+    });
+  } catch (err) {
+    console.error('Error fetching financial reports:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Export financial report as CSV
+app.get('/api/financial-reports/export', async (req, res) => {
+  try {
+    const { startDate, endDate, year } = req.query;
+
+    let dateFilter = '';
+    let params = [];
+
+    if (startDate && endDate) {
+      dateFilter = 'WHERE ph.payment_date >= $1 AND ph.payment_date <= $2';
+      params = [startDate, endDate];
+    } else if (year) {
+      const fyStart = `${year}-04-01`;
+      const fyEnd = `${parseInt(year) + 1}-03-31`;
+      dateFilter = 'WHERE ph.payment_date >= $1 AND ph.payment_date <= $2';
+      params = [fyStart, fyEnd];
+    }
+
+    const query = `
+      SELECT
+        ph.payment_date,
+        s.name as student_name,
+        s.parent_name,
+        ph.amount,
+        ph.currency,
+        ph.payment_method,
+        ph.sessions_covered,
+        ph.notes
+      FROM payment_history ph
+      LEFT JOIN students s ON ph.student_id = s.id
+      ${dateFilter}
+      ORDER BY ph.payment_date DESC
+    `;
+    const result = await pool.query(query, params);
+
+    // Create CSV content
+    let csv = 'Date,Student Name,Parent Name,Amount,Currency,Payment Method,Sessions,Notes\n';
+    result.rows.forEach(row => {
+      const date = new Date(row.payment_date).toLocaleDateString('en-IN');
+      csv += `"${date}","${row.student_name || ''}","${row.parent_name || ''}","${row.amount}","${row.currency}","${row.payment_method || ''}","${row.sessions_covered || ''}","${(row.notes || '').replace(/"/g, '""')}"\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=income_report_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting financial report:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all expenses
+app.get('/api/expenses', async (req, res) => {
+  try {
+    const { startDate, endDate, year, category } = req.query;
+
+    let whereClause = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (startDate && endDate) {
+      whereClause.push(`expense_date >= $${paramIndex} AND expense_date <= $${paramIndex + 1}`);
+      params.push(startDate, endDate);
+      paramIndex += 2;
+    } else if (year) {
+      const fyStart = `${year}-04-01`;
+      const fyEnd = `${parseInt(year) + 1}-03-31`;
+      whereClause.push(`expense_date >= $${paramIndex} AND expense_date <= $${paramIndex + 1}`);
+      params.push(fyStart, fyEnd);
+      paramIndex += 2;
+    }
+
+    if (category) {
+      whereClause.push(`category = $${paramIndex}`);
+      params.push(category);
+      paramIndex++;
+    }
+
+    const whereSQL = whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : '';
+
+    const expenses = await pool.query(`
+      SELECT * FROM expenses ${whereSQL} ORDER BY expense_date DESC
+    `, params);
+
+    // Get totals by category
+    const categoryTotals = await pool.query(`
+      SELECT category, currency, SUM(amount) as total_amount, COUNT(*) as count
+      FROM expenses ${whereSQL}
+      GROUP BY category, currency
+      ORDER BY category
+    `, params);
+
+    // Get grand total
+    const grandTotal = await pool.query(`
+      SELECT currency, SUM(amount) as total_amount
+      FROM expenses ${whereSQL}
+      GROUP BY currency
+    `, params);
+
+    res.json({
+      expenses: expenses.rows,
+      categoryTotals: categoryTotals.rows,
+      grandTotal: grandTotal.rows
+    });
+  } catch (err) {
+    console.error('Error fetching expenses:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add new expense
+app.post('/api/expenses', async (req, res) => {
+  try {
+    const { expense_date, category, description, amount, currency, payment_method, receipt_url, notes } = req.body;
+
+    const result = await pool.query(`
+      INSERT INTO expenses (expense_date, category, description, amount, currency, payment_method, receipt_url, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [expense_date, category, description, amount, currency || 'INR', payment_method, receipt_url, notes]);
+
+    res.json({ success: true, expense: result.rows[0] });
+  } catch (err) {
+    console.error('Error adding expense:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update expense
+app.put('/api/expenses/:id', async (req, res) => {
+  try {
+    const { expense_date, category, description, amount, currency, payment_method, receipt_url, notes } = req.body;
+
+    await pool.query(`
+      UPDATE expenses SET
+        expense_date = $1, category = $2, description = $3, amount = $4,
+        currency = $5, payment_method = $6, receipt_url = $7, notes = $8
+      WHERE id = $9
+    `, [expense_date, category, description, amount, currency, payment_method, receipt_url, notes, req.params.id]);
+
+    res.json({ success: true, message: 'Expense updated' });
+  } catch (err) {
+    console.error('Error updating expense:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete expense
+app.delete('/api/expenses/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM expenses WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Expense deleted' });
+  } catch (err) {
+    console.error('Error deleting expense:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Export expenses as CSV
+app.get('/api/expenses/export', async (req, res) => {
+  try {
+    const { startDate, endDate, year } = req.query;
+
+    let whereClause = [];
+    let params = [];
+
+    if (startDate && endDate) {
+      whereClause.push(`expense_date >= $1 AND expense_date <= $2`);
+      params = [startDate, endDate];
+    } else if (year) {
+      const fyStart = `${year}-04-01`;
+      const fyEnd = `${parseInt(year) + 1}-03-31`;
+      whereClause.push(`expense_date >= $1 AND expense_date <= $2`);
+      params = [fyStart, fyEnd];
+    }
+
+    const whereSQL = whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : '';
+
+    const result = await pool.query(`SELECT * FROM expenses ${whereSQL} ORDER BY expense_date DESC`, params);
+
+    let csv = 'Date,Category,Description,Amount,Currency,Payment Method,Notes\n';
+    result.rows.forEach(row => {
+      const date = new Date(row.expense_date).toLocaleDateString('en-IN');
+      csv += `"${date}","${row.category}","${(row.description || '').replace(/"/g, '""')}","${row.amount}","${row.currency}","${row.payment_method || ''}","${(row.notes || '').replace(/"/g, '""')}"\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=expenses_report_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting expenses:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get profit/loss summary
+app.get('/api/financial-reports/summary', async (req, res) => {
+  try {
+    const { year } = req.query;
+    const currentYear = year || new Date().getFullYear();
+
+    const fyStart = `${currentYear}-04-01`;
+    const fyEnd = `${parseInt(currentYear) + 1}-03-31`;
+
+    // Get total income
+    const incomeResult = await pool.query(`
+      SELECT currency, SUM(amount) as total
+      FROM payment_history
+      WHERE payment_date >= $1 AND payment_date <= $2
+      GROUP BY currency
+    `, [fyStart, fyEnd]);
+
+    // Get total expenses
+    const expenseResult = await pool.query(`
+      SELECT currency, SUM(amount) as total
+      FROM expenses
+      WHERE expense_date >= $1 AND expense_date <= $2
+      GROUP BY currency
+    `, [fyStart, fyEnd]);
+
+    res.json({
+      financialYear: `${currentYear}-${parseInt(currentYear) + 1}`,
+      income: incomeResult.rows,
+      expenses: expenseResult.rows
+    });
+  } catch (err) {
+    console.error('Error fetching summary:', err);
     res.status(500).json({ error: err.message });
   }
 });
