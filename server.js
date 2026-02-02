@@ -2388,7 +2388,7 @@ function getMonthlyReportCardEmail(data) {
   const { assessmentId, studentName, month, year, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const skillsList = skills && skills.length > 0 ? skills : [];
-  const appUrl = process.env.APP_URL || 'https://fluentfeathers.onrender.com';
+  const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
   const certificateUrl = `${appUrl}/monthly-certificate.html?id=${assessmentId}`;
 
   return `<!DOCTYPE html>
@@ -2515,7 +2515,7 @@ function getDemoAssessmentEmail(data) {
   const { assessmentId, childName, childGrade, demoDate, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
   const skillsList = skills && skills.length > 0 ? skills : [];
   const formattedDate = demoDate ? new Date(demoDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Demo Class';
-  const appUrl = process.env.APP_URL || 'https://fluentfeathers.onrender.com';
+  const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
   const certificateUrl = `${appUrl}/demo-certificate.html?id=${assessmentId}`;
 
   return `<!DOCTYPE html>
