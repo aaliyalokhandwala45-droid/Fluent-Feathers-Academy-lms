@@ -5586,8 +5586,9 @@ async function saveEditedPayment() {
         const data = await res.json();
         const countSpan = document.getElementById('orphanedCount');
         if (countSpan) {
-          if (data.count > 0) {
-            countSpan.innerHTML = `⚠️ Found <strong>${data.count}</strong> orphaned session(s) from deleted students`;
+          const count = data.orphanedSessions || 0;
+          if (count > 0) {
+            countSpan.innerHTML = `⚠️ Found <strong>${count}</strong> orphaned session(s) from deleted students`;
             countSpan.style.color = '#fef3c7';
           } else {
             countSpan.innerHTML = '✅ No orphaned sessions found';
@@ -5619,7 +5620,8 @@ async function saveEditedPayment() {
           alert(`✅ Successfully removed ${data.deletedCount} orphaned session(s)`);
           // Refresh the data
           checkOrphanedCount();
-          loadSessions();
+          loadPastSessions();
+          loadCalendar();
         } else {
           alert('❌ Failed: ' + (data.error || 'Unknown error'));
         }

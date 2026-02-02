@@ -5759,23 +5759,22 @@ app.get('/api/financial-reports/summary', async (req, res) => {
 // Clean up orphaned sessions (sessions where student no longer exists)
 app.delete('/api/cleanup/orphaned-sessions', async (req, res) => {
   try {
-    // Find sessions where student_id doesn't exist in students table
-    const orphanedPrivate = await pool.query(`
+    // Find ALL sessions where student_id doesn't exist in students table
+    const orphanedSessions = await pool.query(`
       SELECT s.id FROM sessions s
       LEFT JOIN students st ON s.student_id = st.id
-      WHERE s.session_type = 'Private' AND s.student_id IS NOT NULL AND st.id IS NULL
+      WHERE s.student_id IS NOT NULL AND st.id IS NULL
     `);
 
     // Delete session_materials for orphaned sessions
-    for (const session of orphanedPrivate.rows) {
+    for (const session of orphanedSessions.rows) {
       await pool.query('DELETE FROM session_materials WHERE session_id = $1', [session.id]);
     }
 
-    // Delete orphaned sessions
+    // Delete orphaned sessions (any session where student doesn't exist)
     const result = await pool.query(`
       DELETE FROM sessions s
-      WHERE s.session_type = 'Private'
-        AND s.student_id IS NOT NULL
+      WHERE s.student_id IS NOT NULL
         AND NOT EXISTS (SELECT 1 FROM students st WHERE st.id = s.student_id)
       RETURNING id
     `);
@@ -5798,7 +5797,7 @@ app.get('/api/cleanup/orphaned-count', async (req, res) => {
     const orphanedSessions = await pool.query(`
       SELECT COUNT(*) as count FROM sessions s
       LEFT JOIN students st ON s.student_id = st.id
-      WHERE s.session_type = 'Private' AND s.student_id IS NOT NULL AND st.id IS NULL
+      WHERE s.student_id IS NOT NULL AND st.id IS NULL
     `);
 
     res.json({
