@@ -5188,6 +5188,8 @@ app.post('/api/students/:id/update-payment', async (req, res) => {
     }
 
     const student = studentResult.rows[0];
+    const oldFeesPaid = student.fees_paid || 0;
+    const oldTotalSessions = student.total_sessions || 0;
 
     // Calculate remaining sessions
     const completedSessions = student.completed_sessions || 0;
@@ -5202,6 +5204,18 @@ app.post('/api/students/:id/update-payment', async (req, res) => {
         remaining_sessions = $4
       WHERE id = $5
     `, [fees_paid, currency, total_sessions, newRemaining, studentId]);
+
+    // Calculate the difference for payment history
+    const amountDifference = parseFloat(fees_paid) - parseFloat(oldFeesPaid);
+    const sessionsDifference = parseInt(total_sessions) - parseInt(oldTotalSessions);
+
+    // Add entry to payment_history so it shows for both admin and parent
+    const paymentNote = `Payment Correction: ${reason || 'Admin adjustment'}. Previous: ${student.currency || currency} ${oldFeesPaid} (${oldTotalSessions} sessions). New: ${currency} ${fees_paid} (${total_sessions} sessions).`;
+
+    await pool.query(`
+      INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
+      VALUES ($1, CURRENT_TIMESTAMP, $2, $3, 'Correction', $4, $5, 'completed')
+    `, [studentId, amountDifference, currency, sessionsDifference, paymentNote]);
 
     console.log(`Payment updated for student ${studentId}: ${currency} ${fees_paid}, Sessions: ${total_sessions}, Reason: ${reason || 'No reason provided'}`);
 
