@@ -3643,6 +3643,24 @@ app.delete('/api/students/:id', async (req, res) => {
     const studentId = req.params.id;
     const permanent = req.query.permanent === 'true';
 
+    // Get session IDs for this student (to clean up session_materials)
+    const studentSessions = await executeQuery('SELECT id FROM sessions WHERE student_id = $1', [studentId]);
+    const sessionIds = studentSessions.rows.map(s => s.id);
+
+    // Delete session_materials for this student's sessions
+    if (sessionIds.length > 0) {
+      for (const sessionId of sessionIds) {
+        try {
+          await executeQuery('DELETE FROM session_materials WHERE session_id = $1', [sessionId]);
+        } catch (e) {
+          console.log('Note: Could not delete session_materials:', e.message);
+        }
+      }
+    }
+
+    // Delete sessions for this student (removes from calendar)
+    await executeQuery('DELETE FROM sessions WHERE student_id = $1', [studentId]);
+
     if (permanent) {
       // Permanently delete student and all related data
       // Delete from all tables that reference student_id (in case CASCADE isn't set)
@@ -3670,17 +3688,14 @@ app.delete('/api/students/:id', async (req, res) => {
         }
       }
 
-      // Delete sessions for this student (private sessions)
-      await executeQuery('DELETE FROM sessions WHERE student_id = $1', [studentId]);
-
       // Finally delete the student
       await executeQuery('DELETE FROM students WHERE id = $1', [studentId]);
 
       res.json({ success: true, message: 'Student and all related data permanently deleted' });
     } else {
-      // Soft delete - just mark as inactive
+      // Soft delete - mark as inactive (sessions already deleted above)
       await executeQuery('UPDATE students SET is_active = false WHERE id = $1', [studentId]);
-      res.json({ success: true, message: 'Student deactivated' });
+      res.json({ success: true, message: 'Student deactivated and sessions removed from calendar' });
     }
   } catch (err) {
     console.error('Error deleting student:', err);

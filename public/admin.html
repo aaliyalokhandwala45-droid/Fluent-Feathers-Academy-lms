@@ -919,7 +919,35 @@
     </div>
 
     <div id="pastTab" class="tab-content">
-      <div class="section"><h2>📚 Past Classes & Materials</h2><table id="pastSessionsTable"><thead><tr><th>Date (IST)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead><tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody></table></div>
+      <div class="section">
+        <h2>📚 Past Classes & Materials</h2>
+        <!-- Search and Filter -->
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; align-items: flex-end;">
+          <div class="form-group" style="flex: 1; min-width: 200px; margin: 0;">
+            <label>Search</label>
+            <input type="text" id="pastSearchInput" placeholder="Search by student name, group..." oninput="filterPastSessions()" style="width: 100%;">
+          </div>
+          <div class="form-group" style="min-width: 150px; margin: 0;">
+            <label>Filter by Date</label>
+            <input type="date" id="pastDateFilter" onchange="filterPastSessions()">
+          </div>
+          <div class="form-group" style="min-width: 120px; margin: 0;">
+            <label>Show</label>
+            <select id="pastShowCount" onchange="filterPastSessions()">
+              <option value="10">Last 10</option>
+              <option value="25">Last 25</option>
+              <option value="50">Last 50</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+          <button onclick="clearPastFilters()" class="btn" style="background: #718096; color: white; padding: 10px 15px;">Clear</button>
+        </div>
+        <p id="pastSessionsCount" style="color: #718096; font-size: 13px; margin-bottom: 10px;">Showing 10 recent sessions</p>
+        <table id="pastSessionsTable">
+          <thead><tr><th>Date (IST)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead>
+          <tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Homework Submissions Tab -->
@@ -3657,36 +3685,91 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       }
     });
 
+    let allPastSessions = []; // Store all past sessions for filtering
+
     async function loadPastSessions() {
       try {
         const res = await fetch('/api/sessions/past/all');
-        const sessions = await res.json();
-        const tbody = document.getElementById('pastSessionsBody');
-        tbody.innerHTML = sessions.map(s => {
-          const isPending = s.status === 'Pending' || s.status === 'Scheduled';
-          const attendanceBtn = isPending ?
-            `<button onclick="markAttendance(${s.id}, '${s.session_type}', 'Present')" class="btn btn-sm" style="background:#38a169; color:white; margin-right:5px;">✓ Present</button>
-             <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Excused')" class="btn btn-sm" style="background:#dd6b20; color:white; margin-right:5px;" title="Absent with makeup credit">⚠️ Excused</button>
-             <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Unexcused')" class="btn btn-sm" style="background:#e53e3e; color:white;" title="Absent without makeup credit">✗ Unexcused</button>` :
-            `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Excused' ? 'attendance-excused' : s.status === 'Absent' || s.status === 'Unexcused' || s.status === 'Missed' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
-          const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
-          const typeClass = s.session_type === 'Private' ? 'type-badge-private' : 'type-badge-group';
-          return `<tr>
-            <td>${formatSessionTime(s)}</td>
-            <td><strong>${s.student_name}</strong></td>
-            <td><span class="type-badge ${typeClass}">${s.session_type}</span></td>
-            <td>#${s.session_number}</td>
-            <td>${attendanceBtn}</td>
-            <td>${materials || '-'}</td>
-            <td><button onclick="viewFeedback(${s.id})" class="btn btn-sm" style="background:#fbbf24; color:white;">⭐</button></td>
-            <td>
-              <button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">Manage</button>
-            </td>
-          </tr>`;
-        }).join('');
+        allPastSessions = await res.json();
+        filterPastSessions(); // Apply initial filter (show 10)
       } catch(err) {
         console.error(err);
       }
+    }
+
+    function filterPastSessions() {
+      const searchTerm = (document.getElementById('pastSearchInput')?.value || '').toLowerCase().trim();
+      const dateFilter = document.getElementById('pastDateFilter')?.value || '';
+      const showCount = document.getElementById('pastShowCount')?.value || '10';
+
+      let filtered = allPastSessions;
+
+      // Apply search filter
+      if (searchTerm) {
+        filtered = filtered.filter(s =>
+          (s.student_name && s.student_name.toLowerCase().includes(searchTerm)) ||
+          (s.group_name && s.group_name.toLowerCase().includes(searchTerm)) ||
+          (s.session_type && s.session_type.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      // Apply date filter
+      if (dateFilter) {
+        filtered = filtered.filter(s => s.session_date && s.session_date.includes(dateFilter));
+      }
+
+      // Apply count limit
+      const totalFiltered = filtered.length;
+      if (showCount !== 'all') {
+        filtered = filtered.slice(0, parseInt(showCount));
+      }
+
+      // Update count display
+      const countEl = document.getElementById('pastSessionsCount');
+      if (countEl) {
+        if (searchTerm || dateFilter) {
+          countEl.textContent = `Found ${totalFiltered} sessions${showCount !== 'all' ? `, showing ${filtered.length}` : ''}`;
+        } else {
+          countEl.textContent = `Showing ${filtered.length} of ${allPastSessions.length} sessions`;
+        }
+      }
+
+      // Render filtered sessions
+      const tbody = document.getElementById('pastSessionsBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096; padding:20px;">No sessions found matching your search</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(s => {
+        const isPending = s.status === 'Pending' || s.status === 'Scheduled';
+        const attendanceBtn = isPending ?
+          `<button onclick="markAttendance(${s.id}, '${s.session_type}', 'Present')" class="btn btn-sm" style="background:#38a169; color:white; margin-right:5px;">✓ Present</button>
+           <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Excused')" class="btn btn-sm" style="background:#dd6b20; color:white; margin-right:5px;" title="Absent with makeup credit">⚠️ Excused</button>
+           <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Unexcused')" class="btn btn-sm" style="background:#e53e3e; color:white;" title="Absent without makeup credit">✗ Unexcused</button>` :
+          `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Excused' ? 'attendance-excused' : s.status === 'Absent' || s.status === 'Unexcused' || s.status === 'Missed' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
+        const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
+        const typeClass = s.session_type === 'Private' ? 'type-badge-private' : 'type-badge-group';
+        return `<tr>
+          <td>${formatSessionTime(s)}</td>
+          <td><strong>${s.student_name}</strong></td>
+          <td><span class="type-badge ${typeClass}">${s.session_type}</span></td>
+          <td>#${s.session_number}</td>
+          <td>${attendanceBtn}</td>
+          <td>${materials || '-'}</td>
+          <td><button onclick="viewFeedback(${s.id})" class="btn btn-sm" style="background:#fbbf24; color:white;">⭐</button></td>
+          <td>
+            <button onclick="openSessionModal(${s.id}, '${s.session_type}')" class="btn btn-sm btn-primary">Manage</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function clearPastFilters() {
+      document.getElementById('pastSearchInput').value = '';
+      document.getElementById('pastDateFilter').value = '';
+      document.getElementById('pastShowCount').value = '10';
+      filterPastSessions();
     }
 
     async function viewFeedback(sessionId) {
