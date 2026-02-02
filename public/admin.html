@@ -1320,7 +1320,7 @@
         </div>
 
         <!-- Recent Payments -->
-        <h3 style="margin-bottom: 15px; color: #2d3748;">💳 Recent Payments</h3>
+        <h3 style="margin-bottom: 15px; color: #2d3748;">💳 Recent Payments <span style="font-size: 12px; color: #718096; font-weight: normal;">(Delete test/trial payments)</span></h3>
         <div style="overflow-x: auto;">
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
@@ -1331,10 +1331,11 @@
                 <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Amount</th>
                 <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Method</th>
                 <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Sessions</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0;">Actions</th>
               </tr>
             </thead>
             <tbody id="recentPaymentsBody">
-              <tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
+              <tr><td colspan="7" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -7955,16 +7956,19 @@ async function saveEditedPayment() {
         // Recent payments table
         const paymentsBody = document.getElementById('recentPaymentsBody');
         if (data.payments.length === 0) {
-          paymentsBody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">No payments found</td></tr>';
+          paymentsBody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #718096;">No payments found</td></tr>';
         } else {
-          paymentsBody.innerHTML = data.payments.slice(0, 50).map(p => `
+          paymentsBody.innerHTML = data.payments.slice(0, 100).map(p => `
             <tr>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${new Date(p.payment_date).toLocaleDateString('en-IN')}</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.student_name || '-'}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.student_name || '<span style="color:#e53e3e;">Deleted Student</span>'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.parent_name || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${p.currency === 'USD' ? '$' : '₹'}${parseFloat(p.amount).toLocaleString()}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.payment_method || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.sessions_covered || '-'}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                <button onclick="deletePaymentRecord(${p.id}, '${(p.student_name || 'Unknown').replace(/'/g, "\\'")}', '${p.currency === 'USD' ? '$' : '₹'}${parseFloat(p.amount).toLocaleString()}')" class="btn btn-sm btn-danger" title="Delete this payment record">🗑️</button>
+              </td>
             </tr>
           `).join('');
         }
@@ -8077,6 +8081,22 @@ async function saveEditedPayment() {
           loadFinancialReports();
         } else {
           alert('❌ Failed to delete expense');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function deletePaymentRecord(id, studentName, amount) {
+      if (!confirm(`Delete payment record?\n\nStudent: ${studentName}\nAmount: ${amount}\n\nThis is for removing test/trial payments only. This action cannot be undone.`)) return;
+
+      try {
+        const res = await fetch(`/api/payment-history/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert('✅ Payment record deleted');
+          loadFinancialReports();
+        } else {
+          alert('❌ Failed to delete payment record');
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);

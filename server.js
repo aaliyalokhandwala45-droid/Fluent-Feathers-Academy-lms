@@ -5598,6 +5598,17 @@ app.delete('/api/expenses/:id', async (req, res) => {
   }
 });
 
+// Delete payment from history (for removing test/trial payments)
+app.delete('/api/payment-history/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM payment_history WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Payment deleted from history' });
+  } catch (err) {
+    console.error('Error deleting payment:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Export expenses as CSV
 app.get('/api/expenses/export', async (req, res) => {
   try {
