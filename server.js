@@ -294,6 +294,25 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
+// Wrapper to handle multer upload errors properly
+const handleUpload = (fieldName) => {
+  return (req, res, next) => {
+    upload.single(fieldName)(req, res, (err) => {
+      if (err) {
+        console.error('❌ Upload error:', err.message, err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File too large. Maximum size is 100MB.' });
+        }
+        if (err.message.includes('Cloudinary') || err.message.includes('cloudinary')) {
+          return res.status(500).json({ error: 'Cloudinary upload failed: ' + err.message + '. Check Cloudinary credentials in Render.' });
+        }
+        return res.status(500).json({ error: 'Upload failed: ' + err.message });
+      }
+      next();
+    });
+  };
+};
+
 // ==================== CONFIG API ====================
 // Endpoint to get logo URL and storage status for frontend
 app.get('/api/config', (req, res) => {
@@ -337,7 +356,7 @@ app.get('/api/debug/files', async (req, res) => {
 });
 
 // Test upload endpoint - to verify Cloudinary is working
-app.post('/api/debug/test-upload', upload.single('file'), (req, res) => {
+app.post('/api/debug/test-upload', handleUpload('file'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -362,6 +381,20 @@ app.post('/api/debug/test-upload', upload.single('file'), (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Cloudinary status check endpoint
+app.get('/api/debug/cloudinary-status', (req, res) => {
+  res.json({
+    cloudinaryConfigured: useCloudinary,
+    cloudName: cloudName ? cloudName.substring(0, 3) + '***' : 'NOT SET',
+    apiKeySet: !!apiKey,
+    apiSecretSet: !!apiSecret,
+    storageType: useCloudinary ? 'cloudinary' : 'local',
+    message: useCloudinary
+      ? 'Cloudinary is configured. Uploads should work.'
+      : 'Cloudinary NOT configured. Add CLOUDINARY_URL or individual CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_CLOUD_NAME to Render environment variables.'
+  });
 });
 
 // ==================== ADMIN SETTINGS API ====================
@@ -4354,8 +4387,8 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
   }
 });
 
-app.post('/api/sessions/:sessionId/upload', upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+app.post('/api/sessions/:sessionId/upload', handleUpload('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded. If using Cloudinary, check credentials in Render environment variables.' });
   const col = { ppt:'ppt_file_path', recording:'recording_file_path', homework:'homework_file_path' }[req.body.materialType];
   if (!col) return res.status(400).json({ error: 'Invalid type' });
   const client = await pool.connect();
@@ -4506,15 +4539,18 @@ app.get('/api/materials/:studentId', async (req, res) => {
   }
 });
 
-app.post('/api/upload/homework/:studentId', upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded. If using Cloudinary, check credentials in Render environment variables.' });
   try {
     // Get file path - Cloudinary returns URL in req.file.path, local storage uses filename
     let filePath;
     if (useCloudinary) {
       // Cloudinary: use secure_url if available, otherwise path
       filePath = req.file.secure_url || req.file.path || req.file.url;
-      console.log('Cloudinary upload result:', { path: req.file.path, secure_url: req.file.secure_url, url: req.file.url });
+      console.log('📁 Cloudinary homework upload:', { path: req.file.path, secure_url: req.file.secure_url, url: req.file.url });
+      if (!filePath) {
+        return res.status(500).json({ error: 'Cloudinary did not return file URL. Check your CLOUDINARY_URL or CLOUDINARY_API_KEY/SECRET/CLOUD_NAME in Render.' });
+      }
     } else {
       // Local storage - use relative path
       filePath = '/uploads/homework/' + req.file.filename;
