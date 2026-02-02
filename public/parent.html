@@ -1784,14 +1784,14 @@
 
             // Protected files (Class PPT) - view only with watermark, no download
             if (isProtected) {
-              return `<button onclick="previewProtectedFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" class="btn-download" style="cursor:pointer; border:none; background:transparent; color:#B05D9E;">${icon} 🔒${label}</button>`;
+              return `<button onclick="previewProtectedFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">${icon} 🔒${label}</button>`;
             }
 
             // Non-protected files - show View and Download buttons
             const downloadUrl = getDownloadUrl(fileUrl, fileName);
-            return `<span style="display:inline-flex; gap:5px; align-items:center;">
-              <button onclick="previewFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" class="btn-download" style="cursor:pointer; border:none; background:transparent;">${icon} ${label}</button>
-              <a href="${downloadUrl}" download="${fileName}" style="color:#38a169; font-size:0.8rem; text-decoration:none;" title="Download ${label}">⬇️</a>
+            return `<span style="display:inline-flex; gap:4px; align-items:center; margin: 2px;">
+              <button onclick="previewFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">${icon} ${label}</button>
+              <a href="${downloadUrl}" download="${fileName}" style="background: #38a169; color: white; padding: 6px 8px; border-radius: 6px; text-decoration: none; font-size: 11px;" title="Download ${label}">⬇️</a>
             </span>`;
           }
 
