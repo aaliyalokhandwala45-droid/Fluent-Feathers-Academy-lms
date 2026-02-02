@@ -2836,17 +2836,17 @@
             <div id="certificate-${a.id}" style="position: absolute; left: -9999px; width: 800px;">
               <div style="position: relative; width: 800px;">
                 <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1769931490/Pink_and_Red_Playful_Student_Certificate_kry0o6.png" style="width: 100%; display: block;" crossorigin="anonymous">
-                <!-- Title: 20% from top (ribbon area below logo) -->
-                <div style="position: absolute; top: 20%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
+                <!-- Title: 28% from top (below ribbon, above "presented to") -->
+                <div style="position: absolute; top: 28%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
                   <h2 style="margin: 0; color: #C41E3A; font-size: 22px; font-weight: bold; font-family: 'Georgia', serif;">${a.certificate_title}</h2>
                 </div>
                 <!-- Name: 45% from top (medal center, below "presented to") -->
                 <div style="position: absolute; top: 45%; left: 50%; transform: translateX(-50%); text-align: center; width: 75%;">
                   <h1 style="margin: 0; color: #C41E3A; font-size: 28px; font-weight: bold; font-family: 'Georgia', serif; text-transform: uppercase;">${currentStudent.name}</h1>
                 </div>
-                <!-- Date: 85% from top (above the date line) -->
-                <div style="position: absolute; top: 85%; right: 10%; text-align: right;">
-                  <p style="margin: 0; color: #555; font-size: 12px; font-weight: 600;">${monthNames[a.month - 1]} ${a.year}</p>
+                <!-- Date: 75% from top, left side -->
+                <div style="position: absolute; top: 75%; left: 18%; text-align: left;">
+                  <p style="margin: 0; color: #555; font-size: 14px; font-weight: 600;">${monthNames[a.month - 1]} ${a.year}</p>
                 </div>
               </div>
             </div>
