@@ -5754,6 +5754,61 @@ app.get('/api/financial-reports/summary', async (req, res) => {
   }
 });
 
+// ==================== CLEANUP ORPHANED DATA ====================
+
+// Clean up orphaned sessions (sessions where student no longer exists)
+app.delete('/api/cleanup/orphaned-sessions', async (req, res) => {
+  try {
+    // Find sessions where student_id doesn't exist in students table
+    const orphanedPrivate = await pool.query(`
+      SELECT s.id FROM sessions s
+      LEFT JOIN students st ON s.student_id = st.id
+      WHERE s.session_type = 'Private' AND s.student_id IS NOT NULL AND st.id IS NULL
+    `);
+
+    // Delete session_materials for orphaned sessions
+    for (const session of orphanedPrivate.rows) {
+      await pool.query('DELETE FROM session_materials WHERE session_id = $1', [session.id]);
+    }
+
+    // Delete orphaned sessions
+    const result = await pool.query(`
+      DELETE FROM sessions s
+      WHERE s.session_type = 'Private'
+        AND s.student_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM students st WHERE st.id = s.student_id)
+      RETURNING id
+    `);
+
+    console.log(`🧹 Cleaned up ${result.rowCount} orphaned sessions`);
+    res.json({
+      success: true,
+      message: `Cleaned up ${result.rowCount} orphaned sessions`,
+      deletedCount: result.rowCount
+    });
+  } catch (err) {
+    console.error('Error cleaning orphaned sessions:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get count of orphaned data
+app.get('/api/cleanup/orphaned-count', async (req, res) => {
+  try {
+    const orphanedSessions = await pool.query(`
+      SELECT COUNT(*) as count FROM sessions s
+      LEFT JOIN students st ON s.student_id = st.id
+      WHERE s.session_type = 'Private' AND s.student_id IS NOT NULL AND st.id IS NULL
+    `);
+
+    res.json({
+      orphanedSessions: parseInt(orphanedSessions.rows[0].count)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== EDIT & DELETE STUDENT ====================
 app.put('/api/students/:id', async (req, res) => {
   const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth, meet_link } = req.body;

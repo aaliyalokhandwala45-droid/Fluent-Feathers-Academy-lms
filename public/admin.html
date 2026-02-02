@@ -1270,6 +1270,18 @@
         </div>
         <p style="color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 15px;">⚠️ Keep this backup file safe. It contains all your student data, sessions, and records.</p>
       </div>
+
+      <!-- Cleanup Orphaned Data Section -->
+      <div class="section" style="margin-top: 20px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 25px; border-radius: 12px;">
+        <h2 style="color: white; margin-bottom: 15px;">🧹 Cleanup Orphaned Data</h2>
+        <p style="color: rgba(255,255,255,0.9); margin-bottom: 15px;">Remove sessions from deleted students that are still showing in calendar and past classes.</p>
+        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+          <span id="orphanedCount" style="color: white; font-weight: bold;">Checking...</span>
+          <button onclick="cleanupOrphanedSessions()" class="btn" style="background: white; color: #d97706; font-weight: bold; padding: 12px 25px;">
+            🗑️ Remove Orphaned Sessions
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Financial Reports Tab -->
@@ -3157,6 +3169,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       await loadStudents();
       await loadGroups();
       await loadEmailLogs();
+      checkOrphanedCount(); // Check for orphaned sessions
       await loadCalendar(); // Pre-load calendar data
 
       // Restore last active tab from localStorage
@@ -3200,7 +3213,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         if (statsGrid) statsGrid.style.display = '';
       }
 
-      if (tabName === 'emails') loadEmailLogs();
+      if (tabName === 'emails') { loadEmailLogs(); checkOrphanedCount(); }
       if (tabName === 'past') loadPastSessions();
       if (tabName === 'events') loadEvents();
       if (tabName === 'scheduleManager') loadScheduleManager();
@@ -5564,6 +5577,56 @@ async function saveEditedPayment() {
           return `<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}</td><td>${typeBadge}</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.subject}">${l.subject}</td><td><span class="${statusClass}">${l.status}</span></td></tr>`;
         }).join(''))
         .catch(err => console.error(err));
+    }
+
+    // Check for orphaned sessions count
+    async function checkOrphanedCount() {
+      try {
+        const res = await fetch('/api/cleanup/orphaned-count');
+        const data = await res.json();
+        const countSpan = document.getElementById('orphanedCount');
+        if (countSpan) {
+          if (data.count > 0) {
+            countSpan.innerHTML = `⚠️ Found <strong>${data.count}</strong> orphaned session(s) from deleted students`;
+            countSpan.style.color = '#fef3c7';
+          } else {
+            countSpan.innerHTML = '✅ No orphaned sessions found';
+            countSpan.style.color = '#d1fae5';
+          }
+        }
+      } catch (err) {
+        console.error('Error checking orphaned count:', err);
+        const countSpan = document.getElementById('orphanedCount');
+        if (countSpan) {
+          countSpan.innerHTML = '❌ Error checking';
+        }
+      }
+    }
+
+    // Cleanup orphaned sessions
+    async function cleanupOrphanedSessions() {
+      if (!confirm('Are you sure you want to remove all sessions from deleted students? This cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/cleanup/orphaned-sessions', {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          alert(`✅ Successfully removed ${data.deletedCount} orphaned session(s)`);
+          // Refresh the data
+          checkOrphanedCount();
+          loadSessions();
+        } else {
+          alert('❌ Failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Cleanup error:', err);
+        alert('❌ Error cleaning up sessions: ' + err.message);
+      }
     }
 
     // Download database backup for migration
