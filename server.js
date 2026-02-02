@@ -4037,9 +4037,37 @@ app.get('/api/sessions/:studentId', async (req, res) => {
   }
 });
 
+// Search sessions by student name (for manual cleanup)
+app.get('/api/sessions/search-by-name', async (req, res) => {
+  try {
+    const { name } = req.query;
+    if (!name) {
+      return res.status(400).json({ error: 'Name parameter required' });
+    }
+
+    // Search in sessions table - look for student name in various places
+    const result = await pool.query(`
+      SELECT s.id, s.session_date, s.session_time, s.session_type, s.student_id,
+             COALESCE(st.name, s.student_name, 'Unknown') as student_name
+      FROM sessions s
+      LEFT JOIN students st ON s.student_id = st.id
+      WHERE LOWER(COALESCE(st.name, s.student_name, '')) LIKE LOWER($1)
+      ORDER BY s.session_date DESC, s.session_time DESC
+      LIMIT 100
+    `, [`%${name}%`]);
+
+    res.json({ sessions: result.rows });
+  } catch (err) {
+    console.error('Search sessions error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete a session
 app.delete('/api/sessions/:sessionId', async (req, res) => {
   try {
+    // Also delete related session_materials
+    await pool.query('DELETE FROM session_materials WHERE session_id = $1', [req.params.sessionId]);
     await pool.query('DELETE FROM sessions WHERE id = $1', [req.params.sessionId]);
     res.json({ success: true, message: 'Session deleted successfully' });
   } catch (err) {

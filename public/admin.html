@@ -1282,6 +1282,21 @@
           </button>
         </div>
       </div>
+
+      <!-- Manual Search & Delete Sessions -->
+      <div class="section" style="margin-top: 20px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 25px; border-radius: 12px;">
+        <h2 style="color: white; margin-bottom: 15px;">🔍 Manual Search & Delete Sessions</h2>
+        <p style="color: rgba(255,255,255,0.9); margin-bottom: 15px;">Search for sessions by student name and delete them manually.</p>
+        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+          <input type="text" id="sessionSearchName" placeholder="Enter student name to search..." style="padding: 12px 15px; border-radius: 8px; border: none; width: 300px; font-size: 14px;">
+          <button onclick="searchSessionsByName()" class="btn" style="background: white; color: #dc2626; font-weight: bold; padding: 12px 25px;">
+            🔍 Search Sessions
+          </button>
+        </div>
+        <div id="sessionSearchResults" style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; display: none;">
+          <div id="sessionSearchList"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Financial Reports Tab -->
@@ -5628,6 +5643,106 @@ async function saveEditedPayment() {
       } catch (err) {
         console.error('Cleanup error:', err);
         alert('❌ Error cleaning up sessions: ' + err.message);
+      }
+    }
+
+    // Search sessions by student name
+    async function searchSessionsByName() {
+      const nameInput = document.getElementById('sessionSearchName');
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert('Please enter a student name to search');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/sessions/search-by-name?name=${encodeURIComponent(name)}`);
+        const data = await res.json();
+        const resultsDiv = document.getElementById('sessionSearchResults');
+        const listDiv = document.getElementById('sessionSearchList');
+
+        if (data.sessions && data.sessions.length > 0) {
+          resultsDiv.style.display = 'block';
+          listDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <span style="color: white; font-weight: bold;">Found ${data.sessions.length} session(s) matching "${name}"</span>
+              <button onclick="deleteAllSearchedSessions()" class="btn" style="background: #fef2f2; color: #dc2626; font-weight: bold; padding: 8px 15px; font-size: 12px;">
+                🗑️ Delete All ${data.sessions.length} Sessions
+              </button>
+            </div>
+            <div style="max-height: 300px; overflow-y: auto;">
+              ${data.sessions.map(s => `
+                <div style="background: rgba(255,255,255,0.9); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <strong style="color: #1a202c;">${s.student_name || 'Unknown'}</strong>
+                    <span style="color: #718096; font-size: 12px; margin-left: 10px;">${s.session_date ? new Date(s.session_date).toLocaleDateString() : 'No date'}</span>
+                    <span style="color: #718096; font-size: 12px; margin-left: 10px;">${s.session_time || ''}</span>
+                    <span style="background: #e2e8f0; color: #4a5568; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px;">${s.session_type || 'Private'}</span>
+                  </div>
+                  <button onclick="deleteSessionById(${s.id})" class="btn" style="background: #dc2626; color: white; padding: 6px 12px; font-size: 12px;">
+                    🗑️ Delete
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          window.searchedSessionIds = data.sessions.map(s => s.id);
+        } else {
+          resultsDiv.style.display = 'block';
+          listDiv.innerHTML = `<p style="color: #fef3c7; text-align: center;">No sessions found for "${name}"</p>`;
+          window.searchedSessionIds = [];
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+        alert('❌ Error searching sessions: ' + err.message);
+      }
+    }
+
+    // Delete a single session by ID
+    async function deleteSessionById(sessionId) {
+      if (!confirm('Delete this session? This cannot be undone.')) return;
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+        const data = await res.json();
+
+        if (res.ok) {
+          alert('✅ Session deleted');
+          searchSessionsByName(); // Refresh search results
+          loadPastSessions();
+          loadCalendar();
+        } else {
+          alert('❌ Failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // Delete all searched sessions
+    async function deleteAllSearchedSessions() {
+      if (!window.searchedSessionIds || window.searchedSessionIds.length === 0) {
+        alert('No sessions to delete');
+        return;
+      }
+
+      if (!confirm(`Delete ALL ${window.searchedSessionIds.length} sessions? This cannot be undone!`)) return;
+
+      try {
+        let deleted = 0;
+        for (const id of window.searchedSessionIds) {
+          const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+          if (res.ok) deleted++;
+        }
+
+        alert(`✅ Deleted ${deleted} session(s)`);
+        document.getElementById('sessionSearchResults').style.display = 'none';
+        document.getElementById('sessionSearchName').value = '';
+        window.searchedSessionIds = [];
+        loadPastSessions();
+        loadCalendar();
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
       }
     }
 
