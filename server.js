@@ -194,6 +194,17 @@ async function initializeDatabaseConnection() {
 // Start database connection
 initializeDatabaseConnection();
 
+// Keep-alive ping every 4 minutes to prevent idle disconnection (Supabase pooler timeout is ~5min)
+setInterval(async () => {
+  try {
+    await pool.query('SELECT 1');
+    console.log('🏓 Database keep-alive ping successful');
+  } catch (err) {
+    console.warn('⚠️ Keep-alive ping failed, connection will be re-established on next request');
+    dbReady = false;
+  }
+}, 4 * 60 * 1000); // 4 minutes
+
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
