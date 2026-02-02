@@ -56,6 +56,11 @@ if (useCloudinary) {
 }
 
 // ==================== DATABASE CONNECTION ====================
+// Log which database we're connecting to (hide password)
+const dbUrl = process.env.DATABASE_URL || '';
+const dbHost = dbUrl.includes('@') ? dbUrl.split('@')[1]?.split('/')[0] : 'NOT SET';
+console.log(`🔌 Connecting to database: ${dbHost}`);
+
 // Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
