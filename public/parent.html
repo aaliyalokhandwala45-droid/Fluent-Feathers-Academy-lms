@@ -1762,7 +1762,7 @@
               const ext = filePath.split('.').pop().toLowerCase();
               const isImageFile = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
               const resourceType = isImageFile ? 'image' : 'raw';
-              fileUrl = `https://res.cloudinary.com/divz4aavx/${resourceType}/upload/fluentfeathers/materials/${filePath}`;
+              fileUrl = `https://res.cloudinary.com/${appConfig.cloudName || 'dmqipms4f'}/${resourceType}/upload/fluentfeathers/materials/${filePath}`;
             } else {
               // File upload - needs /uploads/materials/ prefix
               fileUrl = '/uploads/materials/' + filePath;
@@ -1937,7 +1937,7 @@
               const isImageFile = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
               const resourceType = isImageFile ? 'image' : 'raw';
               const folder = hw.uploaded_by === 'Parent' ? 'homework' : 'materials';
-              fileUrl = `https://res.cloudinary.com/divz4aavx/${resourceType}/upload/fluentfeathers/${folder}/${hw.file_path}`;
+              fileUrl = `https://res.cloudinary.com/${appConfig.cloudName || 'dmqipms4f'}/${resourceType}/upload/fluentfeathers/${folder}/${hw.file_path}`;
             } else {
               fileUrl = '/uploads/homework/' + hw.file_path;
             }
