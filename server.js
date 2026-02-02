@@ -3482,20 +3482,42 @@ app.delete('/api/students/:id', async (req, res) => {
     const permanent = req.query.permanent === 'true';
 
     if (permanent) {
-      // Permanently delete student and all related data (CASCADE will handle related tables)
-      // First, delete from tables that might not have CASCADE
-      await pool.query('DELETE FROM demo_assessments WHERE student_id = $1', [studentId]);
+      // Permanently delete student and all related data
+      // Delete from all tables that reference student_id (in case CASCADE isn't set)
+      const tablesToClean = [
+        'demo_assessments',
+        'session_attendance',
+        'materials',
+        'makeup_classes',
+        'payment_history',
+        'payment_renewals',
+        'event_registrations',
+        'class_feedback',
+        'student_badges',
+        'student_certificates',
+        'monthly_assessments',
+        'student_challenges'
+      ];
 
-      // Now delete the student - CASCADE will delete from:
-      // sessions, session_attendance, materials, makeup_classes, payment_history,
-      // event_registrations, class_feedback, student_badges, payment_renewals,
-      // student_certificates, monthly_assessments, student_challenges
-      await pool.query('DELETE FROM students WHERE id = $1', [studentId]);
+      for (const table of tablesToClean) {
+        try {
+          await executeQuery(`DELETE FROM ${table} WHERE student_id = $1`, [studentId]);
+        } catch (tableErr) {
+          // Table might not exist or column might be different - continue
+          console.log(`Note: Could not delete from ${table}: ${tableErr.message}`);
+        }
+      }
+
+      // Delete sessions for this student (private sessions)
+      await executeQuery('DELETE FROM sessions WHERE student_id = $1', [studentId]);
+
+      // Finally delete the student
+      await executeQuery('DELETE FROM students WHERE id = $1', [studentId]);
 
       res.json({ success: true, message: 'Student and all related data permanently deleted' });
     } else {
       // Soft delete - just mark as inactive
-      await pool.query('UPDATE students SET is_active = false WHERE id = $1', [studentId]);
+      await executeQuery('UPDATE students SET is_active = false WHERE id = $1', [studentId]);
       res.json({ success: true, message: 'Student deactivated' });
     }
   } catch (err) {
