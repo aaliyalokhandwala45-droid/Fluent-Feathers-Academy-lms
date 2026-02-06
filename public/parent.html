@@ -1620,16 +1620,16 @@
 
     // Build serial number map: assigns 1,2,3... based on chronological order of non-cancelled sessions
     let sessionSerialMap = {}; // session.id -> serial number
+    function getDateStr(d) { return (d || '').includes('T') ? d.split('T')[0] : (d || ''); }
     function buildSerialNumbers(sessions) {
       sessionSerialMap = {};
       const validSessions = sessions
         .filter(s => !['Cancelled', 'Cancelled by Parent'].includes(s.status))
         .sort((a, b) => {
-          const dA = (a.session_date || '').includes('T') ? a.session_date.split('T')[0] : (a.session_date || '');
-          const dB = (b.session_date || '').includes('T') ? b.session_date.split('T')[0] : (b.session_date || '');
-          const dateA = new Date(dA + 'T' + (a.session_time || '00:00:00'));
-          const dateB = new Date(dB + 'T' + (b.session_time || '00:00:00'));
-          return dateA - dateB; // ascending by date
+          const dA = getDateStr(a.session_date);
+          const dB = getDateStr(b.session_date);
+          if (dA !== dB) return dA.localeCompare(dB);
+          return (a.session_time || '00:00:00').localeCompare(b.session_time || '00:00:00');
         });
       validSessions.forEach((s, i) => {
         sessionSerialMap[s.id] = i + 1;
@@ -1652,11 +1652,10 @@
           if (!s.session_date) return false;
           return s.session_date >= today && !['Cancelled', 'Completed', 'Missed'].includes(s.status);
         }).sort((a, b) => {
-          const dA = a.session_date.includes('T') ? a.session_date.split('T')[0] : a.session_date;
-          const dB = b.session_date.includes('T') ? b.session_date.split('T')[0] : b.session_date;
-          const dateA = new Date(dA + 'T' + (a.session_time || '00:00:00'));
-          const dateB = new Date(dB + 'T' + (b.session_time || '00:00:00'));
-          return dateA - dateB; // ascending - nearest class first
+          const dA = getDateStr(a.session_date);
+          const dB = getDateStr(b.session_date);
+          if (dA !== dB) return dA.localeCompare(dB);
+          return (a.session_time || '00:00:00').localeCompare(b.session_time || '00:00:00');
         });
 
         const tbody = document.getElementById('upcomingBody');
@@ -1720,11 +1719,10 @@
           return s.session_date < today || ['Completed', 'Missed'].includes(s.status);
         }).sort((a, b) => {
           // Sort by date descending (most recent first)
-          const dA = a.session_date.includes('T') ? a.session_date.split('T')[0] : a.session_date;
-          const dB = b.session_date.includes('T') ? b.session_date.split('T')[0] : b.session_date;
-          const dateA = new Date(dA + 'T' + (a.session_time || '00:00:00'));
-          const dateB = new Date(dB + 'T' + (b.session_time || '00:00:00'));
-          return dateB - dateA;
+          const dA = getDateStr(a.session_date);
+          const dB = getDateStr(b.session_date);
+          if (dA !== dB) return dB.localeCompare(dA);
+          return (b.session_time || '00:00:00').localeCompare(a.session_time || '00:00:00');
         });
 
         // Show recent 10 by default
@@ -2156,6 +2154,9 @@
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
         const sessions = await res.json();
 
+        // Rebuild serial numbers so getSerial works correctly
+        buildSerialNumbers(sessions);
+
         // Find ALL completed sessions without feedback (exclude absent/missed students)
         const unratedSessions = sessions.filter(s => {
           // Must be completed
@@ -2172,9 +2173,10 @@
         // Get the MOST RECENT unrated session (by date descending)
         if (unratedSessions.length > 0) {
           const mostRecentUnrated = unratedSessions.sort((a, b) => {
-            const dateA = new Date(a.session_date + 'T' + (a.session_time || '00:00:00'));
-            const dateB = new Date(b.session_date + 'T' + (b.session_time || '00:00:00'));
-            return dateB - dateA;
+            const dA = getDateStr(a.session_date);
+            const dB = getDateStr(b.session_date);
+            if (dA !== dB) return dB.localeCompare(dA);
+            return (b.session_time || '00:00:00').localeCompare(a.session_time || '00:00:00');
           })[0];
 
           // Mark popup as shown for this specific session - so we show next session next time

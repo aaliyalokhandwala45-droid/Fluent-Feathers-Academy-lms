@@ -4169,11 +4169,12 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       groupSessions = groupSessionsResult.rows;
     }
 
-    // Combine and sort
+    // Combine and sort by date ascending, then time ascending
     const allSessions = [...privateSessions.rows, ...groupSessions].sort((a, b) => {
-      const dateA = new Date(`${a.session_date}T${a.session_time}Z`);
-      const dateB = new Date(`${b.session_date}T${b.session_time}Z`);
-      return dateA - dateB;
+      const dA = String(a.session_date || '').split('T')[0];
+      const dB = String(b.session_date || '').split('T')[0];
+      if (dA !== dB) return dA.localeCompare(dB);
+      return String(a.session_time || '').localeCompare(String(b.session_time || ''));
     });
 
     // Fix file paths for backwards compatibility
