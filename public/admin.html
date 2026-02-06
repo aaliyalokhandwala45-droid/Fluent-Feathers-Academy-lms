@@ -5800,6 +5800,7 @@ async function saveEditedPayment() {
               <button onclick="editEvent(${e.id})" class="btn btn-sm btn-warning">Edit</button>
               <button onclick="markEventAttendance(${e.id}, '${e.event_name}')" class="btn btn-sm btn-success">Attendance</button>
               <button onclick="viewEventRegistrations(${e.id}, '${e.event_name}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Registrations</button>
+              <button onclick="copyEventLink(${e.id})" class="btn btn-sm" style="background:#38a169; color:white;">Copy Link</button>
               <button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-danger">Delete</button>
             </td>
           </tr>`;
@@ -5832,6 +5833,15 @@ async function saveEditedPayment() {
         alert('❌ Error: ' + err.message);
       }
     });
+
+    function copyEventLink(eventId) {
+      const link = `${window.location.origin}/event-register.html?id=${eventId}`;
+      navigator.clipboard.writeText(link).then(() => {
+        alert('✅ Registration link copied! Share it on Instagram.\n\n' + link);
+      }).catch(() => {
+        prompt('Copy this registration link:', link);
+      });
+    }
 
     function deleteEvent(id) {
       if(confirm('Delete this event? Registrations will also be removed.')) {
@@ -8063,31 +8073,49 @@ async function saveEditedPayment() {
 
     async function viewEventRegistrations(eventId, eventName) {
       try {
-        const res = await fetch(`/api/events/${eventId}/registrations`);
+        const res = await fetch(`/api/events/${eventId}/all-registrations`);
         const registrations = await res.json();
 
         document.getElementById('eventRegistrationsTitle').textContent = `👥 ${eventName} - Registrations`;
 
+        const regLink = `${window.location.origin}/event-register.html?id=${eventId}`;
+
         if (registrations.length === 0) {
-          document.getElementById('eventRegistrationsContent').innerHTML = '<p style="text-align: center; color: #718096; padding: 40px;">No registrations yet</p>';
+          document.getElementById('eventRegistrationsContent').innerHTML = `
+            <div style="margin-bottom: 15px; padding: 12px; background: #f0f4ff; border-radius: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <strong style="color: #4a5568;">Public Registration Link:</strong>
+              <input type="text" value="${regLink}" readonly style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px;">
+              <button onclick="navigator.clipboard.writeText('${regLink}').then(() => this.textContent = 'Copied!').catch(() => {})" class="btn btn-sm" style="background: #667eea; color: white;">Copy Link</button>
+            </div>
+            <p style="text-align: center; color: #718096; padding: 40px;">No registrations yet. Share the link above on Instagram!</p>
+          `;
         } else {
           document.getElementById('eventRegistrationsContent').innerHTML = `
+            <div style="margin-bottom: 15px; padding: 12px; background: #f0f4ff; border-radius: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <strong style="color: #4a5568;">Public Registration Link:</strong>
+              <input type="text" value="${regLink}" readonly style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px;">
+              <button onclick="navigator.clipboard.writeText('${regLink}').then(() => this.textContent = 'Copied!').catch(() => {})" class="btn btn-sm" style="background: #667eea; color: white;">Copy Link</button>
+            </div>
             <p style="margin-bottom: 15px; color: #4a5568;"><strong>Total Registered:</strong> ${registrations.length}</p>
-            <table>
-              <thead><tr><th>Student Name</th><th>Grade</th><th>Parent Name</th><th>Parent Email</th><th>Registered At</th><th>Attendance</th></tr></thead>
-              <tbody>
-                ${registrations.map(r => `
-                  <tr>
-                    <td><strong>${r.student_name}</strong></td>
-                    <td>${r.grade}</td>
-                    <td>${r.parent_name}</td>
-                    <td>${r.parent_email}</td>
-                    <td>${new Date(r.registered_at).toLocaleDateString()}</td>
-                    <td><span class="type-badge ${r.attendance === 'Present' ? 'attendance-present' : r.attendance === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${r.attendance || 'Pending'}</span></td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+            <div style="overflow-x: auto;">
+              <table>
+                <thead><tr><th>Child Name</th><th>Age/Grade</th><th>Parent Name</th><th>Email</th><th>Phone</th><th>Source</th><th>Registered</th><th>Attendance</th></tr></thead>
+                <tbody>
+                  ${registrations.map(r => `
+                    <tr>
+                      <td><strong>${r.display_child_name || '-'}</strong></td>
+                      <td>${r.display_grade || '-'}</td>
+                      <td>${r.display_parent_name || '-'}</td>
+                      <td>${r.display_email || '-'}</td>
+                      <td>${r.phone || r.student_phone || '-'}</td>
+                      <td><span class="type-badge" style="background: ${r.reg_type === 'Public Registration' ? '#f0fff4; color: #38a169' : '#f0f4ff; color: #667eea'}">${r.reg_type}</span></td>
+                      <td>${new Date(r.registered_at).toLocaleDateString()}</td>
+                      <td><span class="type-badge ${r.attendance === 'Present' ? 'attendance-present' : r.attendance === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${r.attendance || 'Pending'}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
           `;
         }
         document.getElementById('eventRegistrationsModal').classList.add('active');

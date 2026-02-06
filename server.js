@@ -1339,6 +1339,22 @@ async function runMigrations() {
       console.log('Migration 22 note:', err.message);
     }
 
+    // Migration 23: Extend event_registrations for public registrations (Instagram/external)
+    try {
+      // Make student_id nullable for public registrations
+      await client.query(`ALTER TABLE event_registrations ALTER COLUMN student_id DROP NOT NULL`);
+      // Add fields for public registrations
+      await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS parent_name TEXT`);
+      await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS child_name TEXT`);
+      await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS child_age TEXT`);
+      await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS email TEXT`);
+      await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS phone TEXT`);
+      await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS registration_source TEXT DEFAULT 'internal'`);
+      console.log('✅ Migration 23: Extended event_registrations for public registrations');
+    } catch (err) {
+      console.log('Migration 23 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -4880,6 +4896,158 @@ app.get('/api/events/:id', async (req, res) => {
     const result = await pool.query('SELECT * FROM events WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Event not found' });
     res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== PUBLIC EVENT REGISTRATION (No Auth Required) ====================
+
+// Get public event details for registration page
+app.get('/api/public/event/:id', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, event_name, event_description, event_date, event_time, event_duration,
+             max_participants, current_participants, status, meet_link
+      FROM events WHERE id = $1 AND status = 'Active'
+    `, [req.params.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found or not active' });
+    }
+
+    const event = result.rows[0];
+    // Check if event is full
+    if (event.max_participants && event.current_participants >= event.max_participants) {
+      event.is_full = true;
+    } else {
+      event.is_full = false;
+      event.spots_left = event.max_participants ? event.max_participants - event.current_participants : null;
+    }
+
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public event registration (from Instagram, website, etc.)
+app.post('/api/public/event/:id/register', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { parent_name, child_name, child_age, email, phone } = req.body;
+    const eventId = req.params.id;
+
+    // Validate required fields
+    if (!parent_name || !child_name || !email || !phone) {
+      return res.status(400).json({ error: 'Please fill all required fields' });
+    }
+
+    // Get event details
+    const eventResult = await pool.query('SELECT * FROM events WHERE id = $1 AND status = $2', [eventId, 'Active']);
+    const event = eventResult.rows[0];
+
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found or not active' });
+    }
+
+    // Check if event is full
+    if (event.max_participants && event.current_participants >= event.max_participants) {
+      return res.status(400).json({ error: 'Sorry, this event is full!' });
+    }
+
+    // Check for duplicate registration by email
+    const existingReg = await pool.query(
+      'SELECT id FROM event_registrations WHERE event_id = $1 AND email = $2',
+      [eventId, email]
+    );
+    if (existingReg.rows.length > 0) {
+      return res.status(400).json({ error: 'You have already registered for this event with this email' });
+    }
+
+    await client.query('BEGIN');
+
+    // Insert public registration
+    await client.query(`
+      INSERT INTO event_registrations (event_id, parent_name, child_name, child_age, email, phone, registration_source, registration_method)
+      VALUES ($1, $2, $3, $4, $5, $6, 'public', 'Public Form')
+    `, [eventId, parent_name, child_name, child_age || '', email, phone]);
+
+    // Update participant count
+    await client.query('UPDATE events SET current_participants = current_participants + 1 WHERE id = $1', [eventId]);
+
+    await client.query('COMMIT');
+
+    // Send confirmation email
+    try {
+      const eventDate = new Date(event.event_date).toLocaleDateString('en-IN', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+
+      await sendEmail(email, 'Event Registration Confirmed! 🎉', `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #667eea; margin: 0;">🎉 Registration Confirmed!</h1>
+          </div>
+
+          <p style="font-size: 16px; color: #333;">Dear ${parent_name},</p>
+
+          <p style="font-size: 16px; color: #333;">Thank you for registering <strong>${child_name}</strong> for our event!</p>
+
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin: 20px 0; color: white;">
+            <h2 style="margin: 0 0 15px; font-size: 22px;">${event.event_name}</h2>
+            <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${eventDate}</p>
+            <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${event.event_time}</p>
+            ${event.event_duration ? `<p style="margin: 5px 0;"><strong>⏱️ Duration:</strong> ${event.event_duration}</p>` : ''}
+            ${event.meet_link ? `<p style="margin: 15px 0 5px;"><strong>🔗 Join Link:</strong></p><a href="${event.meet_link}" style="color: #ffd700; word-break: break-all;">${event.meet_link}</a>` : ''}
+          </div>
+
+          <p style="font-size: 14px; color: #666;">We look forward to seeing ${child_name} at the event!</p>
+
+          <p style="font-size: 14px; color: #666; margin-top: 30px;">
+            Warm regards,<br>
+            <strong>Fluent Feathers Academy</strong>
+          </p>
+        </div>
+      `);
+    } catch (emailErr) {
+      console.error('Failed to send confirmation email:', emailErr);
+      // Don't fail the registration if email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Successfully registered! Check your email for confirmation.',
+      event_name: event.event_name
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Public registration error:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all registrations for an event (including public registrations)
+app.get('/api/events/:eventId/all-registrations', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT er.*,
+             COALESCE(s.name, er.child_name) as display_child_name,
+             COALESCE(s.parent_name, er.parent_name) as display_parent_name,
+             COALESCE(s.parent_email, er.email) as display_email,
+             COALESCE(s.grade, er.child_age) as display_grade,
+             s.primary_contact as student_phone,
+             CASE WHEN er.student_id IS NOT NULL THEN 'Existing Student' ELSE 'Public Registration' END as reg_type
+      FROM event_registrations er
+      LEFT JOIN students s ON er.student_id = s.id
+      WHERE er.event_id = $1
+      ORDER BY er.registered_at DESC
+    `, [req.params.eventId]);
+
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
