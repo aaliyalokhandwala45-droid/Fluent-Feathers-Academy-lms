@@ -1363,6 +1363,9 @@
           <button onclick="exportExpensesReport()" class="btn" style="background: #dd6b20; color: white; padding: 12px 25px;">
             📥 Export Expenses (CSV)
           </button>
+          <button onclick="exportMergedReport()" class="btn" style="background: #3182ce; color: white; padding: 12px 25px;">
+            📥 Export Merged Report (CSV)
+          </button>
         </div>
 
         <!-- Monthly Income Summary -->
@@ -1492,6 +1495,86 @@
               <tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Payment Record Modal (Financial Summary) -->
+    <div id="editPaymentRecordModal" class="modal">
+      <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-header">
+          <h2 style="color: #667eea;">✏️ Edit Payment Record</h2>
+          <button onclick="document.getElementById('editPaymentRecordModal').classList.remove('active')" class="btn btn-danger btn-sm">✕</button>
+        </div>
+        <div style="padding: 20px;">
+          <input type="hidden" id="editPRId">
+          <div class="form-row">
+            <div class="form-group"><label>Payment Date *</label><input type="date" id="editPRDate" required></div>
+            <div class="form-group"><label>Amount *</label>
+              <div style="display: flex; gap: 8px;">
+                <select id="editPRCurrency" style="width: 90px;"><option value="INR">INR ₹</option><option value="USD">USD $</option><option value="GBP">GBP £</option><option value="EUR">EUR €</option><option value="AED">AED</option><option value="SAR">SAR</option><option value="CAD">CAD</option><option value="AUD">AUD</option></select>
+                <input type="number" id="editPRAmount" step="0.01" min="0" required style="flex: 1;">
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Payment Method</label>
+              <select id="editPRMethod"><option value="">Select...</option><option value="Bank Transfer">Bank Transfer</option><option value="UPI">UPI</option><option value="Credit Card">Credit Card</option><option value="Debit Card">Debit Card</option><option value="Cash">Cash</option><option value="PayPal">PayPal</option><option value="Other">Other</option></select>
+            </div>
+            <div class="form-group"><label>Sessions Covered</label><input type="text" id="editPRSessions" placeholder="e.g. 8 or 12"></div>
+          </div>
+          <div class="form-group"><label>Notes</label><input type="text" id="editPRNotes" placeholder="Optional notes"></div>
+          <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button onclick="document.getElementById('editPaymentRecordModal').classList.remove('active')" class="btn" style="background: #718096; color: white;">Cancel</button>
+            <button onclick="saveEditPaymentRecord()" class="btn btn-primary">💾 Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Expense Modal -->
+    <div id="editExpenseModal" class="modal">
+      <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-header">
+          <h2 style="color: #dd6b20;">✏️ Edit Expense</h2>
+          <button onclick="document.getElementById('editExpenseModal').classList.remove('active')" class="btn btn-danger btn-sm">✕</button>
+        </div>
+        <div style="padding: 20px;">
+          <input type="hidden" id="editExpId">
+          <div class="form-row">
+            <div class="form-group"><label>Date *</label><input type="date" id="editExpDate" required></div>
+            <div class="form-group"><label>Category *</label>
+              <select id="editExpCategory" required>
+                <option value="">Select...</option>
+                <option value="Platform Subscription">Platform Subscription</option>
+                <option value="Teaching Materials">Teaching Materials</option>
+                <option value="Internet & Phone">Internet & Phone</option>
+                <option value="Software & Tools">Software & Tools</option>
+                <option value="Marketing & Ads">Marketing & Ads</option>
+                <option value="Office Supplies">Office Supplies</option>
+                <option value="Professional Development">Professional Development</option>
+                <option value="Bank Charges">Bank Charges</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>Description *</label><input type="text" id="editExpDescription" required></div>
+          <div class="form-row">
+            <div class="form-group"><label>Amount *</label>
+              <div style="display: flex; gap: 8px;">
+                <select id="editExpCurrency" style="width: 90px;"><option value="INR">INR ₹</option><option value="USD">USD $</option></select>
+                <input type="number" id="editExpAmount" step="0.01" min="0" required style="flex: 1;">
+              </div>
+            </div>
+            <div class="form-group"><label>Payment Method</label>
+              <select id="editExpMethod"><option value="">Select...</option><option value="Bank Transfer">Bank Transfer</option><option value="UPI">UPI</option><option value="Credit Card">Credit Card</option><option value="Debit Card">Debit Card</option><option value="Cash">Cash</option></select>
+            </div>
+          </div>
+          <div class="form-group"><label>Notes</label><input type="text" id="editExpNotes" placeholder="Optional notes"></div>
+          <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button onclick="document.getElementById('editExpenseModal').classList.remove('active')" class="btn" style="background: #718096; color: white;">Cancel</button>
+            <button onclick="saveEditExpense()" class="btn" style="background: #dd6b20; color: white;">💾 Save Changes</button>
+          </div>
         </div>
       </div>
     </div>
@@ -8421,6 +8504,7 @@ async function saveEditedPayment() {
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.payment_method || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.sessions_covered || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                <button onclick="openEditPaymentRecord(${p.id}, '${p.payment_date ? p.payment_date.split('T')[0] : ''}', ${parseFloat(p.amount)}, '${p.currency}', '${(p.payment_method || '').replace(/'/g, "\\'")}', '${(p.sessions_covered || '').replace(/'/g, "\\'")}', '${(p.notes || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-warning" title="Edit this payment">✏️</button>
                 <button onclick="deletePaymentRecord(${p.id}, '${(p.student_name || 'Unknown').replace(/'/g, "\\'")}', '${p.currency === 'USD' ? '$' : '₹'}${parseFloat(p.amount).toLocaleString()}')" class="btn btn-sm btn-danger" title="Delete this payment record">🗑️</button>
               </td>
             </tr>
@@ -8474,7 +8558,8 @@ async function saveEditedPayment() {
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #c05621;">${e.currency === 'USD' ? '$' : '₹'}${parseFloat(e.amount).toLocaleString()}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${e.payment_method || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-                <button onclick="deleteExpense(${e.id})" class="btn btn-sm btn-danger">Delete</button>
+                <button onclick="openEditExpense(${e.id}, '${e.expense_date ? e.expense_date.split('T')[0] : ''}', '${(e.category || '').replace(/'/g, "\\'")}', '${(e.description || '').replace(/'/g, "\\'")}', ${parseFloat(e.amount)}, '${e.currency}', '${(e.payment_method || '').replace(/'/g, "\\'")}', '${(e.notes || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-warning">✏️</button>
+                <button onclick="deleteExpense(${e.id})" class="btn btn-sm btn-danger">🗑️</button>
               </td>
             </tr>
           `).join('');
@@ -8586,6 +8671,112 @@ async function saveEditedPayment() {
       if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}&`;
 
       window.location.href = url;
+    }
+
+    function exportMergedReport() {
+      const year = document.getElementById('financialYear').value;
+      const startDate = document.getElementById('finStartDate').value;
+      const endDate = document.getElementById('finEndDate').value;
+
+      let url = '/api/financial-reports/export-merged?';
+      if (year) url += `year=${year}&`;
+      if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}&`;
+
+      window.location.href = url;
+    }
+
+    // Edit Payment Record (in financial summary)
+    function openEditPaymentRecord(id, date, amount, currency, method, sessions, notes) {
+      document.getElementById('editPRId').value = id;
+      document.getElementById('editPRDate').value = date;
+      document.getElementById('editPRAmount').value = amount;
+      document.getElementById('editPRCurrency').value = currency || 'INR';
+      document.getElementById('editPRMethod').value = method || '';
+      document.getElementById('editPRSessions').value = sessions || '';
+      document.getElementById('editPRNotes').value = notes || '';
+      document.getElementById('editPaymentRecordModal').classList.add('active');
+    }
+
+    async function saveEditPaymentRecord() {
+      const id = document.getElementById('editPRId').value;
+      const data = {
+        payment_date: document.getElementById('editPRDate').value,
+        amount: parseFloat(document.getElementById('editPRAmount').value),
+        currency: document.getElementById('editPRCurrency').value,
+        payment_method: document.getElementById('editPRMethod').value,
+        sessions_covered: document.getElementById('editPRSessions').value,
+        notes: document.getElementById('editPRNotes').value
+      };
+
+      if (!data.payment_date || !data.amount) {
+        alert('Please fill in date and amount');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/payment-history/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) {
+          alert('Payment updated successfully!');
+          document.getElementById('editPaymentRecordModal').classList.remove('active');
+          loadFinancialReports();
+        } else {
+          alert('Failed to update payment');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Edit Expense
+    function openEditExpense(id, date, category, description, amount, currency, method, notes) {
+      document.getElementById('editExpId').value = id;
+      document.getElementById('editExpDate').value = date;
+      document.getElementById('editExpCategory').value = category || '';
+      document.getElementById('editExpDescription').value = description || '';
+      document.getElementById('editExpAmount').value = amount;
+      document.getElementById('editExpCurrency').value = currency || 'INR';
+      document.getElementById('editExpMethod').value = method || '';
+      document.getElementById('editExpNotes').value = notes || '';
+      document.getElementById('editExpenseModal').classList.add('active');
+    }
+
+    async function saveEditExpense() {
+      const id = document.getElementById('editExpId').value;
+      const data = {
+        expense_date: document.getElementById('editExpDate').value,
+        category: document.getElementById('editExpCategory').value,
+        description: document.getElementById('editExpDescription').value,
+        amount: parseFloat(document.getElementById('editExpAmount').value),
+        currency: document.getElementById('editExpCurrency').value,
+        payment_method: document.getElementById('editExpMethod').value,
+        notes: document.getElementById('editExpNotes').value
+      };
+
+      if (!data.expense_date || !data.category || !data.description || !data.amount) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/expenses/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) {
+          alert('Expense updated successfully!');
+          document.getElementById('editExpenseModal').classList.remove('active');
+          loadFinancialReports();
+        } else {
+          alert('Failed to update expense');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
     }
 
     // Initialize financial year dropdown on page load

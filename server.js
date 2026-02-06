@@ -6036,6 +6036,22 @@ app.delete('/api/payment-history/:id', async (req, res) => {
   }
 });
 
+// Edit a payment record
+app.put('/api/payment-history/:id', async (req, res) => {
+  try {
+    const { payment_date, amount, currency, payment_method, sessions_covered, notes } = req.body;
+    await pool.query(`
+      UPDATE payment_history
+      SET payment_date = $1, amount = $2, currency = $3, payment_method = $4, sessions_covered = $5, notes = $6
+      WHERE id = $7
+    `, [payment_date, amount, currency, payment_method, sessions_covered, notes, req.params.id]);
+    res.json({ success: true, message: 'Payment updated successfully' });
+  } catch (err) {
+    console.error('Error updating payment:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Export expenses as CSV
 app.get('/api/expenses/export', async (req, res) => {
   try {
@@ -6069,6 +6085,63 @@ app.get('/api/expenses/export', async (req, res) => {
     res.send(csv);
   } catch (err) {
     console.error('Error exporting expenses:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Export merged income + expenses as CSV
+app.get('/api/financial-reports/export-merged', async (req, res) => {
+  try {
+    const { startDate, endDate, year } = req.query;
+
+    let incomeFilter = '';
+    let expenseFilter = '';
+    let incomeParams = [];
+    let expenseParams = [];
+
+    if (startDate && endDate) {
+      incomeFilter = 'WHERE ph.payment_date >= $1 AND ph.payment_date <= $2';
+      incomeParams = [startDate, endDate];
+      expenseFilter = 'WHERE expense_date >= $1 AND expense_date <= $2';
+      expenseParams = [startDate, endDate];
+    } else if (year) {
+      const fyStart = `${year}-04-01`;
+      const fyEnd = `${parseInt(year) + 1}-03-31`;
+      incomeFilter = 'WHERE ph.payment_date >= $1 AND ph.payment_date <= $2';
+      incomeParams = [fyStart, fyEnd];
+      expenseFilter = 'WHERE expense_date >= $1 AND expense_date <= $2';
+      expenseParams = [fyStart, fyEnd];
+    }
+
+    // Fetch income
+    const incomeResult = await pool.query(`
+      SELECT ph.payment_date as date, s.name as description, ph.amount, ph.currency, ph.payment_method, ph.notes, 'Income' as type, '' as category
+      FROM payment_history ph
+      LEFT JOIN students s ON ph.student_id = s.id
+      ${incomeFilter}
+    `, incomeParams);
+
+    // Fetch expenses
+    const expenseResult = await pool.query(`
+      SELECT expense_date as date, description, amount, currency, payment_method, notes, 'Expense' as type, category
+      FROM expenses
+      ${expenseFilter}
+    `, expenseParams);
+
+    // Merge and sort by date
+    const all = [...incomeResult.rows, ...expenseResult.rows].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let csv = 'Type,Date,Description,Category,Amount,Currency,Payment Method,Notes\n';
+    all.forEach(row => {
+      const date = new Date(row.date).toLocaleDateString('en-IN');
+      csv += `"${row.type}","${date}","${(row.description || '').replace(/"/g, '""')}","${row.category || ''}","${row.amount}","${row.currency}","${row.payment_method || ''}","${(row.notes || '').replace(/"/g, '""')}"\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=financial_report_merged_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting merged report:', err);
     res.status(500).json({ error: err.message });
   }
 });
