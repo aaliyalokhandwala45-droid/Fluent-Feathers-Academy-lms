@@ -1707,8 +1707,10 @@
           return s.session_date < today || ['Completed', 'Missed'].includes(s.status);
         }).sort((a, b) => {
           // Sort by date descending (most recent first)
-          const dateA = new Date(a.session_date + 'T' + (a.session_time || '00:00:00'));
-          const dateB = new Date(b.session_date + 'T' + (b.session_time || '00:00:00'));
+          const dA = a.session_date.includes('T') ? a.session_date.split('T')[0] : a.session_date;
+          const dB = b.session_date.includes('T') ? b.session_date.split('T')[0] : b.session_date;
+          const dateA = new Date(dA + 'T' + (a.session_time || '00:00:00'));
+          const dateB = new Date(dB + 'T' + (b.session_time || '00:00:00'));
           return dateB - dateA;
         });
 
@@ -2011,7 +2013,7 @@
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
-                  <strong style="color: #2d3748;">${fileIcon} Session #${sessionSerialMap[hw.session_id] || hw.session_number || 'N/A'}</strong>
+                  <strong style="color: #2d3748;">${fileIcon} Session #${sessionSerialMap[hw.session_id] || '-'}</strong>
                   <p style="color: #718096; font-size: 0.85rem; margin: 5px 0;">
                     ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </p>

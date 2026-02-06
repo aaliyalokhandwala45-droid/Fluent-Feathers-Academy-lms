@@ -1640,7 +1640,7 @@ function getScheduleEmail(data) {
       <table style="width: 100%; border-collapse: collapse; margin: 25px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
         <thead>
           <tr style="background: #667eea; color: white;">
-            <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">Session</th>
+            <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">#</th>
             <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">Date</th>
             <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">Time</th>
           </tr>
@@ -1847,7 +1847,7 @@ function getRescheduleEmailTemplate(data) {
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${data.parent_name}</strong>,</p>
 
       <p style="font-size: 16px; color: #4a5568; line-height: 1.8; margin-bottom: 25px;">
-        We wanted to inform you that <strong>${data.student_name}'s</strong> Session #${data.session_number} has been rescheduled.
+        We wanted to inform you that <strong>${data.student_name}'s</strong> class has been rescheduled.
       </p>
 
       <!-- Old Schedule (Crossed out) -->
@@ -2087,7 +2087,7 @@ function getOTPEmail(data) {
 }
 
 function getClassReminderEmail(data) {
-  const { studentName, sessionNumber, localDate, localTime, localDay, meetLink, hoursBeforeClass, timezoneLabel } = data;
+  const { studentName, localDate, localTime, localDay, meetLink, hoursBeforeClass, timezoneLabel } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -2112,10 +2112,6 @@ function getClassReminderEmail(data) {
       <div style="background: linear-gradient(135deg, #f6f9fc 0%, #e9f2ff 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; margin-bottom: 25px;">
         <h2 style="margin: 0 0 15px; color: #667eea; font-size: 20px;">📅 Class Details</h2>
         <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Session:</strong></td>
-            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">#${sessionNumber}</td>
-          </tr>
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Date:</strong></td>
             <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">${localDay}, ${localDate}</td>
@@ -2155,7 +2151,7 @@ function getClassReminderEmail(data) {
 }
 
 function getHomeworkFeedbackEmail(data) {
-  const { studentName, sessionNumber, grade, comments, fileName } = data;
+  const { studentName, grade, comments, fileName } = data;
 
   // Get emoji based on grade
   const gradeEmoji = grade.toLowerCase().includes('a') || grade.toLowerCase().includes('excellent') ? '🌟' :
@@ -2185,10 +2181,6 @@ function getHomeworkFeedbackEmail(data) {
       <div style="background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #38a169; margin-bottom: 25px;">
         <h2 style="margin: 0 0 15px; color: #38a169; font-size: 20px;">📋 Homework Details</h2>
         <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Session:</strong></td>
-            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">#${sessionNumber}</td>
-          </tr>
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>File:</strong></td>
             <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">${fileName || 'Homework submission'}</td>
@@ -2865,7 +2857,6 @@ async function checkAndSendReminders() {
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
-              sessionNumber: session.session_number,
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
@@ -2877,7 +2868,7 @@ async function checkAndSendReminders() {
             const subjectPrefix = session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
             await sendEmail(
               session.parent_email,
-              `${subjectPrefix} - Session #${session.session_number} in 5 hours [SID:${session.id}]`,
+              `${subjectPrefix} - Ready for today's class in 5 hours [SID:${session.id}]`,
               reminderEmailHTML,
               session.parent_name,
               emailType5hr
@@ -2909,7 +2900,6 @@ async function checkAndSendReminders() {
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
-              sessionNumber: session.session_number,
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
@@ -2921,7 +2911,7 @@ async function checkAndSendReminders() {
             const subjectPrefix = session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
             await sendEmail(
               session.parent_email,
-              `${subjectPrefix} - Session #${session.session_number} in 1 hour [SID:${session.id}]`,
+              `${subjectPrefix} - Ready for today's class in 1 hour [SID:${session.id}]`,
               reminderEmailHTML,
               session.parent_name,
               emailType1hr
@@ -3870,6 +3860,7 @@ app.post('/api/schedule/private-classes', async (req, res) => {
     await client.query('BEGIN');
 
     const scheduledSessions = [];
+    let emailSerial = 1;
     for(const cls of classes) {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
@@ -3878,11 +3869,12 @@ app.post('/api/schedule/private-classes', async (req, res) => {
         VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Pending')
       `, [student_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
 
-      // Store for email
+      // Store for email (use serial number, not session_number)
       const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
-      scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">#${sessionNumber}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+      scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${emailSerial}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
 
       sessionNumber++;
+      emailSerial++;
     }
 
     await client.query('COMMIT');
@@ -3942,6 +3934,8 @@ app.post('/api/schedule/group-classes', async (req, res) => {
     const scheduledSessions = [];
     // Track per-student email rows (only sessions they're enrolled in)
     const studentEmailRows = {}; // { student_id: [html_rows] }
+    const studentEmailSerial = {}; // { student_id: counter }
+    let groupEmailSerial = 1;
 
     for (let i = 0; i < classes.length; i++) {
       const cls = classes[i];
@@ -3966,16 +3960,18 @@ app.post('/api/schedule/group-classes', async (req, res) => {
         }
         await client.query('INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, \'Pending\')', [sessionId, s.id]);
 
-        // Track email rows per student
-        if (!studentEmailRows[s.id]) studentEmailRows[s.id] = [];
+        // Track email rows per student (use serial number, not session_number)
+        if (!studentEmailRows[s.id]) { studentEmailRows[s.id] = []; studentEmailSerial[s.id] = 1; }
         const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
-        studentEmailRows[s.id].push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">#${sessionNumber}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+        studentEmailRows[s.id].push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${studentEmailSerial[s.id]}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+        studentEmailSerial[s.id]++;
       }
 
       const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
-      scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">#${sessionNumber}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+      scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${groupEmailSerial}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
 
       sessionNumber++;
+      groupEmailSerial++;
     }
 
     await client.query('COMMIT');
@@ -5496,7 +5492,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
         <h3 style="color: #f093fb; margin-top: 0;">📅 Class Details</h3>
         <p style="margin: 5px 0;"><strong>Date:</strong> ${localTime.day}, ${localTime.date}</p>
         <p style="margin: 5px 0;"><strong>Time:</strong> ${localTime.time}</p>
-        <p style="margin: 5px 0;"><strong>Session:</strong> #${sessionNumber} (Makeup)</p>
+        <p style="margin: 5px 0;"><strong>Type:</strong> Makeup Class</p>
       </div>
 
       <div style="text-align: center; margin: 25px 0;">
@@ -6517,7 +6513,6 @@ app.post('/api/materials/:id/grade', async (req, res) => {
         try {
           const feedbackEmailHTML = getHomeworkFeedbackEmail({
             studentName: material.student_name,
-            sessionNumber: material.session_number || 'N/A',
             grade: grade,
             comments: comments,
             fileName: material.file_name
@@ -6525,7 +6520,7 @@ app.post('/api/materials/:id/grade', async (req, res) => {
 
           await sendEmail(
             material.parent_email,
-            `📝 Homework Feedback - ${material.student_name}'s Session #${material.session_number || 'N/A'}`,
+            `📝 Homework Feedback - ${material.student_name}'s Homework Reviewed`,
             feedbackEmailHTML,
             material.parent_name,
             'Homework-Feedback'
