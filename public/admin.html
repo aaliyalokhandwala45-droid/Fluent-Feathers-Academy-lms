@@ -320,11 +320,11 @@
     <div id="studentsTab" class="tab-content">
       <div class="section"><h2>➕ Add New Student</h2>
         <form id="addStudentForm">
-          <div class="form-row"><div class="form-group"><label>Student Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label>Grade *</label><input type="text" id="grade" required></div></div>
+          <div class="form-row"><div class="form-group"><label>Student Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label>Age (Years) *</label><input type="text" id="grade" required placeholder="e.g. 10 years"></div></div>
           <div class="form-row"><div class="form-group"><label>Parent Name *</label><input type="text" id="parentName" required></div><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div></div>
           <div class="form-row">
             <div class="form-group"><label>Primary Contact *</label><input type="tel" id="primaryContact" required></div>
-            <div class="form-group"><label>Date of Birth (Optional)</label><input type="date" id="dateOfBirth"></div>
+            <div class="form-group"><label>Date of Birth (Optional)</label><input type="date" id="dateOfBirth" onchange="autoFillAge(this.value, 'grade')"></div>
             <div class="form-group"><label>Timezone *</label>
               <select id="timezone" required>
                 <optgroup label="Asia">
@@ -493,10 +493,10 @@
       </div>
       <div class="section"><h2>📋 All Students</h2>
         <div style="margin-bottom: 15px;">
-          <input type="text" id="studentSearchInput" placeholder="🔍 Search students by name, grade, or program..." oninput="filterStudents()" style="width: 100%; max-width: 400px; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
+          <input type="text" id="studentSearchInput" placeholder="🔍 Search students by name, age, or program..." oninput="filterStudents()" style="width: 100%; max-width: 400px; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
           <span id="studentCount" style="margin-left: 15px; color: #718096; font-size: 14px;"></span>
         </div>
-        <table id="studentsTable"><thead><tr><th>Name</th><th>Grade</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table>
+        <table id="studentsTable"><thead><tr><th>Name</th><th>Age</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table>
       </div>
     </div>
 
@@ -512,7 +512,7 @@
           <form id="addDemoLeadForm">
             <div class="form-row">
               <div class="form-group"><label>Child's Name *</label><input type="text" id="demoChildName" required></div>
-              <div class="form-group"><label>Child's Grade *</label><input type="text" id="demoChildGrade" required></div>
+              <div class="form-group"><label>Child's Age *</label><input type="text" id="demoChildGrade" required placeholder="e.g. 8 years"></div>
             </div>
             <div class="form-row">
               <div class="form-group"><label>Parent Name *</label><input type="text" id="demoParentName" required></div>
@@ -764,6 +764,14 @@
         <!-- Group Class Scheduling -->
         <form id="scheduleGroupForm" style="display: none;">
           <div class="form-group"><label>Select Group *</label><select id="scheduleGroup" required><option value="">Select group...</option></select></div>
+
+          <!-- Per-Student Session Counts -->
+          <div id="groupStudentSessionCounts" style="display: none; background: #f0fff4; padding: 15px; border-radius: 10px; margin: 10px 0; border: 2px solid #48bb78;">
+            <h4 style="margin-bottom: 10px; color: #2f855a;">👥 Per-Student Session Counts</h4>
+            <p style="font-size: 0.85rem; color: #718096; margin-bottom: 10px;">Set how many sessions each student should be enrolled in. The bulk scheduler will use the highest count.</p>
+            <div id="studentSessionInputs"></div>
+            <button type="button" id="convertPrivateBtn" onclick="convertPrivateToGroup()" class="btn" style="background: #ed8936; color: white; margin-top: 10px; display: none;">Convert Existing Private Sessions to Group</button>
+          </div>
 
           <!-- Bulk Scheduling Options for Groups -->
           <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0; border: 2px solid #9f7aea;">
@@ -2494,7 +2502,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         <input type="hidden" id="editDemoId">
         <div class="form-row">
           <div class="form-group"><label>Child's Name *</label><input type="text" id="editDemoChildName" required></div>
-          <div class="form-group"><label>Child's Grade *</label><input type="text" id="editDemoChildGrade" required></div>
+          <div class="form-group"><label>Child's Age *</label><input type="text" id="editDemoChildGrade" required placeholder="e.g. 8 years"></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Parent Name *</label><input type="text" id="editDemoParentName" required></div>
@@ -2781,7 +2789,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         <input type="hidden" id="editStudentId">
         <div class="form-row">
           <div class="form-group"><label>Student Name *</label><input type="text" id="editStudentName" required></div>
-          <div class="form-group"><label>Grade *</label><input type="text" id="editGrade" required></div>
+          <div class="form-group"><label>Age (Years) *</label><input type="text" id="editGrade" required placeholder="e.g. 10 years"></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Parent Name *</label><input type="text" id="editParentName" required></div>
@@ -2852,7 +2860,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Date of Birth</label><input type="date" id="editDateOfBirth"></div>
+          <div class="form-group"><label>Date of Birth</label><input type="date" id="editDateOfBirth" onchange="autoFillAge(this.value, 'editGrade')"></div>
           <div class="form-group"><label>Google Meet Link</label><input type="url" id="editMeetLink" placeholder="https://meet.google.com/..."></div>
         </div>
         <div class="form-row">
@@ -3132,6 +3140,26 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     })();
 
+    // Calculate age from date of birth
+    function getAge(dob) {
+      if (!dob) return null;
+      const birth = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      return age;
+    }
+    function getAgeDisplay(student) {
+      const age = getAge(student.date_of_birth);
+      if (age !== null) return age + ' years';
+      return student.grade || '-';
+    }
+    function autoFillAge(dob, targetId) {
+      const age = getAge(dob);
+      if (age !== null) document.getElementById(targetId).value = age + ' years';
+    }
+
     let allStudents = [], allGroups = [];
     let currentStudentId = null;
     let currentGroupId = null;
@@ -3381,7 +3409,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         const assessmentBadge = s.assessment_due
           ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; cursor: pointer;" onclick="showTab('monthlyAssessment', event); setTimeout(() => document.getElementById('assessmentStudent').value = '${s.id}', 100);" title="Due for assessment (${s.sessions_since_assessment} sessions since last)">📊 Due</span>`
           : '';
-        return `<tr><td><strong>${s.name}</strong>${assessmentBadge}</td><td>${s.grade}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
+        return `<tr><td><strong>${s.name}</strong>${assessmentBadge}</td><td>${getAgeDisplay(s)}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
       }).join('');
     }
 
@@ -3392,7 +3420,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         const student = await res.json();
         document.getElementById('editStudentId').value = student.id;
         document.getElementById('editStudentName').value = student.name;
-        document.getElementById('editGrade').value = student.grade;
+        document.getElementById('editGrade').value = getAgeDisplay(student);
         document.getElementById('editParentName').value = student.parent_name;
         document.getElementById('editParentEmail').value = student.parent_email;
         document.getElementById('editPrimaryContact').value = student.primary_contact;
@@ -3534,7 +3562,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           <p><strong>Program:</strong> ${group.program_name}</p>
           <p><strong>Enrolled Students (${students.length}/${group.max_students}):</strong></p>
           <ul style="list-style: none; padding: 0;">
-            ${students.map(s => `<li style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px;">👤 ${s.name} (${s.grade})</li>`).join('')}
+            ${students.map(s => `<li style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px;">👤 ${s.name} (${getAgeDisplay(s)})</li>`).join('')}
           </ul>
         `;
 
@@ -3844,7 +3872,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         if (filterSelect.options.length <= 1) {
           filterSelect.innerHTML = '<option value="">All Students</option>' +
             allStudents.filter(s => s.is_active).map(s =>
-              `<option value="${s.id}">${s.name} (${s.grade})</option>`
+              `<option value="${s.id}">${s.name} (${getAgeDisplay(s)})</option>`
             ).join('');
         }
 
@@ -4486,7 +4514,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
 
         let content = `<h3>Currently Enrolled (${enrolledStudents.length}/${group.max_students})</h3>`;
         if (enrolledStudents.length > 0) {
-          content += `<ul style="list-style: none; padding: 0;">` + enrolledStudents.map(s => `<li style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px;">👤 ${s.name} (${s.grade})</li>`).join('') + `</ul>`;
+          content += `<ul style="list-style: none; padding: 0;">` + enrolledStudents.map(s => `<li style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px;">👤 ${s.name} (${getAgeDisplay(s)})</li>`).join('') + `</ul>`;
         } else {
           content += `<p style="color: #718096;">No students enrolled yet</p>`;
         }
@@ -4495,7 +4523,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         if (availableStudents.length > 0) {
           content += `<div style="max-height: 300px; overflow-y: auto;">` + availableStudents.map(s => `
             <div style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
-              <span>👤 ${s.name} (${s.grade}) - ${s.program_name}</span>
+              <span>👤 ${s.name} (${getAgeDisplay(s)}) - ${s.program_name}</span>
               <button onclick="enrollStudent(${groupId}, ${s.id})" class="btn btn-sm btn-success">Enroll</button>
             </div>
           `).join('') + `</div>`;
@@ -4553,7 +4581,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           <h3 style="color: #B05D9E; margin-bottom: 15px;">Basic Information</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div><strong>Name:</strong> ${student.name}</div>
-            <div><strong>Grade:</strong> ${student.grade}</div>
+            <div><strong>Age:</strong> ${getAgeDisplay(student)}</div>
             <div><strong>Parent:</strong> ${student.parent_name}</div>
             <div><strong>Email:</strong> ${student.parent_email}</div>
             <div><strong>Contact:</strong> ${student.primary_contact || 'N/A'}</div>
@@ -4742,6 +4770,100 @@ async function saveEditedPayment() {
       container.appendChild(row);
     }
 
+    // When group is selected, load students and show per-student session count inputs
+    document.getElementById('scheduleGroup').addEventListener('change', async function() {
+      const groupId = this.value;
+      const container = document.getElementById('groupStudentSessionCounts');
+      const inputsDiv = document.getElementById('studentSessionInputs');
+      const numSessionsEl = document.getElementById('groupBulkNumSessions');
+
+      if (!groupId) {
+        container.style.display = 'none';
+        inputsDiv.innerHTML = '';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/groups/${groupId}/students`);
+        const students = await res.json();
+
+        if (students.length === 0) {
+          container.style.display = 'none';
+          inputsDiv.innerHTML = '';
+          return;
+        }
+
+        inputsDiv.innerHTML = students.map(s => `
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <span style="flex: 1; font-weight: 500;">👤 ${s.name}</span>
+            <span style="color: #718096; font-size: 0.85rem;">Remaining: ${s.remaining_sessions || 0}</span>
+            <input type="number" class="student-session-count" data-student-id="${s.id}"
+              value="${s.remaining_sessions || 0}" min="0" max="100"
+              style="width: 70px; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center;"
+              onchange="updateGroupMaxSessions()">
+          </div>
+        `).join('');
+        container.style.display = 'block';
+
+        // Check if any students have pending private sessions - show convert button
+        const convertBtn = document.getElementById('convertPrivateBtn');
+        let hasPrivate = false;
+        for (const s of students) {
+          const sessRes = await fetch(`/api/sessions/${s.id}`);
+          const sessData = await sessRes.json();
+          if (sessData.some && sessData.some(sess => sess.session_type === 'Private' && (sess.status === 'Pending' || sess.status === 'Scheduled'))) {
+            hasPrivate = true;
+            break;
+          }
+        }
+        convertBtn.style.display = hasPrivate ? 'inline-block' : 'none';
+
+        // Auto-set the number of sessions to the max of all student counts
+        updateGroupMaxSessions();
+      } catch (err) {
+        console.error('Error loading group students:', err);
+      }
+    });
+
+    // Update the bulk session count to the max of all per-student counts
+    function updateGroupMaxSessions() {
+      const inputs = document.querySelectorAll('.student-session-count');
+      if (inputs.length === 0) return;
+      let max = 0;
+      inputs.forEach(inp => {
+        const val = parseInt(inp.value) || 0;
+        if (val > max) max = val;
+      });
+      const numSessionsEl = document.getElementById('groupBulkNumSessions');
+      if (max > 0) numSessionsEl.value = max;
+    }
+
+    // Convert existing private sessions to group sessions
+    async function convertPrivateToGroup() {
+      const groupId = document.getElementById('scheduleGroup').value;
+      if (!groupId) return alert('Select a group first');
+
+      if (!confirm('This will convert all pending private sessions of students in this group into group sessions. Sessions at the same date & time will be merged. Continue?')) return;
+
+      try {
+        const res = await fetch(`/api/groups/${groupId}/convert-private-sessions`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'}
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          document.getElementById('convertPrivateBtn').style.display = 'none';
+          loadUpcomingClasses();
+          loadCalendar();
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
     document.getElementById('scheduleGroupForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const groupId = document.getElementById('scheduleGroup').value;
@@ -4756,17 +4878,34 @@ async function saveEditedPayment() {
       if (classes.length === 0) return alert('Add at least one class');
       const sendEmail = document.getElementById('sendGroupScheduleEmail').checked;
 
+      // Collect per-student session counts
+      const studentInputs = document.querySelectorAll('.student-session-count');
+      let student_sessions = [];
+      if (studentInputs.length > 0) {
+        studentInputs.forEach(inp => {
+          const count = parseInt(inp.value) || 0;
+          if (count > 0) {
+            student_sessions.push({ student_id: parseInt(inp.dataset.studentId), count });
+          }
+        });
+      }
+
       try {
+        const body = { group_id: groupId, classes, send_email: sendEmail };
+        if (student_sessions.length > 0) body.student_sessions = student_sessions;
+
         const res = await fetch('/api/schedule/group-classes', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ group_id: groupId, classes, send_email: sendEmail })
+          body: JSON.stringify(body)
         });
         const result = await res.json();
         if(res.ok) {
           alert('✅ ' + result.message);
           e.target.reset();
           document.getElementById('groupClassScheduleList').innerHTML = '';
+          document.getElementById('groupStudentSessionCounts').style.display = 'none';
+          document.getElementById('studentSessionInputs').innerHTML = '';
           loadUpcomingClasses();
           loadCalendar(); // Refresh calendar with new sessions
         } else {
@@ -6316,7 +6455,7 @@ async function saveEditedPayment() {
           : `${editBtn} <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Update</button>`;
 
         return `<tr>
-          <td><strong>${lead.child_name}</strong><br><small style="color:#718096;">Grade: ${lead.child_grade || 'N/A'}</small></td>
+          <td><strong>${lead.child_name}</strong><br><small style="color:#718096;">Age: ${lead.child_grade || 'N/A'}</small></td>
           <td>${lead.parent_name}<br><small style="color:#718096;">${lead.parent_email}</small></td>
           <td>${lead.phone || 'N/A'}<br><small style="color:#a0aec0;">${lead.source || ''}</small></td>
           <td>${lead.program_interest || 'Not specified'}</td>
@@ -7407,7 +7546,7 @@ async function saveEditedPayment() {
 
         select.innerHTML = '<option value="">Select Student...</option>' +
           students.filter(s => s.is_active).map(s =>
-            `<option value="${s.id}">${s.name} (${s.grade})</option>`
+            `<option value="${s.id}">${s.name} (${getAgeDisplay(s)})</option>`
           ).join('');
       } catch (err) {
         console.error(err);
@@ -7427,7 +7566,7 @@ async function saveEditedPayment() {
           eligibleLeads.map(l => {
             const demoDate = l.demo_date ? new Date(l.demo_date).toLocaleDateString() : 'No date';
             const statusLabel = l.status === 'Completed' ? '✅ Demo Completed' : '📅 Scheduled';
-            return `<option value="${l.id}" data-date="${demoDate}" data-email="${l.parent_email || ''}" data-parent="${l.parent_name || ''}">${l.child_name} (${l.child_grade}) - ${statusLabel} - ${demoDate}</option>`;
+            return `<option value="${l.id}" data-date="${demoDate}" data-email="${l.parent_email || ''}" data-parent="${l.parent_name || ''}">${l.child_name} (${l.child_grade || 'N/A'}) - ${statusLabel} - ${demoDate}</option>`;
           }).join('');
       } catch (err) {
         console.error(err);
@@ -7756,7 +7895,7 @@ async function saveEditedPayment() {
     function openSwitchToLearnerModal() {
       const select = document.getElementById('learnerViewStudent');
       select.innerHTML = '<option value="">Select Student...</option>' +
-        allStudents.map(s => `<option value="${s.id}">${s.name} (${s.grade}) - ${s.parent_email}</option>`).join('');
+        allStudents.map(s => `<option value="${s.id}">${s.name} (${getAgeDisplay(s)}) - ${s.parent_email}</option>`).join('');
       document.getElementById('switchToLearnerModal').classList.add('active');
     }
 
@@ -7798,7 +7937,7 @@ async function saveEditedPayment() {
     function loadPaymentStudentDropdown() {
       const select = document.getElementById('paymentStudent');
       select.innerHTML = '<option value="">Select Student...</option>' +
-        allStudents.map(s => `<option value="${s.id}">${s.name} (${s.grade})</option>`).join('');
+        allStudents.map(s => `<option value="${s.id}">${s.name} (${getAgeDisplay(s)})</option>`).join('');
     }
 
     async function loadStudentPaymentDetails() {
@@ -8099,7 +8238,7 @@ async function saveEditedPayment() {
             <p style="margin-bottom: 15px; color: #4a5568;"><strong>Total Registered:</strong> ${registrations.length}</p>
             <div style="overflow-x: auto;">
               <table>
-                <thead><tr><th>Child Name</th><th>Age/Grade</th><th>Parent Name</th><th>Email</th><th>Phone</th><th>Source</th><th>Registered</th><th>Attendance</th></tr></thead>
+                <thead><tr><th>Child Name</th><th>Age</th><th>Parent Name</th><th>Email</th><th>Phone</th><th>Source</th><th>Registered</th><th>Attendance</th></tr></thead>
                 <tbody>
                   ${registrations.map(r => `
                     <tr>
@@ -8142,12 +8281,12 @@ async function saveEditedPayment() {
           document.getElementById('eventAttendanceContent').innerHTML = `
             <p style="margin-bottom: 15px; color: #4a5568;">Mark attendance for registered students:</p>
             <table>
-              <thead><tr><th>Student Name</th><th>Grade</th><th>Current Status</th><th>Mark Attendance</th></tr></thead>
+              <thead><tr><th>Student Name</th><th>Age</th><th>Current Status</th><th>Mark Attendance</th></tr></thead>
               <tbody>
                 ${registrations.map(r => `
                   <tr>
                     <td><strong>${r.student_name}</strong></td>
-                    <td>${r.grade}</td>
+                    <td>${getAgeDisplay(r)}</td>
                     <td><span class="type-badge ${r.attendance === 'Present' ? 'attendance-present' : r.attendance === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${r.attendance || 'Pending'}</span></td>
                     <td>
                       <button onclick="saveEventAttendance(${eventId}, ${r.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>

@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIG ====================
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'super_secret_change_this_in_production';
-const DEFAULT_MEET = process.env.DEFAULT_MEET_LINK || 'https://meet.google.com/qne-muzw-wav';
+const DEFAULT_MEET = process.env.DEFAULT_MEET_LINK || 'https://meet.google.com/gir-zwin-yww';
 
 // ==================== CLOUDINARY CONFIG ====================
 // Configure Cloudinary for persistent file storage
@@ -99,6 +99,22 @@ pool.on('connect', (client) => {
 pool.on('remove', (client) => {
   console.log('🔌 Database connection removed from pool');
 });
+
+// Calculate age from date of birth
+function calculateAge(dob) {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+function getAgeDisplay(student) {
+  const age = calculateAge(student.date_of_birth);
+  if (age !== null) return age + ' years';
+  return student.grade || '-';
+}
 
 // Robust query wrapper with retry logic for transient errors
 async function executeQuery(queryText, params = [], retries = 5) {
@@ -2790,14 +2806,15 @@ async function checkAndSendReminders() {
         AND st.parent_email IS NOT NULL
     `);
 
-    // Find all upcoming GROUP sessions and get students in those groups
+    // Find all upcoming GROUP sessions and get enrolled students via session_attendance
     const groupSessions = await pool.query(`
       SELECT s.*, g.group_name, g.timezone as group_timezone,
              st.name as student_name, st.parent_email, st.parent_name, st.timezone,
              CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
-      JOIN students st ON st.group_id = g.id
+      JOIN session_attendance sa ON sa.session_id = s.id
+      JOIN students st ON st.id = sa.student_id
       WHERE s.status IN ('Pending', 'Scheduled')
         AND s.session_type = 'Group'
         AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
@@ -3596,7 +3613,7 @@ app.get('/api/students', async (req, res) => {
 app.get('/api/students/due-for-assessment', async (req, res) => {
   try {
     const r = await pool.query(`
-      SELECT s.id, s.name, s.grade, s.program_name, s.completed_sessions, s.parent_name,
+      SELECT s.id, s.name, s.grade, s.date_of_birth, s.program_name, s.completed_sessions, s.parent_name,
         (SELECT COUNT(*) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as total_assessments,
         (SELECT MAX(created_at) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as last_assessment_date
       FROM students s
@@ -3903,18 +3920,31 @@ app.post('/api/schedule/private-classes', async (req, res) => {
 app.post('/api/schedule/group-classes', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { group_id, classes, send_email } = req.body;
+    const { group_id, classes, send_email, student_sessions } = req.body;
     const group = (await client.query('SELECT * FROM groups WHERE id = $1', [group_id])).rows[0];
     if(!group) return res.status(404).json({ error: 'Group not found' });
 
     const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [group_id])).rows[0].count;
     let sessionNumber = parseInt(count)+1;
 
+    // Build per-student session count map if provided
+    // student_sessions: [{student_id, count}] - each student gets their first N sessions
+    const hasPerStudentCounts = student_sessions && Array.isArray(student_sessions) && student_sessions.length > 0;
+    const studentCountMap = {};
+    if (hasPerStudentCounts) {
+      for (const ss of student_sessions) {
+        studentCountMap[ss.student_id] = parseInt(ss.count);
+      }
+    }
+
     await client.query('BEGIN');
 
     const scheduledSessions = [];
+    // Track per-student email rows (only sessions they're enrolled in)
+    const studentEmailRows = {}; // { student_id: [html_rows] }
 
-    for(const cls of classes) {
+    for (let i = 0; i < classes.length; i++) {
+      const cls = classes[i];
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
       const r = await client.query(`
@@ -3924,11 +3954,22 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
 
       const sessionId = r.rows[0].id;
+      const sessionIndex = i + 1; // 1-based index of this session in the batch
 
-      // Add all group students to session_attendance
+      // Add students to session_attendance
       const students = await client.query('SELECT id FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
       for(const s of students.rows) {
+        // If per-student counts are set, only add if this session is within their count
+        if (hasPerStudentCounts) {
+          const studentMax = studentCountMap[s.id];
+          if (studentMax === undefined || sessionIndex > studentMax) continue;
+        }
         await client.query('INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, \'Pending\')', [sessionId, s.id]);
+
+        // Track email rows per student
+        if (!studentEmailRows[s.id]) studentEmailRows[s.id] = [];
+        const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
+        studentEmailRows[s.id].push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">#${sessionNumber}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
       }
 
       const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
@@ -3944,10 +3985,16 @@ app.post('/api/schedule/group-classes', async (req, res) => {
     if (send_email !== false) {
       const students = await client.query('SELECT * FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
       for (const student of students.rows) {
+        // Use per-student rows if available, otherwise all rows
+        const rows = hasPerStudentCounts
+          ? (studentEmailRows[student.id] || [])
+          : scheduledSessions;
+        if (rows.length === 0) continue; // Skip students with no sessions
+
         const scheduleHTML = getScheduleEmail({
           parent_name: student.parent_name,
           student_name: student.name,
-          schedule_rows: scheduledSessions.join('')
+          schedule_rows: rows.join('')
         });
 
         await sendEmail(
@@ -3965,6 +4012,117 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       ? `Group classes scheduled and emails sent to ${emailsSent} students!`
       : 'Group classes scheduled successfully!';
     res.json({ success: true, message });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Convert private sessions to group sessions for students in a group
+app.post('/api/groups/:groupId/convert-private-sessions', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const groupId = req.params.groupId;
+    const group = (await client.query('SELECT * FROM groups WHERE id = $1', [groupId])).rows[0];
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    // Get all active students in this group
+    const students = (await client.query('SELECT id, name FROM students WHERE group_id = $1 AND is_active = true', [groupId])).rows;
+    if (students.length === 0) return res.json({ success: true, message: 'No active students in this group', converted: 0 });
+
+    const studentIds = students.map(s => s.id);
+
+    // Find all private sessions for these students (Pending/Scheduled only)
+    const privateSessions = (await client.query(`
+      SELECT * FROM sessions
+      WHERE student_id = ANY($1)
+        AND session_type = 'Private'
+        AND status IN ('Pending', 'Scheduled')
+      ORDER BY session_date, session_time
+    `, [studentIds])).rows;
+
+    if (privateSessions.length === 0) return res.json({ success: true, message: 'No pending private sessions found for group students', converted: 0 });
+
+    await client.query('BEGIN');
+
+    // Group private sessions by (date, time) to merge duplicates
+    const dateTimeMap = {}; // key: "date|time" -> [{session, student_id}]
+    for (const s of privateSessions) {
+      const key = `${s.session_date}|${s.session_time}`;
+      if (!dateTimeMap[key]) dateTimeMap[key] = [];
+      dateTimeMap[key].push(s);
+    }
+
+    // Get current max session_number for this group
+    const countResult = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [groupId])).rows[0];
+    let sessionNumber = parseInt(countResult.count) + 1;
+
+    let converted = 0;
+
+    for (const key of Object.keys(dateTimeMap)) {
+      const sessions = dateTimeMap[key];
+      const first = sessions[0];
+
+      // Keep the first session and convert it to group
+      await client.query(`
+        UPDATE sessions SET
+          group_id = $1,
+          student_id = NULL,
+          session_type = 'Group',
+          session_number = $2
+        WHERE id = $3
+      `, [groupId, sessionNumber, first.id]);
+
+      // Create session_attendance for the first session's student
+      await client.query(`
+        INSERT INTO session_attendance (session_id, student_id, attendance)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (session_id, student_id) DO NOTHING
+      `, [first.id, first.student_id, first.attendance || 'Pending']);
+
+      // For duplicate sessions at same time (other students), migrate materials then delete
+      for (let i = 1; i < sessions.length; i++) {
+        const dup = sessions[i];
+
+        // Move any materials from the duplicate session to the kept session
+        await client.query(`
+          UPDATE materials SET session_id = $1 WHERE session_id = $2 AND student_id = $3
+        `, [first.id, dup.id, dup.student_id]);
+
+        // Copy over any file paths from duplicate to kept session (if kept session doesn't have them)
+        if (dup.ppt_file_path) {
+          await client.query(`UPDATE sessions SET ppt_file_path = $1 WHERE id = $2 AND ppt_file_path IS NULL`, [dup.ppt_file_path, first.id]);
+        }
+        if (dup.recording_file_path) {
+          await client.query(`UPDATE sessions SET recording_file_path = $1 WHERE id = $2 AND recording_file_path IS NULL`, [dup.recording_file_path, first.id]);
+        }
+        if (dup.homework_file_path) {
+          await client.query(`UPDATE sessions SET homework_file_path = $1 WHERE id = $2 AND homework_file_path IS NULL`, [dup.homework_file_path, first.id]);
+        }
+
+        // Create session_attendance for this student on the kept session
+        await client.query(`
+          INSERT INTO session_attendance (session_id, student_id, attendance)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (session_id, student_id) DO NOTHING
+        `, [first.id, dup.student_id, dup.attendance || 'Pending']);
+
+        // Delete the duplicate session
+        await client.query('DELETE FROM sessions WHERE id = $1', [dup.id]);
+      }
+
+      sessionNumber++;
+      converted++;
+    }
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      message: `Converted ${converted} private session(s) to group sessions for ${students.map(s => s.name).join(', ')}`,
+      converted
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -3994,7 +4152,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       WHERE s.student_id = $1 AND s.session_type = 'Private'
     `, [id]);
 
-    // Get group sessions for this student
+    // Get group sessions for this student (only sessions they're enrolled in via session_attendance)
     const student = await executeQuery('SELECT group_id FROM students WHERE id = $1', [id]);
     let groupSessions = [];
 
@@ -4007,9 +4165,9 @@ app.get('/api/sessions/:studentId', async (req, res) => {
           CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
           COALESCE(sa.attendance, 'Pending') as student_attendance
         FROM sessions s
+        INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
         LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
         LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
-        LEFT JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
         WHERE s.group_id = $2 AND s.session_type = 'Group'
       `, [id, student.rows[0].group_id]);
       groupSessions = groupSessionsResult.rows;
@@ -4303,16 +4461,18 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
     // If no records exist, get the group_id and fetch all enrolled students
     if (result.rows.length === 0) {
-      const session = await pool.query('SELECT group_id FROM sessions WHERE id = $1', [req.params.sessionId]);
+      const session = await pool.query('SELECT group_id, session_date FROM sessions WHERE id = $1', [req.params.sessionId]);
       if (session.rows[0]?.group_id) {
         const groupId = session.rows[0].group_id;
-        // Get enrolled students for this group
+        const sessionDate = session.rows[0].session_date;
+        // Get enrolled students for this group (only those enrolled before or on the session date)
         const students = await pool.query(`
           SELECT s.id as student_id, s.name as student_name, 'Pending' as attendance
           FROM students s
           WHERE s.group_id = $1 AND s.is_active = true
+            AND s.created_at::date <= $2::date
           ORDER BY s.name
-        `, [groupId]);
+        `, [groupId, sessionDate]);
 
         // Create session_attendance records for each student
         for (const student of students.rows) {
@@ -4810,7 +4970,7 @@ app.post('/api/events/:eventId/register-manual', async (req, res) => {
 app.get('/api/events/:eventId/registrations', async (req, res) => {
   try {
     res.json((await pool.query(`
-      SELECT er.*, s.name as student_name, s.grade, s.parent_name, s.parent_email
+      SELECT er.*, s.name as student_name, s.grade, s.date_of_birth, s.parent_name, s.parent_email
       FROM event_registrations er
       JOIN students s ON er.student_id = s.id
       WHERE er.event_id = $1
@@ -5038,7 +5198,10 @@ app.get('/api/events/:eventId/all-registrations', async (req, res) => {
              COALESCE(s.name, er.child_name) as display_child_name,
              COALESCE(s.parent_name, er.parent_name) as display_parent_name,
              COALESCE(s.parent_email, er.email) as display_email,
-             COALESCE(s.grade, er.child_age) as display_grade,
+             COALESCE(
+               CASE WHEN s.date_of_birth IS NOT NULL THEN EXTRACT(YEAR FROM AGE(s.date_of_birth))::TEXT || ' years' ELSE s.grade END,
+               er.child_age
+             ) as display_grade,
              s.primary_contact as student_phone,
              CASE WHEN er.student_id IS NOT NULL THEN 'Existing Student' ELSE 'Public Registration' END as reg_type
       FROM event_registrations er
@@ -6550,11 +6713,24 @@ app.get('/api/challenges/:id/students', async (req, res) => {
 // Parent submits challenge as done (awaiting teacher approval)
 app.put('/api/challenges/:challengeId/student/:studentId/submit', async (req, res) => {
   try {
-    await pool.query(`
-      UPDATE student_challenges
-      SET status = 'Submitted', notes = 'Submitted by parent on ' || CURRENT_DATE
-      WHERE challenge_id = $1 AND student_id = $2
-    `, [req.params.challengeId, req.params.studentId]);
+    const { challengeId, studentId } = req.params;
+    // Check if student already has a record for this challenge
+    const existing = await pool.query(
+      'SELECT id FROM student_challenges WHERE challenge_id = $1 AND student_id = $2',
+      [challengeId, studentId]
+    );
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE student_challenges SET status = 'Submitted', notes = 'Submitted by parent on ' || CURRENT_DATE WHERE challenge_id = $1 AND student_id = $2`,
+        [challengeId, studentId]
+      );
+    } else {
+      // New student not explicitly assigned - create the record
+      await pool.query(
+        `INSERT INTO student_challenges (challenge_id, student_id, status, notes) VALUES ($1, $2, 'Submitted', 'Submitted by parent on ' || CURRENT_DATE)`,
+        [challengeId, studentId]
+      );
+    }
 
     res.json({ success: true, message: 'Challenge submitted for review!' });
   } catch (err) {
@@ -6591,11 +6767,12 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
 // Get challenges for a student (parent portal)
 app.get('/api/students/:id/challenges', async (req, res) => {
   try {
+    // Show ALL active challenges to all students, with their submission status if they have one
     const result = await pool.query(`
       SELECT c.*, sc.status, sc.completed_at, sc.notes as completion_notes
       FROM weekly_challenges c
-      JOIN student_challenges sc ON c.id = sc.challenge_id
-      WHERE sc.student_id = $1 AND c.is_active = true
+      LEFT JOIN student_challenges sc ON c.id = sc.challenge_id AND sc.student_id = $1
+      WHERE c.is_active = true
       ORDER BY c.week_start DESC
     `, [req.params.id]);
     res.json(result.rows);
