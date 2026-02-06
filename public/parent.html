@@ -439,7 +439,7 @@
           <h2>📅 Schedule</h2>
           <div class="table-responsive">
             <table id="upcomingTable">
-              <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Join</th></tr></thead>
+              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Join</th></tr></thead>
               <tbody id="upcomingBody"><tr><td colspan="4">Loading...</td></tr></tbody>
             </table>
           </div>
@@ -468,7 +468,7 @@
           <p id="pastClassCount" style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Showing recent 10 classes</p>
           <div class="table-responsive">
             <table id="pastTable">
-              <thead><tr><th>Session #</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th><th>Feedback</th></tr></thead>
+              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Attendance</th><th>Materials</th><th>Homework</th><th>Feedback</th></tr></thead>
               <tbody id="pastBody"><tr><td colspan="7">Loading...</td></tr></tbody>
             </table>
           </div>
@@ -675,7 +675,7 @@
       <form id="feedbackForm">
         <input type="hidden" id="feedbackSessionId">
         <div style="text-align: center; margin-bottom: 20px;">
-          <p style="font-size: 18px; color: #4a5568; margin-bottom: 15px;">How was Session #<span id="feedbackSessionNum"></span>?</p>
+          <p style="font-size: 18px; color: #4a5568; margin-bottom: 15px;">How was Class #<span id="feedbackSessionNum"></span>?</p>
           <div class="star-rating" id="starRatingContainer" style="font-size: 2.5rem; cursor: pointer;">
             <span class="star" data-rating="1" onclick="setRating(1)">☆</span>
             <span class="star" data-rating="2" onclick="setRating(2)">☆</span>
@@ -1622,8 +1622,15 @@
     let sessionSerialMap = {}; // session.id -> serial number
     function buildSerialNumbers(sessions) {
       sessionSerialMap = {};
-      // Sessions come sorted ascending by date from API
-      const validSessions = sessions.filter(s => !['Cancelled', 'Cancelled by Parent'].includes(s.status));
+      const validSessions = sessions
+        .filter(s => !['Cancelled', 'Cancelled by Parent'].includes(s.status))
+        .sort((a, b) => {
+          const dA = (a.session_date || '').includes('T') ? a.session_date.split('T')[0] : (a.session_date || '');
+          const dB = (b.session_date || '').includes('T') ? b.session_date.split('T')[0] : (b.session_date || '');
+          const dateA = new Date(dA + 'T' + (a.session_time || '00:00:00'));
+          const dateB = new Date(dB + 'T' + (b.session_time || '00:00:00'));
+          return dateA - dateB; // ascending by date
+        });
       validSessions.forEach((s, i) => {
         sessionSerialMap[s.id] = i + 1;
       });
@@ -1644,6 +1651,12 @@
         const upcoming = sessions.filter(s => {
           if (!s.session_date) return false;
           return s.session_date >= today && !['Cancelled', 'Completed', 'Missed'].includes(s.status);
+        }).sort((a, b) => {
+          const dA = a.session_date.includes('T') ? a.session_date.split('T')[0] : a.session_date;
+          const dB = b.session_date.includes('T') ? b.session_date.split('T')[0] : b.session_date;
+          const dateA = new Date(dA + 'T' + (a.session_time || '00:00:00'));
+          const dateB = new Date(dB + 'T' + (b.session_time || '00:00:00'));
+          return dateA - dateB; // ascending - nearest class first
         });
 
         const tbody = document.getElementById('upcomingBody');
@@ -1920,7 +1933,7 @@
 
         sel.innerHTML = '<option value="">Select Session...</option>' + completed.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-          return `<option value="${s.id}">Session #${getSerial(s)} - ${t.date}</option>`;
+          return `<option value="${s.id}">Class #${getSerial(s)} - ${t.date}</option>`;
         }).join('');
 
         // Also load submitted homework
@@ -2013,7 +2026,7 @@
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
-                  <strong style="color: #2d3748;">${fileIcon} Session #${sessionSerialMap[hw.session_id] || '-'}</strong>
+                  <strong style="color: #2d3748;">${fileIcon} Class #${sessionSerialMap[hw.session_id] || '-'}</strong>
                   <p style="color: #718096; font-size: 0.85rem; margin: 5px 0;">
                     ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </p>
@@ -2054,7 +2067,7 @@
 
         sel.innerHTML = '<option value="">Select Class...</option>' + upcoming.map(s => {
             const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
-            return `<option value="${s.id}">Session #${getSerial(s)} - ${t.date} at ${t.time}</option>`;
+            return `<option value="${s.id}">Class #${getSerial(s)} - ${t.date} at ${t.time}</option>`;
         }).join('');
       } catch(e) {
         console.error('Error loading cancel dropdown:', e);
