@@ -2885,6 +2885,22 @@ async function checkAndSendReminders() {
         AND st.parent_email IS NOT NULL
     `);
 
+    // Auto-create missing session_attendance records for upcoming group sessions
+    // This ensures reminders are sent even if attendance records were not created during scheduling
+    await pool.query(`
+      INSERT INTO session_attendance (session_id, student_id, attendance)
+      SELECT s.id, st.id, 'Pending'
+      FROM sessions s
+      JOIN groups g ON s.group_id = g.id
+      JOIN students st ON st.group_id = g.id AND st.is_active = true
+      WHERE s.status IN ('Pending', 'Scheduled')
+        AND s.session_type = 'Group'
+        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
+        AND NOT EXISTS (
+          SELECT 1 FROM session_attendance sa WHERE sa.session_id = s.id AND sa.student_id = st.id
+        )
+    `);
+
     // Find all upcoming GROUP sessions and get enrolled students via session_attendance
     const groupSessions = await pool.query(`
       SELECT s.*, g.group_name, g.timezone as group_timezone,
@@ -3280,6 +3296,62 @@ app.get('/api/dashboard/stats', async (req, res) => {
 });
 
 // Calendar API - Get all sessions for a date range
+app.get('/api/calendar/sessions', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Start and end dates required' });
+    }
+
+    // Get private sessions (student_id set, no group_id - these are 1-on-1 sessions)
+    const privateSessions = await pool.query(`
+      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
+             'Private' as session_type,
+             st.name as student_name
+      FROM sessions s
+      JOIN students st ON s.student_id = st.id
+      WHERE s.student_id IS NOT NULL
+        AND s.group_id IS NULL
+        AND s.session_date >= $1 AND s.session_date <= $2
+      ORDER BY s.session_date, s.session_time
+    `, [start, end]);
+
+    // Get group sessions (group_id set - these are group classes)
+    const groupSessions = await pool.query(`
+      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
+             'Group' as session_type,
+             g.group_name as student_name
+      FROM sessions s
+      JOIN groups g ON s.group_id = g.id
+      WHERE s.group_id IS NOT NULL
+        AND s.session_date >= $1 AND s.session_date <= $2
+      ORDER BY s.session_date, s.session_time
+    `, [start, end]);
+
+    // Get demo sessions
+    const demoSessions = await pool.query(`
+      SELECT id, demo_date as session_date, demo_time as session_time,
+             1 as session_number, status, 'Demo' as session_type,
+             child_name as student_name
+      FROM demo_leads
+      WHERE demo_date >= $1 AND demo_date <= $2
+        AND status IN ('Scheduled', 'Demo Scheduled', 'Pending')
+      ORDER BY demo_date, demo_time
+    `, [start, end]);
+
+    const allSessions = [
+      ...privateSessions.rows,
+      ...groupSessions.rows,
+      ...demoSessions.rows
+    ];
+
+    res.json(allSessions);
+  } catch (err) {
+    console.error('Calendar error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/dashboard/upcoming-classes', async (req, res) => {
   try {
     // Get private sessions (only for active students) - using retry-enabled query
@@ -3395,6 +3467,36 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
         return 0;
       }
     }).slice(0, 10); // Show 10 upcoming classes
+
+   // For group sessions, fetch enrolled students with their attendance/cancellation status
+   const groupSessionIds = upcoming.filter(s => s.display_type === 'Group').map(s => s.id);
+   if (groupSessionIds.length > 0) {
+     const studentRows = await executeQuery(`
+       SELECT sa.session_id, sa.attendance, st.name as student_name, st.id as student_id
+       FROM session_attendance sa
+       JOIN students st ON sa.student_id = st.id
+       WHERE sa.session_id = ANY($1)
+       ORDER BY st.name
+     `, [groupSessionIds]);
+
+     // Build a map of session_id -> students
+     const studentMap = {};
+     for (const row of studentRows.rows) {
+       if (!studentMap[row.session_id]) studentMap[row.session_id] = [];
+       studentMap[row.session_id].push({
+         name: row.student_name,
+         student_id: row.student_id,
+         attendance: row.attendance
+       });
+     }
+
+     // Attach students to each group session
+     for (const cls of upcoming) {
+       if (cls.display_type === 'Group') {
+         cls.enrolled_students = studentMap[cls.id] || [];
+       }
+     }
+   }
 
    // SUCCESS
 res.json({
@@ -4384,10 +4486,24 @@ app.get('/api/sessions/:studentId', async (req, res) => {
     `, [id]);
 
     // Get group sessions for this student (only sessions they're enrolled in via session_attendance)
-    const student = await executeQuery('SELECT group_id FROM students WHERE id = $1', [id]);
+    const student = await executeQuery('SELECT group_id, created_at FROM students WHERE id = $1', [id]);
     let groupSessions = [];
 
     if (student.rows[0] && student.rows[0].group_id) {
+      const groupId = student.rows[0].group_id;
+
+      // Auto-create missing session_attendance records for this student's group sessions
+      // This ensures students always see their group sessions even if attendance records were not created during scheduling
+      await pool.query(`
+        INSERT INTO session_attendance (session_id, student_id, attendance)
+        SELECT s.id, $1, 'Pending'
+        FROM sessions s
+        WHERE s.group_id = $2 AND s.session_type = 'Group'
+          AND NOT EXISTS (
+            SELECT 1 FROM session_attendance sa WHERE sa.session_id = s.id AND sa.student_id = $1
+          )
+      `, [id, groupId]);
+
       const groupSessionsResult = await executeQuery(`
         SELECT s.*, 'Group' as source_type,
           m.file_path as homework_submission_path,
@@ -4400,7 +4516,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
         LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
         LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
         WHERE s.group_id = $2 AND s.session_type = 'Group'
-      `, [id, student.rows[0].group_id]);
+      `, [id, groupId]);
       groupSessions = groupSessionsResult.rows;
     }
 
