@@ -1371,6 +1371,23 @@ async function runMigrations() {
       console.log('Migration 23 note:', err.message);
     }
 
+    // Migration 24: Add certificate_sent to event_registrations for participation certificates
+    try {
+      await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS certificate_sent BOOLEAN DEFAULT FALSE`);
+      console.log('✅ Migration 24: Added certificate_sent to event_registrations');
+    } catch (err) {
+      console.log('Migration 24 note:', err.message);
+    }
+
+    // Migration 25: Add file upload columns to student_challenges for challenge submissions
+    try {
+      await client.query(`ALTER TABLE student_challenges ADD COLUMN IF NOT EXISTS submission_file_path TEXT`);
+      await client.query(`ALTER TABLE student_challenges ADD COLUMN IF NOT EXISTS submission_file_name TEXT`);
+      console.log('✅ Migration 25: Added submission file columns to student_challenges');
+    } catch (err) {
+      console.log('Migration 25 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -2150,6 +2167,77 @@ function getClassReminderEmail(data) {
 </html>`;
 }
 
+function getEventReminderEmail(data) {
+  const { childName, eventName, eventDate, eventTime, eventDuration, meetLink } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">⏰ Event Starting Soon!</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">${eventName}</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Hi! This is a reminder for <strong>${childName}</strong>,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        The event <strong>${eventName}</strong> is <strong>starting in 30 minutes</strong>! Please get ready to join.
+      </p>
+
+      <div style="background: linear-gradient(135deg, #f6f9fc 0%, #fce4ec 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #f5576c; margin-bottom: 25px;">
+        <h2 style="margin: 0 0 15px; color: #f5576c; font-size: 20px;">📅 Event Details</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Event:</strong></td>
+            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">${eventName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Date:</strong></td>
+            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">${eventDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Time:</strong></td>
+            <td style="padding: 8px 0; color: #f5576c; font-size: 16px; font-weight: bold; text-align: right;">${eventTime}</td>
+          </tr>
+          ${eventDuration ? '<tr><td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Duration:</strong></td><td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">' + eventDuration + '</td></tr>' : ''}
+        </table>
+      </div>
+
+      ${meetLink ? `
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${meetLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
+          🎥 Join Event Now
+        </a>
+      </div>
+      ` : ''}
+
+      <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
+        <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
+          <strong>💡 Tip:</strong> Join a few minutes early to make sure everything is working. Have a quiet space and good internet ready!
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        We're excited to see you there!<br>
+        <strong style="color: #f5576c;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function getHomeworkFeedbackEmail(data) {
   const { studentName, grade, comments, fileName } = data;
 
@@ -2775,6 +2863,63 @@ function getDemoAssessmentEmail(data) {
 </html>`;
 }
 
+// Event Participation Certificate Email Template
+function getEventCertificateEmail(data) {
+  const { childName, eventName, eventDate, certificateUrl } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 700px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">🏆</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Participation Certificate</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 18px; font-weight: 600;">${eventName}</p>
+    </div>
+
+    <!-- Content -->
+    <div style="padding: 30px;">
+      <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 25px; border: 2px solid #f59e0b;">
+        <div style="font-size: 40px; margin-bottom: 10px;">🎉</div>
+        <h3 style="margin: 0 0 10px; color: #92400e; font-size: 22px; font-weight: bold;">${eventName}</h3>
+        <p style="margin: 0 0 5px; color: #b45309; font-size: 14px;">Congratulations to</p>
+        <p style="margin: 0 0 15px; color: #92400e; font-size: 20px; font-weight: bold; text-transform: uppercase;">${childName}</p>
+        <p style="margin: 0 0 15px; color: #78716c; font-size: 13px;">${eventDate}</p>
+        <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);">
+          📥 Download Certificate
+        </a>
+        <p style="margin: 15px 0 0; color: #92400e; font-size: 12px;">Click to view and download the full certificate as PDF</p>
+      </div>
+
+      <div style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px;">
+        <p style="margin: 0; color: white; font-size: 16px; line-height: 1.6; font-weight: 500;">
+          🌟 Thank you for participating, ${childName}! 🌟<br>
+          <span style="font-size: 14px; opacity: 0.95;">We hope you had a wonderful time and learned something new!</span>
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; text-align: center; line-height: 1.6;">
+        With love and encouragement,<br>
+        <strong style="color: #8b5cf6; font-size: 16px;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 // ==================== CLASS REMINDER CRON JOB ====================
 // Runs every 15 minutes to check for upcoming classes
 // Function to check and send class reminders (used by both cron and manual trigger)
@@ -2930,16 +3075,108 @@ async function checkAndSendReminders() {
   }
 }
 
+// ==================== EVENT REMINDER SYSTEM ====================
+// Sends reminder emails 30 minutes before events to all registered participants
+async function checkAndSendEventReminders() {
+  const now = new Date();
+  console.log('🎉 Checking for upcoming events to send reminders...');
+
+  try {
+    // Find active events happening today or tomorrow (to cover timezone edge cases)
+    const events = await pool.query(`
+      SELECT * FROM events
+      WHERE status = 'Active'
+        AND event_date >= CURRENT_DATE
+        AND event_date <= CURRENT_DATE + INTERVAL '1 day'
+    `);
+
+    if (events.rows.length === 0) return;
+
+    for (const event of events.rows) {
+      try {
+        // Construct the event datetime in UTC
+        const eventDateTime = new Date(`${event.event_date.toISOString().split('T')[0]}T${event.event_time}Z`);
+        const timeDiff = eventDateTime - now;
+        const minutesDiff = timeDiff / (1000 * 60);
+
+        // Send reminder if event is 15-45 minutes away (window for 30-min reminder, checked every 15 min)
+        if (minutesDiff > 15 && minutesDiff <= 45) {
+          console.log(`⏰ Event "${event.event_name}" (ID:${event.id}) is ~30 min away, sending reminders...`);
+
+          // Get all registered participants for this event
+          const registrations = await pool.query(`
+            SELECT er.*,
+                   COALESCE(s.name, er.child_name) as display_child_name,
+                   COALESCE(s.parent_email, er.email) as display_email,
+                   COALESCE(s.parent_name, er.parent_name) as display_parent_name
+            FROM event_registrations er
+            LEFT JOIN students s ON er.student_id = s.id
+            WHERE er.event_id = $1
+          `, [event.id]);
+
+          for (const reg of registrations.rows) {
+            const email = reg.display_email;
+            if (!email) continue;
+
+            // Check if reminder already sent for this event + email combo
+            const sentCheck = await pool.query(
+              `SELECT id FROM email_log
+               WHERE recipient_email = $1
+                 AND email_type = 'Event-Reminder-30min'
+                 AND subject LIKE $2`,
+              [email, `%[EID:${event.id}]%`]
+            );
+
+            if (sentCheck.rows.length > 0) continue;
+
+            // Format the event time in 12-hour format (as entered by admin)
+            const [hours, minutes] = event.event_time.split(':');
+            const hr = parseInt(hours);
+            const ampm = hr >= 12 ? 'PM' : 'AM';
+            const hour12 = hr % 12 || 12;
+            const formattedTime = `${hour12}:${minutes} ${ampm}`;
+
+            const eventDate = new Date(event.event_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+            const emailHtml = getEventReminderEmail({
+              childName: reg.display_child_name || 'Student',
+              eventName: event.event_name,
+              eventDate: eventDate,
+              eventTime: formattedTime,
+              eventDuration: event.event_duration,
+              meetLink: event.meet_link
+            });
+
+            await sendEmail(
+              email,
+              `⏰ Starting Soon: ${event.event_name} - Join in 30 minutes! [EID:${event.id}]`,
+              emailHtml,
+              reg.display_parent_name || '',
+              'Event-Reminder-30min'
+            );
+            console.log(`✅ Sent event reminder to ${email} for "${event.event_name}"`);
+          }
+        }
+      } catch (eventErr) {
+        console.error(`Error processing event ${event.id}:`, eventErr);
+      }
+    }
+  } catch (err) {
+    console.error('❌ Error in event reminder check:', err);
+  }
+}
+
 // Cron job to run reminders every 15 minutes
 cron.schedule('*/15 * * * *', async () => {
   try {
     await checkAndSendReminders();
+    await checkAndSendEventReminders();
   } catch (err) {
-    console.error('❌ Error in class reminder cron job:', err);
+    console.error('❌ Error in reminder cron job:', err);
   }
 });
 
-console.log('✅ Class reminder system initialized - checking every 15 minutes');
+console.log('✅ Class & event reminder system initialized - checking every 15 minutes');
 
 // ==================== BIRTHDAY REMINDER CRON JOB ====================
 // Runs daily at 8:00 AM to check for birthdays
@@ -4980,7 +5217,12 @@ app.get('/api/events/:eventId/registrations', async (req, res) => {
 app.post('/api/events/:eventId/attendance', async (req, res) => {
   try {
     for(const record of req.body.attendanceData) {
-      await pool.query('UPDATE event_registrations SET attendance = $1 WHERE event_id = $2 AND student_id = $3', [record.attendance, req.params.eventId, record.student_id]);
+      // Support both registration_id (for public registrations) and student_id (legacy)
+      if (record.registration_id) {
+        await pool.query('UPDATE event_registrations SET attendance = $1 WHERE id = $2 AND event_id = $3', [record.attendance, record.registration_id, req.params.eventId]);
+      } else {
+        await pool.query('UPDATE event_registrations SET attendance = $1 WHERE event_id = $2 AND student_id = $3', [record.attendance, req.params.eventId, record.student_id]);
+      }
     }
     res.json({ message: 'Event attendance marked successfully!' });
   } catch (err) {
@@ -5209,6 +5451,87 @@ app.get('/api/events/:eventId/all-registrations', async (req, res) => {
 
     res.json(result.rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public endpoint to get event certificate data (no auth required)
+app.get('/api/event-certificate/:registrationId', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT er.id, er.event_id, er.certificate_sent,
+             COALESCE(s.name, er.child_name) as child_name,
+             COALESCE(s.parent_email, er.email) as email,
+             e.event_name, e.event_date, e.event_description
+      FROM event_registrations er
+      LEFT JOIN students s ON er.student_id = s.id
+      LEFT JOIN events e ON er.event_id = e.id
+      WHERE er.id = $1
+    `, [req.params.registrationId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Certificate not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Send participation certificates to event attendees
+app.post('/api/events/:eventId/send-certificates', async (req, res) => {
+  try {
+    const { registration_ids } = req.body;
+    const event = (await pool.query('SELECT * FROM events WHERE id = $1', [req.params.eventId])).rows[0];
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
+    let sent = 0;
+
+    for (const regId of registration_ids) {
+      const reg = (await pool.query(`
+        SELECT er.id, er.student_id, er.email as reg_email, er.child_name as reg_child_name, er.parent_name as reg_parent_name,
+               s.name as student_name, s.parent_email, s.parent_name as student_parent_name
+        FROM event_registrations er
+        LEFT JOIN students s ON er.student_id = s.id
+        WHERE er.id = $1 AND er.event_id = $2
+      `, [regId, req.params.eventId])).rows[0];
+
+      if (!reg) continue;
+
+      const childName = reg.student_name || reg.reg_child_name || 'Student';
+      const parentEmail = reg.parent_email || reg.reg_email;
+      const parentName = reg.student_parent_name || reg.reg_parent_name || '';
+
+      if (!parentEmail) continue;
+
+      const certificateUrl = `${appUrl}/event-certificate.html?id=${regId}`;
+      const eventDate = new Date(event.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      const emailHtml = getEventCertificateEmail({
+        childName,
+        eventName: event.event_name,
+        eventDate,
+        certificateUrl
+      });
+
+      const emailSent = await sendEmail(
+        parentEmail,
+        `🏆 Participation Certificate - ${event.event_name}`,
+        emailHtml,
+        parentName,
+        'Event Certificate'
+      );
+
+      if (emailSent) {
+        await pool.query('UPDATE event_registrations SET certificate_sent = TRUE WHERE id = $1', [regId]);
+        sent++;
+      }
+    }
+
+    res.json({ message: `Certificates sent to ${sent} participants!`, sent });
+  } catch (err) {
+    console.error('Send certificates error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -6780,10 +7103,54 @@ app.get('/api/challenges/:id/students', async (req, res) => {
 });
 
 // Parent submits challenge as done (awaiting teacher approval)
+// Challenge submission with optional file upload
+app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload('file'), async (req, res) => {
+  try {
+    const { challengeId, studentId } = req.params;
+
+    // Get file path if file was uploaded
+    let filePath = null;
+    let fileName = null;
+    if (req.file) {
+      if (useCloudinary) {
+        filePath = req.file.secure_url || req.file.path || req.file.url;
+      } else {
+        filePath = '/uploads/homework/' + req.file.filename;
+      }
+      fileName = req.file.originalname;
+    }
+
+    // Check if student already has a record for this challenge
+    const existing = await pool.query(
+      'SELECT id FROM student_challenges WHERE challenge_id = $1 AND student_id = $2',
+      [challengeId, studentId]
+    );
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE student_challenges SET status = 'Submitted', notes = 'Submitted by parent on ' || CURRENT_DATE,
+         submission_file_path = COALESCE($3, submission_file_path),
+         submission_file_name = COALESCE($4, submission_file_name)
+         WHERE challenge_id = $1 AND student_id = $2`,
+        [challengeId, studentId, filePath, fileName]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO student_challenges (challenge_id, student_id, status, notes, submission_file_path, submission_file_name)
+         VALUES ($1, $2, 'Submitted', 'Submitted by parent on ' || CURRENT_DATE, $3, $4)`,
+        [challengeId, studentId, filePath, fileName]
+      );
+    }
+
+    res.json({ success: true, message: 'Challenge submitted for review!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Keep old PUT endpoint for backwards compatibility (no file)
 app.put('/api/challenges/:challengeId/student/:studentId/submit', async (req, res) => {
   try {
     const { challengeId, studentId } = req.params;
-    // Check if student already has a record for this challenge
     const existing = await pool.query(
       'SELECT id FROM student_challenges WHERE challenge_id = $1 AND student_id = $2',
       [challengeId, studentId]
@@ -6794,7 +7161,6 @@ app.put('/api/challenges/:challengeId/student/:studentId/submit', async (req, re
         [challengeId, studentId]
       );
     } else {
-      // New student not explicitly assigned - create the record
       await pool.query(
         `INSERT INTO student_challenges (challenge_id, student_id, status, notes) VALUES ($1, $2, 'Submitted', 'Submitted by parent on ' || CURRENT_DATE)`,
         [challengeId, studentId]

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Event Registration - Fluent Feathers Academy</title>
-  <link rel="icon" type="image/x-icon" href="https://res.cloudinary.com/dmqipms4f/image/upload/v1749575036/WhatsApp_Image_2025-06-10_at_11.29.25_PM_amduxf.jpg">
+  <title>Event Registration - Fluent Feathers Academy By Aaliya</title>
+  <link rel="icon" type="image/x-icon" id="favicon" href="/logo.png">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -225,8 +225,8 @@
 <body>
   <div class="container">
     <div class="logo">
-      <img src="https://res.cloudinary.com/dmqipms4f/image/upload/v1749575036/WhatsApp_Image_2025-06-10_at_11.29.25_PM_amduxf.jpg" alt="Fluent Feathers Academy">
-      <h1>Fluent Feathers Academy</h1>
+      <img id="brandLogo" src="/logo.png" alt="Fluent Feathers Academy By Aaliya">
+      <h1>Fluent Feathers Academy By Aaliya</h1>
     </div>
 
     <div id="content">
@@ -279,10 +279,17 @@
     function formatTime(timeStr) {
       if (!timeStr) return '';
       const [hours, minutes] = timeStr.split(':');
-      const hour = parseInt(hours);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour % 12 || 12;
-      return `${hour12}:${minutes} ${ampm}`;
+      // Convert UTC time to IST (UTC + 5:30)
+      let istHour = parseInt(hours) + 5;
+      let istMin = parseInt(minutes) + 30;
+      if (istMin >= 60) {
+        istMin -= 60;
+        istHour += 1;
+      }
+      if (istHour >= 24) istHour -= 24;
+      const ampm = istHour >= 12 ? 'PM' : 'AM';
+      const hour12 = istHour % 12 || 12;
+      return `${hour12}:${istMin.toString().padStart(2, '0')} ${ampm} IST`;
     }
 
     function showEventForm(event) {
@@ -416,7 +423,22 @@
       }
     }
 
-    // Load event on page load
+    // Load logo from config
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const config = await res.json();
+        if (config.logoUrl) {
+          const logo = document.getElementById('brandLogo');
+          if (logo) logo.src = config.logoUrl;
+          const favicon = document.getElementById('favicon');
+          if (favicon) favicon.href = config.logoUrl;
+        }
+      } catch (e) {}
+    }
+
+    // Load event and config on page load
+    loadConfig();
     loadEvent();
   </script>
 </body>

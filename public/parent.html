@@ -1452,7 +1452,12 @@
             statusBadge = `<div style="background: #9f7aea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">⏳ Awaiting Approval</div>`;
           } else {
             statusBadge = `<div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">IN PROGRESS</div>`;
-            actionButton = `<button onclick="submitChallenge(${c.id}, '${c.title.replace(/'/g, "\\'")}')" style="margin-top: 10px; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">✋ I Did It! Submit for Review</button>`;
+            actionButton = `
+              <div style="margin-top: 10px; background: rgba(255,255,255,0.6); padding: 12px; border-radius: 8px;">
+                <label style="display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 600;">📎 Attach your work (image, video, or PDF):</label>
+                <input type="file" id="challengeFile-${c.id}" accept="image/*,video/*,.pdf,.doc,.docx" style="font-size: 0.85rem; margin-bottom: 8px; width: 100%;">
+                <button onclick="submitChallenge(${c.id}, '${c.title.replace(/'/g, "\\'")}')" style="background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; width: 100%;">✋ Submit for Review</button>
+              </div>`;
           }
 
           return `
@@ -1481,15 +1486,38 @@
       }
     }
 
-    // Submit challenge as done (parent reports completion)
+    // Submit challenge as done with optional file attachment
     async function submitChallenge(challengeId, challengeTitle) {
-      if (!confirm(`Submit "${challengeTitle}" as completed?\n\nYour teacher will review and approve it.`)) return;
+      const fileInput = document.getElementById(`challengeFile-${challengeId}`);
+      const file = fileInput ? fileInput.files[0] : null;
+
+      if (!confirm(`Submit "${challengeTitle}" as completed?${file ? '\n\nFile: ' + file.name : '\n\nNo file attached.'}\n\nYour teacher will review and approve it.`)) return;
+
+      // Disable the submit button
+      const btn = event.target;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Uploading...';
+      btn.disabled = true;
 
       try {
-        const res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
-          method: 'PUT',
-          headers: { ...authHeaders(), 'Content-Type': 'application/json' }
-        });
+        let res;
+        if (file) {
+          // Use POST with FormData for file upload
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('uploadType', 'homework');
+          res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: fd
+          });
+        } else {
+          // No file - use PUT (original endpoint)
+          res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
+            method: 'PUT',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' }
+          });
+        }
         const result = await res.json();
         if (res.ok) {
           alert('🎉 Challenge submitted! Your teacher will review and award your badge soon.');
@@ -1499,6 +1527,9 @@
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
       }
     }
 
@@ -2816,20 +2847,50 @@
       return url;
     }
 
-    // Force download for cross-origin files (Cloudinary etc.)
-    function forceDownload(url, filename) {
+    // Force download for cross-origin files (Cloudinary etc.) using fetch+blob
+    async function forceDownload(url, filename) {
       if (!url) return;
-      // For Cloudinary URLs, use fl_attachment URL directly
-      const downloadUrl = getDownloadUrl(url, filename);
-      // Use a hidden link click to trigger download
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = filename || 'download';
-      a.target = '_blank';
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+
+      // Show loading on the clicked button
+      const btn = event && event.target ? event.target.closest('button') : null;
+      const originalText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.innerHTML = '⏳';
+        btn.disabled = true;
+      }
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch file');
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+
+        if (btn) {
+          btn.innerHTML = '✅';
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Download error:', err);
+        // Fallback: try opening with fl_attachment URL in new tab
+        const downloadUrl = getDownloadUrl(url, filename);
+        window.open(downloadUrl, '_blank');
+        if (btn) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }
+      }
     }
 
     function openResource(resourceId, url) {

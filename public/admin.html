@@ -2365,6 +2365,17 @@ I'm passionate about helping children develop confidence in communication!"></te
     </div>
   </div>
 
+  <!-- Event Certificates Modal -->
+  <div id="eventCertificatesModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h2 id="eventCertificatesTitle" style="color: #8b5cf6;">Send Participation Certificates</h2>
+        <button onclick="closeEventCertificatesModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <div id="eventCertificatesContent">Loading...</div>
+    </div>
+  </div>
+
   <!-- Complete Student Modal with ALL tabs -->
   <div id="studentModal" class="modal">
     <div class="modal-content">
@@ -4339,7 +4350,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             <p style="color:#718096; text-align:center;">Loading materials...</p>
           </div>
         </div>
-        ` + '<scr' + 'ipt>loadSessionMaterials(' + sessionId + ');<\/scr' + 'ipt>';
+        `;
 
         if (sessionType === 'Group') {
           const attRes = await fetch(`/api/sessions/${sessionId}/group-attendance`);
@@ -4362,8 +4373,10 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
 
         document.getElementById('sessionDetailsContent').innerHTML = content;
         document.getElementById('sessionModal').classList.add('active');
+        // Load materials list (must be called after innerHTML since inline scripts don't execute)
+        loadSessionMaterials(sessionId);
       } catch(err) {
-        alert('Error loading session');
+        alert('Error loading session: ' + err.message);
       }
     }
 
@@ -5006,13 +5019,19 @@ async function saveEditedPayment() {
         fd.append('file', inp.files[0]);
         fd.append('materialType', type);
         fetch(`/api/sessions/${id}/upload`, {method:'POST', body:fd})
-          .then(r => r.json())
-          .then(data => {
-            alert('✅ ' + data.message);
-            inp.value = ''; // Clear input
-            loadSessionMaterials(id); // Reload materials list
+          .then(r => r.json().then(data => ({ok: r.ok, data})))
+          .then(({ok, data}) => {
+            if (ok) {
+              alert('✅ ' + (data.message || 'Material uploaded successfully!'));
+              inp.value = '';
+              loadSessionMaterials(id);
+              // Refresh the modal to show updated view links
+              openSessionModal(id, window.currentRescheduleSession?.session_type || 'Private');
+            } else {
+              alert('❌ Upload failed: ' + (data.error || 'Unknown error'));
+            }
           })
-          .catch(err => alert('❌ Upload failed'));
+          .catch(err => alert('❌ Upload failed: ' + err.message));
       } else {
         alert('Please select a file first');
       }
@@ -5036,8 +5055,9 @@ async function saveEditedPayment() {
         container.innerHTML = materials.map(m => {
           const icon = typeIcons[m.material_type] || '📄';
           const badgeClass = typeClasses[m.material_type] || 'mat-badge-other';
-          const fileName = m.file_name || m.file_path.split('/').pop();
-          const isLink = m.file_path.startsWith('http');
+          const filePath = m.file_path || '';
+          const fileName = m.file_name || filePath.split('/').pop() || 'Unknown file';
+          const isLink = filePath.startsWith('http');
 
           return `
             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid #e2e8f0; gap:10px;">
@@ -5050,7 +5070,7 @@ async function saveEditedPayment() {
                 </div>
               </div>
               <div style="display:flex; gap:5px;">
-                <a href="${m.file_path}" target="_blank" class="btn btn-sm" style="background:#38b2ac; color:white; text-decoration:none;">View</a>
+                <a href="${filePath || '#'}" target="_blank" class="btn btn-sm" style="background:#38b2ac; color:white; text-decoration:none;">View</a>
                 <button onclick="deleteSessionMaterial(${m.id}, ${sessionId})" class="btn btn-sm" style="background:#e53e3e; color:white;">🗑️</button>
               </div>
             </div>
@@ -5792,6 +5812,9 @@ async function saveEditedPayment() {
         if(res.ok) {
           alert('✅ Link saved successfully!');
           inp.value = '';
+          loadSessionMaterials(sessionId);
+          // Refresh modal to show updated view links
+          openSessionModal(sessionId, window.currentRescheduleSession?.session_type || 'Private');
         } else {
           alert('❌ Failed: ' + (data.error || 'Unknown error'));
         }
@@ -6022,6 +6045,7 @@ async function saveEditedPayment() {
               <button onclick="editEvent(${e.id})" class="btn btn-sm btn-warning">Edit</button>
               <button onclick="markEventAttendance(${e.id}, '${e.event_name}')" class="btn btn-sm btn-success">Attendance</button>
               <button onclick="viewEventRegistrations(${e.id}, '${e.event_name}')" class="btn btn-sm" style="background:#9f7aea; color:white;">Registrations</button>
+              <button onclick="openEventCertificates(${e.id}, '${e.event_name}')" class="btn btn-sm" style="background:#8b5cf6; color:white;">Certificates</button>
               <button onclick="copyEventLink(${e.id})" class="btn btn-sm" style="background:#38a169; color:white;">Copy Link</button>
               <button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-danger">Delete</button>
             </td>
@@ -7202,6 +7226,7 @@ async function saveEditedPayment() {
                     <tr style="background: #f7fafc;">
                       <th style="padding: 12px; text-align: left;">Student</th>
                       <th style="padding: 12px; text-align: center;">Status</th>
+                      <th style="padding: 12px; text-align: center;">Submission</th>
                       <th style="padding: 12px; text-align: center;">Action</th>
                     </tr>
                   </thead>
@@ -7209,31 +7234,57 @@ async function saveEditedPayment() {
                     ${students.map(s => {
                       let statusBadge = '';
                       let actionBtn = '';
+                      let submissionCol = '<span style="color:#718096;">-</span>';
                       let rowClass = 'challenge-row-default';
 
-                      if (s.status === 'Completed') {
-                        statusBadge = `<span class="challenge-badge challenge-badge-completed">✅ Completed</span>
-                                       <br><small style="color: #718096;">${s.completed_at ? new Date(s.completed_at).toLocaleDateString() : ''}</small>`;
-                        actionBtn = `<span class="status-active">🏅 Badge Awarded</span>`;
-                      } else if (s.status === 'Submitted') {
-                        statusBadge = `<span class="challenge-badge challenge-badge-submitted">📩 Submitted!</span>`;
-                        actionBtn = `<button onclick="markChallengeComplete(${challengeId}, ${s.student_id}, decodeURIComponent('${encodeURIComponent(s.student_name)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm" style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: white; font-weight: bold;">✅ Approve & Award Badge</button>`;
-                        rowClass = 'challenge-row-submitted';
-                      } else {
-                        statusBadge = `<span class="challenge-badge challenge-badge-pending">⏳ Not Started</span>`;
-                        actionBtn = `<button onclick="markChallengeComplete(${challengeId}, ${s.student_id}, decodeURIComponent('${encodeURIComponent(s.student_name)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm" style="background: #718096; color: white;">✅ Mark Complete</button>`;
+                      // Build submission file display
+                      if (s.submission_file_path) {
+                        const fname = s.submission_file_name || 'Submission';
+                        const ext = fname.split('.').pop().toLowerCase();
+                        const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
+                        const isVideo = ['mp4','mov','avi','webm'].includes(ext);
+                        const isPdf = ext === 'pdf';
+                        const isDoc = ['doc','docx','ppt','pptx'].includes(ext);
+                        const fileIcon = isVideo ? '🎥' : isImage ? '🖼️' : isPdf ? '📄' : isDoc ? '📝' : '📁';
+                        const fileType = isImage ? 'image' : isVideo ? 'video' : isPdf ? 'pdf' : isDoc ? 'doc' : 'other';
+
+                        let fileUrl = s.submission_file_path;
+                        if (!fileUrl.startsWith('http') && !fileUrl.startsWith('/uploads/')) {
+                          fileUrl = '/uploads/homework/' + fileUrl;
+                        }
+
+                        submissionCol = '<div style="display:flex; flex-direction:column; gap:4px; align-items:center;">' +
+                          '<span style="font-size:0.8rem; color:#4a5568;">' + fileIcon + ' ' + (fname.length > 20 ? fname.substring(0,20) + '...' : fname) + '</span>' +
+                          '<div style="display:flex; gap:4px;">' +
+                            '<button onclick="previewFile(\'' + fileUrl + '\', \'' + fileType + '\', decodeURIComponent(\'' + encodeURIComponent(fname) + '\'))" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px;">View</button>' +
+                            '<a href="' + fileUrl + '" target="_blank" download="' + fname + '" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px; text-decoration:none;">⬇️</a>' +
+                          '</div>' +
+                        '</div>';
                       }
 
-                      return `
-                      <tr class="${rowClass}">
-                        <td style="padding: 12px;">
-                          <strong>${s.student_name}</strong>
-                          ${s.status === 'Submitted' ? '<span class="needs-review-badge">NEEDS REVIEW</span>' : ''}
-                          <br><small style="color: #718096;">${s.program_name || ''}</small>
-                        </td>
-                        <td style="padding: 12px; text-align: center;">${statusBadge}</td>
-                        <td style="padding: 12px; text-align: center;">${actionBtn}</td>
-                      </tr>`;
+                      if (s.status === 'Completed') {
+                        statusBadge = '<span class="challenge-badge challenge-badge-completed">✅ Completed</span>' +
+                                       '<br><small style="color: #718096;">' + (s.completed_at ? new Date(s.completed_at).toLocaleDateString() : '') + '</small>';
+                        actionBtn = '<span class="status-active">🏅 Badge Awarded</span>';
+                      } else if (s.status === 'Submitted') {
+                        statusBadge = '<span class="challenge-badge challenge-badge-submitted">📩 Submitted!</span>';
+                        actionBtn = '<button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: white; font-weight: bold;">✅ Approve & Award Badge</button>';
+                        rowClass = 'challenge-row-submitted';
+                      } else {
+                        statusBadge = '<span class="challenge-badge challenge-badge-pending">⏳ Not Started</span>';
+                        actionBtn = '<button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: #718096; color: white;">✅ Mark Complete</button>';
+                      }
+
+                      return '<tr class="' + rowClass + '">' +
+                        '<td style="padding: 12px;">' +
+                          '<strong>' + s.student_name + '</strong>' +
+                          (s.status === 'Submitted' ? ' <span class="needs-review-badge">NEEDS REVIEW</span>' : '') +
+                          '<br><small style="color: #718096;">' + (s.program_name || '') + '</small>' +
+                        '</td>' +
+                        '<td style="padding: 12px; text-align: center;">' + statusBadge + '</td>' +
+                        '<td style="padding: 12px; text-align: center;">' + submissionCol + '</td>' +
+                        '<td style="padding: 12px; text-align: center;">' + actionBtn + '</td>' +
+                      '</tr>';
                     }).join('')}
                   </tbody>
                 </table>
@@ -8352,7 +8403,7 @@ async function saveEditedPayment() {
 
     async function markEventAttendance(eventId, eventName) {
       try {
-        const res = await fetch(`/api/events/${eventId}/registrations`);
+        const res = await fetch(`/api/events/${eventId}/all-registrations`);
         const registrations = await res.json();
         currentEventId = eventId;
 
@@ -8362,18 +8413,19 @@ async function saveEditedPayment() {
           document.getElementById('eventAttendanceContent').innerHTML = '<p style="text-align: center; color: #718096; padding: 40px;">No registrations to mark attendance</p>';
         } else {
           document.getElementById('eventAttendanceContent').innerHTML = `
-            <p style="margin-bottom: 15px; color: #4a5568;">Mark attendance for registered students:</p>
+            <p style="margin-bottom: 15px; color: #4a5568;">Mark attendance for all registered participants:</p>
             <table>
-              <thead><tr><th>Student Name</th><th>Age</th><th>Current Status</th><th>Mark Attendance</th></tr></thead>
+              <thead><tr><th>Name</th><th>Age</th><th>Source</th><th>Current Status</th><th>Mark Attendance</th></tr></thead>
               <tbody>
                 ${registrations.map(r => `
                   <tr>
-                    <td><strong>${r.student_name}</strong></td>
-                    <td>${getAgeDisplay(r)}</td>
+                    <td><strong>${r.display_child_name || '-'}</strong></td>
+                    <td>${r.display_grade || '-'}</td>
+                    <td><span class="type-badge" style="background: ${r.reg_type === 'Public Registration' ? '#f0fff4; color: #38a169' : '#f0f4ff; color: #667eea'}">${r.reg_type}</span></td>
                     <td><span class="type-badge ${r.attendance === 'Present' ? 'attendance-present' : r.attendance === 'Absent' ? 'attendance-absent' : 'attendance-pending'}">${r.attendance || 'Pending'}</span></td>
                     <td>
-                      <button onclick="saveEventAttendance(${eventId}, ${r.student_id}, 'Present')" class="btn btn-sm btn-success">Present</button>
-                      <button onclick="saveEventAttendance(${eventId}, ${r.student_id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
+                      <button onclick="saveEventAttendance(${eventId}, ${r.id}, 'Present')" class="btn btn-sm btn-success">Present</button>
+                      <button onclick="saveEventAttendance(${eventId}, ${r.id}, 'Absent')" class="btn btn-sm btn-danger">Absent</button>
                     </td>
                   </tr>
                 `).join('')}
@@ -8391,12 +8443,12 @@ async function saveEditedPayment() {
       document.getElementById('eventAttendanceModal').classList.remove('active');
     }
 
-    async function saveEventAttendance(eventId, studentId, status) {
+    async function saveEventAttendance(eventId, registrationId, status) {
       try {
         const res = await fetch(`/api/events/${eventId}/attendance`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ attendanceData: [{ student_id: studentId, attendance: status }] })
+          body: JSON.stringify({ attendanceData: [{ registration_id: registrationId, attendance: status }] })
         });
 
         if (res.ok) {
@@ -8409,6 +8461,120 @@ async function saveEditedPayment() {
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // ==================== EVENT CERTIFICATES ====================
+    async function openEventCertificates(eventId, eventName) {
+      try {
+        const res = await fetch(`/api/events/${eventId}/all-registrations`);
+        const registrations = await res.json();
+
+        document.getElementById('eventCertificatesTitle').textContent = `🏆 ${eventName} - Participation Certificates`;
+
+        // Filter to only show present attendees
+        const present = registrations.filter(r => r.attendance === 'Present');
+
+        if (present.length === 0) {
+          document.getElementById('eventCertificatesContent').innerHTML = `
+            <p style="text-align: center; color: #718096; padding: 40px;">No attendees marked as "Present" yet.<br>Please mark attendance first before sending certificates.</p>
+          `;
+        } else {
+          document.getElementById('eventCertificatesContent').innerHTML = `
+            <p style="margin-bottom: 15px; color: #4a5568;">Send participation certificates to attendees who were marked <strong>Present</strong>:</p>
+            <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+              <button onclick="selectAllEventCerts()" class="btn btn-sm" style="background: #667eea; color: white;">Select All</button>
+              <button onclick="deselectAllEventCerts()" class="btn btn-sm" style="background: #718096; color: white;">Deselect All</button>
+              <button onclick="sendSelectedEventCerts(${eventId})" class="btn btn-sm" style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; font-weight: 600;">📧 Send Selected Certificates</button>
+            </div>
+            <table>
+              <thead><tr><th><input type="checkbox" id="selectAllCertCheckbox" onchange="toggleAllEventCerts(this)" checked></th><th>Name</th><th>Email</th><th>Source</th><th>Certificate Status</th></tr></thead>
+              <tbody>
+                ${present.map(r => {
+                  const email = r.display_email || '';
+                  const sent = r.certificate_sent;
+                  return `
+                    <tr>
+                      <td><input type="checkbox" class="cert-checkbox" value="${r.id}" ${sent ? '' : 'checked'} data-email="${email}"></td>
+                      <td><strong>${r.display_child_name || '-'}</strong></td>
+                      <td>${email || '<span style="color:#e53e3e;">No email</span>'}</td>
+                      <td><span class="type-badge" style="background: ${r.reg_type === 'Public Registration' ? '#f0fff4; color: #38a169' : '#f0f4ff; color: #667eea'}">${r.reg_type}</span></td>
+                      <td>${sent ? '<span style="color:#38a169; font-weight:600;">✅ Sent</span>' : '<span style="color:#718096;">Not sent</span>'}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+        document.getElementById('eventCertificatesModal').classList.add('active');
+      } catch (err) {
+        alert('Error loading certificates: ' + err.message);
+      }
+    }
+
+    function closeEventCertificatesModal() {
+      document.getElementById('eventCertificatesModal').classList.remove('active');
+    }
+
+    function selectAllEventCerts() {
+      document.querySelectorAll('.cert-checkbox').forEach(cb => cb.checked = true);
+      const selectAll = document.getElementById('selectAllCertCheckbox');
+      if (selectAll) selectAll.checked = true;
+    }
+
+    function deselectAllEventCerts() {
+      document.querySelectorAll('.cert-checkbox').forEach(cb => cb.checked = false);
+      const selectAll = document.getElementById('selectAllCertCheckbox');
+      if (selectAll) selectAll.checked = false;
+    }
+
+    function toggleAllEventCerts(masterCheckbox) {
+      document.querySelectorAll('.cert-checkbox').forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+
+    async function sendSelectedEventCerts(eventId) {
+      const selected = [];
+      document.querySelectorAll('.cert-checkbox:checked').forEach(cb => {
+        if (cb.getAttribute('data-email')) {
+          selected.push(parseInt(cb.value));
+        }
+      });
+
+      if (selected.length === 0) {
+        alert('Please select at least one attendee with a valid email.');
+        return;
+      }
+
+      if (!confirm(`Send participation certificates to ${selected.length} attendee(s)?`)) return;
+
+      const btn = event.target;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Sending...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`/api/events/${eventId}/send-certificates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ registration_ids: selected })
+        });
+
+        const result = await res.json();
+        if (res.ok) {
+          alert(`✅ ${result.message}`);
+          // Refresh the modal
+          const eventRes = await fetch(`/api/events/${eventId}`);
+          const eventData = await eventRes.json();
+          openEventCertificates(eventId, eventData.event_name);
+        } else {
+          alert('❌ Failed: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
       }
     }
 
