@@ -100,6 +100,13 @@ pool.on('remove', (client) => {
   console.log('🔌 Database connection removed from pool');
 });
 
+// HTML escape utility to prevent XSS in email templates
+function escapeHtml(text) {
+  if (!text) return '';
+  const str = String(text);
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // Calculate age from date of birth
 function calculateAge(dob) {
   if (!dob) return null;
@@ -345,74 +352,6 @@ app.get('/api/config', (req, res) => {
 });
 
 // Debug endpoint to check recent file uploads and their URLs
-app.get('/api/debug/files', async (req, res) => {
-  try {
-    // Get recent sessions with files
-    const sessions = await pool.query(`
-      SELECT id, session_number, ppt_file_path, recording_file_path, homework_file_path
-      FROM sessions
-      WHERE ppt_file_path IS NOT NULL OR recording_file_path IS NOT NULL OR homework_file_path IS NOT NULL
-      ORDER BY id DESC LIMIT 10
-    `);
-
-    res.json({
-      cloudinaryConfigured: useCloudinary,
-      cloudName: useCloudinary ? cloudName : 'NOT SET',
-      recentFileSessions: sessions.rows.map(s => ({
-        sessionId: s.id,
-        sessionNumber: s.session_number,
-        ppt: s.ppt_file_path ? { url: s.ppt_file_path, isCloudinary: s.ppt_file_path?.includes('cloudinary'), isLink: s.ppt_file_path?.startsWith('LINK:') } : null,
-        recording: s.recording_file_path ? { url: s.recording_file_path, isCloudinary: s.recording_file_path?.includes('cloudinary'), isLink: s.recording_file_path?.startsWith('LINK:') } : null,
-        homework: s.homework_file_path ? { url: s.homework_file_path, isCloudinary: s.homework_file_path?.includes('cloudinary'), isLink: s.homework_file_path?.startsWith('LINK:') } : null
-      }))
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Test upload endpoint - to verify Cloudinary is working
-app.post('/api/debug/test-upload', handleUpload('file'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    res.json({
-      success: true,
-      storageType: useCloudinary ? 'cloudinary' : 'local',
-      fileInfo: {
-        originalName: req.file.originalname,
-        path: req.file.path,
-        filename: req.file.filename,
-        size: req.file.size,
-        mimetype: req.file.mimetype,
-        // Cloudinary specific fields
-        publicId: req.file.public_id,
-        secureUrl: req.file.secure_url,
-        url: req.file.url,
-        format: req.file.format,
-        resourceType: req.file.resource_type
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Cloudinary status check endpoint
-app.get('/api/debug/cloudinary-status', (req, res) => {
-  res.json({
-    cloudinaryConfigured: useCloudinary,
-    cloudName: cloudName ? cloudName.substring(0, 3) + '***' : 'NOT SET',
-    apiKeySet: !!apiKey,
-    apiSecretSet: !!apiSecret,
-    storageType: useCloudinary ? 'cloudinary' : 'local',
-    message: useCloudinary
-      ? 'Cloudinary is configured. Uploads should work.'
-      : 'Cloudinary NOT configured. Add CLOUDINARY_URL or individual CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_CLOUD_NAME to Render environment variables.'
-  });
-});
-
 // ==================== ADMIN SETTINGS API ====================
 // Get admin settings (bio, name, title)
 app.get('/api/admin/settings', async (req, res) => {
@@ -527,7 +466,10 @@ function generateAdminToken(studentId) {
 
 function verifyAdminToken(token) {
   try {
-    const [studentId, timestamp, signature] = token.split(':');
+    const parts = token.split(':');
+    if (parts.length !== 3) return null;
+    const [studentId, timestamp, signature] = parts;
+    if (!studentId || !timestamp || !signature) return null;
     const payload = `${studentId}:${timestamp}`;
     const expected = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex');
     if (expected !== signature) return null;
@@ -1378,6 +1320,14 @@ async function runMigrations() {
       console.log('✅ Migration 25: Added submission file columns to student_challenges');
     } catch (err) {
       console.log('Migration 25 note:', err.message);
+    }
+
+    // Migration 26: Add unique constraint on student_challenges(student_id, challenge_id)
+    try {
+      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS student_challenges_student_challenge_unique ON student_challenges (student_id, challenge_id)`);
+      console.log('✅ Migration 26: Added unique constraint on student_challenges');
+    } catch (err) {
+      console.log('Migration 26 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -2307,7 +2257,7 @@ function getHomeworkFeedbackEmail(data) {
 }
 
 function getBirthdayEmail(data) {
-  const { studentName, age } = data;
+  const { studentName } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -3330,62 +3280,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
 });
 
 // Calendar API - Get all sessions for a date range
-app.get('/api/calendar/sessions', async (req, res) => {
-  try {
-    const { start, end } = req.query;
-    if (!start || !end) {
-      return res.status(400).json({ error: 'Start and end dates required' });
-    }
-
-    // Get private sessions (student_id set, no group_id - these are 1-on-1 sessions)
-    const privateSessions = await pool.query(`
-      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
-             'Private' as session_type,
-             st.name as student_name
-      FROM sessions s
-      JOIN students st ON s.student_id = st.id
-      WHERE s.student_id IS NOT NULL
-        AND s.group_id IS NULL
-        AND s.session_date >= $1 AND s.session_date <= $2
-      ORDER BY s.session_date, s.session_time
-    `, [start, end]);
-
-    // Get group sessions (group_id set - these are group classes)
-    const groupSessions = await pool.query(`
-      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
-             'Group' as session_type,
-             g.group_name as student_name
-      FROM sessions s
-      JOIN groups g ON s.group_id = g.id
-      WHERE s.group_id IS NOT NULL
-        AND s.session_date >= $1 AND s.session_date <= $2
-      ORDER BY s.session_date, s.session_time
-    `, [start, end]);
-
-    // Get demo sessions
-    const demoSessions = await pool.query(`
-      SELECT id, demo_date as session_date, demo_time as session_time,
-             1 as session_number, status, 'Demo' as session_type,
-             child_name as student_name
-      FROM demo_leads
-      WHERE demo_date >= $1 AND demo_date <= $2
-        AND status IN ('Scheduled', 'Demo Scheduled', 'Pending')
-      ORDER BY demo_date, demo_time
-    `, [start, end]);
-
-    const allSessions = [
-      ...privateSessions.rows,
-      ...groupSessions.rows,
-      ...demoSessions.rows
-    ];
-
-    res.json(allSessions);
-  } catch (err) {
-    console.error('Calendar error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 app.get('/api/dashboard/upcoming-classes', async (req, res) => {
   try {
     // Get private sessions (only for active students) - using retry-enabled query
@@ -4050,7 +3944,14 @@ app.post('/api/groups/:groupId/enroll', async (req, res) => {
 // Get students in a group
 app.get('/api/groups/:groupId/students', async (req, res) => {
   try {
-    const students = await pool.query('SELECT * FROM students WHERE group_id = $1 AND is_active = true ORDER BY name', [req.params.groupId]);
+    const students = await pool.query(`
+      SELECT s.*, COUNT(DISTINCT m.id) as makeup_credits
+      FROM students s
+      LEFT JOIN makeup_classes m ON s.id = m.student_id AND LOWER(m.status) = 'available'
+      WHERE s.group_id = $1 AND s.is_active = true
+      GROUP BY s.id
+      ORDER BY s.name
+    `, [req.params.groupId]);
     res.json(students.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4081,26 +3982,70 @@ app.post('/api/schedule/private-classes', async (req, res) => {
     const { student_id, classes, send_email } = req.body;
     const student = (await client.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0];
     if(!student) return res.status(404).json({ error: 'Student not found' });
-    if(student.remaining_sessions < classes.length) return res.status(400).json({ error: 'Not enough sessions' });
+
+    // Separate regular and makeup classes
+    const regularClasses = classes.filter(c => !c.use_makeup);
+    const makeupClasses = classes.filter(c => c.use_makeup);
+
+    // Validate remaining_sessions only against regular classes
+    if(student.remaining_sessions < regularClasses.length) {
+      return res.status(400).json({ error: `Not enough sessions. Need ${regularClasses.length} regular sessions but only ${student.remaining_sessions} remaining.` });
+    }
+
+    // Validate available makeup credits
+    if (makeupClasses.length > 0) {
+      const availableCredits = await client.query(
+        'SELECT id FROM makeup_classes WHERE student_id = $1 AND status = $2 ORDER BY credit_date ASC',
+        [student_id, 'Available']
+      );
+      if (availableCredits.rows.length < makeupClasses.length) {
+        return res.status(400).json({ error: `Not enough makeup credits. Need ${makeupClasses.length} but only ${availableCredits.rows.length} available.` });
+      }
+    }
 
     const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id])).rows[0].count;
     let sessionNumber = parseInt(count)+1;
 
     await client.query('BEGIN');
 
+    // Fetch available makeup credit IDs (FIFO - oldest first)
+    let makeupCreditIds = [];
+    if (makeupClasses.length > 0) {
+      const credits = await client.query(
+        'SELECT id FROM makeup_classes WHERE student_id = $1 AND status = $2 ORDER BY credit_date ASC LIMIT $3',
+        [student_id, 'Available', makeupClasses.length]
+      );
+      makeupCreditIds = credits.rows.map(r => r.id);
+    }
+    let makeupCreditIndex = 0;
+
     const scheduledSessions = [];
     let emailSerial = 1;
     for(const cls of classes) {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
-      await client.query(`
-        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status)
-        VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Pending')
-      `, [student_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
+      const isMakeup = cls.use_makeup === true;
+
+      const result = await client.query(`
+        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status, notes)
+        VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7)
+        RETURNING id
+      `, [student_id, sessionNumber, utc.date, utc.time, student.meet_link || DEFAULT_MEET, isMakeup ? 'Scheduled' : 'Pending', isMakeup ? 'Makeup Class' : null]);
+
+      // If makeup, consume a makeup credit
+      if (isMakeup && makeupCreditIndex < makeupCreditIds.length) {
+        const creditId = makeupCreditIds[makeupCreditIndex];
+        await client.query(`
+          UPDATE makeup_classes SET status = 'Scheduled', used_date = CURRENT_DATE, scheduled_session_id = $1, scheduled_date = $2, scheduled_time = $3
+          WHERE id = $4
+        `, [result.rows[0].id, cls.date, cls.time, creditId]);
+        makeupCreditIndex++;
+      }
 
       // Store for email (use serial number, not session_number)
       const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
-      scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${emailSerial}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+      const makeupLabel = isMakeup ? ' (Makeup)' : '';
+      scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${emailSerial}${makeupLabel}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
 
       sessionNumber++;
       emailSerial++;
@@ -4125,9 +4070,10 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       );
     }
 
+    const makeupMsg = makeupClasses.length > 0 ? ` (${makeupClasses.length} using makeup credits)` : '';
     const message = send_email !== false
-      ? 'Classes scheduled and email sent!'
-      : 'Classes scheduled successfully!';
+      ? 'Classes scheduled and email sent!' + makeupMsg
+      : 'Classes scheduled successfully!' + makeupMsg;
     res.json({ success: true, message });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -4148,22 +4094,56 @@ app.post('/api/schedule/group-classes', async (req, res) => {
     const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [group_id])).rows[0].count;
     let sessionNumber = parseInt(count)+1;
 
-    // Build per-student session count map if provided
-    // student_sessions: [{student_id, count}] - each student gets their first N sessions
+    // Build per-student session count and makeup count maps
+    // student_sessions: [{student_id, count, makeup_count}] - each student gets their first N sessions
     const hasPerStudentCounts = student_sessions && Array.isArray(student_sessions) && student_sessions.length > 0;
     const studentCountMap = {};
+    const studentMakeupMap = {}; // { student_id: number of sessions to use as makeup }
     if (hasPerStudentCounts) {
       for (const ss of student_sessions) {
         studentCountMap[ss.student_id] = parseInt(ss.count);
+        studentMakeupMap[ss.student_id] = parseInt(ss.makeup_count) || 0;
+      }
+    }
+
+    // Validate makeup credits availability before starting
+    for (const studentId of Object.keys(studentMakeupMap)) {
+      const needed = studentMakeupMap[studentId];
+      if (needed > 0) {
+        const available = await client.query(
+          'SELECT COUNT(*) as count FROM makeup_classes WHERE student_id = $1 AND status = $2',
+          [studentId, 'Available']
+        );
+        if (parseInt(available.rows[0].count) < needed) {
+          const studentName = (await client.query('SELECT name FROM students WHERE id = $1', [studentId])).rows[0]?.name || studentId;
+          return res.status(400).json({ error: `Not enough makeup credits for ${studentName}. Need ${needed} but only ${available.rows[0].count} available.` });
+        }
       }
     }
 
     await client.query('BEGIN');
 
+    // Pre-fetch makeup credit IDs for each student that needs them (FIFO)
+    const studentMakeupCredits = {}; // { student_id: [credit_ids] }
+    const studentMakeupIndex = {}; // { student_id: current_index }
+    for (const studentId of Object.keys(studentMakeupMap)) {
+      const needed = studentMakeupMap[studentId];
+      if (needed > 0) {
+        const credits = await client.query(
+          'SELECT id FROM makeup_classes WHERE student_id = $1 AND status = $2 ORDER BY credit_date ASC LIMIT $3',
+          [studentId, 'Available', needed]
+        );
+        studentMakeupCredits[studentId] = credits.rows.map(r => r.id);
+        studentMakeupIndex[studentId] = 0;
+      }
+    }
+
+    // Track per-student session counter to determine which sessions are makeup
+    const studentSessionCounter = {}; // { student_id: count of sessions enrolled so far }
+
     const scheduledSessions = [];
-    // Track per-student email rows (only sessions they're enrolled in)
-    const studentEmailRows = {}; // { student_id: [html_rows] }
-    const studentEmailSerial = {}; // { student_id: counter }
+    const studentEmailRows = {};
+    const studentEmailSerial = {};
     let groupEmailSerial = 1;
 
     for (let i = 0; i < classes.length; i++) {
@@ -4177,22 +4157,41 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
 
       const sessionId = r.rows[0].id;
-      const sessionIndex = i + 1; // 1-based index of this session in the batch
+      const sessionIndex = i + 1;
 
-      // Add students to session_attendance
       const students = await client.query('SELECT id FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
       for(const s of students.rows) {
-        // If per-student counts are set, only add if this session is within their count
         if (hasPerStudentCounts) {
           const studentMax = studentCountMap[s.id];
           if (studentMax === undefined || sessionIndex > studentMax) continue;
         }
         await client.query('INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, \'Pending\')', [sessionId, s.id]);
 
-        // Track email rows per student (use serial number, not session_number)
+        // Track this student's session count
+        if (!studentSessionCounter[s.id]) studentSessionCounter[s.id] = 0;
+        studentSessionCounter[s.id]++;
+
+        // Check if this session is a makeup session for this student
+        // Makeup sessions are the LAST N sessions (where N = makeup_count)
+        // i.e., sessions beyond (total - makeup_count) are makeup
+        const totalForStudent = studentCountMap[s.id] || classes.length;
+        const makeupForStudent = studentMakeupMap[s.id] || 0;
+        const regularCount = totalForStudent - makeupForStudent;
+        const isMakeup = makeupForStudent > 0 && studentSessionCounter[s.id] > regularCount;
+
+        if (isMakeup && studentMakeupCredits[s.id] && studentMakeupIndex[s.id] < studentMakeupCredits[s.id].length) {
+          const creditId = studentMakeupCredits[s.id][studentMakeupIndex[s.id]];
+          await client.query(`
+            UPDATE makeup_classes SET status = 'Scheduled', used_date = CURRENT_DATE, scheduled_session_id = $1, scheduled_date = $2, scheduled_time = $3
+            WHERE id = $4
+          `, [sessionId, cls.date, cls.time, creditId]);
+          studentMakeupIndex[s.id]++;
+        }
+
         if (!studentEmailRows[s.id]) { studentEmailRows[s.id] = []; studentEmailSerial[s.id] = 1; }
         const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
-        studentEmailRows[s.id].push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${studentEmailSerial[s.id]}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+        const makeupLabel = isMakeup ? ' (Makeup)' : '';
+        studentEmailRows[s.id].push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${studentEmailSerial[s.id]}${makeupLabel}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
         studentEmailSerial[s.id]++;
       }
 
@@ -4210,11 +4209,10 @@ app.post('/api/schedule/group-classes', async (req, res) => {
     if (send_email !== false) {
       const students = await client.query('SELECT * FROM students WHERE group_id = $1 AND is_active = true', [group_id]);
       for (const student of students.rows) {
-        // Use per-student rows if available, otherwise all rows
         const rows = hasPerStudentCounts
           ? (studentEmailRows[student.id] || [])
           : scheduledSessions;
-        if (rows.length === 0) continue; // Skip students with no sessions
+        if (rows.length === 0) continue;
 
         const scheduleHTML = getScheduleEmail({
           parent_name: student.parent_name,
@@ -4233,9 +4231,17 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       }
     }
 
+    // Build makeup summary
+    let makeupMsg = '';
+    const makeupUsed = Object.entries(studentMakeupIndex).filter(([_, idx]) => idx > 0);
+    if (makeupUsed.length > 0) {
+      const totalMakeup = makeupUsed.reduce((sum, [_, idx]) => sum + idx, 0);
+      makeupMsg = ` (${totalMakeup} makeup credits used across ${makeupUsed.length} student${makeupUsed.length > 1 ? 's' : ''})`;
+    }
+
     const message = send_email !== false
-      ? `Group classes scheduled and emails sent to ${emailsSent} students!`
-      : 'Group classes scheduled successfully!';
+      ? `Group classes scheduled and emails sent to ${emailsSent} students!${makeupMsg}`
+      : `Group classes scheduled successfully!${makeupMsg}`;
     res.json({ success: true, message });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -4703,7 +4709,7 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
         // Create session_attendance records for each student
         for (const student of students.rows) {
           await pool.query(
-            'INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+            'INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, $3) ON CONFLICT (session_id, student_id) DO NOTHING',
             [req.params.sessionId, student.student_id, 'Pending']
           );
         }
@@ -4748,7 +4754,6 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
       // Handle state transitions
       const wasPresent = prevAttendance === 'Present';
       const wasExcused = prevAttendance === 'Excused';
-      const wasUnexcused = prevAttendance === 'Unexcused' || prevAttendance === 'Absent';
       const wasPending = !prevAttendance || prevAttendance === 'Pending';
 
       if (record.attendance === 'Present') {
@@ -4763,7 +4768,7 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
           // Award badges for group class attendance
           const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
-          const completedCount = student.rows[0].completed_sessions;
+          const completedCount = student.rows[0]?.completed_sessions || 0;
 
           if (completedCount === 1) await awardBadge(record.student_id, 'first_class', '🌟 First Class Star', 'Attended first class!');
           if (completedCount === 5) await awardBadge(record.student_id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
@@ -5157,18 +5162,21 @@ app.post('/api/events/:eventId/register', async (req, res) => {
   try {
     const { student_id } = req.body;
     const eventId = req.params.eventId;
-    const eventResult = await pool.query('SELECT * FROM events WHERE id = $1', [eventId]);
+
+    await client.query('BEGIN');
+    // Lock the event row to prevent race condition (overbooking)
+    const eventResult = await client.query('SELECT * FROM events WHERE id = $1 FOR UPDATE', [eventId]);
     const event = eventResult.rows[0];
 
-    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (!event) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Event not found' }); }
 
-    if (event.max_participants && event.current_participants >= event.max_participants) {
+    if (event.max_participants && (event.current_participants || 0) >= event.max_participants) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Event is full' });
     }
 
-    await client.query('BEGIN');
     await client.query(`INSERT INTO event_registrations (event_id, student_id, registration_method) VALUES ($1, $2, 'Parent')`, [eventId, student_id]);
-    await client.query('UPDATE events SET current_participants = current_participants + 1 WHERE id = $1', [eventId]);
+    await client.query('UPDATE events SET current_participants = COALESCE(current_participants, 0) + 1 WHERE id = $1', [eventId]);
     await client.query('COMMIT');
     res.json({ message: 'Successfully registered for event!' });
   } catch (err) {
@@ -5334,29 +5342,32 @@ app.post('/api/public/event/:id/register', async (req, res) => {
       return res.status(400).json({ error: 'Please fill all required fields' });
     }
 
-    // Get event details
-    const eventResult = await pool.query('SELECT * FROM events WHERE id = $1 AND status = $2', [eventId, 'Active']);
+    await client.query('BEGIN');
+
+    // Lock the event row to prevent race condition (overbooking)
+    const eventResult = await client.query('SELECT * FROM events WHERE id = $1 AND status = $2 FOR UPDATE', [eventId, 'Active']);
     const event = eventResult.rows[0];
 
     if (!event) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Event not found or not active' });
     }
 
     // Check if event is full
-    if (event.max_participants && event.current_participants >= event.max_participants) {
+    if (event.max_participants && (event.current_participants || 0) >= event.max_participants) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Sorry, this event is full!' });
     }
 
     // Check for duplicate registration by email
-    const existingReg = await pool.query(
+    const existingReg = await client.query(
       'SELECT id FROM event_registrations WHERE event_id = $1 AND email = $2',
       [eventId, email]
     );
     if (existingReg.rows.length > 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'You have already registered for this event with this email' });
     }
-
-    await client.query('BEGIN');
 
     // Insert public registration
     await client.query(`
@@ -5365,7 +5376,7 @@ app.post('/api/public/event/:id/register', async (req, res) => {
     `, [eventId, parent_name, child_name, child_age || '', email, phone]);
 
     // Update participant count
-    await client.query('UPDATE events SET current_participants = current_participants + 1 WHERE id = $1', [eventId]);
+    await client.query('UPDATE events SET current_participants = COALESCE(current_participants, 0) + 1 WHERE id = $1', [eventId]);
 
     await client.query('COMMIT');
 
@@ -5381,9 +5392,9 @@ app.post('/api/public/event/:id/register', async (req, res) => {
             <h1 style="color: #667eea; margin: 0;">🎉 Registration Confirmed!</h1>
           </div>
 
-          <p style="font-size: 16px; color: #333;">Dear ${parent_name},</p>
+          <p style="font-size: 16px; color: #333;">Dear ${escapeHtml(parent_name)},</p>
 
-          <p style="font-size: 16px; color: #333;">Thank you for registering <strong>${child_name}</strong> for our event!</p>
+          <p style="font-size: 16px; color: #333;">Thank you for registering <strong>${escapeHtml(child_name)}</strong> for our event!</p>
 
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin: 20px 0; color: white;">
             <h2 style="margin: 0 0 15px; font-size: 22px;">${event.event_name}</h2>
@@ -5393,7 +5404,7 @@ app.post('/api/public/event/:id/register', async (req, res) => {
             ${event.meet_link ? `<p style="margin: 15px 0 5px;"><strong>🔗 Join Link:</strong></p><a href="${event.meet_link}" style="color: #ffd700; word-break: break-all;">${event.meet_link}</a>` : ''}
           </div>
 
-          <p style="font-size: 14px; color: #666;">We look forward to seeing ${child_name} at the event!</p>
+          <p style="font-size: 14px; color: #666;">We look forward to seeing ${escapeHtml(child_name)} at the event!</p>
 
           <p style="font-size: 14px; color: #666; margin-top: 30px;">
             Warm regards,<br>
@@ -7069,7 +7080,7 @@ app.post('/api/challenges/:id/assign', async (req, res) => {
       await pool.query(`
         INSERT INTO student_challenges (student_id, challenge_id, status)
         VALUES ($1, $2, 'Assigned')
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (student_id, challenge_id) DO NOTHING
       `, [studentId, req.params.id]);
     }
     res.json({ success: true, message: 'Challenge assigned' });
@@ -7626,7 +7637,8 @@ app.post('/api/assessments', async (req, res) => {
       if (send_email) {
         const lead = await pool.query('SELECT child_name, child_grade, parent_email, parent_name, demo_date FROM demo_leads WHERE id = $1', [demo_lead_id]);
         if (lead.rows[0] && lead.rows[0].parent_email) {
-          const skillsArray = skills ? JSON.parse(skills) : [];
+          let skillsArray = [];
+          try { if (skills) skillsArray = JSON.parse(skills); } catch(e) { console.error('Invalid skills JSON:', e.message); }
           const demoEmailHTML = getDemoAssessmentEmail({
             assessmentId: result.rows[0].id,
             childName: lead.rows[0].child_name,
@@ -7660,7 +7672,8 @@ app.post('/api/assessments', async (req, res) => {
       if (send_email) {
         const student = await pool.query('SELECT name, parent_email, parent_name FROM students WHERE id = $1', [student_id]);
         if (student.rows[0]) {
-          const skillsArray = skills ? JSON.parse(skills) : [];
+          let skillsArray = [];
+          try { if (skills) skillsArray = JSON.parse(skills); } catch(e) { console.error('Invalid skills JSON:', e.message); }
           const reportCardEmailHTML = getMonthlyReportCardEmail({
             assessmentId: result.rows[0].id,
             studentName: student.rows[0].name,

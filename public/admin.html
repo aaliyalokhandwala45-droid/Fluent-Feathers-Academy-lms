@@ -662,6 +662,12 @@
         <form id="schedulePrivateForm">
           <div class="form-group"><label>Select Student *</label><select id="scheduleStudent" required><option value="">Select student...</option></select></div>
 
+          <div id="privateScheduleMakeupInfo" style="display: none; background: #faf5ff; padding: 12px 16px; border-radius: 8px; margin-top: 10px; border: 2px solid #9f7aea;">
+            <span style="font-weight: 600; color: #6b46c1;">🎫 Makeup Credits Available: </span>
+            <span id="privateScheduleMakeupCount" style="font-weight: bold; color: #9f7aea; font-size: 1.1em;">0</span>
+            <span style="color: #718096; font-size: 0.85rem; margin-left: 8px;">(Check "Makeup" on rows below to use credits instead of regular sessions)</span>
+          </div>
+
           <!-- Bulk Scheduling Options -->
           <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0; border: 2px solid #B05D9E;">
             <h3 style="margin-bottom: 15px; color: #B05D9E;">📆 Bulk Schedule</h3>
@@ -3708,12 +3714,53 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       }
     });
 
+    // Makeup credits in schedule classes
+    window.currentScheduleStudentMakeupCredits = 0;
+    document.getElementById('scheduleStudent').addEventListener('change', function() {
+      const studentId = this.value;
+      const infoDiv = document.getElementById('privateScheduleMakeupInfo');
+      if (!studentId) {
+        infoDiv.style.display = 'none';
+        window.currentScheduleStudentMakeupCredits = 0;
+        document.querySelectorAll('#classScheduleList input[name="use_makeup"]').forEach(cb => cb.checked = false);
+        updateMakeupCheckboxStates();
+        return;
+      }
+      const student = allStudents.find(s => s.id == studentId);
+      if (student) {
+        const count = parseInt(student.makeup_credits) || 0;
+        window.currentScheduleStudentMakeupCredits = count;
+        document.querySelectorAll('#classScheduleList input[name="use_makeup"]').forEach(cb => cb.checked = false);
+        updateMakeupCheckboxStates();
+        infoDiv.style.display = count > 0 ? 'block' : 'none';
+        if (count > 0) {
+          document.getElementById('privateScheduleMakeupCount').textContent = count + ' of ' + count;
+        }
+      }
+    });
+
+    function updateMakeupCheckboxStates() {
+      const available = window.currentScheduleStudentMakeupCredits || 0;
+      const checkboxes = document.querySelectorAll('#classScheduleList input[name="use_makeup"]');
+      let checkedCount = 0;
+      checkboxes.forEach(cb => { if (cb.checked) checkedCount++; });
+      checkboxes.forEach(cb => {
+        if (!cb.checked) cb.disabled = (checkedCount >= available);
+        cb.closest('label').style.display = available > 0 ? 'flex' : 'none';
+      });
+      const countEl = document.getElementById('privateScheduleMakeupCount');
+      if (countEl && available > 0) {
+        countEl.textContent = (available - checkedCount) + ' of ' + available;
+      }
+    }
+
     function addScheduleRow() {
       const container = document.getElementById('classScheduleList');
       const row = document.createElement('div');
       row.className = 'schedule-row';
-      row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>`;
+      row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><label style="display: none; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; font-size: 0.85rem; color: #6b46c1; min-width: fit-content;"><input type="checkbox" name="use_makeup" onchange="updateMakeupCheckboxStates()" style="width: auto; margin: 0;"> Makeup</label><button type="button" onclick="this.parentElement.remove(); updateMakeupCheckboxStates();" class="btn btn-sm btn-danger">×</button>`;
       container.appendChild(row);
+      updateMakeupCheckboxStates();
     }
     addScheduleRow();
 
@@ -3774,7 +3821,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             <span style="min-width: 50px; font-weight: bold;" class="${dayClass}">${dayName}</span>
             <input type="date" name="date" value="${dateStr}" required style="flex: 1;">
             <input type="time" name="time" value="${timeForDay}" required style="flex: 1;">
-            <button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">×</button>
+            ${isPrivate ? '<label style="display: none; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; font-size: 0.85rem; color: #6b46c1; min-width: fit-content;"><input type="checkbox" name="use_makeup" onchange="updateMakeupCheckboxStates()" style="width: auto; margin: 0;"> Makeup</label>' : ''}
+            <button type="button" onclick="this.parentElement.remove(); updateMakeupCheckboxStates();" class="btn btn-sm btn-danger">×</button>
           `;
           container.appendChild(row);
           count++;
@@ -3782,6 +3830,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         currentDate.setDate(currentDate.getDate() + 1);
         iterations++;
       }
+
+      if (isPrivate) updateMakeupCheckboxStates();
 
       if (count === 0) {
         alert('No classes generated. Check your start date and selected days.');
@@ -3808,7 +3858,9 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       rows.forEach(row => {
         const date = row.querySelector('input[name="date"]').value;
         const time = row.querySelector('input[name="time"]').value;
-        if (date && time) classes.push({ date, time });
+        const makeupCb = row.querySelector('input[name="use_makeup"]');
+        const use_makeup = makeupCb ? makeupCb.checked : false;
+        if (date && time) classes.push({ date, time, use_makeup });
       });
       if (classes.length === 0) return alert('Add at least one class');
       const sendEmail = document.getElementById('sendPrivateScheduleEmail').checked;
@@ -3825,6 +3877,9 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           e.target.reset();
           document.getElementById('classScheduleList').innerHTML = '';
           addScheduleRow();
+          window.currentScheduleStudentMakeupCredits = 0;
+          document.getElementById('privateScheduleMakeupInfo').style.display = 'none';
+          loadStudents(); // Refresh student data (makeup credits may have changed)
           loadUpcomingClasses();
           loadCalendar(); // Refresh calendar with new sessions
         } else {
@@ -4889,16 +4944,27 @@ async function saveEditedPayment() {
           return;
         }
 
-        inputsDiv.innerHTML = students.map(s => `
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
-            <span style="flex: 1; font-weight: 500;">👤 ${s.name}</span>
+        inputsDiv.innerHTML = students.map(s => {
+          const makeupCount = parseInt(s.makeup_credits) || 0;
+          return `
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e2e8f0; flex-wrap: wrap;">
+            <span style="flex: 1; font-weight: 500; min-width: 120px;">👤 ${s.name}</span>
             <span style="color: #718096; font-size: 0.85rem;">Remaining: ${s.remaining_sessions || 0}</span>
+            <label style="font-size: 0.8rem; color: #4a5568;">Sessions:</label>
             <input type="number" class="student-session-count" data-student-id="${s.id}"
               value="${s.remaining_sessions || 0}" min="0" max="100"
-              style="width: 70px; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center;"
+              style="width: 60px; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center;"
               onchange="updateGroupMaxSessions()">
-          </div>
-        `).join('');
+            ${makeupCount > 0 ? `
+            <span style="color: #6b46c1; font-size: 0.8rem; font-weight: 600;">🎫 Makeup: ${makeupCount}</span>
+            <label style="font-size: 0.8rem; color: #6b46c1;">Use:</label>
+            <input type="number" class="student-makeup-count" data-student-id="${s.id}"
+              value="0" min="0" max="${makeupCount}"
+              style="width: 50px; padding: 4px 8px; border: 1px solid #9f7aea; border-radius: 4px; text-align: center; color: #6b46c1;"
+              onchange="updateGroupMaxSessions()">
+            ` : ''}
+          </div>`;
+        }).join('');
         container.style.display = 'block';
 
         // Check if any students have pending private sessions - show convert button
@@ -4927,8 +4993,12 @@ async function saveEditedPayment() {
       if (inputs.length === 0) return;
       let max = 0;
       inputs.forEach(inp => {
-        const val = parseInt(inp.value) || 0;
-        if (val > max) max = val;
+        const studentId = inp.dataset.studentId;
+        const sessionCount = parseInt(inp.value) || 0;
+        const makeupInp = document.querySelector(`.student-makeup-count[data-student-id="${studentId}"]`);
+        const makeupCount = makeupInp ? (parseInt(makeupInp.value) || 0) : 0;
+        const total = sessionCount + makeupCount;
+        if (total > max) max = total;
       });
       const numSessionsEl = document.getElementById('groupBulkNumSessions');
       if (max > 0) numSessionsEl.value = max;
@@ -4974,14 +5044,17 @@ async function saveEditedPayment() {
       if (classes.length === 0) return alert('Add at least one class');
       const sendEmail = document.getElementById('sendGroupScheduleEmail').checked;
 
-      // Collect per-student session counts
+      // Collect per-student session counts and makeup counts
       const studentInputs = document.querySelectorAll('.student-session-count');
       let student_sessions = [];
       if (studentInputs.length > 0) {
         studentInputs.forEach(inp => {
+          const studentId = parseInt(inp.dataset.studentId);
           const count = parseInt(inp.value) || 0;
-          if (count > 0) {
-            student_sessions.push({ student_id: parseInt(inp.dataset.studentId), count });
+          const makeupInp = document.querySelector(`.student-makeup-count[data-student-id="${studentId}"]`);
+          const makeup_count = makeupInp ? (parseInt(makeupInp.value) || 0) : 0;
+          if (count > 0 || makeup_count > 0) {
+            student_sessions.push({ student_id: studentId, count: count + makeup_count, makeup_count });
           }
         });
       }
