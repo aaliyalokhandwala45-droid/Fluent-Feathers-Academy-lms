@@ -1320,36 +1320,28 @@ async function runMigrations() {
       console.log('Migration 21 note:', err.message);
     }
 
-    // Migration 22: Sync existing student payments to payment_history for financial reports
+    // Migration 22: One-time sync of existing student payments to payment_history (only runs if table is empty)
     try {
-      // Get all students with fees_paid > 0
-      const students = await client.query(`
-        SELECT id, name, fees_paid, currency, total_sessions, created_at
-        FROM students
-        WHERE fees_paid > 0
-      `);
+      const existingPayments = await client.query('SELECT COUNT(*) as count FROM payment_history');
+      if (parseInt(existingPayments.rows[0].count) === 0) {
+        // Table is empty - this is a fresh setup, sync existing students
+        const students = await client.query(`
+          SELECT id, name, fees_paid, currency, total_sessions, created_at
+          FROM students
+          WHERE fees_paid > 0
+        `);
 
-      let synced = 0;
-      for (const student of students.rows) {
-        // Check if this student already has an initial payment entry
-        const existing = await client.query(`
-          SELECT id FROM payment_history
-          WHERE student_id = $1 AND notes LIKE '%Initial enrollment%'
-        `, [student.id]);
-
-        if (existing.rows.length === 0) {
-          // Add initial payment to history
+        let synced = 0;
+        for (const student of students.rows) {
           await client.query(`
             INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
             VALUES ($1, $2, $3, $4, 'Bank Transfer', $5, 'Initial enrollment payment', 'completed')
           `, [student.id, student.created_at || new Date(), student.fees_paid, student.currency || 'INR', student.total_sessions || '']);
           synced++;
         }
-      }
-      if (synced > 0) {
         console.log(`✅ Migration 22: Synced ${synced} existing student payments to payment_history`);
       } else {
-        console.log('✅ Migration 22: All student payments already synced');
+        console.log('✅ Migration 22: Payment history already has data, skipping sync');
       }
     } catch (err) {
       console.log('Migration 22 note:', err.message);

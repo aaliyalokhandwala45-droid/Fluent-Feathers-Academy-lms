@@ -675,7 +675,7 @@
       <form id="feedbackForm">
         <input type="hidden" id="feedbackSessionId">
         <div style="text-align: center; margin-bottom: 20px;">
-          <p style="font-size: 18px; color: #4a5568; margin-bottom: 15px;">How was Class #<span id="feedbackSessionNum"></span>?</p>
+          <p style="font-size: 18px; color: #4a5568; margin-bottom: 15px;">How was your class on <strong><span id="feedbackSessionDate"></span></strong>?</p>
           <div class="star-rating" id="starRatingContainer" style="font-size: 2.5rem; cursor: pointer;">
             <span class="star" data-rating="1" onclick="setRating(1)">☆</span>
             <span class="star" data-rating="2" onclick="setRating(2)">☆</span>
@@ -1901,7 +1901,7 @@
             if (s.has_feedback) {
               feedbackBtn = `<span style="color:#38a169;">✓ Given</span>`;
             } else {
-              feedbackBtn = `<button onclick="openFeedbackModal(${s.id}, ${getSerial(s)})" style="background:#B05D9E; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;">⭐ Rate</button>`;
+              feedbackBtn = `<button onclick="openFeedbackModal(${s.id}, '${new Date(getDateStr(s.session_date)).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}')" style="background:#B05D9E; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;">⭐ Rate</button>`;
             }
           } else if (wasAbsent) {
             feedbackBtn = `<span style="color:#718096; font-size:0.85rem;">-</span>`;
@@ -2219,7 +2219,8 @@
           sessionStorage.setItem('feedbackPopupShown_' + currentStudent.id, 'true');
 
           // Show the optional feedback popup for the most recent unrated session
-          openFeedbackModal(mostRecentUnrated.id, getSerial(mostRecentUnrated));
+          const feedbackDate = new Date(getDateStr(mostRecentUnrated.session_date)).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'});
+          openFeedbackModal(mostRecentUnrated.id, feedbackDate);
         }
       } catch(e) {
         console.error('Error checking feedback:', e);
@@ -2228,7 +2229,8 @@
 
     // Legacy functions kept for compatibility
     function showFeedbackModal(session) {
-      openFeedbackModal(session.id, getSerial(session));
+      const feedbackDate = new Date(getDateStr(session.session_date)).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'});
+      openFeedbackModal(session.id, feedbackDate);
     }
 
     // Star rating interaction (for legacy support)
@@ -2626,9 +2628,9 @@
     }
 
     // ==================== CLASS FEEDBACK ====================
-    function openFeedbackModal(sessionId, sessionNumber) {
+    function openFeedbackModal(sessionId, sessionDate) {
       document.getElementById('feedbackSessionId').value = sessionId;
-      document.getElementById('feedbackSessionNum').textContent = sessionNumber;
+      document.getElementById('feedbackSessionDate').textContent = sessionDate;
       selectedRating = 0;
       document.getElementById('feedbackTextArea').value = '';
       // Reset stars
