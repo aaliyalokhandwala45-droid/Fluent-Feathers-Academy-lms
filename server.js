@@ -2312,7 +2312,7 @@ function getBirthdayEmail(data) {
 }
 
 function getRenewalReminderEmail(data) {
-  const { parentName, studentName, remainingSessions, programName, perSessionFee, currency } = data;
+  const { parentName, studentName, remainingSessions, programName, perSessionFee, currency, makeupCredits } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -2353,6 +2353,7 @@ function getRenewalReminderEmail(data) {
           <tr><td style="padding: 8px 0;">Student:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentName}</td></tr>
           <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
           <tr><td style="padding: 8px 0;">Sessions Remaining:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e53e3e;">${remainingSessions}</td></tr>
+          ${makeupCredits > 0 ? `<tr><td style="padding: 8px 0;">Makeup Credits:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #6b46c1;">${makeupCredits} (these are bonus classes, not regular sessions)</td></tr>` : ''}
           ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>` : ''}
         </table>
       </div>
@@ -3197,29 +3198,36 @@ cron.schedule('0 9 * * *', async () => {
     console.log('💳 Checking for payment renewal reminders...');
 
     // Find students with 2 or fewer sessions remaining who haven't been reminded
+    // Include students with 0 remaining sessions who may still have makeup credits - they still need to renew paid sessions
     const lowSessionStudents = await pool.query(`
-      SELECT id, name, parent_email, parent_name, remaining_sessions, program_name, per_session_fee, currency
-      FROM students
-      WHERE is_active = true
-        AND remaining_sessions <= 2
-        AND remaining_sessions > 0
-        AND (renewal_reminder_sent = false OR renewal_reminder_sent IS NULL)
+      SELECT s.id, s.name, s.parent_email, s.parent_name, s.remaining_sessions, s.program_name, s.per_session_fee, s.currency,
+        COUNT(DISTINCT m.id) as available_makeup_credits
+      FROM students s
+      LEFT JOIN makeup_classes m ON s.id = m.student_id AND LOWER(m.status) = 'available'
+      WHERE s.is_active = true
+        AND s.remaining_sessions <= 2
+        AND (s.renewal_reminder_sent = false OR s.renewal_reminder_sent IS NULL)
+      GROUP BY s.id
     `);
 
     for (const student of lowSessionStudents.rows) {
       try {
+        const makeupCredits = parseInt(student.available_makeup_credits) || 0;
         const renewalEmailHTML = getRenewalReminderEmail({
           parentName: student.parent_name,
           studentName: student.name,
           remainingSessions: student.remaining_sessions,
           programName: student.program_name,
           perSessionFee: student.per_session_fee,
-          currency: student.currency
+          currency: student.currency,
+          makeupCredits: makeupCredits
         });
 
+        const sessionWord = student.remaining_sessions === 1 ? 'Session' : 'Sessions';
+        const subjectExtra = student.remaining_sessions === 0 ? 'No Sessions Left' : `Only ${student.remaining_sessions} ${sessionWord} Left`;
         await sendEmail(
           student.parent_email,
-          `⏰ Renewal Reminder - Only ${student.remaining_sessions} Session${student.remaining_sessions > 1 ? 's' : ''} Left for ${student.name}`,
+          `⏰ Renewal Reminder - ${subjectExtra} for ${student.name}`,
           renewalEmailHTML,
           student.parent_name,
           'Renewal-Reminder'
@@ -3228,7 +3236,7 @@ cron.schedule('0 9 * * *', async () => {
         // Mark reminder as sent
         await pool.query('UPDATE students SET renewal_reminder_sent = true WHERE id = $1', [student.id]);
 
-        console.log(`✅ Sent renewal reminder to ${student.parent_name} for ${student.name} (${student.remaining_sessions} sessions left)`);
+        console.log(`✅ Sent renewal reminder to ${student.parent_name} for ${student.name} (${student.remaining_sessions} sessions left, ${makeupCredits} makeup credits)`);
       } catch (emailErr) {
         console.error(`Error sending renewal reminder for ${student.name}:`, emailErr);
       }

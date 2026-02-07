@@ -3441,21 +3441,26 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           const cardClass = isDemo ? 'class-card class-card-demo' : 'class-card';
           const typeLabel = isDemo ? '<span style="background: #ffd700; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 5px;">DEMO</span>' : '';
 
-          // Build student list for group sessions
+          // Build student list for group sessions (collapsible dropdown)
           const isGroup = cls.display_type === 'Group';
           let studentsHtml = '';
           if (isGroup && cls.enrolled_students && cls.enrolled_students.length > 0) {
             const joining = cls.enrolled_students.filter(s => !['Cancelled', 'Cancelled by Parent'].includes(s.attendance));
             const cancelled = cls.enrolled_students.filter(s => ['Cancelled', 'Cancelled by Parent'].includes(s.attendance));
-            studentsHtml = `<div style="margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.15); border-radius: 8px; font-size: 0.8rem;">
-              <div style="margin-bottom: 4px; font-weight: 600; opacity: 0.9;">👥 Students (${joining.length}):</div>
-              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                ${joining.map(s => `<span style="background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem;">✅ ${s.name}</span>`).join('')}
+            const dropdownId = 'students-' + cls.id;
+            studentsHtml = `<div style="margin-top: 8px;">
+              <div onclick="var el=document.getElementById('${dropdownId}'); el.style.display = el.style.display==='none'?'block':'none'; this.querySelector('.arrow').textContent = el.style.display==='none'?'▸':'▾';" style="cursor: pointer; background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <span class="arrow">▸</span> 👥 ${joining.length} Student${joining.length !== 1 ? 's' : ''} ${cancelled.length > 0 ? `<span style="background: rgba(229,62,62,0.4); padding: 1px 6px; border-radius: 8px; font-size: 0.7rem; margin-left: auto;">❌ ${cancelled.length} cancelled</span>` : ''}
               </div>
-              ${cancelled.length > 0 ? `<div style="margin-top: 6px; font-weight: 600; opacity: 0.9; color: #fed7d7;">❌ Cancelled (${cancelled.length}):</div>
-              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                ${cancelled.map(s => `<span style="background: rgba(229,62,62,0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; text-decoration: line-through;">${s.name}</span>`).join('')}
-              </div>` : ''}
+              <div id="${dropdownId}" style="display: none; margin-top: 6px; padding: 8px 10px; background: rgba(255,255,255,0.12); border-radius: 8px; font-size: 0.8rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                  ${joining.map(s => `<span style="background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem;">✅ ${s.name}</span>`).join('')}
+                </div>
+                ${cancelled.length > 0 ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.15);">
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                  ${cancelled.map(s => `<span style="background: rgba(229,62,62,0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; text-decoration: line-through;">❌ ${s.name}</span>`).join('')}
+                </div></div>` : ''}
+              </div>
             </div>`;
           }
 
