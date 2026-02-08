@@ -8009,38 +8009,34 @@ app.post('/api/assessments', async (req, res) => {
   }
 });
 
-// Manual Google review request for any assessment
-app.post('/api/assessments/:id/ask-review', async (req, res) => {
+// Manual Google review request for demo lead parents
+app.post('/api/demo-leads/:id/ask-review', async (req, res) => {
   try {
-    const { id } = req.params;
-    const assessment = await pool.query(`
-      SELECT ma.*, s.name as student_name, s.parent_email as student_email, s.parent_name as student_parent_name,
-             dl.child_name as demo_child_name, dl.parent_email as demo_email, dl.parent_name as demo_parent_name
-      FROM monthly_assessments ma
-      LEFT JOIN students s ON ma.student_id = s.id
-      LEFT JOIN demo_leads dl ON ma.demo_lead_id = dl.id
-      WHERE ma.id = $1
-    `, [id]);
-
-    if (assessment.rows.length === 0) return res.status(404).json({ error: 'Assessment not found' });
-
-    const a = assessment.rows[0];
-    const isDemo = a.assessment_type === 'demo';
-    const childName = isDemo ? a.demo_child_name : a.student_name;
-    const parentEmail = isDemo ? a.demo_email : a.student_email;
-    const parentName = isDemo ? a.demo_parent_name : a.student_parent_name;
-
-    if (!parentEmail) return res.status(400).json({ error: 'No parent email found for this assessment' });
-
-    const reviewHTML = getGoogleReviewEmail(childName, isDemo);
-    const subject = isDemo
-      ? `⭐ How was ${childName}'s demo class? Share your feedback!`
-      : `⭐ Loving ${childName}'s progress? Share your experience!`;
-
-    await sendEmail(parentEmail, subject, reviewHTML, parentName, 'Google Review Request');
-    res.json({ success: true, message: 'Review request sent' });
+    const lead = await pool.query('SELECT child_name, parent_email, parent_name FROM demo_leads WHERE id = $1', [req.params.id]);
+    if (lead.rows.length === 0) return res.status(404).json({ error: 'Demo lead not found' });
+    const { child_name, parent_email, parent_name } = lead.rows[0];
+    if (!parent_email) return res.status(400).json({ error: 'No parent email found' });
+    const reviewHTML = getGoogleReviewEmail(child_name, true);
+    await sendEmail(parent_email, `⭐ How was ${child_name}'s demo class? Share your feedback!`, reviewHTML, parent_name, 'Google Review Request');
+    res.json({ success: true });
   } catch (err) {
-    console.error('Google review request error:', err);
+    console.error('Demo review request error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual Google review request for enrolled student parents
+app.post('/api/students/:id/ask-review', async (req, res) => {
+  try {
+    const student = await pool.query('SELECT name, parent_email, parent_name FROM students WHERE id = $1', [req.params.id]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    const { name, parent_email, parent_name } = student.rows[0];
+    if (!parent_email) return res.status(400).json({ error: 'No parent email found' });
+    const reviewHTML = getGoogleReviewEmail(name, false);
+    await sendEmail(parent_email, `⭐ Loving ${name}'s progress? Share your experience!`, reviewHTML, parent_name, 'Google Review Request');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Student review request error:', err);
     res.status(500).json({ error: err.message });
   }
 });

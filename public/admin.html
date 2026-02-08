@@ -3533,7 +3533,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         const assessmentBadge = s.assessment_due
           ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; cursor: pointer;" onclick="showTab('monthlyAssessment', event); setTimeout(() => document.getElementById('assessmentStudent').value = '${s.id}', 100);" title="Due for assessment (${s.sessions_since_assessment} sessions since last)">📊 Due</span>`
           : '';
-        return `<tr><td><strong>${s.name}</strong>${assessmentBadge}</td><td>${getAgeDisplay(s)}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
+        return `<tr><td><strong>${s.name}</strong>${assessmentBadge}</td><td>${getAgeDisplay(s)}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="askStudentReview(${s.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
       }).join('');
     }
 
@@ -6653,12 +6653,14 @@ async function saveEditedPayment() {
         }
 
         const editBtn = `<button onclick="openEditDemoModal(${lead.id})" class="btn btn-sm" style="background: #667eea; color: white;">✏️</button>`;
+        const reviewBtn = `<button onclick="askDemoReview(${lead.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button>`;
         const actionButtons = lead.status === 'Completed'
           ? `${editBtn}
              <button onclick="openConvertDemoModal(${lead.id})" class="btn btn-sm" style="background: #38a169; color: white;">🎉 Convert</button>
+             ${reviewBtn}
              <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Status</button>`
           : lead.status === 'Converted'
-          ? `${editBtn} <span style="color: #38a169;">Student #${lead.converted_student_id || ''}</span>`
+          ? `${editBtn} ${reviewBtn} <span style="color: #38a169;">Student #${lead.converted_student_id || ''}</span>`
           : `${editBtn} <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Update</button>`;
 
         return `<tr>
@@ -7764,7 +7766,6 @@ async function saveEditedPayment() {
             <td>
               <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
               ${a.certificate_title ? `<button onclick="window.open('/${isDemo ? 'demo-certificate' : 'monthly-certificate'}.html?id=${a.id}', '_blank')" class="btn btn-sm" style="background:#f59e0b;color:white;">🏆 Certificate</button>` : ''}
-              <button onclick="askGoogleReview(${a.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button>
               <button onclick="deleteAssessment(${a.id})" class="btn btn-danger btn-sm">Delete</button>
             </td>
           </tr>
@@ -7941,19 +7942,24 @@ async function saveEditedPayment() {
       }
     });
 
-    async function askGoogleReview(id) {
+    async function askDemoReview(demoLeadId) {
+      if (!confirm('Send Google review request email to this demo parent?')) return;
+      try {
+        const res = await fetch('/api/demo-leads/' + demoLeadId + '/ask-review', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+        if (res.ok) alert('Google review request sent!');
+        else alert(data.error || 'Failed to send review email');
+      } catch (err) { alert('Error: ' + err.message); }
+    }
+
+    async function askStudentReview(studentId) {
       if (!confirm('Send Google review request email to this parent?')) return;
       try {
-        const res = await fetch('/api/assessments/' + id + '/ask-review', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const res = await fetch('/api/students/' + studentId + '/ask-review', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         const data = await res.json();
-        if (res.ok) {
-          alert('Google review request email sent successfully!');
-        } else {
-          alert(data.error || 'Failed to send review email');
-        }
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
+        if (res.ok) alert('Google review request sent!');
+        else alert(data.error || 'Failed to send review email');
+      } catch (err) { alert('Error: ' + err.message); }
     }
 
     async function viewAssessment(id) {
