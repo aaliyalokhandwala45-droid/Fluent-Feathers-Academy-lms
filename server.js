@@ -8009,6 +8009,42 @@ app.post('/api/assessments', async (req, res) => {
   }
 });
 
+// Manual Google review request for any assessment
+app.post('/api/assessments/:id/ask-review', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const assessment = await pool.query(`
+      SELECT ma.*, s.name as student_name, s.parent_email as student_email, s.parent_name as student_parent_name,
+             dl.child_name as demo_child_name, dl.parent_email as demo_email, dl.parent_name as demo_parent_name
+      FROM monthly_assessments ma
+      LEFT JOIN students s ON ma.student_id = s.id
+      LEFT JOIN demo_leads dl ON ma.demo_lead_id = dl.id
+      WHERE ma.id = $1
+    `, [id]);
+
+    if (assessment.rows.length === 0) return res.status(404).json({ error: 'Assessment not found' });
+
+    const a = assessment.rows[0];
+    const isDemo = a.assessment_type === 'demo';
+    const childName = isDemo ? a.demo_child_name : a.student_name;
+    const parentEmail = isDemo ? a.demo_email : a.student_email;
+    const parentName = isDemo ? a.demo_parent_name : a.student_parent_name;
+
+    if (!parentEmail) return res.status(400).json({ error: 'No parent email found for this assessment' });
+
+    const reviewHTML = getGoogleReviewEmail(childName, isDemo);
+    const subject = isDemo
+      ? `⭐ How was ${childName}'s demo class? Share your feedback!`
+      : `⭐ Loving ${childName}'s progress? Share your experience!`;
+
+    await sendEmail(parentEmail, subject, reviewHTML, parentName, 'Google Review Request');
+    res.json({ success: true, message: 'Review request sent' });
+  } catch (err) {
+    console.error('Google review request error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/assessments/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM monthly_assessments WHERE id = $1', [req.params.id]);

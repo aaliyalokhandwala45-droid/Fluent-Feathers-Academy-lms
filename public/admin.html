@@ -7764,6 +7764,7 @@ async function saveEditedPayment() {
             <td>
               <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
               ${a.certificate_title ? `<button onclick="window.open('/${isDemo ? 'demo-certificate' : 'monthly-certificate'}.html?id=${a.id}', '_blank')" class="btn btn-sm" style="background:#f59e0b;color:white;">🏆 Certificate</button>` : ''}
+              <button onclick="askGoogleReview(${a.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button>
               <button onclick="deleteAssessment(${a.id})" class="btn btn-danger btn-sm">Delete</button>
             </td>
           </tr>
@@ -7939,6 +7940,21 @@ async function saveEditedPayment() {
         alert('❌ Error: ' + err.message);
       }
     });
+
+    async function askGoogleReview(id) {
+      if (!confirm('Send Google review request email to this parent?')) return;
+      try {
+        const res = await fetch(`/api/assessments/${id}/ask-review`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Google review request email sent successfully!');
+        } else {
+          alert(data.error || 'Failed to send review email');
+        }
+      } catch (err) {
+        alert('Error sending review email');
+      }
+    }
 
     async function viewAssessment(id) {
       try {
