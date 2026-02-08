@@ -8010,7 +8010,7 @@ app.post('/api/assessments', async (req, res) => {
 });
 
 // Manual Google review request for any assessment
-app.post('/api/assessments/:id/ask-review', verifyToken, async (req, res) => {
+app.post('/api/assessments/:id/ask-review', async (req, res) => {
   try {
     const { id } = req.params;
     const assessment = await pool.query(`
