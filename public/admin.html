@@ -5923,7 +5923,7 @@ async function saveEditedPayment() {
     function loadEmailLogs() {
       fetch('/api/email-logs')
         .then(r=>r.json())
-        .then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map(l=>{
+        .then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map((l, idx)=>{
           const isGroup = l.email_type && l.email_type.includes('-Group');
           const displayType = isGroup ? l.email_type.replace('-Group', '') : l.email_type;
           const badgeClass = isGroup ? 'email-badge-group' : 'email-badge-default';
@@ -5931,7 +5931,10 @@ async function saveEditedPayment() {
             ? `<span class="email-badge ${badgeClass}">${displayType} 👥</span>`
             : `<span class="email-badge ${badgeClass}">${displayType}</span>`;
           const statusClass = l.status === 'Sent' ? 'status-active' : 'status-inactive';
-          return `<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}</td><td>${typeBadge}</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.subject}">${l.subject}</td><td><span class="${statusClass}">${l.status}</span></td></tr>`;
+          const hasBody = l.email_body && l.email_body.length > 0;
+          const expandBtn = hasBody ? `<span onclick="var el=document.getElementById('emailBody${idx}'); el.style.display=el.style.display==='none'?'table-row':'none'; this.textContent=el.style.display==='none'?'▸':'▾';" style="cursor:pointer; margin-right:6px; font-size:14px;">▸</span>` : '';
+          return `<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}<br><span style="font-size:11px;color:#718096;">${l.recipient_email}</span></td><td>${typeBadge}</td><td style="max-width:300px;">${expandBtn}${l.subject}</td><td><span class="${statusClass}">${l.status}</span></td></tr>` +
+            (hasBody ? `<tr id="emailBody${idx}" style="display:none;"><td colspan="5" style="padding:0;"><div style="max-height:400px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;margin:5px 10px 15px;background:white;">${l.email_body}</div></td></tr>` : '');
         }).join(''))
         .catch(err => console.error(err));
     }
@@ -7760,6 +7763,7 @@ async function saveEditedPayment() {
             <td>${new Date(a.created_at).toLocaleDateString()}</td>
             <td>
               <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
+              ${a.certificate_title ? `<button onclick="window.open('/${isDemo ? 'demo-certificate' : 'monthly-certificate'}.html?id=${a.id}', '_blank')" class="btn btn-sm" style="background:#f59e0b;color:white;">🏆 Certificate</button>` : ''}
               <button onclick="deleteAssessment(${a.id})" class="btn btn-danger btn-sm">Delete</button>
             </td>
           </tr>

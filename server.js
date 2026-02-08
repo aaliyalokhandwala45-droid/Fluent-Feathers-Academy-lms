@@ -1330,6 +1330,14 @@ async function runMigrations() {
       console.log('Migration 26 note:', err.message);
     }
 
+    // Migration 27: Add email_body column to email_log for storing full email content
+    try {
+      await client.query(`ALTER TABLE email_log ADD COLUMN IF NOT EXISTS email_body TEXT`);
+      console.log('✅ Migration 27: Added email_body column to email_log');
+    } catch (err) {
+      console.log('Migration 27 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -1514,11 +1522,11 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
       return false;
     }
     await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: html }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
-    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status) VALUES ($1, $2, $3, $4, 'Sent')`, [recipientName || '', to, emailType, subject]);
+    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Sent', $5)`, [recipientName || '', to, emailType, subject, html]);
     return true;
   } catch (e) {
     console.error('Email Error:', e.message);
-    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status) VALUES ($1, $2, $3, $4, 'Failed')`, [recipientName || '', to, emailType, subject]);
+    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Failed', $5)`, [recipientName || '', to, emailType, subject, html]);
     return false;
   }
 }
@@ -3355,14 +3363,14 @@ app.get('/api/calendar/sessions', async (req, res) => {
       ORDER BY s.session_date, s.session_time
     `, [start, end]);
 
-    // Get demo sessions
+    // Get demo sessions (show all statuses except converted/not interested so conducted demos stay visible)
     const demoSessions = await pool.query(`
       SELECT id, demo_date as session_date, demo_time as session_time,
              1 as session_number, status, 'Demo' as session_type,
              child_name as student_name
       FROM demo_leads
       WHERE demo_date >= $1 AND demo_date <= $2
-        AND status IN ('Scheduled', 'Demo Scheduled', 'Pending')
+        AND status NOT IN ('Converted', 'Not Interested')
       ORDER BY demo_date, demo_time
     `, [start, end]);
 
