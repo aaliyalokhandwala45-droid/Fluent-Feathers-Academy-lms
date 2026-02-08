@@ -5575,6 +5575,96 @@ app.post('/api/public/event/:id/register', async (req, res) => {
   }
 });
 
+// ==================== PUBLIC DEMO REGISTRATION ====================
+app.post('/api/public/demo-register', async (req, res) => {
+  try {
+    const { child_name, child_age, program_interest, parent_name, email, phone } = req.body;
+
+    // Validate required fields
+    if (!child_name || !child_age || !program_interest || !parent_name || !email || !phone) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Check for duplicate email in demo_leads (prevent double registrations)
+    const existing = await pool.query(
+      `SELECT id FROM demo_leads WHERE parent_email = $1 AND status NOT IN ('Converted', 'Not Interested', 'No Show')`,
+      [email]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'You have already registered for a demo class. We will contact you shortly!' });
+    }
+
+    // Insert into demo_leads
+    const result = await pool.query(`
+      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, source, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'Website Form', 'Pending')
+      RETURNING *
+    `, [child_name, child_age, parent_name, email, phone, program_interest]);
+
+    // Send confirmation email
+    try {
+      const confirmationHTML = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">🎯</div>
+      <h1 style="margin: 0; color: white; font-size: 28px;">Free Demo Class Registration</h1>
+      <p style="color: rgba(255,255,255,0.9); margin-top: 10px; font-size: 16px;">We're excited to meet ${child_name}!</p>
+    </div>
+    <div style="padding: 30px;">
+      <p style="font-size: 16px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${parent_name}</strong>,</p>
+      <p style="font-size: 15px; color: #4a5568; line-height: 1.7; margin-bottom: 20px;">
+        Thank you for registering <strong>${child_name}</strong> for a free demo class at <strong style="color: #B05D9E;">Fluent Feathers Academy</strong>!
+      </p>
+
+      <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 25px 0;">
+        <h3 style="margin: 0 0 15px; color: #2d3748; font-size: 16px;">Registration Details:</h3>
+        <table style="width: 100%; font-size: 14px; color: #4a5568;">
+          <tr><td style="padding: 8px 0;">Child's Name:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${child_name}</td></tr>
+          <tr><td style="padding: 8px 0;">Age:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${child_age}</td></tr>
+          <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #B05D9E;">${program_interest}</td></tr>
+        </table>
+      </div>
+
+      <div style="background: linear-gradient(135deg, #e9d8fd 0%, #faf5ff 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #B05D9E; margin: 25px 0;">
+        <p style="margin: 0; font-size: 15px; color: #553c9a; line-height: 1.6;">
+          <strong>What's next?</strong><br>
+          Our team will contact you shortly to schedule a convenient time for ${child_name}'s free demo class. Stay tuned!
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568;">
+        Warm regards,<br>
+        <strong style="color: #B05D9E;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 15px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+    </div>
+  </div>
+</body></html>`;
+
+      await sendEmail(
+        email,
+        `🎯 Demo Class Registration Confirmed - ${child_name} | Fluent Feathers Academy`,
+        confirmationHTML,
+        parent_name,
+        'Demo-Registration'
+      );
+    } catch (emailErr) {
+      console.error('Failed to send demo registration email:', emailErr);
+      // Registration still succeeds even if email fails
+    }
+
+    console.log(`✅ New demo registration from website: ${child_name} (${program_interest}) - ${parent_name} <${email}>`);
+    res.json({ success: true, message: 'Demo class registration successful!' });
+  } catch (err) {
+    console.error('Demo registration error:', err);
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
+  }
+});
+
 // Get all registrations for an event (including public registrations)
 app.get('/api/events/:eventId/all-registrations', async (req, res) => {
   try {
