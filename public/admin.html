@@ -7944,7 +7944,7 @@ async function saveEditedPayment() {
     async function askGoogleReview(id) {
       if (!confirm('Send Google review request email to this parent?')) return;
       try {
-        const res = await fetch(`/api/assessments/${id}/ask-review`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+        const res = await fetch('/api/assessments/' + id + '/ask-review', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         const data = await res.json();
         if (res.ok) {
           alert('Google review request email sent successfully!');
@@ -7952,7 +7952,7 @@ async function saveEditedPayment() {
           alert(data.error || 'Failed to send review email');
         }
       } catch (err) {
-        alert('Error sending review email');
+        alert('Error: ' + err.message);
       }
     }
 
