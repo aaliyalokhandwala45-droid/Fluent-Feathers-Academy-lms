@@ -2678,6 +2678,49 @@ function getMonthlyReportCardEmail(data) {
 </html>`;
 }
 
+// Google Review Request Email Template
+function getGoogleReviewEmail(childName, isDemoParent) {
+  const reviewUrl = 'https://g.page/r/CSbRitsYrJWOEBM/review';
+  const greeting = isDemoParent
+    ? `We hope ${childName} enjoyed the demo class at <strong>Fluent Feathers Academy</strong>!`
+    : `Thank you for being a part of the <strong>Fluent Feathers Academy</strong> family! We love watching ${childName} grow and learn.`;
+  const message = isDemoParent
+    ? `Your feedback means the world to us and helps other parents discover our programs.`
+    : `Your continued trust inspires us. A quick review from you would mean so much and help other parents discover our academy!`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">⭐</div>
+      <h1 style="margin: 0; color: white; font-size: 26px; font-weight: bold;">We'd Love Your Feedback!</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 15px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding: 30px; text-align: center;">
+      <p style="font-size: 16px; color: #2d3748; line-height: 1.6; margin: 0 0 15px;">${greeting}</p>
+      <p style="font-size: 15px; color: #4a5568; line-height: 1.6; margin: 0 0 25px;">${message}</p>
+      <div style="margin: 25px 0;">
+        <div style="font-size: 36px; letter-spacing: 5px; margin-bottom: 10px;">⭐⭐⭐⭐⭐</div>
+        <p style="font-size: 14px; color: #718096; margin: 0;">Tap below to leave a quick Google review</p>
+      </div>
+      <a href="${reviewUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white; padding: 16px 40px; border-radius: 30px; text-decoration: none; font-size: 18px; font-weight: 600; box-shadow: 0 4px 15px rgba(66,133,244,0.4);">
+        📝 Leave a Google Review
+      </a>
+      <p style="font-size: 13px; color: #a0aec0; margin: 25px 0 0; line-height: 1.5;">It only takes a minute and makes a huge difference! 💜</p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #a0aec0; font-size: 12px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 // Demo Assessment Email Template
 function getDemoAssessmentEmail(data) {
   const { assessmentId, childName, childGrade, demoDate, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
@@ -7899,6 +7942,16 @@ app.post('/api/assessments', async (req, res) => {
             lead.rows[0].parent_name,
             'Demo Assessment'
           );
+
+          // Send Google review request after demo assessment
+          const demoReviewHTML = getGoogleReviewEmail(lead.rows[0].child_name, true);
+          await sendEmail(
+            lead.rows[0].parent_email,
+            `⭐ How was ${lead.rows[0].child_name}'s demo class? Share your feedback!`,
+            demoReviewHTML,
+            lead.rows[0].parent_name,
+            'Google Review Request'
+          );
         }
       }
     } else {
@@ -7934,6 +7987,16 @@ app.post('/api/assessments', async (req, res) => {
             reportCardEmailHTML,
             student.rows[0].parent_name,
             'Report Card'
+          );
+
+          // Send Google review request after monthly assessment
+          const monthlyReviewHTML = getGoogleReviewEmail(student.rows[0].name, false);
+          await sendEmail(
+            student.rows[0].parent_email,
+            `⭐ Loving ${student.rows[0].name}'s progress? Share your experience!`,
+            monthlyReviewHTML,
+            student.rows[0].parent_name,
+            'Google Review Request'
           );
         }
       }
