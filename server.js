@@ -2918,12 +2918,27 @@ async function checkAndSendReminders() {
         AND st.parent_email IS NOT NULL
     `);
 
-    // Combine all sessions - mark group sessions for identification
-    const markedPrivateSessions = privateSessions.rows.map(s => ({ ...s, is_group: false }));
-    const markedGroupSessions = groupSessions.rows.map(s => ({ ...s, is_group: true }));
-    const upcomingSessions = { rows: [...markedPrivateSessions, ...markedGroupSessions] };
+    // Find all upcoming DEMO sessions
+    const demoSessions = await pool.query(`
+      SELECT id, child_name as student_name, parent_email, parent_name,
+             demo_date as session_date, demo_time as session_time,
+             CONCAT(demo_date, 'T', demo_time, 'Z') as full_datetime,
+             1 as session_number, 'Asia/Kolkata' as timezone,
+             COALESCE(program_interest, 'Demo Class') as program_interest
+      FROM demo_leads
+      WHERE status IN ('Scheduled', 'Demo Scheduled', 'Pending')
+        AND demo_date >= CURRENT_DATE - INTERVAL '1 day'
+        AND parent_email IS NOT NULL
+        AND demo_date IS NOT NULL AND demo_time IS NOT NULL
+    `);
 
-    console.log(`📋 Found ${privateSessions.rows.length} private + ${groupSessions.rows.length} group = ${upcomingSessions.rows.length} total sessions to check for reminders`);
+    // Combine all sessions - mark session types for identification
+    const markedPrivateSessions = privateSessions.rows.map(s => ({ ...s, is_group: false, is_demo: false }));
+    const markedGroupSessions = groupSessions.rows.map(s => ({ ...s, is_group: true, is_demo: false }));
+    const markedDemoSessions = demoSessions.rows.map(s => ({ ...s, is_group: false, is_demo: true }));
+    const upcomingSessions = { rows: [...markedPrivateSessions, ...markedGroupSessions, ...markedDemoSessions] };
+
+    console.log(`📋 Found ${privateSessions.rows.length} private + ${groupSessions.rows.length} group + ${demoSessions.rows.length} demo = ${upcomingSessions.rows.length} total sessions to check for reminders`);
 
     for (const session of upcomingSessions.rows) {
       try {
@@ -2935,22 +2950,23 @@ async function checkAndSendReminders() {
         if (hoursDiff < 0) continue;
 
         // Determine session type label for logging and emails
-        const sessionTypeLabel = session.is_group ? `Group (${session.group_name})` : 'Private';
+        const sessionTypeLabel = session.is_demo ? 'Demo' : session.is_group ? `Group (${session.group_name})` : 'Private';
 
         // Log session details for debugging
         console.log(`📌 ${sessionTypeLabel} Session #${session.session_number} for ${session.student_name}: ${session.full_datetime} (${hoursDiff.toFixed(2)} hours away)`);
 
         // Check if we need to send 5-hour reminder (widened window: 4.5 to 5.5 hours for reliability)
         if (hoursDiff > 4.5 && hoursDiff <= 5.5) {
-          const emailType5hr = session.is_group ? 'Reminder-5hrs-Group' : 'Reminder-5hrs';
+          const emailType5hr = session.is_demo ? 'Reminder-5hrs-Demo' : session.is_group ? 'Reminder-5hrs-Group' : 'Reminder-5hrs';
+          const sidCheck = session.is_demo ? `DEMO:${session.id}` : session.id;
           console.log(`⏰ ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 5-hour window, checking if reminder already sent...`);
           // Check if 5-hour reminder already sent for this SPECIFIC session using unique session ID
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
              WHERE recipient_email = $1
-               AND email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group')
+               AND email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group', 'Reminder-5hrs-Demo')
                AND subject LIKE $2`,
-            [session.parent_email, `%[SID:${session.id}]%`]
+            [session.parent_email, `%[SID:${sidCheck}]%`]
           );
 
           if (sentCheck.rows.length === 0) {
@@ -2969,10 +2985,11 @@ async function checkAndSendReminders() {
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
 
-            const subjectPrefix = session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
+            const subjectPrefix = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
+            const sidLabel = session.is_demo ? `DEMO:${session.id}` : session.id;
             await sendEmail(
               session.parent_email,
-              `${subjectPrefix} - Ready for today's class in 5 hours [SID:${session.id}]`,
+              `${subjectPrefix} - Ready for today's class in 5 hours [SID:${sidLabel}]`,
               reminderEmailHTML,
               session.parent_name,
               emailType5hr
@@ -2985,15 +3002,16 @@ async function checkAndSendReminders() {
 
         // Check if we need to send 1-hour reminder (widened window: 0.5 to 1.5 hours for reliability)
         if (hoursDiff > 0.5 && hoursDiff <= 1.5) {
-          const emailType1hr = session.is_group ? 'Reminder-1hr-Group' : 'Reminder-1hr';
+          const emailType1hr = session.is_demo ? 'Reminder-1hr-Demo' : session.is_group ? 'Reminder-1hr-Group' : 'Reminder-1hr';
+          const sidCheck1hr = session.is_demo ? `DEMO:${session.id}` : session.id;
           console.log(`⏰ ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 1-hour window, checking if reminder already sent...`);
           // Check if 1-hour reminder already sent for this SPECIFIC session using unique session ID
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
              WHERE recipient_email = $1
-               AND email_type IN ('Reminder-1hr', 'Reminder-1hr-Group')
+               AND email_type IN ('Reminder-1hr', 'Reminder-1hr-Group', 'Reminder-1hr-Demo')
                AND subject LIKE $2`,
-            [session.parent_email, `%[SID:${session.id}]%`]
+            [session.parent_email, `%[SID:${sidCheck1hr}]%`]
           );
 
           if (sentCheck.rows.length === 0) {
@@ -3012,10 +3030,11 @@ async function checkAndSendReminders() {
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
 
-            const subjectPrefix = session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
+            const subjectPrefix1hr = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
+            const sidLabel1hr = session.is_demo ? `DEMO:${session.id}` : session.id;
             await sendEmail(
               session.parent_email,
-              `${subjectPrefix} - Ready for today's class in 1 hour [SID:${session.id}]`,
+              `${subjectPrefix1hr} - Ready for today's class in 1 hour [SID:${sidLabel1hr}]`,
               reminderEmailHTML,
               session.parent_name,
               emailType1hr
