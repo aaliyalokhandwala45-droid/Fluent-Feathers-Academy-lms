@@ -55,6 +55,23 @@ if (useCloudinary) {
   console.log('📁 Using local file storage (files may be lost on server restart)');
 }
 
+// Helper to delete a file from Cloudinary by its URL
+async function deleteFromCloudinary(fileUrl) {
+  if (!useCloudinary || !fileUrl || !fileUrl.includes('cloudinary.com')) return;
+  try {
+    // Extract public_id from URL: https://res.cloudinary.com/xxx/image/upload/v123/folder/filename.ext
+    const parts = fileUrl.split('/upload/');
+    if (parts.length < 2) return;
+    const afterUpload = parts[1].replace(/^v\d+\//, ''); // remove version
+    const publicId = afterUpload.replace(/\.\w+$/, ''); // remove extension
+    const resourceType = fileUrl.includes('/video/') ? 'video' : fileUrl.includes('/raw/') ? 'raw' : 'image';
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    console.log(`🗑️ Deleted from Cloudinary: ${publicId}`);
+  } catch (err) {
+    console.error('Cloudinary delete error:', err.message);
+  }
+}
+
 // ==================== DATABASE CONNECTION ====================
 // Log which database we're connecting to (hide password)
 let dbUrl = process.env.DATABASE_URL || '';
@@ -5178,6 +5195,10 @@ app.get('/api/sessions/:sessionId/materials', async (req, res) => {
 // Delete a specific material
 app.delete('/api/session-materials/:id', async (req, res) => {
   try {
+    const existing = await pool.query('SELECT file_path FROM session_materials WHERE id = $1', [req.params.id]);
+    if (existing.rows[0]) {
+      await deleteFromCloudinary(existing.rows[0].file_path);
+    }
     await pool.query('DELETE FROM session_materials WHERE id = $1', [req.params.id]);
     res.json({ success: true, message: 'Material deleted' });
   } catch (err) {
@@ -7624,17 +7645,21 @@ app.delete('/api/homework/:id', async (req, res) => {
     const { id } = req.params;
 
     // Get the file path before deleting (for Cloudinary cleanup if needed)
-    const existing = await pool.query('SELECT file_path FROM materials WHERE id = $1', [id]);
+    const existing = await pool.query('SELECT file_path, corrected_file_path FROM materials WHERE id = $1', [id]);
 
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Homework not found' });
     }
 
+    const filePath = existing.rows[0].file_path;
+    const correctedPath = existing.rows[0].corrected_file_path;
+
     // Delete from database
     await pool.query('DELETE FROM materials WHERE id = $1', [id]);
 
-    // If using Cloudinary and file was uploaded there, we could delete from Cloudinary too
-    // For now just delete from DB - Cloudinary files can be cleaned up manually if needed
+    // Delete files from Cloudinary
+    await deleteFromCloudinary(filePath);
+    await deleteFromCloudinary(correctedPath);
 
     res.json({ message: 'Homework deleted successfully' });
   } catch (err) {
