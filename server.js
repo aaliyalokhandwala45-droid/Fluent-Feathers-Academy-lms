@@ -7449,7 +7449,7 @@ app.get('/api/homework/all', async (req, res) => {
       FROM materials m
       LEFT JOIN sessions s ON m.session_id = s.id
       LEFT JOIN students st ON m.student_id = st.id
-      WHERE m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
+      WHERE m.file_type = 'Homework' AND m.uploaded_by IN ('Parent', 'Admin')
     `;
 
     const params = [];
@@ -7472,6 +7472,31 @@ app.get('/api/homework/all', async (req, res) => {
     });
 
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin manually marks homework as done (for Google Docs / offline work)
+app.post('/api/homework/mark-done', async (req, res) => {
+  try {
+    const { student_id, note } = req.body;
+    if (!student_id) return res.status(400).json({ error: 'Student ID required' });
+
+    await pool.query(`
+      INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
+      VALUES ($1, NULL, CURRENT_DATE, 'Homework', $2, 'MANUAL', 'Admin')
+    `, [student_id, note || 'Completed offline']);
+
+    // Award homework badges same as parent upload
+    await awardBadge(student_id, 'hw_submit', '📝 Homework Hero', 'Submitted homework on time');
+    const hwCount = await pool.query("SELECT COUNT(*) as count FROM materials WHERE student_id = $1 AND file_type = 'Homework'", [student_id]);
+    const count = parseInt(hwCount.rows[0].count);
+    if (count === 5) await awardBadge(student_id, '5_homework', '📚 5 Homework Superstar', 'Submitted 5 homework assignments!');
+    if (count === 10) await awardBadge(student_id, '10_homework', '🎓 10 Homework Champion', 'Submitted 10 homework assignments!');
+    if (count === 25) await awardBadge(student_id, '25_homework', '🏅 25 Homework Master', 'Submitted 25 homework assignments!');
+
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
