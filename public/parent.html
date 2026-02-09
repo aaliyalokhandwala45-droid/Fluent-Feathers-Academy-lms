@@ -1282,9 +1282,25 @@
           container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 20px;">No badges earned yet. Attend classes and submit homework to unlock badges! 🌟</p>';
           document.getElementById('viewAllBadgesBtn').style.display = 'none';
         } else {
-          // Show latest 5 badges only
-          const displayBadges = badges.slice(0, 5);
-          container.innerHTML = displayBadges.map(b => `
+          // Separate award badges from regular badges
+          const awardBadges = badges.filter(b => b.badge_type && b.badge_type.startsWith('student_of_'));
+          const regularBadges = badges.filter(b => !b.badge_type || !b.badge_type.startsWith('student_of_'));
+
+          // Show award badges prominently at top
+          let awardsHTML = '';
+          if (awardBadges.length > 0) {
+            awardsHTML = awardBadges.slice(0, 3).map(b => `
+              <div style="grid-column:1/-1;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:15px;text-align:center;">
+                <div style="font-size:2rem;">${b.badge_name.split(' ')[0]}</div>
+                <div style="font-weight:bold;color:#92400e;font-size:1rem;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
+                <div style="color:#b45309;font-size:0.75rem;">${b.badge_description}</div>
+              </div>
+            `).join('');
+          }
+
+          // Show latest 5 regular badges
+          const displayBadges = regularBadges.slice(0, 5);
+          container.innerHTML = awardsHTML + displayBadges.map(b => `
             <div class="badge-card" style="padding: 12px; font-size: 0.9rem;">
               <div class="badge-icon" style="font-size: 1.8rem;">${b.badge_name.split(' ')[0]}</div>
               <div class="badge-name" style="font-size: 0.8rem;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>

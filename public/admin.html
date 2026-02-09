@@ -1077,6 +1077,9 @@
         <h2>🏆 Badge Leaderboard</h2>
         <p style="color: #718096; margin-bottom: 25px;">See which students are leading in badge collection! This motivates kids to earn more badges.</p>
 
+        <!-- Award Showcase -->
+        <div id="awardsShowcase" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;"></div>
+
         <!-- Top 3 Podium -->
         <div id="leaderboardPodium" style="display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin-bottom: 30px; min-height: 200px;">
           <p style="color: #718096; text-align: center;">Loading leaderboard...</p>
@@ -7139,9 +7142,34 @@ async function saveEditedPayment() {
     // ==================== LEADERBOARD ====================
     async function loadLeaderboard() {
       try {
-        const res = await fetch('/api/leaderboard');
+        const [res, awardsRes] = await Promise.all([fetch('/api/leaderboard'), fetch('/api/awards/current')]);
         const data = await res.json();
+        const awards = await awardsRes.json();
         const students = data.leaderboard || [];
+
+        // Award showcase cards
+        const showcase = document.getElementById('awardsShowcase');
+        const awardTypes = [
+          { key: 'studentOfWeek', icon: '🌟', title: 'Student of the Week', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+          { key: 'studentOfMonth', icon: '🏅', title: 'Student of the Month', gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+          { key: 'studentOfYear', icon: '🏆', title: 'Student of the Year', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }
+        ];
+        showcase.innerHTML = awardTypes.map(at => {
+          const a = awards[at.key];
+          return `<div style="background:${at.gradient};border-radius:12px;padding:20px;text-align:center;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
+            <div style="font-size:36px;margin-bottom:5px;">${at.icon}</div>
+            <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;">${at.title}</div>
+            ${a ? `<div style="font-size:20px;font-weight:bold;margin:8px 0;">${a.name}</div>
+              <div style="font-size:11px;opacity:0.85;">${a.description}</div>` :
+              `<div style="font-size:14px;margin:8px 0;opacity:0.7;">No winner yet</div>`}
+          </div>`;
+        }).join('');
+
+        // Store award holder IDs for leaderboard table icons
+        const awardHolders = {};
+        if (awards.studentOfWeek) awardHolders[awards.studentOfWeek.studentId] = (awardHolders[awards.studentOfWeek.studentId] || '') + '🌟';
+        if (awards.studentOfMonth) awardHolders[awards.studentOfMonth.studentId] = (awardHolders[awards.studentOfMonth.studentId] || '') + '🏅';
+        if (awards.studentOfYear) awardHolders[awards.studentOfYear.studentId] = (awardHolders[awards.studentOfYear.studentId] || '') + '🏆';
 
         // Update podium (top 3)
         const podiumContainer = document.getElementById('leaderboardPodium');
@@ -7188,12 +7216,13 @@ async function saveEditedPayment() {
           const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
           const rankClass = rank <= 3 ? 'rank-top3' : 'rank-normal';
           const rowClass = rank <= 3 ? 'leaderboard-top3' : '';
+          const awardIcons = awardHolders[student.id] || '';
 
           return `
             <tr class="${rowClass}">
               <td style="padding: 15px; text-align: center;" class="${rankClass}">${rankBadge}</td>
               <td style="padding: 15px;">
-                <strong style="color: #2d3748;">${student.name}</strong>
+                <strong style="color: #2d3748;">${student.name}</strong>${awardIcons ? ` <span title="Current award holder">${awardIcons}</span>` : ''}
                 <br><small style="color: #718096;">${student.program_name || 'N/A'}</small>
               </td>
               <td style="padding: 15px; text-align: center;">

@@ -3322,6 +3322,14 @@ cron.schedule('0 9 * * *', async () => {
 
 console.log('✅ Payment renewal reminder system initialized - checking daily at 9:00 AM');
 
+// Student of the Week - every Sunday at 10:30 AM IST (5:00 AM UTC)
+cron.schedule('0 5 * * 0', () => awardStudentOfPeriod('week'));
+// Student of the Month - 1st of each month at 10:30 AM IST
+cron.schedule('0 5 1 * *', () => awardStudentOfPeriod('month'));
+// Student of the Year - January 1st at 10:30 AM IST
+cron.schedule('0 5 1 1 *', () => awardStudentOfPeriod('year'));
+console.log('✅ Student awards system initialized - weekly (Sun), monthly (1st), yearly (Jan 1)');
+
 // ==================== API ROUTES ====================
 
 // Currency conversion rates to INR (approximate)
@@ -7037,6 +7045,161 @@ app.post('/api/students/:id/badges/assign', async (req, res) => {
   }
 });
 
+// ==================== STUDENT OF THE WEEK/MONTH/YEAR ====================
+
+async function calculateStudentScores(startDate, endDate) {
+  const result = await pool.query(`
+    WITH attendance_pts AS (
+      SELECT sa.student_id, COUNT(*) * 10 as pts
+      FROM session_attendance sa
+      JOIN sessions s ON sa.session_id = s.id
+      WHERE sa.attendance = 'Present' AND s.session_date >= $1 AND s.session_date <= $2
+      GROUP BY sa.student_id
+    ),
+    assessment_pts AS (
+      SELECT student_id, SUM(COALESCE(json_array_length(skills::json), 0)) * 3 as pts
+      FROM monthly_assessments
+      WHERE student_id IS NOT NULL AND skills IS NOT NULL AND skills != '[]'
+        AND created_at >= $1 AND created_at <= $2 + INTERVAL '1 day'
+      GROUP BY student_id
+    ),
+    badge_pts AS (
+      SELECT student_id, COUNT(*) * 5 as pts
+      FROM student_badges
+      WHERE earned_date >= $1 AND earned_date <= $2 + INTERVAL '1 day'
+      GROUP BY student_id
+    ),
+    homework_pts AS (
+      SELECT student_id, COUNT(*) * 3 as pts
+      FROM materials
+      WHERE file_type = 'Homework' AND uploaded_by = 'Parent'
+        AND student_id IS NOT NULL AND uploaded_at >= $1 AND uploaded_at <= $2 + INTERVAL '1 day'
+      GROUP BY student_id
+    )
+    SELECT s.id as student_id, s.name, s.completed_sessions, s.parent_email, s.parent_name,
+           COALESCE(a.pts, 0) as attendance_score,
+           COALESCE(as2.pts, 0) as assessment_score,
+           COALESCE(b.pts, 0) as badge_score,
+           COALESCE(h.pts, 0) as homework_score,
+           COALESCE(a.pts, 0) + COALESCE(as2.pts, 0) + COALESCE(b.pts, 0) + COALESCE(h.pts, 0) as total_score
+    FROM students s
+    LEFT JOIN attendance_pts a ON s.id = a.student_id
+    LEFT JOIN assessment_pts as2 ON s.id = as2.student_id
+    LEFT JOIN badge_pts b ON s.id = b.student_id
+    LEFT JOIN homework_pts h ON s.id = h.student_id
+    WHERE s.is_active = true
+      AND (COALESCE(a.pts, 0) + COALESCE(as2.pts, 0) + COALESCE(b.pts, 0) + COALESCE(h.pts, 0)) > 0
+    ORDER BY total_score DESC, s.completed_sessions DESC, s.name ASC
+  `, [startDate, endDate]);
+  return result.rows;
+}
+
+function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, breakdown) {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <div style="max-width:600px;margin:20px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:40px 30px;text-align:center;">
+      <div style="font-size:60px;margin-bottom:10px;">${awardTitle.includes('Year') ? '🏆' : awardTitle.includes('Month') ? '🏅' : '🌟'}</div>
+      <h1 style="margin:0;color:white;font-size:26px;font-weight:bold;">${awardTitle}</h1>
+      <p style="margin:10px 0 0;color:rgba(255,255,255,0.95);font-size:16px;">${periodLabel}</p>
+    </div>
+    <div style="padding:30px;text-align:center;">
+      <p style="font-size:16px;color:#2d3748;margin:0 0 10px;">Congratulations! 🎉</p>
+      <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:15px;padding:25px;margin:20px 0;">
+        <h2 style="margin:0;color:#92400e;font-size:28px;">${studentName}</h2>
+        <p style="margin:10px 0 0;color:#b45309;font-size:18px;">has been awarded <strong>${awardTitle}</strong>!</p>
+      </div>
+      <div style="background:#f7fafc;border-radius:10px;padding:20px;margin:20px 0;text-align:left;">
+        <p style="margin:0 0 10px;font-weight:600;color:#2d3748;">Score Breakdown:</p>
+        <p style="margin:4px 0;color:#4a5568;">📚 Sessions Attended: <strong>${breakdown.attendance} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">📝 Assessment Skills: <strong>${breakdown.assessment} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">🏅 Badges Earned: <strong>${breakdown.badges} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">📖 Homework: <strong>${breakdown.homework} pts</strong></p>
+        <p style="margin:10px 0 0;font-size:18px;font-weight:700;color:#B05D9E;">Total: ${totalScore} points</p>
+      </div>
+      <p style="font-size:15px;color:#4a5568;line-height:1.6;">Keep up the amazing work! We're so proud of ${studentName}'s dedication and progress at Fluent Feathers Academy. 💜</p>
+    </div>
+    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="margin:0;color:#a0aec0;font-size:12px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+async function awardStudentOfPeriod(periodType) {
+  try {
+    const now = new Date();
+    let startDate, endDate, dateKey, periodLabel, awardTitle;
+
+    if (periodType === 'week') {
+      const day = now.getUTCDay();
+      const sunday = new Date(now);
+      sunday.setUTCDate(now.getUTCDate() - day - 7);
+      const saturday = new Date(sunday);
+      saturday.setUTCDate(sunday.getUTCDate() + 6);
+      startDate = sunday.toISOString().split('T')[0];
+      endDate = saturday.toISOString().split('T')[0];
+      const weekNum = Math.ceil(((sunday - new Date(sunday.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
+      dateKey = `${sunday.getFullYear()}_W${String(weekNum).padStart(2, '0')}`;
+      periodLabel = `Week ${weekNum}, ${sunday.getFullYear()}`;
+      awardTitle = '🌟 Student of the Week';
+    } else if (periodType === 'month') {
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+      startDate = prevMonth.toISOString().split('T')[0];
+      endDate = lastDay.toISOString().split('T')[0];
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      dateKey = `${prevMonth.getFullYear()}_${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
+      periodLabel = `${monthNames[prevMonth.getMonth()]} ${prevMonth.getFullYear()}`;
+      awardTitle = '🏅 Student of the Month';
+    } else {
+      const prevYear = now.getFullYear() - 1;
+      startDate = `${prevYear}-01-01`;
+      endDate = `${prevYear}-12-31`;
+      dateKey = `${prevYear}`;
+      periodLabel = `${prevYear}`;
+      awardTitle = '🏆 Student of the Year';
+    }
+
+    const badgeType = `student_of_${periodType}_${dateKey}`;
+    const existing = await pool.query('SELECT id FROM student_badges WHERE badge_type = $1', [badgeType]);
+    if (existing.rows.length > 0) {
+      console.log(`⏭️ ${awardTitle} for ${periodLabel} already awarded, skipping.`);
+      return;
+    }
+
+    const scores = await calculateStudentScores(startDate, endDate);
+    if (scores.length === 0) {
+      console.log(`⏭️ No eligible students for ${awardTitle} (${periodLabel})`);
+      return;
+    }
+
+    const winner = scores[0];
+    const description = `Top scorer for ${periodLabel} with ${winner.total_score} points!`;
+
+    await pool.query(
+      'INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
+      [winner.student_id, badgeType, awardTitle, description]
+    );
+    console.log(`🏆 ${awardTitle} awarded to ${winner.name} for ${periodLabel} (${winner.total_score} pts)`);
+
+    if (winner.parent_email) {
+      const emailHTML = getStudentAwardEmail(winner.name, awardTitle, periodLabel, winner.total_score, {
+        attendance: winner.attendance_score,
+        assessment: winner.assessment_score,
+        badges: winner.badge_score,
+        homework: winner.homework_score
+      });
+      await sendEmail(winner.parent_email, `${awardTitle} - ${winner.name} | Fluent Feathers Academy`, emailHTML, winner.parent_name, 'Student Award');
+    }
+  } catch (err) {
+    console.error(`Error awarding student of ${periodType}:`, err);
+  }
+}
+
 // Leaderboard - Get all students ranked by badges
 app.get('/api/leaderboard', async (req, res) => {
   try {
@@ -7057,6 +7220,35 @@ app.get('/api/leaderboard', async (req, res) => {
       ORDER BY total_badges DESC, manual_badges DESC, s.name ASC
     `);
     res.json({ leaderboard: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get current award holders (Student of the Week/Month/Year)
+app.get('/api/awards/current', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT sb.badge_type, sb.badge_name, sb.badge_description, sb.earned_date, s.name as student_name, s.id as student_id
+      FROM student_badges sb
+      JOIN students s ON sb.student_id = s.id
+      WHERE sb.badge_type LIKE 'student_of_week_%'
+         OR sb.badge_type LIKE 'student_of_month_%'
+         OR sb.badge_type LIKE 'student_of_year_%'
+      ORDER BY sb.earned_date DESC
+    `);
+
+    const awards = { studentOfWeek: null, studentOfMonth: null, studentOfYear: null };
+    for (const row of result.rows) {
+      if (row.badge_type.startsWith('student_of_week_') && !awards.studentOfWeek) {
+        awards.studentOfWeek = { name: row.student_name, studentId: row.student_id, badge: row.badge_name, description: row.badge_description, earned_date: row.earned_date };
+      } else if (row.badge_type.startsWith('student_of_month_') && !awards.studentOfMonth) {
+        awards.studentOfMonth = { name: row.student_name, studentId: row.student_id, badge: row.badge_name, description: row.badge_description, earned_date: row.earned_date };
+      } else if (row.badge_type.startsWith('student_of_year_') && !awards.studentOfYear) {
+        awards.studentOfYear = { name: row.student_name, studentId: row.student_id, badge: row.badge_name, description: row.badge_description, earned_date: row.earned_date };
+      }
+    }
+    res.json(awards);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
