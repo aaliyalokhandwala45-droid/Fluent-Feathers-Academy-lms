@@ -391,6 +391,16 @@
         </div>
       </div>
 
+      <!-- Hall of Fame Section -->
+      <div class="section" id="hallOfFameSection" style="display: none;">
+        <div style="text-align: center; margin-bottom: 15px;">
+          <h2 style="color: #B05D9E; margin-bottom: 5px;">🏛️ Hall of Fame</h2>
+          <p style="color: #718096; margin: 0; font-size: 0.85rem;">Celebrating our top performers!</p>
+        </div>
+        <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+        </div>
+      </div>
+
       <!-- Weekly Challenges Section -->
       <div class="section" id="challengesSection">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -1252,6 +1262,7 @@
 
       loadMakeupCredits();
       loadBadges();
+      loadHallOfFame();
       loadStudentChallenges();
       loadMyExpectations();
       loadUpcoming();
@@ -1315,6 +1326,45 @@
       } catch(e) {
         console.error('Error loading badges:', e);
         document.getElementById('badgesContainer').innerHTML = '<p style="color: #e53e3e;">Error loading badges</p>';
+      }
+    }
+
+    async function loadHallOfFame() {
+      try {
+        const res = await fetch('/api/awards/current', { headers: authHeaders() });
+        const awards = await res.json();
+        const section = document.getElementById('hallOfFameSection');
+        const container = document.getElementById('hallOfFameCards');
+
+        const entries = [
+          { key: 'studentOfYear', label: 'Student of the Year', icon: '👑', gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border: '#f59e0b' },
+          { key: 'studentOfMonth', label: 'Student of the Month', icon: '🌟', gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border: '#667eea' },
+          { key: 'studentOfWeek', label: 'Student of the Week', icon: '⭐', gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border: '#ed8936' }
+        ];
+
+        const cards = entries.filter(e => awards[e.key]).map(e => {
+          const award = awards[e.key];
+          const isMyChild = currentStudent && award.name === currentStudent.name;
+          const sparkle = isMyChild ? '<div style="font-size:0.7rem;color:#e53e3e;font-weight:bold;margin-top:4px;">That\'s you! 🎉</div>' : '';
+          return `
+            <div style="background:${e.gradient};border:2px solid ${e.border};border-radius:14px;padding:16px 12px;text-align:center;${isMyChild ? 'box-shadow:0 0 12px rgba(245,158,11,0.5);transform:scale(1.03);' : ''}">
+              <div style="font-size:2.2rem;margin-bottom:4px;">${e.icon}</div>
+              <div style="font-size:0.7rem;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${e.label}</div>
+              <div style="font-size:1.1rem;font-weight:bold;color:#2d3748;margin:6px 0 2px;">${award.name}</div>
+              <div style="font-size:0.7rem;color:#4a5568;">${award.description}</div>
+              ${sparkle}
+            </div>
+          `;
+        });
+
+        if (cards.length > 0) {
+          container.innerHTML = cards.join('');
+          section.style.display = 'block';
+        } else {
+          section.style.display = 'none';
+        }
+      } catch(e) {
+        console.error('Error loading hall of fame:', e);
       }
     }
 
