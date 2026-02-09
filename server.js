@@ -2200,7 +2200,7 @@ function getEventReminderEmail(data) {
 }
 
 function getHomeworkFeedbackEmail(data) {
-  const { studentName, grade, comments, fileName } = data;
+  const { studentName, parentName, grade, comments, fileName } = data;
 
   // Get emoji based on grade
   const gradeEmoji = grade.toLowerCase().includes('a') || grade.toLowerCase().includes('excellent') ? '🌟' :
@@ -2221,7 +2221,7 @@ function getHomeworkFeedbackEmail(data) {
     </div>
     <div style="padding: 40px 30px;">
       <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
-        Hi <strong>${studentName}</strong>'s Parent,
+        Dear <strong>${parentName || studentName + "'s Parent"}</strong>,
       </p>
       <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
         We're happy to let you know that ${studentName}'s homework has been reviewed! Here are the details:
@@ -4599,18 +4599,6 @@ app.get('/api/sessions/:studentId', async (req, res) => {
 
     if (student.rows[0] && student.rows[0].group_id) {
       const groupId = student.rows[0].group_id;
-
-      // Auto-create missing session_attendance records for this student's group sessions
-      // This ensures students always see their group sessions even if attendance records were not created during scheduling
-      await pool.query(`
-        INSERT INTO session_attendance (session_id, student_id, attendance)
-        SELECT s.id, $1, 'Pending'
-        FROM sessions s
-        WHERE s.group_id = $2 AND s.session_type = 'Group'
-          AND NOT EXISTS (
-            SELECT 1 FROM session_attendance sa WHERE sa.session_id = s.id AND sa.student_id = $1
-          )
-      `, [id, groupId]);
 
       const groupSessionsResult = await executeQuery(`
         SELECT s.*, 'Group' as source_type,
@@ -7411,6 +7399,7 @@ app.post('/api/materials/:id/grade', async (req, res) => {
         try {
           const feedbackEmailHTML = getHomeworkFeedbackEmail({
             studentName: material.student_name,
+            parentName: material.parent_name,
             grade: grade,
             comments: comments,
             fileName: material.file_name
@@ -7492,6 +7481,7 @@ app.post('/api/materials/:id/annotate', express.json({ limit: '20mb' }), async (
       if (material.parent_email) {
         const feedbackEmailHTML = getHomeworkFeedbackEmail({
           studentName: material.student_name,
+          parentName: material.parent_name,
           grade: grade,
           comments: (comments || '') + '\n\nYour corrected homework with teacher\'s annotations is available on the parent portal.',
           fileName: material.file_name
