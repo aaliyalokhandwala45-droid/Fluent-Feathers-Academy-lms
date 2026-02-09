@@ -2108,6 +2108,9 @@ function getClassReminderEmail(data) {
         <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
           <strong>💡 Pro Tip:</strong> Make sure you're in a quiet place with good internet connection. Have your materials ready!
         </p>
+        <p style="margin: 10px 0 0; color: #856404; font-size: 13px; line-height: 1.5;">
+          <strong>📌 Note:</strong> If you need to cancel, please do so from the Parent Portal at least <strong>1 hour before</strong> the session starts.
+        </p>
       </div>
 
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
@@ -3895,18 +3898,26 @@ app.get('/api/students', async (req, res) => {
 
     // Calculate assessment due status for each student
     // Due for assessment if: completed 7+ sessions since last assessment (or 7+ total if never assessed)
+    // Also due if remaining_sessions <= 2 and they have sessions since last assessment (end-of-package assessment)
     const studentsWithAssessmentStatus = r.rows.map(student => {
       const completedSessions = student.completed_sessions || 0;
       const totalAssessments = parseInt(student.total_assessments) || 0;
+      const remainingSessions = student.remaining_sessions || 0;
 
       // Sessions since last assessment = completed - (assessments * 7)
       // This assumes each assessment covers ~7 sessions
       const sessionsAccountedFor = totalAssessments * 7;
       const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
 
+      // Assessment is due if:
+      // 1. Regular cycle: 7+ sessions since last assessment
+      // 2. End-of-package: remaining sessions <= 2 AND there are unassessed sessions (at least 1 session since last assessment)
+      const regularDue = sessionsSinceAssessment >= 7;
+      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 1;
+
       return {
         ...student,
-        assessment_due: sessionsSinceAssessment >= 7,
+        assessment_due: regularDue || endOfPackageDue,
         sessions_since_assessment: sessionsSinceAssessment
       };
     });
@@ -3918,11 +3929,11 @@ app.get('/api/students', async (req, res) => {
   }
 });
 
-// Get students due for monthly assessment (7+ sessions since last assessment)
+// Get students due for monthly assessment (7+ sessions since last assessment OR remaining <= 2 with unassessed sessions)
 app.get('/api/students/due-for-assessment', async (req, res) => {
   try {
     const r = await pool.query(`
-      SELECT s.id, s.name, s.grade, s.date_of_birth, s.program_name, s.completed_sessions, s.parent_name,
+      SELECT s.id, s.name, s.grade, s.date_of_birth, s.program_name, s.completed_sessions, s.remaining_sessions, s.parent_name,
         (SELECT COUNT(*) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as total_assessments,
         (SELECT MAX(created_at) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as last_assessment_date
       FROM students s
@@ -3934,9 +3945,12 @@ app.get('/api/students/due-for-assessment', async (req, res) => {
     const dueStudents = r.rows.filter(student => {
       const completedSessions = student.completed_sessions || 0;
       const totalAssessments = parseInt(student.total_assessments) || 0;
+      const remainingSessions = student.remaining_sessions || 0;
       const sessionsAccountedFor = totalAssessments * 7;
       const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
-      return sessionsSinceAssessment >= 7;
+      const regularDue = sessionsSinceAssessment >= 7;
+      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 1;
+      return regularDue || endOfPackageDue;
     }).map(student => {
       const completedSessions = student.completed_sessions || 0;
       const totalAssessments = parseInt(student.total_assessments) || 0;
@@ -4853,8 +4867,8 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
       const studentId = session.rows[0].student_id;
 
       if (attendance === 'Present') {
-        // Mark as completed and update student stats
-        await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [studentId]);
+        // Mark as completed and update student stats, reset renewal reminder so new one can be sent
+        await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
 
         // Award attendance badges
         const student = await pool.query('SELECT completed_sessions FROM students WHERE id = $1', [studentId]);
@@ -4872,11 +4886,11 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
           VALUES ($1, $2, 'Excused absence', CURRENT_DATE, 'Available', 'admin')
         `, [studentId, sessionId]);
 
-        // Decrement remaining_sessions as the class was used
-        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [studentId]);
+        // Decrement remaining_sessions, reset renewal reminder
+        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
       } else {
-        // Unexcused absence - no makeup credit, just decrement remaining sessions
-        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1', [studentId]);
+        // Unexcused absence - no makeup credit, just decrement remaining sessions, reset renewal reminder
+        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
       }
     }
 
@@ -4973,7 +4987,7 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
           // Only decrement remaining if coming from Pending (not already decremented)
           if (wasPending) {
-            await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+            await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`, [record.student_id]);
           }
 
           // Award badges for group class attendance
@@ -4996,13 +5010,13 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
           // Decrement remaining sessions if coming from Pending
           if (wasPending) {
-            await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+            await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`, [record.student_id]);
           }
         }
       } else if (record.attendance === 'Unexcused' || record.attendance === 'Absent') {
         // Unexcused absence - no makeup credit, just decrement remaining sessions if from Pending
         if (wasPending) {
-          await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0) WHERE id = $1`, [record.student_id]);
+          await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`, [record.student_id]);
         }
       }
     }
