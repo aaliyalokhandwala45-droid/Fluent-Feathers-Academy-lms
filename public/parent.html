@@ -2076,8 +2076,9 @@
                     ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </p>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                   ${gradeDisplay}
+                  ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Teacher Corrections')" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">📝 View Corrections</button>` : ''}
                   ${viewButton}
                   ${downloadUrl ? `<button onclick="forceDownload('${fileUrl}', '${(hw.file_name || 'download').replace(/'/g, "\\'")}')" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">⬇️ Download</button>` : ''}
                   <button onclick="deleteHomework(${hw.id})" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>

@@ -1338,6 +1338,14 @@ async function runMigrations() {
       console.log('Migration 27 note:', err.message);
     }
 
+    // Migration 28: Add corrected_file_path column to materials for annotated homework
+    try {
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS corrected_file_path TEXT`);
+      console.log('✅ Migration 28: Added corrected_file_path column to materials');
+    } catch (err) {
+      console.log('Migration 28 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -7411,6 +7419,82 @@ app.post('/api/materials/:id/grade', async (req, res) => {
 
     res.json({ success: true, message: 'Homework graded successfully!' });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Annotate homework: receives base64 image, uploads to Cloudinary, saves corrected file + grade
+app.post('/api/materials/:id/annotate', express.json({ limit: '20mb' }), async (req, res) => {
+  try {
+    const { image_data, grade, comments } = req.body;
+    if (!image_data) return res.status(400).json({ error: 'No annotated image data' });
+
+    // Decode base64 to buffer
+    const base64Data = image_data.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    let correctedUrl;
+    if (useCloudinary) {
+      // Upload to Cloudinary
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'fluentfeathers/corrections', resource_type: 'image', public_id: 'correction_' + Date.now() },
+          (err, result) => err ? reject(err) : resolve(result)
+        );
+        stream.end(buffer);
+      });
+      correctedUrl = uploadResult.secure_url;
+    } else {
+      // Local storage fallback
+      const fileName = 'correction_' + Date.now() + '.png';
+      const filePath = path.join(__dirname, 'uploads', 'homework', fileName);
+      require('fs').writeFileSync(filePath, buffer);
+      correctedUrl = '/uploads/homework/' + fileName;
+    }
+
+    // Update the material with corrected file and grade
+    await pool.query(`
+      UPDATE materials SET
+        corrected_file_path = $1,
+        feedback_grade = $2,
+        feedback_comments = $3,
+        feedback_given = 1,
+        feedback_date = CURRENT_TIMESTAMP
+      WHERE id = $4
+    `, [correctedUrl, grade || null, comments || null, req.params.id]);
+
+    // Get material details for email
+    const materialResult = await pool.query(`
+      SELECT m.*, st.name as student_name, st.parent_email, st.parent_name
+      FROM materials m
+      LEFT JOIN students st ON m.student_id = st.id
+      WHERE m.id = $1
+    `, [req.params.id]);
+
+    if (materialResult.rows[0]) {
+      const material = materialResult.rows[0];
+      await awardBadge(material.student_id, 'graded_hw', '📚 Homework Hero', 'Received homework feedback');
+
+      if (material.parent_email) {
+        const feedbackEmailHTML = getHomeworkFeedbackEmail({
+          studentName: material.student_name,
+          grade: grade,
+          comments: (comments || '') + '\n\nYour corrected homework with teacher\'s annotations is available on the parent portal.',
+          fileName: material.file_name
+        });
+        await sendEmail(
+          material.parent_email,
+          `📝 Homework Corrected - ${material.student_name}'s Homework Reviewed`,
+          feedbackEmailHTML,
+          material.parent_name,
+          'Homework-Feedback'
+        );
+      }
+    }
+
+    res.json({ success: true, corrected_url: correctedUrl });
+  } catch (err) {
+    console.error('Annotation error:', err);
     res.status(500).json({ error: err.message });
   }
 });

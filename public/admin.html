@@ -4186,6 +4186,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
             <td>${gradeDisplay}${feedbackDisplay}</td>
             <td>
               <button onclick="openGradeHomeworkModal(${hw.id}, decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'), decodeURIComponent('${encodeURIComponent(hw.file_name || '')}'))" class="btn btn-sm btn-primary">Grade</button>
+              ${(isImage || isPdf) && fileUrl ? `<button onclick="openAnnotationEditor(${hw.id}, '${fileUrl}', '${isPdf ? 'pdf' : 'image'}', decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'))" class="btn btn-sm" style="background:#e53e3e;color:white;">✏️ Annotate</button>` : ''}
+              ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Corrected - ${hw.file_name || 'File'}')" class="btn btn-sm" style="background:#f59e0b;color:white;">📝 View Corrected</button>` : ''}
               ${previewBtn}
               ${downloadUrl ? `<a href="${downloadUrl}" download="${hw.file_name || 'homework'}" class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">⬇️ Download</a>` : ''}
               <button onclick="deleteHomework(${hw.id})" class="btn btn-sm btn-danger">Delete</button>
@@ -4336,6 +4338,197 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       } catch (err) {
         console.error('Error grading homework:', err);
         alert('❌ Error grading homework');
+      }
+    }
+
+    // ==================== HOMEWORK ANNOTATION EDITOR ====================
+    let annotCanvas, annotCtx, annotBgImage, annotHistory = [], annotDrawing = false, annotTool = 'pen', annotColor = '#e53e3e', annotSize = 3;
+
+    function openAnnotationEditor(materialId, fileUrl, fileType, studentName) {
+      // Remove existing
+      const existing = document.getElementById('annotationModal');
+      if (existing) existing.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'annotationModal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#1a202c;z-index:10001;display:flex;flex-direction:column;';
+      modal.innerHTML = `
+        <div style="background:#2d3748;padding:10px 15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="color:white;font-weight:bold;">✏️ Annotate: ${studentName}</span>
+          <div style="display:flex;gap:5px;margin-left:15px;">
+            <button onclick="annotTool='pen';this.style.outline='2px solid white';this.parentElement.querySelectorAll('button').forEach(b=>b!==this&&(b.style.outline='none'))" style="padding:5px 12px;border:none;border-radius:5px;background:#e53e3e;color:white;cursor:pointer;outline:2px solid white;">🖊️ Pen</button>
+            <button onclick="annotTool='text';this.style.outline='2px solid white';this.parentElement.querySelectorAll('button').forEach(b=>b!==this&&(b.style.outline='none'))" style="padding:5px 12px;border:none;border-radius:5px;background:#3182ce;color:white;cursor:pointer;">Aa Text</button>
+            <button onclick="annotTool='eraser';this.style.outline='2px solid white';this.parentElement.querySelectorAll('button').forEach(b=>b!==this&&(b.style.outline='none'))" style="padding:5px 12px;border:none;border-radius:5px;background:#718096;color:white;cursor:pointer;">🧹 Eraser</button>
+          </div>
+          <div style="display:flex;gap:5px;margin-left:10px;">
+            ${['#e53e3e','#3182ce','#38a169','#000000'].map(c => `<div onclick="annotColor='${c}';this.parentElement.querySelectorAll('div').forEach(d=>d.style.outline='none');this.style.outline='2px solid white'" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:2px solid #4a5568;${c==='#e53e3e'?'outline:2px solid white':''}"></div>`).join('')}
+          </div>
+          <div style="display:flex;gap:5px;margin-left:10px;">
+            ${[{s:2,l:'Thin'},{s:4,l:'Med'},{s:8,l:'Thick'}].map(p => `<button onclick="annotSize=${p.s};this.parentElement.querySelectorAll('button').forEach(b=>b.style.background='#4a5568');this.style.background='#667eea'" style="padding:5px 10px;border:none;border-radius:5px;background:${p.s===4?'#667eea':'#4a5568'};color:white;cursor:pointer;font-size:12px;">${p.l}</button>`).join('')}
+          </div>
+          <button onclick="annotUndo()" style="padding:5px 12px;border:none;border-radius:5px;background:#f59e0b;color:white;cursor:pointer;margin-left:10px;">↩️ Undo</button>
+          <button onclick="annotClear()" style="padding:5px 12px;border:none;border-radius:5px;background:#718096;color:white;cursor:pointer;">🗑️ Clear</button>
+          <div style="flex:1;"></div>
+          <button onclick="document.getElementById('annotationModal').remove()" style="padding:5px 15px;border:none;border-radius:5px;background:#e53e3e;color:white;cursor:pointer;">✕ Cancel</button>
+        </div>
+        <div style="flex:1;overflow:auto;display:flex;justify-content:center;align-items:center;padding:10px;">
+          <canvas id="annotCanvas" style="cursor:crosshair;box-shadow:0 0 20px rgba(0,0,0,0.5);"></canvas>
+        </div>
+        <div style="background:#2d3748;padding:12px 15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input id="annotGrade" type="text" placeholder="Grade (A+, A, B+...)" style="padding:8px 12px;border-radius:6px;border:1px solid #4a5568;background:#1a202c;color:white;width:150px;">
+          <input id="annotComments" type="text" placeholder="Feedback comments..." style="padding:8px 12px;border-radius:6px;border:1px solid #4a5568;background:#1a202c;color:white;flex:1;">
+          <button onclick="saveAnnotation(${materialId})" style="padding:10px 25px;border:none;border-radius:6px;background:linear-gradient(135deg,#38a169,#2f855a);color:white;cursor:pointer;font-weight:bold;font-size:14px;">✅ Save & Send</button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      annotCanvas = document.getElementById('annotCanvas');
+      annotCtx = annotCanvas.getContext('2d');
+      annotHistory = [];
+      annotTool = 'pen';
+      annotColor = '#e53e3e';
+      annotSize = 3;
+
+      // Load image
+      if (fileType === 'pdf') {
+        loadPdfToCanvas(fileUrl);
+      } else {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+          const maxW = window.innerWidth - 40;
+          const maxH = window.innerHeight - 160;
+          let w = img.naturalWidth, h = img.naturalHeight;
+          if (w > maxW) { h = h * (maxW / w); w = maxW; }
+          if (h > maxH) { w = w * (maxH / h); h = maxH; }
+          annotCanvas.width = w;
+          annotCanvas.height = h;
+          annotCtx.drawImage(img, 0, 0, w, h);
+          annotBgImage = annotCtx.getImageData(0, 0, w, h);
+          annotHistory.push(annotCtx.getImageData(0, 0, w, h));
+        };
+        img.onerror = function() { alert('Could not load image. Try downloading and re-uploading.'); };
+        img.src = fileUrl;
+      }
+
+      // Drawing events
+      annotCanvas.addEventListener('mousedown', annotStart);
+      annotCanvas.addEventListener('mousemove', annotMove);
+      annotCanvas.addEventListener('mouseup', annotEnd);
+      annotCanvas.addEventListener('mouseleave', annotEnd);
+      annotCanvas.addEventListener('touchstart', e => { e.preventDefault(); annotStart(e.touches[0]); }, {passive:false});
+      annotCanvas.addEventListener('touchmove', e => { e.preventDefault(); annotMove(e.touches[0]); }, {passive:false});
+      annotCanvas.addEventListener('touchend', e => { e.preventDefault(); annotEnd(); }, {passive:false});
+
+      // Text tool click
+      annotCanvas.addEventListener('click', function(e) {
+        if (annotTool !== 'text') return;
+        const rect = annotCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const text = prompt('Enter text:');
+        if (!text) return;
+        annotCtx.font = `bold ${annotSize * 5 + 10}px Arial`;
+        annotCtx.fillStyle = annotColor;
+        annotCtx.fillText(text, x, y);
+        annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+      });
+    }
+
+    function annotStart(e) {
+      if (annotTool === 'text') return;
+      annotDrawing = true;
+      const rect = annotCanvas.getBoundingClientRect();
+      annotCtx.beginPath();
+      annotCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+      annotCtx.strokeStyle = annotTool === 'eraser' ? '#ffffff' : annotColor;
+      annotCtx.lineWidth = annotTool === 'eraser' ? annotSize * 4 : annotSize;
+      annotCtx.lineCap = 'round';
+      annotCtx.lineJoin = 'round';
+    }
+
+    function annotMove(e) {
+      if (!annotDrawing) return;
+      const rect = annotCanvas.getBoundingClientRect();
+      annotCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      annotCtx.stroke();
+    }
+
+    function annotEnd() {
+      if (!annotDrawing) return;
+      annotDrawing = false;
+      annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+    }
+
+    function annotUndo() {
+      if (annotHistory.length > 1) {
+        annotHistory.pop();
+        annotCtx.putImageData(annotHistory[annotHistory.length - 1], 0, 0);
+      }
+    }
+
+    function annotClear() {
+      if (!annotBgImage) return;
+      annotCtx.putImageData(annotBgImage, 0, 0);
+      annotHistory = [annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height)];
+    }
+
+    async function loadPdfToCanvas(url) {
+      try {
+        if (!window.pdfjsLib) {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          document.head.appendChild(script);
+          await new Promise(r => script.onload = r);
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        const pdf = await pdfjsLib.getDocument(url).promise;
+        const page = await pdf.getPage(1);
+        const maxW = window.innerWidth - 40;
+        const maxH = window.innerHeight - 160;
+        let viewport = page.getViewport({ scale: 1 });
+        let scale = Math.min(maxW / viewport.width, maxH / viewport.height);
+        viewport = page.getViewport({ scale: scale });
+        annotCanvas.width = viewport.width;
+        annotCanvas.height = viewport.height;
+        await page.render({ canvasContext: annotCtx, viewport: viewport }).promise;
+        annotBgImage = annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height);
+        annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+      } catch (err) {
+        console.error('PDF load error:', err);
+        alert('Could not load PDF for annotation. Try with an image file instead.');
+      }
+    }
+
+    async function saveAnnotation(materialId) {
+      const grade = document.getElementById('annotGrade').value;
+      const comments = document.getElementById('annotComments').value;
+      const imageData = annotCanvas.toDataURL('image/png');
+
+      const btn = event.target;
+      btn.textContent = '⏳ Saving...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/materials/' + materialId + '/annotate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_data: imageData, grade: grade, comments: comments })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('✅ Annotated homework saved and sent to parent!');
+          document.getElementById('annotationModal').remove();
+          loadHomeworkSubmissions();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to save'));
+          btn.textContent = '✅ Save & Send';
+          btn.disabled = false;
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+        btn.textContent = '✅ Save & Send';
+        btn.disabled = false;
       }
     }
 
