@@ -976,7 +976,13 @@
           <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
             <div class="form-group" style="margin:0; flex:1; min-width:150px;">
               <label style="font-size:12px;">Student</label>
-              <select id="manualHwStudent" style="padding:8px;border-radius:6px;border:1px solid #cbd5e0;width:100%;"></select>
+              <select id="manualHwStudent" onchange="loadManualHwSessions()" style="padding:8px;border-radius:6px;border:1px solid #cbd5e0;width:100%;"></select>
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:120px;">
+              <label style="font-size:12px;">Session</label>
+              <select id="manualHwSession" style="padding:8px;border-radius:6px;border:1px solid #cbd5e0;width:100%;">
+                <option value="">Select student first</option>
+              </select>
             </div>
             <div class="form-group" style="margin:0; flex:1; min-width:200px;">
               <label style="font-size:12px;">Note (optional)</label>
@@ -4058,12 +4064,25 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
     }
 
     // ==================== HOMEWORK SUBMISSIONS ====================
+    async function loadManualHwSessions() {
+      const studentId = document.getElementById('manualHwStudent').value;
+      const sessionSelect = document.getElementById('manualHwSession');
+      if (!studentId) { sessionSelect.innerHTML = '<option value="">Select student first</option>'; return; }
+      try {
+        const res = await fetch('/api/students/' + studentId + '/sessions');
+        const sessions = await res.json();
+        sessionSelect.innerHTML = '<option value="">-- Select Session --</option>' +
+          sessions.map(s => `<option value="${s.id}">Session #${s.session_number} - ${new Date(s.session_date).toLocaleDateString()}</option>`).join('');
+      } catch (err) { sessionSelect.innerHTML = '<option value="">Error loading sessions</option>'; }
+    }
+
     async function markHomeworkDone() {
       const studentId = document.getElementById('manualHwStudent').value;
+      const sessionId = document.getElementById('manualHwSession').value;
       const note = document.getElementById('manualHwNote').value || 'Completed offline (Google Docs)';
       if (!studentId) return alert('Please select a student');
       try {
-        const res = await fetch('/api/homework/mark-done', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ student_id: studentId, note: note }) });
+        const res = await fetch('/api/homework/mark-done', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ student_id: studentId, session_id: sessionId || null, note: note }) });
         const data = await res.json();
         if (res.ok) { alert('Homework marked as done!'); document.getElementById('manualHwNote').value = ''; loadHomeworkSubmissions(); }
         else alert(data.error || 'Failed');

@@ -7477,16 +7477,44 @@ app.get('/api/homework/all', async (req, res) => {
   }
 });
 
+// Get sessions for a student (for homework session picker)
+app.get('/api/students/:id/sessions', async (req, res) => {
+  try {
+    // Private sessions
+    const priv = await pool.query(`
+      SELECT id, session_number, session_date FROM sessions
+      WHERE student_id = $1 AND status = 'Completed'
+      ORDER BY session_number DESC
+    `, [req.params.id]);
+    // Group sessions via session_attendance
+    const grp = await pool.query(`
+      SELECT s.id, s.session_number, s.session_date FROM sessions s
+      JOIN session_attendance sa ON sa.session_id = s.id
+      WHERE sa.student_id = $1 AND sa.attendance = 'Present'
+      ORDER BY s.session_number DESC
+    `, [req.params.id]);
+    const seen = new Set();
+    const all = [...priv.rows, ...grp.rows].filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
+    all.sort((a, b) => b.session_number - a.session_number);
+    res.json(all);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Admin manually marks homework as done (for Google Docs / offline work)
 app.post('/api/homework/mark-done', async (req, res) => {
   try {
-    const { student_id, note } = req.body;
+    const { student_id, session_id, note } = req.body;
     if (!student_id) return res.status(400).json({ error: 'Student ID required' });
+
+    const sessId = session_id || null;
+    const sessDate = sessId
+      ? (await pool.query('SELECT session_date FROM sessions WHERE id = $1', [sessId])).rows[0]?.session_date || new Date()
+      : new Date();
 
     await pool.query(`
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
-      VALUES ($1, NULL, CURRENT_DATE, 'Homework', $2, 'MANUAL', 'Admin')
-    `, [student_id, note || 'Completed offline']);
+      VALUES ($1, $2, $3, 'Homework', $4, 'MANUAL', 'Admin')
+    `, [student_id, sessId, sessDate, note || 'Completed offline']);
 
     // Award homework badges same as parent upload
     await awardBadge(student_id, 'hw_submit', '📝 Homework Hero', 'Submitted homework on time');
