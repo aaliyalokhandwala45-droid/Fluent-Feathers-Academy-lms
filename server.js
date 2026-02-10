@@ -1110,6 +1110,7 @@ async function runMigrations() {
       // Add badge_reward column to weekly_challenges
       await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS badge_reward TEXT DEFAULT '🎯 Challenge Champion'`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS renewal_reminder_sent BOOLEAN DEFAULT false`);
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS last_reminder_remaining INTEGER`);
       // Add meet_link column to students table
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS meet_link TEXT`);
       console.log('✅ Parent expectations, renewal reminder & meet_link columns added');
@@ -2413,6 +2414,80 @@ function getRenewalReminderEmail(data) {
 </html>`;
 }
 
+function getSlotsReleasingEmail(data) {
+  const { parentName, studentName, programName, perSessionFee, currency, makeupCredits } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">🚨</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">All Sessions Completed!</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+
+      <div style="background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #e53e3e; margin: 25px 0;">
+        <p style="margin: 0; font-size: 18px; color: #c53030; font-weight: bold; text-align: center;">
+          ${studentName}'s all paid sessions have been completed!
+        </p>
+      </div>
+
+      <p style="margin: 0 0 20px; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        We hope <strong>${studentName}</strong> has been enjoying the classes at
+        <strong style="color: #667eea;">Fluent Feathers Academy</strong>! All the scheduled sessions for
+        <strong>${programName || 'the program'}</strong> have now been completed.
+      </p>
+
+      <div style="background: linear-gradient(135deg, #fffaf0 0%, #feebc8 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #f6ad55; margin: 25px 0;">
+        <p style="margin: 0; font-size: 15px; color: #744210; line-height: 1.7;">
+          <strong>⏳ Please note:</strong> We will be releasing ${studentName}'s slot soon. To continue uninterrupted learning, please renew the sessions at the earliest so we can schedule the next set of classes for ${studentName}.
+        </p>
+      </div>
+
+      ${makeupCredits > 0 ? `
+      <div style="background: #faf5ff; padding: 15px; border-radius: 8px; border-left: 4px solid #805ad5; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px; color: #553c9a;">
+          <strong>🎫 Note:</strong> ${studentName} has ${makeupCredits} makeup credit${makeupCredits > 1 ? 's' : ''} available. These are bonus classes and will remain valid even after renewal.
+        </p>
+      </div>
+      ` : ''}
+
+      ${perSessionFee ? `
+      <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px; color: #4a5568;">
+          <strong>💰 Per Session Fee:</strong> ${currency || '₹'}${perSessionFee}
+        </p>
+      </div>
+      ` : ''}
+
+      <p style="margin: 25px 0; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        To renew, simply reply to this email or contact us directly. We look forward to continuing ${studentName}'s learning journey! 😊
+      </p>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568;">
+        Warm regards,<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function getClassCancelledEmail(data) {
   const { parentName, studentName, sessionDate, sessionTime, cancelledBy, reason, hasMakeupCredit } = data;
 
@@ -3290,59 +3365,84 @@ cron.schedule('0 8 * * *', async () => {
 console.log('✅ Birthday reminder system initialized - checking daily at 8:00 AM');
 
 // ==================== PAYMENT RENEWAL REMINDER CRON JOB ====================
-// Runs daily at 9:00 AM to check for students with 2 or fewer sessions remaining
+// Runs daily at 9:00 AM UTC to check for students with 2 or fewer sessions remaining
+// Sends reminders at each level: 2 remaining, 1 remaining, and 0 remaining (slots releasing)
 cron.schedule('0 9 * * *', async () => {
   try {
     console.log('💳 Checking for payment renewal reminders...');
 
-    // Find students with 2 or fewer sessions remaining who haven't been reminded
-    // Include students with 0 remaining sessions who may still have makeup credits - they still need to renew paid sessions
+    // Find students with 2 or fewer sessions remaining
+    // Send reminder if: never reminded OR remaining count dropped since last reminder
     const lowSessionStudents = await pool.query(`
       SELECT s.id, s.name, s.parent_email, s.parent_name, s.remaining_sessions, s.program_name, s.per_session_fee, s.currency,
+        s.renewal_reminder_sent, s.last_reminder_remaining,
         COUNT(DISTINCT m.id) as available_makeup_credits
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND LOWER(m.status) = 'available'
       WHERE s.is_active = true
         AND s.remaining_sessions <= 2
-        AND (s.renewal_reminder_sent = false OR s.renewal_reminder_sent IS NULL)
+        AND s.parent_email IS NOT NULL
+        AND s.parent_email != ''
       GROUP BY s.id
     `);
 
+    let sentCount = 0;
     for (const student of lowSessionStudents.rows) {
       try {
-        const makeupCredits = parseInt(student.available_makeup_credits) || 0;
-        const renewalEmailHTML = getRenewalReminderEmail({
-          parentName: student.parent_name,
-          studentName: student.name,
-          remainingSessions: student.remaining_sessions,
-          programName: student.program_name,
-          perSessionFee: student.per_session_fee,
-          currency: student.currency,
-          makeupCredits: makeupCredits
-        });
+        // Skip if already reminded at this exact remaining count
+        const lastReminded = student.last_reminder_remaining;
+        const current = student.remaining_sessions;
+        if (lastReminded !== null && lastReminded !== undefined && lastReminded <= current) {
+          continue; // Already sent reminder at this level or lower
+        }
 
-        const sessionWord = student.remaining_sessions === 1 ? 'Session' : 'Sessions';
-        const subjectExtra = student.remaining_sessions === 0 ? 'No Sessions Left' : `Only ${student.remaining_sessions} ${sessionWord} Left`;
+        const makeupCredits = parseInt(student.available_makeup_credits) || 0;
+
+        // Use different email content for 0 remaining (slots releasing)
+        let emailHTML, subject;
+        if (current === 0) {
+          emailHTML = getSlotsReleasingEmail({
+            parentName: student.parent_name,
+            studentName: student.name,
+            programName: student.program_name,
+            perSessionFee: student.per_session_fee,
+            currency: student.currency,
+            makeupCredits: makeupCredits
+          });
+          subject = `🚨 All Sessions Completed - Slots Releasing Soon for ${student.name}`;
+        } else {
+          emailHTML = getRenewalReminderEmail({
+            parentName: student.parent_name,
+            studentName: student.name,
+            remainingSessions: current,
+            programName: student.program_name,
+            perSessionFee: student.per_session_fee,
+            currency: student.currency,
+            makeupCredits: makeupCredits
+          });
+          const sessionWord = current === 1 ? 'Session' : 'Sessions';
+          subject = `⏰ Renewal Reminder - Only ${current} ${sessionWord} Left for ${student.name}`;
+        }
+
         await sendEmail(
           student.parent_email,
-          `⏰ Renewal Reminder - ${subjectExtra} for ${student.name}`,
-          renewalEmailHTML,
+          subject,
+          emailHTML,
           student.parent_name,
           'Renewal-Reminder'
         );
 
-        // Mark reminder as sent
-        await pool.query('UPDATE students SET renewal_reminder_sent = true WHERE id = $1', [student.id]);
+        // Track which remaining count was last reminded at
+        await pool.query('UPDATE students SET renewal_reminder_sent = true, last_reminder_remaining = $2 WHERE id = $1', [student.id, current]);
+        sentCount++;
 
-        console.log(`✅ Sent renewal reminder to ${student.parent_name} for ${student.name} (${student.remaining_sessions} sessions left, ${makeupCredits} makeup credits)`);
+        console.log(`✅ Sent renewal reminder to ${student.parent_name} for ${student.name} (${current} sessions left, ${makeupCredits} makeup credits)`);
       } catch (emailErr) {
         console.error(`Error sending renewal reminder for ${student.name}:`, emailErr);
       }
     }
 
-    if (lowSessionStudents.rows.length === 0) {
-      console.log('No renewal reminders needed today');
-    }
+    console.log(sentCount > 0 ? `💳 Sent ${sentCount} renewal reminders` : 'No renewal reminders needed today');
   } catch (err) {
     console.error('❌ Error in payment renewal cron job:', err);
   }
@@ -6307,7 +6407,8 @@ app.post('/api/students/:id/renewal', async (req, res) => {
         total_sessions = total_sessions + $1,
         remaining_sessions = remaining_sessions + $1,
         fees_paid = fees_paid + $2,
-        renewal_reminder_sent = false
+        renewal_reminder_sent = false,
+        last_reminder_remaining = NULL
       WHERE id = $3
     `, [sessions_added, amount, req.params.id]);
 
@@ -8301,15 +8402,6 @@ app.post('/api/assessments', async (req, res) => {
             'Demo Assessment'
           );
 
-          // Send Google review request after demo assessment
-          const demoReviewHTML = getGoogleReviewEmail(lead.rows[0].child_name, true);
-          await sendEmail(
-            lead.rows[0].parent_email,
-            `⭐ How was ${lead.rows[0].child_name}'s demo class? Share your feedback!`,
-            demoReviewHTML,
-            lead.rows[0].parent_name,
-            'Google Review Request'
-          );
         }
       }
     } else {
@@ -8347,15 +8439,6 @@ app.post('/api/assessments', async (req, res) => {
             'Report Card'
           );
 
-          // Send Google review request after monthly assessment
-          const monthlyReviewHTML = getGoogleReviewEmail(student.rows[0].name, false);
-          await sendEmail(
-            student.rows[0].parent_email,
-            `⭐ Loving ${student.rows[0].name}'s progress? Share your experience!`,
-            monthlyReviewHTML,
-            student.rows[0].parent_name,
-            'Google Review Request'
-          );
         }
       }
     }

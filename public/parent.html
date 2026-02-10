@@ -140,10 +140,19 @@
       .container { padding: 10px; }
       header { padding: 15px; flex-direction: column; gap: 10px; text-align: center; }
       header h1 { font-size: 18px; }
-      .section { padding: 15px; }
-      .info-card { padding: 15px; }
+      .section { padding: 15px; overflow-x: hidden; }
+      .info-card { padding: 15px; overflow-x: hidden; }
       .tabs { justify-content: center; }
       .tab-btn { padding: 10px 15px; font-size: 0.9rem; }
+
+      /* Prevent horizontal overflow on body */
+      body { overflow-x: hidden; }
+
+      /* Header buttons - wrap properly on mobile */
+      header > div { flex-wrap: wrap; justify-content: center; }
+
+      /* Student stats grid - 3 columns on tablet, not 5 */
+      .info-card > div:last-child { grid-template-columns: repeat(3, 1fr) !important; }
 
       /* Table responsive - make tables scrollable */
       .table-responsive {
@@ -183,6 +192,15 @@
       #submittedHomeworkList > div > div { flex-direction: column; align-items: flex-start !important; gap: 8px; }
       #submittedHomeworkList > div > div > div:last-child { width: 100%; display: flex; flex-wrap: wrap; gap: 5px; }
 
+      /* Makeup credit history items */
+      #makeupCreditsHistory > div { overflow: hidden; word-break: break-word; }
+
+      /* Past class search and filter buttons */
+      #pastClassSearch { min-width: 0 !important; }
+
+      /* Child selector cards */
+      #childCards > div { min-width: 140px !important; padding: 18px 15px !important; }
+
       /* Certificate container */
       .certificate-container { min-height: auto !important; flex-direction: column !important; }
 
@@ -192,12 +210,29 @@
 
     @media screen and (max-width: 480px) {
       header h1 { font-size: 16px; }
-      .tab-btn { padding: 8px 12px; font-size: 0.85rem; }
+      .tab-btn { padding: 8px 10px; font-size: 0.8rem; }
       table { min-width: 500px; }
       th, td { padding: 6px 4px; font-size: 0.8rem; }
       .badges-grid { grid-template-columns: repeat(2, 1fr); }
       .modal-content { padding: 15px; }
       .star-rating { font-size: 28px !important; }
+
+      /* Student stats grid - 2 columns on small phones */
+      .info-card > div:last-child { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+
+      /* Smaller font for stat numbers */
+      .info-card > div:last-child > div > div:first-child { font-size: 1.2rem !important; }
+      .info-card > div:last-child > div > div:last-child { font-size: 0.7rem !important; }
+
+      /* Makeup credit card */
+      #makeupCreditCard h3 { font-size: 1rem; }
+
+      /* Child selector cards even smaller */
+      #childCards > div { min-width: 120px !important; padding: 15px 12px !important; }
+      #childCards { gap: 10px !important; }
+
+      /* Filter buttons wrap */
+      #pastClassSearch + div { flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -465,7 +500,7 @@
           </div>
           <!-- Search and Filter Controls -->
           <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px;">
-            <div style="flex: 1; min-width: 200px;">
+            <div style="flex: 1; min-width: 0;">
               <input type="text" id="pastClassSearch" placeholder="🔍 Search by session #, date, status..."
                      style="width: 100%; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;"
                      oninput="filterPastClasses()">
@@ -1692,7 +1727,7 @@
               if (statusLower === 'scheduled' && c.scheduled_date) {
                 const schedDateStr = new Date(c.scheduled_date).toLocaleDateString();
                 const schedTimeStr = c.scheduled_time ? ' at ' + c.scheduled_time : '';
-                scheduledDiv = '<div style="margin-top: 8px; background: #805ad5; color: white; padding: 6px 12px; border-radius: 6px; display: inline-block; font-size: 0.85rem;">Makeup Class: ' + schedDateStr + schedTimeStr + '</div>';
+                scheduledDiv = '<div style="margin-top: 8px; background: #805ad5; color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; word-break: break-word;">Makeup Class: ' + schedDateStr + schedTimeStr + '</div>';
               }
 
               return '<div style="background: ' + bgColor + '; border-left: 4px solid ' + borderColor + '; padding: 15px; border-radius: 8px; margin-bottom: 12px;">' +
@@ -1702,7 +1737,7 @@
                     '<div style="font-size: 0.85rem; color: #718096;">Earned: ' + earnedDate + (addedBy ? ' - ' + addedBy : '') + '</div>' +
                     scheduledDiv +
                   '</div>' +
-                  '<span style="' + statusBadge + ' padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">' + statusText + '</span>' +
+                  '<span style="' + statusBadge + ' padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;">' + statusText + '</span>' +
                 '</div>' +
               '</div>';
             }).join('');
