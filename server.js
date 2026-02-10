@@ -4028,9 +4028,9 @@ app.get('/api/students', async (req, res) => {
 
       // Assessment is due if:
       // 1. Regular cycle: 7+ sessions since last assessment
-      // 2. End-of-package: remaining sessions <= 2 AND there are unassessed sessions (at least 1 session since last assessment)
+      // 2. End-of-package: remaining sessions <= 2 AND at least 3 unassessed sessions
       const regularDue = sessionsSinceAssessment >= 7;
-      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 1;
+      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 3;
 
       return {
         ...student,
@@ -4066,7 +4066,7 @@ app.get('/api/students/due-for-assessment', async (req, res) => {
       const sessionsAccountedFor = totalAssessments * 7;
       const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
       const regularDue = sessionsSinceAssessment >= 7;
-      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 1;
+      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 3;
       return regularDue || endOfPackageDue;
     }).map(student => {
       const completedSessions = student.completed_sessions || 0;
