@@ -174,6 +174,9 @@
       /* Payment grid */
       .payment-grid { grid-template-columns: 1fr; }
 
+      /* Session progress card grid */
+      #sessionProgressCard > div { grid-template-columns: repeat(3, 1fr) !important; }
+
       /* Badges grid */
       .badges-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
       .badge-card { padding: 10px 8px; }
@@ -210,6 +213,8 @@
 
     @media screen and (max-width: 480px) {
       header h1 { font-size: 16px; }
+      header p { font-size: 10px !important; }
+      #headerLogo { height: 35px !important; }
       .tab-btn { padding: 8px 10px; font-size: 0.8rem; }
       table { min-width: 500px; }
       th, td { padding: 6px 4px; font-size: 0.8rem; }
@@ -233,6 +238,15 @@
 
       /* Filter buttons wrap */
       #pastClassSearch + div { flex-wrap: wrap; }
+
+      /* Current child badge and switch button */
+      #currentChildBadge { font-size: 0.75rem !important; padding: 4px 8px !important; }
+      #switchChildBtn { font-size: 0.75rem !important; padding: 6px 10px !important; }
+
+      /* Session progress card - 2 columns on very small screens */
+      #sessionProgressCard > div { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+      #sessionProgressCard > div > div { padding: 8px !important; }
+      #sessionProgressCard > div > div > div:first-child { font-size: 1.3rem !important; }
     }
   </style>
 </head>
@@ -2517,11 +2531,11 @@
       modal.id = 'filePreviewModal';
       modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
       modal.innerHTML = `
-        <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
-          <a href="${url}" download="${fileName}" style="background: #667eea; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 0.9rem;">⬇️ Download</a>
-          <button onclick="document.getElementById('filePreviewModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+        <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 90%; z-index: 1;">
+          <a href="${url}" download="${fileName}" style="background: #667eea; color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; white-space: nowrap;">⬇️ Download</a>
+          <button onclick="document.getElementById('filePreviewModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">✕ Close</button>
         </div>
-        <p style="color: white; margin-bottom: 15px; font-size: 1.1rem;">${fileName}</p>
+        <p style="color: white; margin-bottom: 15px; font-size: 1rem; margin-top: 50px; text-align: center; word-break: break-word;">${fileName}</p>
         ${content}
       `;
 
@@ -2588,9 +2602,9 @@
         // PPT/Word/Excel - Use Google Docs viewer with protective overlays
         const docViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
         modal.innerHTML = `
-          <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center; z-index: 1002;">
-            <span style="background: linear-gradient(135deg, #B05D9E, #8B4789); color: white; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only - No Downloads</span>
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+          <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; z-index: 1002; max-width: 90%;">
+            <span style="background: linear-gradient(135deg, #B05D9E, #8B4789); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">🔒 View Only</span>
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">✕ Close</button>
           </div>
           <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📊 ${fileName}</p>
           <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">📋 Viewing as: ${parentName} | ${dateStr}</p>
@@ -2622,11 +2636,11 @@
           : `<iframe src="${viewerUrl}" style="width: 100%; height: 100%; border: none;" sandbox="allow-scripts allow-same-origin" allow=""></iframe>`;
 
         modal.innerHTML = `
-          <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center;">
-            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only - No Downloads</span>
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+          <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; max-width: 90%;">
+            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">🔒 View Only</span>
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">✕ Close</button>
           </div>
-          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📄 ${fileName}</p>
+          <p style="color: white; margin-bottom: 10px; font-size: 1rem; margin-top: 50px; word-break: break-word;">📄 ${fileName}</p>
           <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">📋 Viewing as: ${parentName} | ${dateStr}</p>
           <div style="position: relative; width: 95vw; max-width: 1200px; height: 80vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
             ${pdfViewerContent}
@@ -2651,11 +2665,11 @@
           imgWatermarks += `<div style="position: absolute; top: ${top}%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); white-space: nowrap; color: rgba(176, 93, 158, 0.35); font-size: 20px; font-weight: bold; pointer-events: none; user-select: none; text-shadow: 2px 2px 4px rgba(255,255,255,0.8);">${watermarkText}</div>`;
         }
         modal.innerHTML = `
-          <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center;">
-            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 8px 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">🔒 View Only</span>
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+          <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; max-width: 90%;">
+            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">🔒 View Only</span>
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">✕ Close</button>
           </div>
-          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">📊 ${fileName}</p>
+          <p style="color: white; margin-bottom: 10px; font-size: 1rem; margin-top: 50px; word-break: break-word;">📊 ${fileName}</p>
           <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">📋 Viewing as: ${parentName} | ${dateStr}</p>
           <div style="position: relative; display: inline-block;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
             <img src="${url}" style="max-width: 95vw; max-height: 75vh; border-radius: 8px;" draggable="false" onmousedown="return false;" oncopy="return false;">
@@ -2668,8 +2682,8 @@
         `;
       } else {
         modal.innerHTML = `
-          <div style="position: absolute; top: 20px; right: 20px;">
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;">✕ Close</button>
+          <div style="position: absolute; top: 10px; right: 10px;">
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">✕ Close</button>
           </div>
           <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 400px;">
             <p style="font-size: 4rem; margin-bottom: 20px;">🔒</p>

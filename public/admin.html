@@ -66,6 +66,13 @@
     .tab-btn { padding: 12px 24px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .tab-btn.active { background: #B05D9E; color: white; border-color: #B05D9E; }
 
+    /* Table responsive wrapper */
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Mobile hamburger menu */
+    .hamburger-btn { display: none; background: #B05D9E; color: white; border: none; font-size: 22px; padding: 6px 10px; border-radius: 6px; cursor: pointer; line-height: 1; }
+    .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+
     /* Responsive */
     @media (max-width: 900px) {
       .sidebar { width: 60px; }
@@ -74,9 +81,54 @@
       .main-content { margin-left: 60px; padding: 15px; }
       header { flex-direction: column; align-items: flex-start; }
       .stats-grid { grid-template-columns: repeat(4, 1fr); }
+      .upcoming-classes-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+      .modal-content { width: 95%; padding: 20px; }
     }
     @media (max-width: 600px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .section { padding: 15px; overflow-x: hidden; }
+      .section h2 { font-size: 1.2rem; }
+      .form-row { grid-template-columns: 1fr; }
+      .upcoming-classes-grid { grid-template-columns: 1fr; }
+      .modal-content { width: 95%; padding: 15px; max-width: 100vw; }
+      .modal-header h2 { font-size: 1rem; }
+      table { font-size: 0.8rem; }
+      th, td { padding: 8px 6px; }
+      .schedule-row { flex-wrap: wrap; }
+      .session-item { flex-direction: column; gap: 10px; align-items: flex-start; }
+      .btn { padding: 10px 16px; font-size: 0.9rem; }
+      .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+      /* Calendar grid smaller on mobile */
+      #calendarGrid > div, #calendarDays > div { padding: 4px !important; font-size: 0.75rem !important; }
+      /* Fixed-width inputs become fluid */
+      input[style*="width: 250px"], input[style*="width: 300px"] { width: 100% !important; max-width: 100% !important; }
+    }
+    @media (max-width: 480px) {
+      .sidebar { position: fixed; left: -260px; width: 240px; transition: left 0.3s ease; z-index: 100; }
+      .sidebar.mobile-open { left: 0; }
+      .sidebar.mobile-open ~ .sidebar-overlay { display: block; }
+      .sidebar-header h2, .sidebar-header p { display: block; }
+      .nav-btn span { display: inline; }
+      .nav-btn { justify-content: flex-start; }
+      .hamburger-btn { display: inline-block; }
+      .main-content { margin-left: 0; padding: 10px; }
+      body { overflow-x: hidden; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .stat-card { padding: 10px 8px; }
+      .stat-card .value { font-size: 1.2rem; }
+      .stat-card h3 { font-size: 0.68rem; }
+      header h1 { font-size: 16px; }
+      header p { font-size: 11px !important; }
+      #headerLogo { height: 35px !important; }
+      .modal-content { width: 98%; padding: 12px; border-radius: 8px; }
+      .modal-tabs { gap: 5px; flex-wrap: wrap; }
+      .modal-tab { padding: 8px 12px; font-size: 0.85rem; }
+      /* Form groups in financial filter etc */
+      div[style*="min-width: 200px"], div[style*="min-width: 150px"], div[style*="min-width: 120px"] { min-width: 0 !important; width: 100%; }
+      /* Awards showcase */
+      #awardsShowcase { grid-template-columns: 1fr !important; }
+      /* Leaderboard podium */
+      #leaderboardPodium { flex-direction: column; align-items: center; gap: 10px; }
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -272,11 +324,13 @@
         <button class="nav-btn" onclick="window.location.href='whiteboard.html'">🖊️ <span>Whiteboard</span></button>
       </nav>
     </aside>
+    <div class="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
 
     <!-- Main Content -->
     <main class="main-content">
       <header>
         <div style="display: flex; align-items: center; gap: 15px;">
+          <button class="hamburger-btn" onclick="toggleMobileSidebar()">☰</button>
           <img id="headerLogo" src="/logo.png" alt="Fluent Feathers" style="height: 55px;">
           <div>
             <h1 style="margin: 0;">Fluent Feathers Academy By Aaliya</h1>
@@ -502,7 +556,9 @@
           <input type="text" id="studentSearchInput" placeholder="🔍 Search students by name, age, or program..." oninput="filterStudents()" style="width: 100%; max-width: 400px; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
           <span id="studentCount" style="margin-left: 15px; color: #718096; font-size: 14px;"></span>
         </div>
+        <div class="table-responsive">
         <table id="studentsTable"><thead><tr><th>Name</th><th>Age</th><th>Program</th><th>Type</th><th>Sessions (C/R)</th><th>Makeup</th><th>Actions</th></tr></thead><tbody id="studentsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table>
+        </div>
       </div>
     </div>
 
@@ -657,7 +713,7 @@
             </div>
             <div class="form-group"><label>Max Students *</label><input type="number" id="groupMaxStudents" value="10" required></div>
         </div><button type="submit" class="btn btn-primary">Create Group</button></form></div>
-      <div class="section"><h2>📋 All Groups</h2><table id="groupsTable"><thead><tr><th>Group Name</th><th>Program</th><th>Duration</th><th>Students</th><th>Max</th><th>Actions</th></tr></thead><tbody id="groupsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📋 All Groups</h2><div class="table-responsive"><table id="groupsTable"><thead><tr><th>Group Name</th><th>Program</th><th>Duration</th><th>Students</th><th>Max</th><th>Actions</th></tr></thead><tbody id="groupsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div></div>
     </div>
 
     <div id="scheduleTab" class="tab-content">
@@ -963,10 +1019,12 @@
           <button onclick="clearPastFilters()" class="btn" style="background: #718096; color: white; padding: 10px 15px;">Clear</button>
         </div>
         <p id="pastSessionsCount" style="color: #718096; font-size: 13px; margin-bottom: 10px;">Showing 10 recent sessions</p>
+        <div class="table-responsive">
         <table id="pastSessionsTable">
           <thead><tr><th>Date (IST)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead>
           <tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -1004,6 +1062,7 @@
             <option value="">All Students</option>
           </select>
         </div>
+        <div class="table-responsive">
         <table id="homeworkTable">
           <thead>
             <tr>
@@ -1019,6 +1078,7 @@
             <tr><td colspan="6" style="text-align: center; color: #718096;">Loading...</td></tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -1047,7 +1107,7 @@
         </div>
         <button type="submit" class="btn btn-primary">Create Event</button>
       </form></div>
-      <div class="section"><h2>📋 All Events</h2><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date (IST)</th><th>Time (IST)</th><th>Duration</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📋 All Events</h2><div class="table-responsive"><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date (IST)</th><th>Time (IST)</th><th>Duration</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div></div>
     </div>
 
     <!-- Class Ratings Tab -->
@@ -1115,7 +1175,7 @@
         </div>
 
         <!-- Full Leaderboard Table -->
-        <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <div class="table-responsive" style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
           <table style="width: 100%;">
             <thead>
               <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
@@ -1302,7 +1362,7 @@
     </div>
 
     <div id="emailsTab" class="tab-content">
-      <div class="section"><h2>📧 Email Logs</h2><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div>
+      <div class="section"><h2>📧 Email Logs</h2><div class="table-responsive"><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
 
       <!-- Database Backup Section -->
       <div class="section" style="margin-top: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px;">
@@ -1661,10 +1721,12 @@
       </div>
       <div class="section">
         <h2>📋 All Announcements</h2>
+        <div class="table-responsive">
         <table id="announcementsTable">
           <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="announcementsBody"><tr><td colspan="5">Loading...</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -2057,10 +2119,12 @@
       </div>
       <div class="section">
         <h2>📋 All Assessments</h2>
+        <div class="table-responsive">
         <table id="assessmentsTable">
           <thead><tr><th>Type</th><th>Student/Lead</th><th>Period</th><th>Certificate</th><th>Skills</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="assessmentsBody"><tr><td colspan="7">Loading...</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -2152,10 +2216,12 @@
           <!-- Payment History Table -->
           <div class="section">
             <h3 style="color: #B05D9E; margin-bottom: 15px;">📋 Payment History</h3>
+            <div class="table-responsive">
             <table id="paymentHistoryTable">
               <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th><th>Notes</th></tr></thead>
               <tbody id="paymentHistoryBody"><tr><td colspan="6" style="text-align: center; color: #718096;">Select a student to view payment history</td></tr></tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>
@@ -3354,8 +3420,22 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     });
 
+    function toggleMobileSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.querySelector('.sidebar-overlay');
+      sidebar.classList.toggle('mobile-open');
+      overlay.style.display = sidebar.classList.contains('mobile-open') ? 'block' : 'none';
+    }
+
     async function showTab(tabName, e) {
       if(e) e.stopPropagation();
+      // Close mobile sidebar when a tab is selected
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.querySelector('.sidebar-overlay');
+      if (sidebar.classList.contains('mobile-open')) {
+        sidebar.classList.remove('mobile-open');
+        overlay.style.display = 'none';
+      }
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -7200,7 +7280,7 @@ async function saveEditedPayment() {
         if(data.payments.length === 0 && data.renewals.length === 0) {
           html += '<p style="color:#718096;">No payment records yet</p>';
         } else {
-          html += '<table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th></tr></thead><tbody>';
+          html += '<div class="table-responsive"><table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th></tr></thead><tbody>';
 
           data.renewals.forEach(r => {
             html += `<tr><td>${r.renewal_date}</td><td>Renewal</td><td>${r.currency} ${r.amount}</td><td>+${r.sessions_added}</td><td>${r.payment_method||'-'}</td></tr>`;
@@ -7210,7 +7290,7 @@ async function saveEditedPayment() {
             html += `<tr><td>${p.payment_date}</td><td>Payment</td><td>${p.currency} ${p.amount}</td><td>${p.sessions_covered||'-'}</td><td>${p.payment_method}</td></tr>`;
           });
 
-          html += '</tbody></table>';
+          html += '</tbody></table></div>';
         }
 
         container.innerHTML = html;
