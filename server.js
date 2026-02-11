@@ -6638,41 +6638,49 @@ app.get('/api/financial-reports', async (req, res) => {
       params = [fyStart, fyEnd];
     }
 
-    // Build renewal date filter and NOT EXISTS clause to avoid double-counting
-    // renewals that are already in payment_history (from future renewals after this fix)
-    const notExistsClause = `NOT EXISTS (
+    // Get all payments from payment_history
+    const paymentsQuery = `
+      SELECT ph.*, s.name as student_name, s.parent_name
+      FROM payment_history ph
+      LEFT JOIN students s ON ph.student_id = s.id
+      ${dateFilter}
+      ORDER BY ph.payment_date DESC
+    `;
+    const payments = await pool.query(paymentsQuery, params);
+
+    // Get renewal payments not already in payment_history (old renewals before fix)
+    let renewalDateFilter = dateFilter.replace(/payment_date/g, 'renewal_date');
+    let renewalRows = [];
+    try {
+      const renewalQuery = `
+        SELECT pr.id, pr.student_id, pr.renewal_date as payment_date, pr.amount, pr.currency,
+               pr.payment_method, pr.sessions_added as sessions_covered,
+               COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes,
+               'Completed' as payment_status, s.name as student_name, s.parent_name
+        FROM payment_renewals pr
+        LEFT JOIN students s ON pr.student_id = s.id
+        ${renewalDateFilter || 'WHERE 1=1'}
+        AND NOT EXISTS (
           SELECT 1 FROM payment_history ph2
           WHERE ph2.student_id = pr.student_id
           AND ph2.payment_date = pr.renewal_date
           AND ph2.amount = pr.amount
-          AND (ph2.notes LIKE 'Renewal%' OR ph2.notes LIKE '%Renewal%')
-        )`;
-
-    let renewalFilter = '';
-    if (dateFilter) {
-      renewalFilter = dateFilter.replace(/payment_date/g, 'renewal_date') + ' AND ' + notExistsClause;
-    } else {
-      renewalFilter = 'WHERE ' + notExistsClause;
+          AND ph2.notes LIKE '%Renewal%'
+        )
+        ORDER BY pr.renewal_date DESC
+      `;
+      const renewalResult = await pool.query(renewalQuery, params);
+      renewalRows = renewalResult.rows;
+    } catch (e) {
+      console.error('Error fetching renewal payments for financial:', e);
     }
 
-    // Get all payments (including renewals that weren't in payment_history)
-    const paymentsQuery = `
-      SELECT * FROM (
-        SELECT ph.id, ph.student_id, ph.payment_date, ph.amount, ph.currency, ph.payment_method, ph.sessions_covered, ph.notes, ph.payment_status, s.name as student_name, s.parent_name
-        FROM payment_history ph
-        LEFT JOIN students s ON ph.student_id = s.id
-        ${dateFilter}
-        UNION ALL
-        SELECT pr.id + 1000000 as id, pr.student_id, pr.renewal_date as payment_date, pr.amount, pr.currency, pr.payment_method, pr.sessions_added as sessions_covered, COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes, 'Completed' as payment_status, s.name as student_name, s.parent_name
-        FROM payment_renewals pr
-        LEFT JOIN students s ON pr.student_id = s.id
-        ${renewalFilter}
-      ) combined
-      ORDER BY payment_date DESC
-    `;
-    const payments = await pool.query(paymentsQuery, params);
+    // Merge payments and renewals
+    const allPayments = [...payments.rows, ...renewalRows].sort((a, b) =>
+      new Date(b.payment_date) - new Date(a.payment_date)
+    );
 
-    // Get monthly summary (including renewals not in payment_history)
+    // Get monthly summary
     const monthlyQuery = `
       SELECT
         EXTRACT(YEAR FROM payment_date) as year,
@@ -6680,29 +6688,45 @@ app.get('/api/financial-reports', async (req, res) => {
         currency,
         SUM(amount) as total_amount,
         COUNT(*) as payment_count
-      FROM (
-        SELECT payment_date, amount, currency FROM payment_history ${dateFilter}
-        UNION ALL
-        SELECT renewal_date as payment_date, pr.amount, pr.currency FROM payment_renewals pr
-        ${renewalFilter}
-      ) combined
+      FROM payment_history
+      ${dateFilter}
       GROUP BY EXTRACT(YEAR FROM payment_date), EXTRACT(MONTH FROM payment_date), currency
       ORDER BY year DESC, month DESC
     `;
     const monthlySummary = await pool.query(monthlyQuery, params);
 
-    // Get total by currency (including renewals not in payment_history)
+    // Add renewal amounts to monthly summary
+    for (const r of renewalRows) {
+      const d = new Date(r.payment_date);
+      const yr = d.getFullYear(), mo = d.getMonth() + 1;
+      const existing = monthlySummary.rows.find(m => parseInt(m.year) === yr && parseInt(m.month) === mo && m.currency === r.currency);
+      if (existing) {
+        existing.total_amount = parseFloat(existing.total_amount) + parseFloat(r.amount);
+        existing.payment_count = parseInt(existing.payment_count) + 1;
+      } else {
+        monthlySummary.rows.push({ year: yr, month: mo, currency: r.currency, total_amount: parseFloat(r.amount), payment_count: 1 });
+      }
+    }
+
+    // Get total by currency
     const totalQuery = `
       SELECT currency, SUM(amount) as total_amount, COUNT(*) as payment_count
-      FROM (
-        SELECT amount, currency FROM payment_history ${dateFilter}
-        UNION ALL
-        SELECT pr.amount, pr.currency FROM payment_renewals pr
-        ${renewalFilter}
-      ) combined
+      FROM payment_history
+      ${dateFilter}
       GROUP BY currency
     `;
     const totals = await pool.query(totalQuery, params);
+
+    // Add renewal amounts to totals
+    for (const r of renewalRows) {
+      const existing = totals.rows.find(t => t.currency === r.currency);
+      if (existing) {
+        existing.total_amount = parseFloat(existing.total_amount) + parseFloat(r.amount);
+        existing.payment_count = parseInt(existing.payment_count) + 1;
+      } else {
+        totals.rows.push({ currency: r.currency, total_amount: parseFloat(r.amount), payment_count: 1 });
+      }
+    }
 
     // Get session stats
     const sessionStats = await pool.query(`
@@ -6715,7 +6739,7 @@ app.get('/api/financial-reports', async (req, res) => {
     const studentCount = await pool.query(`SELECT COUNT(*) as count FROM students WHERE is_active = true`);
 
     res.json({
-      payments: payments.rows,
+      payments: allPayments,
       monthlySummary: monthlySummary.rows,
       totals: totals.rows,
       sessionStats: sessionStats.rows[0],
@@ -6745,51 +6769,46 @@ app.get('/api/financial-reports/export', async (req, res) => {
       params = [fyStart, fyEnd];
     }
 
-    const csvNotExistsClause = `NOT EXISTS (
-          SELECT 1 FROM payment_history ph2
-          WHERE ph2.student_id = pr.student_id
-          AND ph2.payment_date = pr.renewal_date
-          AND ph2.amount = pr.amount
-          AND (ph2.notes LIKE 'Renewal%' OR ph2.notes LIKE '%Renewal%')
-        )`;
-    let csvRenewalFilter = '';
-    if (dateFilter) {
-      csvRenewalFilter = dateFilter.replace(/ph\.payment_date/g, 'pr.renewal_date') + ' AND ' + csvNotExistsClause;
-    } else {
-      csvRenewalFilter = 'WHERE ' + csvNotExistsClause;
-    }
-
     const query = `
-      SELECT * FROM (
-        SELECT
-          ph.payment_date,
-          s.name as student_name,
-          s.parent_name,
-          ph.amount,
-          ph.currency,
-          ph.payment_method,
-          ph.sessions_covered,
-          ph.notes
-        FROM payment_history ph
-        LEFT JOIN students s ON ph.student_id = s.id
-        ${dateFilter}
-        UNION ALL
-        SELECT
-          pr.renewal_date as payment_date,
-          s.name as student_name,
-          s.parent_name,
-          pr.amount,
-          pr.currency,
-          pr.payment_method,
-          pr.sessions_added as sessions_covered,
-          COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes
-        FROM payment_renewals pr
-        LEFT JOIN students s ON pr.student_id = s.id
-        ${csvRenewalFilter}
-      ) combined
-      ORDER BY payment_date DESC
+      SELECT
+        ph.payment_date,
+        s.name as student_name,
+        s.parent_name,
+        ph.amount,
+        ph.currency,
+        ph.payment_method,
+        ph.sessions_covered,
+        ph.notes
+      FROM payment_history ph
+      LEFT JOIN students s ON ph.student_id = s.id
+      ${dateFilter}
+      ORDER BY ph.payment_date DESC
     `;
     const result = await pool.query(query, params);
+
+    // Also get renewal payments not in payment_history
+    let csvRenewalDateFilter = dateFilter.replace(/ph\.payment_date/g, 'pr.renewal_date');
+    try {
+      const renewalCsvQuery = `
+        SELECT pr.renewal_date as payment_date, s.name as student_name, s.parent_name,
+               pr.amount, pr.currency, pr.payment_method, pr.sessions_added as sessions_covered,
+               COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes
+        FROM payment_renewals pr
+        LEFT JOIN students s ON pr.student_id = s.id
+        ${csvRenewalDateFilter || 'WHERE 1=1'}
+        AND NOT EXISTS (
+          SELECT 1 FROM payment_history ph2
+          WHERE ph2.student_id = pr.student_id AND ph2.payment_date = pr.renewal_date
+          AND ph2.amount = pr.amount AND ph2.notes LIKE '%Renewal%'
+        )
+        ORDER BY pr.renewal_date DESC
+      `;
+      const renewalCsvResult = await pool.query(renewalCsvQuery, params);
+      result.rows.push(...renewalCsvResult.rows);
+      result.rows.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date));
+    } catch (e) {
+      console.error('Error fetching renewals for CSV:', e);
+    }
 
     // Create CSV content
     let csv = 'Date,Student Name,Parent Name,Amount,Currency,Payment Method,Sessions,Notes\n';
