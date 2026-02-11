@@ -3074,21 +3074,11 @@ async function checkAndSendReminders() {
         AND st.parent_email IS NOT NULL
     `);
 
-    // Auto-create missing session_attendance records for upcoming group sessions
-    // This ensures reminders are sent even if attendance records were not created during scheduling
-    await pool.query(`
-      INSERT INTO session_attendance (session_id, student_id, attendance)
-      SELECT s.id, st.id, 'Pending'
-      FROM sessions s
-      JOIN groups g ON s.group_id = g.id
-      JOIN students st ON st.group_id = g.id AND st.is_active = true
-      WHERE s.status IN ('Pending', 'Scheduled')
-        AND s.session_type = 'Group'
-        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
-        AND NOT EXISTS (
-          SELECT 1 FROM session_attendance sa WHERE sa.session_id = s.id AND sa.student_id = st.id
-        )
-    `);
+    // NOTE: Removed auto-creation of session_attendance for group sessions.
+    // The group scheduling endpoint (/api/schedule/group-classes) already creates
+    // attendance records only for students with allocated sessions (per-student counts).
+    // Auto-creating for ALL group students was overriding this and showing sessions
+    // to students who weren't scheduled (e.g. students who didn't renew).
 
     // Find all upcoming GROUP sessions and get enrolled students via session_attendance
     const groupSessions = await pool.query(`
