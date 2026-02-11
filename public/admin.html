@@ -79,10 +79,14 @@
       .sidebar-header h2, .sidebar-header p, .nav-btn span { display: none; }
       .nav-btn { justify-content: center; padding: 12px; }
       .main-content { margin-left: 60px; padding: 15px; }
-      header { flex-direction: column; align-items: flex-start; }
+      header { flex-wrap: wrap; }
       .stats-grid { grid-template-columns: repeat(4, 1fr); }
       .upcoming-classes-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
       .modal-content { width: 95%; padding: 20px; }
+      /* Leaderboard podium smaller */
+      .podium-height-1 { height: 140px; }
+      .podium-height-2 { height: 110px; }
+      .podium-height-3 { height: 80px; }
     }
     @media (max-width: 600px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -102,6 +106,14 @@
       #calendarGrid > div, #calendarDays > div { padding: 4px !important; font-size: 0.75rem !important; }
       /* Fixed-width inputs become fluid */
       input[style*="width: 250px"], input[style*="width: 300px"] { width: 100% !important; max-width: 100% !important; }
+      /* Leaderboard - awards 1 col, podium stacked horizontal with smaller heights */
+      #awardsShowcase { grid-template-columns: 1fr !important; }
+      #leaderboardPodium { gap: 10px; flex-wrap: wrap; justify-content: center; }
+      .podium-height-1 { height: 100px; }
+      .podium-height-2 { height: 80px; }
+      .podium-height-3 { height: 60px; }
+      #leaderboardPodium > div > div:nth-child(2) { min-width: 100px !important; padding: 10px 12px !important; }
+      #leaderboardPodium > div > div:nth-child(3) { width: 80px !important; }
     }
     @media (max-width: 480px) {
       .sidebar { position: fixed; left: -260px; width: 240px; transition: left 0.3s ease; z-index: 100; }
@@ -117,18 +129,19 @@
       .stat-card { padding: 10px 8px; }
       .stat-card .value { font-size: 1.2rem; }
       .stat-card h3 { font-size: 0.68rem; }
-      header h1 { font-size: 16px; }
+      header { padding: 12px 15px; }
+      header h1 { font-size: 18px; }
       header p { font-size: 11px !important; }
-      #headerLogo { height: 35px !important; }
+      #headerLogo { height: 40px !important; }
+      #storageStatus { display: none; }
       .modal-content { width: 98%; padding: 12px; border-radius: 8px; }
       .modal-tabs { gap: 5px; flex-wrap: wrap; }
       .modal-tab { padding: 8px 12px; font-size: 0.85rem; }
       /* Form groups in financial filter etc */
       div[style*="min-width: 200px"], div[style*="min-width: 150px"], div[style*="min-width: 120px"] { min-width: 0 !important; width: 100%; }
-      /* Awards showcase */
-      #awardsShowcase { grid-template-columns: 1fr !important; }
-      /* Leaderboard podium */
-      #leaderboardPodium { flex-direction: column; align-items: center; gap: 10px; }
+      /* Leaderboard podium fully stacked */
+      #leaderboardPodium { flex-direction: column; align-items: center; gap: 10px; min-height: auto !important; }
+      .podium-height-1, .podium-height-2, .podium-height-3 { height: 50px; width: 100% !important; max-width: 200px; border-radius: 8px !important; }
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
