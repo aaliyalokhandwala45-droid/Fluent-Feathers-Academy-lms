@@ -1375,7 +1375,7 @@
     </div>
 
     <div id="emailsTab" class="tab-content">
-      <div class="section"><h2>📧 Email Logs</h2><div class="table-responsive"><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
+      <div class="section"><h2>📧 Email Logs</h2><div class="table-responsive"><table id="emailLogsTable"><thead><tr><th>Date/Time</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead><tbody id="emailLogsBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div><div id="emailLogPagination"></div></div>
 
       <!-- Database Backup Section -->
       <div class="section" style="margin-top: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px;">
@@ -3738,6 +3738,10 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       const confirmPermanent = confirm('⚠️ FINAL WARNING ⚠️\n\nThis will PERMANENTLY delete:\n• All past class sessions\n• All materials & recordings\n• All assessments & certificates\n• All payment history\n• All feedback & badges\n\nThis action CANNOT be undone!\n\nType OK to proceed with permanent deletion.');
       if (!confirmPermanent) return;
 
+      // Show loading state on the delete button if possible
+      const deleteBtn = event && event.target ? event.target.closest('button') : null;
+      if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Deleting...'; }
+
       try {
         const res = await fetch(`/api/students/${id}?permanent=true`, {method:'DELETE'});
         if(res.ok) {
@@ -3749,6 +3753,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         }
       } catch(err) {
         alert('❌ Error: ' + err.message);
+      } finally {
+        if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; }
       }
     }
 
@@ -4017,6 +4023,10 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       if (classes.length === 0) return alert('Add at least one class');
       const sendEmail = document.getElementById('sendPrivateScheduleEmail').checked;
 
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.textContent : '';
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Scheduling...'; }
+
       try {
         const res = await fetch('/api/schedule/private-classes', {
           method: 'POST',
@@ -4039,6 +4049,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         }
       } catch(err) {
         alert('❌ Error: ' + err.message);
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
       }
     });
 
@@ -5431,6 +5443,10 @@ async function saveEditedPayment() {
         });
       }
 
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.textContent : '';
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Scheduling...'; }
+
       try {
         const body = { group_id: groupId, classes, send_email: sendEmail };
         if (student_sessions.length > 0) body.student_sessions = student_sessions;
@@ -5454,6 +5470,8 @@ async function saveEditedPayment() {
         }
       } catch(err) {
         alert('❌ Error: ' + err.message);
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
       }
     });
 
@@ -6268,22 +6286,41 @@ async function saveEditedPayment() {
       }
     }
 
-    function loadEmailLogs() {
-      fetch('/api/email-logs')
+    let emailLogPage = 1;
+    function loadEmailLogs(page) {
+      if (page) emailLogPage = page;
+      fetch(`/api/email-logs?page=${emailLogPage}&limit=50`)
         .then(r=>r.json())
-        .then(logs=>document.getElementById('emailLogsBody').innerHTML=logs.map((l, idx)=>{
-          const isGroup = l.email_type && l.email_type.includes('-Group');
-          const displayType = isGroup ? l.email_type.replace('-Group', '') : l.email_type;
-          const badgeClass = isGroup ? 'email-badge-group' : 'email-badge-default';
-          const typeBadge = isGroup
-            ? `<span class="email-badge ${badgeClass}">${displayType} 👥</span>`
-            : `<span class="email-badge ${badgeClass}">${displayType}</span>`;
-          const statusClass = l.status === 'Sent' ? 'status-active' : 'status-inactive';
-          const hasBody = l.email_body && l.email_body.length > 0;
-          const expandBtn = hasBody ? `<span onclick="var el=document.getElementById('emailBody${idx}'); el.style.display=el.style.display==='none'?'table-row':'none'; this.textContent=el.style.display==='none'?'▸':'▾';" style="cursor:pointer; margin-right:6px; font-size:14px;">▸</span>` : '';
-          return `<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}<br><span style="font-size:11px;color:#718096;">${l.recipient_email}</span></td><td>${typeBadge}</td><td style="max-width:300px;">${expandBtn}${l.subject}</td><td><span class="${statusClass}">${l.status}</span></td></tr>` +
-            (hasBody ? `<tr id="emailBody${idx}" style="display:none;"><td colspan="5" style="padding:0;"><div style="max-height:400px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;margin:5px 10px 15px;background:white;">${l.email_body}</div></td></tr>` : '');
-        }).join(''))
+        .then(data=>{
+          const logs = data.logs || data;
+          const total = data.total || logs.length;
+          const totalPages = Math.ceil(total / (data.limit || 50));
+          document.getElementById('emailLogsBody').innerHTML=logs.map((l, idx)=>{
+            const isGroup = l.email_type && l.email_type.includes('-Group');
+            const displayType = isGroup ? l.email_type.replace('-Group', '') : l.email_type;
+            const badgeClass = isGroup ? 'email-badge-group' : 'email-badge-default';
+            const typeBadge = isGroup
+              ? `<span class="email-badge ${badgeClass}">${displayType} 👥</span>`
+              : `<span class="email-badge ${badgeClass}">${displayType}</span>`;
+            const statusClass = l.status === 'Sent' ? 'status-active' : 'status-inactive';
+            const hasBody = l.email_body && l.email_body.length > 0;
+            const expandBtn = hasBody ? `<span onclick="var el=document.getElementById('emailBody${idx}'); el.style.display=el.style.display==='none'?'table-row':'none'; this.textContent=el.style.display==='none'?'▸':'▾';" style="cursor:pointer; margin-right:6px; font-size:14px;">▸</span>` : '';
+            return `<tr><td>${new Date(l.sent_at).toLocaleString()}</td><td>${l.recipient_name}<br><span style="font-size:11px;color:#718096;">${l.recipient_email}</span></td><td>${typeBadge}</td><td style="max-width:300px;">${expandBtn}${l.subject}</td><td><span class="${statusClass}">${l.status}</span></td></tr>` +
+              (hasBody ? `<tr id="emailBody${idx}" style="display:none;"><td colspan="5" style="padding:0;"><div style="max-height:400px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;margin:5px 10px 15px;background:white;">${l.email_body}</div></td></tr>` : '');
+          }).join('');
+          // Render pagination controls
+          const paginationEl = document.getElementById('emailLogPagination');
+          if (paginationEl && totalPages > 1) {
+            let paginationHtml = `<div style="display:flex;justify-content:center;align-items:center;gap:10px;padding:15px;">`;
+            paginationHtml += `<button onclick="loadEmailLogs(${emailLogPage - 1})" ${emailLogPage <= 1 ? 'disabled' : ''} style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;">Prev</button>`;
+            paginationHtml += `<span style="color:#718096;">Page ${emailLogPage} of ${totalPages} (${total} emails)</span>`;
+            paginationHtml += `<button onclick="loadEmailLogs(${emailLogPage + 1})" ${emailLogPage >= totalPages ? 'disabled' : ''} style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;">Next</button>`;
+            paginationHtml += `</div>`;
+            paginationEl.innerHTML = paginationHtml;
+          } else if (paginationEl) {
+            paginationEl.innerHTML = '';
+          }
+        })
         .catch(err => console.error(err));
     }
 
@@ -6448,7 +6485,11 @@ async function saveEditedPayment() {
       }
 
       try {
-        const res = await fetch(`/api/backup/export?pass=${encodeURIComponent(password)}`);
+        const res = await fetch('/api/backup/export', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ pass: password })
+        });
 
         if (!res.ok) {
           const data = await res.json();

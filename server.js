@@ -22,6 +22,14 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'super_secret_change_this_in_production';
 const DEFAULT_MEET = process.env.DEFAULT_MEET_LINK || 'https://meet.google.com/gir-zwin-yww';
 
+// Warn if using default secrets
+if (ADMIN_SECRET === 'super_secret_change_this_in_production') {
+  console.warn('⚠️  WARNING: Using default ADMIN_SECRET. Set ADMIN_SECRET env variable for production!');
+}
+if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === 'admin123') {
+  console.warn('⚠️  WARNING: Using default ADMIN_PASSWORD. Set ADMIN_PASSWORD env variable for production!');
+}
+
 // ==================== CLOUDINARY CONFIG ====================
 // Configure Cloudinary for persistent file storage
 // Support both CLOUDINARY_URL and individual env vars
@@ -417,10 +425,10 @@ app.put('/api/admin/settings', async (req, res) => {
 
 // ==================== DATABASE BACKUP ENDPOINT ====================
 // Export all data as SQL for migration
-app.get('/api/backup/export', async (req, res) => {
+app.post('/api/backup/export', async (req, res) => {
   try {
-    // Verify admin password from query parameter for security
-    const adminPass = req.query.pass;
+    // Verify admin password from request body for security
+    const adminPass = req.body.pass;
     if (adminPass !== (process.env.ADMIN_PASSWORD || 'admin123')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -1398,6 +1406,21 @@ async function runMigrations() {
       console.log('Migration 30 note:', err.message);
     }
 
+    // Migration 31: Add performance indexes on frequently queried columns
+    try {
+      await client.query('CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_session_attendance_session_id ON session_attendance(session_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_students_group_id ON students(group_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_students_parent_email ON students(parent_email)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_payment_history_student_id ON payment_history(student_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_student_id ON sessions(student_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_group_id ON sessions(group_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_session_date ON sessions(session_date)');
+      console.log('✅ Migration 31: Added performance indexes');
+    } catch (err) {
+      console.log('Migration 31 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -1444,18 +1467,31 @@ async function runMigrations() {
   }
 }
 // ==================== HELPERS ====================
-function istToUTC(dateStr, timeStr) {
+function istToUTC(dateStr, timeStr, timezone) {
   try {
     if (!dateStr || !timeStr) throw new Error('Date/Time missing');
     const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
     let cleanTime = timeStr.trim();
     if (cleanTime.length === 5) cleanTime += ':00';
-    const isoString = `${cleanDate}T${cleanTime}+05:30`;
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return { date: cleanDate, time: cleanTime.substring(0, 5) };
-    const utcDate = date.toISOString().split('T')[0];
-    const utcTime = date.toISOString().split('T')[1].substring(0, 8);
-    return { date: utcDate, time: utcTime };
+
+    // Default IST path (backward compatible)
+    if (!timezone || timezone === 'Asia/Kolkata' || timezone === 'IST') {
+      const isoString = `${cleanDate}T${cleanTime}+05:30`;
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return { date: cleanDate, time: cleanTime.substring(0, 5) };
+      const utcDate = date.toISOString().split('T')[0];
+      const utcTime = date.toISOString().split('T')[1].substring(0, 8);
+      return { date: utcDate, time: utcTime };
+    }
+
+    // Dynamic timezone conversion for non-IST timezones
+    const refUtc = new Date(`${cleanDate}T${cleanTime}Z`);
+    const inTz = new Date(refUtc.toLocaleString('en-US', { timeZone: timezone }));
+    const inUtc = new Date(refUtc.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const offsetMs = inTz - inUtc;
+    const actualUtc = new Date(refUtc.getTime() - offsetMs);
+    if (isNaN(actualUtc.getTime())) return { date: cleanDate, time: cleanTime.substring(0, 5) };
+    return { date: actualUtc.toISOString().split('T')[0], time: actualUtc.toISOString().split('T')[1].substring(0, 8) };
   } catch (e) { return { date: dateStr, time: timeStr }; }
 }
 
@@ -4157,14 +4193,12 @@ app.delete('/api/students/:id', async (req, res) => {
     const studentSessions = await executeQuery('SELECT id FROM sessions WHERE student_id = $1', [studentId]);
     const sessionIds = studentSessions.rows.map(s => s.id);
 
-    // Delete session_materials for this student's sessions
+    // Delete session_materials for this student's sessions (batch)
     if (sessionIds.length > 0) {
-      for (const sessionId of sessionIds) {
-        try {
-          await executeQuery('DELETE FROM session_materials WHERE session_id = $1', [sessionId]);
-        } catch (e) {
-          console.log('Note: Could not delete session_materials:', e.message);
-        }
+      try {
+        await executeQuery('DELETE FROM session_materials WHERE session_id = ANY($1)', [sessionIds]);
+      } catch (e) {
+        console.log('Note: Could not delete session_materials:', e.message);
       }
     }
 
@@ -4215,14 +4249,18 @@ app.delete('/api/students/:id', async (req, res) => {
 
 app.post('/api/students/:id/payment', async (req, res) => {
   const { amount, currency, payment_method, receipt_number, sessions_covered, notes, send_email } = req.body;
+  const client = await pool.connect();
   try {
-    await pool.query(`
+    await client.query('BEGIN');
+    await client.query(`
       INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, receipt_number, sessions_covered, notes, payment_status)
       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, 'Paid')
     `, [req.params.id, amount, currency, payment_method, receipt_number, sessions_covered, notes]);
-    await pool.query('UPDATE students SET fees_paid = fees_paid + $1 WHERE id = $2', [amount, req.params.id]);
+    await client.query('UPDATE students SET fees_paid = fees_paid + $1 WHERE id = $2', [amount, req.params.id]);
+    await client.query('COMMIT');
 
-    // Send payment confirmation email if requested
+    // Send payment confirmation email if requested (outside transaction)
+    let emailSent = null;
     if (send_email) {
       const student = await pool.query('SELECT name, parent_name, parent_email FROM students WHERE id = $1', [req.params.id]);
       if (student.rows[0]) {
@@ -4236,7 +4274,7 @@ app.post('/api/students/:id/payment', async (req, res) => {
           paymentMethod: payment_method,
           receiptNumber: receipt_number
         });
-        await sendEmail(
+        emailSent = await sendEmail(
           student.rows[0].parent_email,
           `✅ Payment Confirmation - Fluent Feathers Academy`,
           emailHTML,
@@ -4246,9 +4284,12 @@ app.post('/api/students/:id/payment', async (req, res) => {
       }
     }
 
-    res.json({ success: true });
+    res.json({ success: true, emailSent });
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -4282,26 +4323,33 @@ app.post('/api/groups', async (req, res) => {
   }
 });
 
-// New endpoint to enroll student in group
+// New endpoint to enroll student in group (with transaction to prevent race conditions)
 app.post('/api/groups/:groupId/enroll', async (req, res) => {
   const { student_id } = req.body;
   const groupId = req.params.groupId;
+  const client = await pool.connect();
 
   try {
-    const group = await pool.query('SELECT * FROM groups WHERE id = $1', [groupId]);
-    if (group.rows.length === 0) return res.status(404).json({ error: 'Group not found' });
+    await client.query('BEGIN');
+    const group = await client.query('SELECT * FROM groups WHERE id = $1 FOR UPDATE', [groupId]);
+    if (group.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Group not found' }); }
 
-    const currentCount = await pool.query('SELECT COUNT(*) as count FROM students WHERE group_id = $1 AND is_active = true', [groupId]);
+    const currentCount = await client.query('SELECT COUNT(*) as count FROM students WHERE group_id = $1 AND is_active = true', [groupId]);
     if (parseInt(currentCount.rows[0].count) >= group.rows[0].max_students) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Group is full' });
     }
 
-    await pool.query('UPDATE students SET group_id = $1, group_name = $2 WHERE id = $3', [groupId, group.rows[0].group_name, student_id]);
-    await pool.query('UPDATE groups SET current_students = current_students + 1 WHERE id = $1', [groupId]);
+    await client.query('UPDATE students SET group_id = $1, group_name = $2 WHERE id = $3', [groupId, group.rows[0].group_name, student_id]);
+    await client.query('UPDATE groups SET current_students = current_students + 1 WHERE id = $1', [groupId]);
+    await client.query('COMMIT');
 
     res.json({ success: true, message: 'Student enrolled successfully' });
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -4328,6 +4376,7 @@ app.delete('/api/groups/:id', async (req, res) => {
     await client.query('BEGIN');
     await client.query('DELETE FROM session_attendance WHERE session_id IN (SELECT id FROM sessions WHERE group_id = $1)', [req.params.id]);
     await client.query('DELETE FROM sessions WHERE group_id = $1', [req.params.id]);
+    await client.query('UPDATE students SET group_id = NULL, group_name = NULL WHERE group_id = $1', [req.params.id]);
     await client.query('DELETE FROM groups WHERE id = $1', [req.params.id]);
     await client.query('COMMIT');
     res.json({ success: true });
@@ -4418,6 +4467,7 @@ app.post('/api/schedule/private-classes', async (req, res) => {
     await client.query('COMMIT');
 
     // Send Schedule Email (if enabled)
+    let emailSent = null;
     if (send_email !== false) {
       const scheduleHTML = getScheduleEmail({
         parent_name: student.parent_name,
@@ -4425,7 +4475,7 @@ app.post('/api/schedule/private-classes', async (req, res) => {
         schedule_rows: scheduledSessions.join('')
       });
 
-      await sendEmail(
+      emailSent = await sendEmail(
         student.parent_email,
         `📅 Class Schedule for ${student.name}`,
         scheduleHTML,
@@ -4435,10 +4485,9 @@ app.post('/api/schedule/private-classes', async (req, res) => {
     }
 
     const makeupMsg = makeupClasses.length > 0 ? ` (${makeupClasses.length} using makeup credits)` : '';
-    const message = send_email !== false
-      ? 'Classes scheduled and email sent!' + makeupMsg
-      : 'Classes scheduled successfully!' + makeupMsg;
-    res.json({ success: true, message });
+    const emailMsg = emailSent === true ? ' and email sent!' : emailSent === false ? ' (email failed to send)' : '';
+    const message = 'Classes scheduled successfully!' + emailMsg + makeupMsg;
+    res.json({ success: true, message, emailSent });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -4584,14 +4633,14 @@ app.post('/api/schedule/group-classes', async (req, res) => {
           schedule_rows: rows.join('')
         });
 
-        await sendEmail(
+        const sent = await sendEmail(
           student.parent_email,
           `📅 Group Class Schedule for ${student.name}`,
           scheduleHTML,
           student.parent_name,
           'Schedule'
         );
-        emailsSent++;
+        if (sent) emailsSent++;
       }
     }
 
@@ -4603,10 +4652,9 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       makeupMsg = ` (${totalMakeup} makeup credits used across ${makeupUsed.length} student${makeupUsed.length > 1 ? 's' : ''})`;
     }
 
-    const message = send_email !== false
-      ? `Group classes scheduled and emails sent to ${emailsSent} students!${makeupMsg}`
-      : `Group classes scheduled successfully!${makeupMsg}`;
-    res.json({ success: true, message });
+    const emailMsg = send_email !== false && emailsSent > 0 ? ` and emails sent to ${emailsSent} students` : '';
+    const message = `Group classes scheduled successfully!${emailMsg}${makeupMsg}`;
+    res.json({ success: true, message, emailsSent });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -6001,8 +6049,12 @@ app.post('/api/events/:eventId/send-certificates', async (req, res) => {
 
 app.get('/api/email-logs', async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 100');
-    res.json(r.rows);
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = (page - 1) * limit;
+    const countResult = await pool.query('SELECT COUNT(*) as total FROM email_log');
+    const r = await pool.query('SELECT * FROM email_log ORDER BY sent_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
+    res.json({ logs: r.rows, total: parseInt(countResult.rows[0].total), page, limit });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -6351,19 +6403,18 @@ app.post('/api/parent/login-password', async (req, res) => {
   }
 });
 
-// In-memory OTP rate limiter: max 3 OTP requests per email per 10 minutes
-const otpRateLimit = {};
+// OTP rate limiter using database (persists across restarts)
 app.post('/api/parent/send-otp', async (req, res) => {
   try {
     const email = (req.body.email || '').toLowerCase().trim();
-    // Rate limit: max 3 OTP requests per 10 minutes per email
-    const now = Date.now();
-    if (!otpRateLimit[email]) otpRateLimit[email] = [];
-    otpRateLimit[email] = otpRateLimit[email].filter(t => now - t < 10 * 60 * 1000);
-    if (otpRateLimit[email].length >= 3) {
+    // Rate limit: max 3 OTP requests per 10 minutes per email (checked via email_log)
+    const recentOtps = await pool.query(
+      `SELECT COUNT(*) as count FROM email_log WHERE recipient_email = $1 AND email_type = 'OTP' AND sent_at > NOW() - INTERVAL '10 minutes'`,
+      [email]
+    );
+    if (parseInt(recentOtps.rows[0].count) >= 3) {
       return res.status(429).json({ error: 'Too many OTP requests. Please wait 10 minutes and try again.' });
     }
-    otpRateLimit[email].push(now);
 
     const students = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
     if (students.length === 0) return res.status(404).json({ error: 'No student found' });
@@ -6457,19 +6508,28 @@ app.post('/api/parent/reset-password', async (req, res) => {
 // ==================== PAYMENT RENEWALS ====================
 app.post('/api/students/:id/renewal', async (req, res) => {
   const { amount, currency, sessions_added, payment_method, notes, send_email } = req.body;
+
+  // Validate sessions_added bounds
+  const sessionsNum = parseInt(sessions_added);
+  if (isNaN(sessionsNum) || sessionsNum < 1 || sessionsNum > 200) {
+    return res.status(400).json({ error: 'Sessions added must be between 1 and 200.' });
+  }
+
+  const client = await pool.connect();
   try {
-    await pool.query(`
+    await client.query('BEGIN');
+    await client.query(`
       INSERT INTO payment_renewals (student_id, renewal_date, amount, currency, sessions_added, payment_method, notes)
       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
-    `, [req.params.id, amount, currency, sessions_added, payment_method, notes]);
+    `, [req.params.id, amount, currency, sessionsNum, payment_method, notes]);
 
     // Also add to payment_history so it appears in financial reports
-    await pool.query(`
+    await client.query(`
       INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, 'Completed')
-    `, [req.params.id, amount, currency, payment_method, sessions_added, notes ? `Renewal - ${notes}` : 'Renewal']);
+    `, [req.params.id, amount, currency, payment_method, sessionsNum, notes ? `Renewal - ${notes}` : 'Renewal']);
 
-    await pool.query(`
+    await client.query(`
       UPDATE students SET
         total_sessions = total_sessions + $1,
         remaining_sessions = remaining_sessions + $1,
@@ -6477,9 +6537,11 @@ app.post('/api/students/:id/renewal', async (req, res) => {
         renewal_reminder_sent = false,
         last_reminder_remaining = NULL
       WHERE id = $3
-    `, [sessions_added, amount, req.params.id]);
+    `, [sessionsNum, amount, req.params.id]);
+    await client.query('COMMIT');
 
-    // Send renewal confirmation email if requested
+    // Send renewal confirmation email if requested (outside transaction)
+    let emailSent = null;
     if (send_email) {
       const student = await pool.query('SELECT name, parent_name, parent_email FROM students WHERE id = $1', [req.params.id]);
       if (student.rows[0]) {
@@ -6489,11 +6551,11 @@ app.post('/api/students/:id/renewal', async (req, res) => {
           amount: amount,
           currency: currency,
           paymentType: 'Renewal',
-          sessionsAdded: sessions_added,
+          sessionsAdded: sessionsNum,
           paymentMethod: payment_method,
           receiptNumber: null
         });
-        await sendEmail(
+        emailSent = await sendEmail(
           student.rows[0].parent_email,
           `✅ Renewal Confirmation - Fluent Feathers Academy`,
           emailHTML,
@@ -6503,9 +6565,12 @@ app.post('/api/students/:id/renewal', async (req, res) => {
       }
     }
 
-    res.json({ success: true, message: 'Renewal added successfully!' });
+    res.json({ success: true, message: 'Renewal added successfully!', emailSent });
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
