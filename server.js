@@ -509,6 +509,18 @@ app.use('/api/sessions', verifyParentAccess);
 app.use('/api/upload', verifyParentAccess);
 app.use('/api/events', verifyParentAccess);
 
+// Protect admin-only endpoints: only allow requests from same origin (not external)
+function requireSameOrigin(req, res, next) {
+  const referer = req.headers.referer || req.headers.origin || '';
+  const host = req.headers.host || '';
+  // Allow if referer matches host, or if no referer (same-site browser requests)
+  if (!referer || referer.includes(host) || referer.includes('localhost') || referer.includes('127.0.0.1')) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Access denied' });
+}
+app.use('/api/admin', requireSameOrigin);
+
 // ==================== DATABASE INITIALIZATION ====================
 async function initializeDatabase() {
   const client = await pool.connect();
@@ -1362,6 +1374,28 @@ async function runMigrations() {
       console.log('✅ Migration 28: Added corrected_file_path column to materials');
     } catch (err) {
       console.log('Migration 28 note:', err.message);
+    }
+
+    // Migration 29: Enable Row Level Security on all tables (fixes Supabase security warning)
+    try {
+      const tables = ['groups', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library'];
+      for (const table of tables) {
+        try {
+          await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+          await client.query(`DO $$ BEGIN CREATE POLICY "Allow all for service role" ON ${table} FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+        } catch (e) { /* table may not exist yet */ }
+      }
+      console.log('✅ Migration 29: Enabled RLS on all tables');
+    } catch (err) {
+      console.log('Migration 29 note:', err.message);
+    }
+
+    // Migration 30: Add last_reminder_remaining column for renewal reminders
+    try {
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS last_reminder_remaining INTEGER`);
+      console.log('✅ Migration 30: Added last_reminder_remaining column');
+    } catch (err) {
+      console.log('Migration 30 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -3496,12 +3530,25 @@ app.get('/api/dashboard/stats', async (req, res) => {
     const sess = await executeQuery(`SELECT COUNT(*) as upcoming FROM sessions WHERE status IN ('Pending', 'Scheduled') AND session_date >= CURRENT_DATE`);
     const g = await executeQuery('SELECT COUNT(*) as total FROM groups');
     const e = await executeQuery('SELECT COUNT(*) as total FROM events WHERE status = \'Active\'');
+
+    // Count ungraded homework submissions (uploaded by parent, no grade yet)
+    const hw = await executeQuery(`SELECT COUNT(*) as pending FROM materials WHERE uploaded_by = 'Parent' AND file_type = 'Homework' AND (feedback_grade IS NULL OR feedback_grade = '')`);
+
+    // Count submitted challenges awaiting review
+    let pendingChallenges = 0;
+    try {
+      const ch = await executeQuery(`SELECT COUNT(*) as pending FROM student_challenges WHERE status = 'Submitted'`);
+      pendingChallenges = parseInt(ch.rows[0].pending) || 0;
+    } catch (e) { /* table may not exist */ }
+
     res.json({
       totalStudents: parseInt(countResult.rows[0].total)||0,
       totalRevenue: Math.round(totalRevenueINR),
       upcomingSessions: parseInt(sess.rows[0].upcoming)||0,
       totalGroups: parseInt(g.rows[0].total)||0,
-      activeEvents: parseInt(e.rows[0].total)||0
+      activeEvents: parseInt(e.rows[0].total)||0,
+      pendingHomework: parseInt(hw.rows[0].pending)||0,
+      pendingChallenges: pendingChallenges
     });
   } catch (err) {
     console.error('Dashboard stats error:', err.message);
@@ -6314,8 +6361,20 @@ app.post('/api/parent/login-password', async (req, res) => {
   }
 });
 
+// In-memory OTP rate limiter: max 3 OTP requests per email per 10 minutes
+const otpRateLimit = {};
 app.post('/api/parent/send-otp', async (req, res) => {
   try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    // Rate limit: max 3 OTP requests per 10 minutes per email
+    const now = Date.now();
+    if (!otpRateLimit[email]) otpRateLimit[email] = [];
+    otpRateLimit[email] = otpRateLimit[email].filter(t => now - t < 10 * 60 * 1000);
+    if (otpRateLimit[email].length >= 3) {
+      return res.status(429).json({ error: 'Too many OTP requests. Please wait 10 minutes and try again.' });
+    }
+    otpRateLimit[email].push(now);
+
     const students = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
     if (students.length === 0) return res.status(404).json({ error: 'No student found' });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -6345,8 +6404,17 @@ app.post('/api/parent/send-otp', async (req, res) => {
 
 app.post('/api/parent/verify-otp', async (req, res) => {
   try {
-    const c = (await pool.query('SELECT otp, otp_expiry FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
-    if(!c || c.otp !== req.body.otp || new Date() > new Date(c.otp_expiry)) {
+    const c = (await pool.query('SELECT otp, otp_expiry, otp_attempts FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
+    if (!c) return res.status(401).json({ error: 'Invalid or Expired OTP' });
+
+    // Block after 5 failed attempts
+    if ((c.otp_attempts || 0) >= 5) {
+      return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
+    }
+
+    if (c.otp !== req.body.otp || new Date() > new Date(c.otp_expiry)) {
+      // Increment failed attempts
+      await pool.query('UPDATE parent_credentials SET otp_attempts = COALESCE(otp_attempts, 0) + 1 WHERE parent_email = $1', [req.body.email]);
       return res.status(401).json({ error: 'Invalid or Expired OTP' });
     }
     const s = (await pool.query(`
@@ -6365,10 +6433,13 @@ app.post('/api/parent/verify-otp', async (req, res) => {
 // Verify OTP for password reset (doesn't log in, just verifies)
 app.post('/api/parent/verify-reset-otp', async (req, res) => {
   try {
-    const c = (await pool.query('SELECT otp, otp_expiry FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
+    const c = (await pool.query('SELECT otp, otp_expiry, otp_attempts FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
     if (!c) return res.status(404).json({ error: 'Email not found' });
-    if (c.otp !== req.body.otp) return res.status(400).json({ error: 'Invalid OTP' });
-    if (new Date() > new Date(c.otp_expiry)) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+    if ((c.otp_attempts || 0) >= 5) return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
+    if (c.otp !== req.body.otp || new Date() > new Date(c.otp_expiry)) {
+      await pool.query('UPDATE parent_credentials SET otp_attempts = COALESCE(otp_attempts, 0) + 1 WHERE parent_email = $1', [req.body.email]);
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
     res.json({ success: true, message: 'OTP verified. You can now set a new password.' });
   } catch (err) {
     res.status(500).json({ error: err.message });

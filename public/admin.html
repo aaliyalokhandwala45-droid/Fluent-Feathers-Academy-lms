@@ -293,6 +293,8 @@
         <div class="stat-card"><h3>Total Groups</h3><div class="value" id="totalGroups">0</div></div>
         <div class="stat-card"><h3>Active Events</h3><div class="value" id="activeEvents">0</div></div>
         <div class="stat-card" onclick="showTab('monthlyAssessment', event)" style="cursor: pointer; border-left-color: #f59e0b;"><h3>📊 Due for Assessment</h3><div class="value" id="dueAssessments" style="color: #f59e0b;">0</div></div>
+        <div class="stat-card" onclick="showTab('homework', event)" style="cursor: pointer; border-left-color: #e53e3e;"><h3>📝 Pending Homework</h3><div class="value" id="pendingHomework" style="color: #e53e3e;">0</div></div>
+        <div class="stat-card" onclick="showTab('challenges', event)" style="cursor: pointer; border-left-color: #805ad5;"><h3>🎯 Pending Challenges</h3><div class="value" id="pendingChallenges" style="color: #805ad5;">0</div></div>
       </div>
 
       <!-- Old tabs - HIDDEN (using sidebar navigation instead) -->
@@ -3444,6 +3446,8 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('totalRevenue').textContent = revenueVisible ? ('₹' + actualRevenue.toLocaleString('en-IN')) : '*****';
         document.getElementById('totalGroups').textContent = stats.totalGroups;
         document.getElementById('activeEvents').textContent = stats.activeEvents;
+        document.getElementById('pendingHomework').textContent = stats.pendingHomework || 0;
+        document.getElementById('pendingChallenges').textContent = stats.pendingChallenges || 0;
       } catch (err) {
         console.error(err);
       }

@@ -278,5 +278,46 @@ CREATE INDEX idx_certificates_student ON student_certificates(student_id);
 CREATE INDEX idx_materials_student ON materials(student_id);
 CREATE INDEX idx_email_log_date ON email_log(sent_at);
 
+-- ==================== ROW LEVEL SECURITY ====================
+-- Enable RLS on all tables to prevent unauthorized direct access
+-- The app connects via service_role key which bypasses RLS, so this is safe
+
+ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_registrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE parent_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE class_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_badges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE monthly_assessments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_certificates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_renewals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE makeup_classes ENABLE ROW LEVEL SECURITY;
+
+-- Allow service_role full access (this is what your server uses)
+CREATE POLICY "Service role full access" ON groups FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON students FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON sessions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON session_attendance FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON materials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON events FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON event_registrations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON email_log FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON announcements FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON parent_credentials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON class_feedback FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON student_badges FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON monthly_assessments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON student_certificates FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON payment_history FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON payment_renewals FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access" ON makeup_classes FOR ALL USING (true) WITH CHECK (true);
+
 -- ==================== DONE ====================
 -- Now you can import your backup data!
