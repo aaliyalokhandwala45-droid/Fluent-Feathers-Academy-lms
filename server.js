@@ -6473,6 +6473,12 @@ app.post('/api/students/:id/renewal', async (req, res) => {
       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
     `, [req.params.id, amount, currency, sessions_added, payment_method, notes]);
 
+    // Also add to payment_history so it appears in financial reports
+    await pool.query(`
+      INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
+      VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, 'Completed')
+    `, [req.params.id, amount, currency, payment_method, sessions_added, notes ? `Renewal - ${notes}` : 'Renewal']);
+
     await pool.query(`
       UPDATE students SET
         total_sessions = total_sessions + $1,
@@ -6632,17 +6638,41 @@ app.get('/api/financial-reports', async (req, res) => {
       params = [fyStart, fyEnd];
     }
 
-    // Get all payments
+    // Build renewal date filter and NOT EXISTS clause to avoid double-counting
+    // renewals that are already in payment_history (from future renewals after this fix)
+    const notExistsClause = `NOT EXISTS (
+          SELECT 1 FROM payment_history ph2
+          WHERE ph2.student_id = pr.student_id
+          AND ph2.payment_date = pr.renewal_date
+          AND ph2.amount = pr.amount
+          AND (ph2.notes LIKE 'Renewal%' OR ph2.notes LIKE '%Renewal%')
+        )`;
+
+    let renewalFilter = '';
+    if (dateFilter) {
+      renewalFilter = dateFilter.replace(/payment_date/g, 'renewal_date') + ' AND ' + notExistsClause;
+    } else {
+      renewalFilter = 'WHERE ' + notExistsClause;
+    }
+
+    // Get all payments (including renewals that weren't in payment_history)
     const paymentsQuery = `
-      SELECT ph.*, s.name as student_name, s.parent_name
-      FROM payment_history ph
-      LEFT JOIN students s ON ph.student_id = s.id
-      ${dateFilter}
-      ORDER BY ph.payment_date DESC
+      SELECT * FROM (
+        SELECT ph.id, ph.student_id, ph.payment_date, ph.amount, ph.currency, ph.payment_method, ph.sessions_covered, ph.notes, ph.payment_status, s.name as student_name, s.parent_name
+        FROM payment_history ph
+        LEFT JOIN students s ON ph.student_id = s.id
+        ${dateFilter}
+        UNION ALL
+        SELECT pr.id + 1000000 as id, pr.student_id, pr.renewal_date as payment_date, pr.amount, pr.currency, pr.payment_method, pr.sessions_added as sessions_covered, COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes, 'Completed' as payment_status, s.name as student_name, s.parent_name
+        FROM payment_renewals pr
+        LEFT JOIN students s ON pr.student_id = s.id
+        ${renewalFilter}
+      ) combined
+      ORDER BY payment_date DESC
     `;
     const payments = await pool.query(paymentsQuery, params);
 
-    // Get monthly summary
+    // Get monthly summary (including renewals not in payment_history)
     const monthlyQuery = `
       SELECT
         EXTRACT(YEAR FROM payment_date) as year,
@@ -6650,18 +6680,26 @@ app.get('/api/financial-reports', async (req, res) => {
         currency,
         SUM(amount) as total_amount,
         COUNT(*) as payment_count
-      FROM payment_history
-      ${dateFilter}
+      FROM (
+        SELECT payment_date, amount, currency FROM payment_history ${dateFilter}
+        UNION ALL
+        SELECT renewal_date as payment_date, pr.amount, pr.currency FROM payment_renewals pr
+        ${renewalFilter}
+      ) combined
       GROUP BY EXTRACT(YEAR FROM payment_date), EXTRACT(MONTH FROM payment_date), currency
       ORDER BY year DESC, month DESC
     `;
     const monthlySummary = await pool.query(monthlyQuery, params);
 
-    // Get total by currency
+    // Get total by currency (including renewals not in payment_history)
     const totalQuery = `
       SELECT currency, SUM(amount) as total_amount, COUNT(*) as payment_count
-      FROM payment_history
-      ${dateFilter}
+      FROM (
+        SELECT amount, currency FROM payment_history ${dateFilter}
+        UNION ALL
+        SELECT pr.amount, pr.currency FROM payment_renewals pr
+        ${renewalFilter}
+      ) combined
       GROUP BY currency
     `;
     const totals = await pool.query(totalQuery, params);
@@ -6707,20 +6745,49 @@ app.get('/api/financial-reports/export', async (req, res) => {
       params = [fyStart, fyEnd];
     }
 
+    const csvNotExistsClause = `NOT EXISTS (
+          SELECT 1 FROM payment_history ph2
+          WHERE ph2.student_id = pr.student_id
+          AND ph2.payment_date = pr.renewal_date
+          AND ph2.amount = pr.amount
+          AND (ph2.notes LIKE 'Renewal%' OR ph2.notes LIKE '%Renewal%')
+        )`;
+    let csvRenewalFilter = '';
+    if (dateFilter) {
+      csvRenewalFilter = dateFilter.replace(/ph\.payment_date/g, 'pr.renewal_date') + ' AND ' + csvNotExistsClause;
+    } else {
+      csvRenewalFilter = 'WHERE ' + csvNotExistsClause;
+    }
+
     const query = `
-      SELECT
-        ph.payment_date,
-        s.name as student_name,
-        s.parent_name,
-        ph.amount,
-        ph.currency,
-        ph.payment_method,
-        ph.sessions_covered,
-        ph.notes
-      FROM payment_history ph
-      LEFT JOIN students s ON ph.student_id = s.id
-      ${dateFilter}
-      ORDER BY ph.payment_date DESC
+      SELECT * FROM (
+        SELECT
+          ph.payment_date,
+          s.name as student_name,
+          s.parent_name,
+          ph.amount,
+          ph.currency,
+          ph.payment_method,
+          ph.sessions_covered,
+          ph.notes
+        FROM payment_history ph
+        LEFT JOIN students s ON ph.student_id = s.id
+        ${dateFilter}
+        UNION ALL
+        SELECT
+          pr.renewal_date as payment_date,
+          s.name as student_name,
+          s.parent_name,
+          pr.amount,
+          pr.currency,
+          pr.payment_method,
+          pr.sessions_added as sessions_covered,
+          COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes
+        FROM payment_renewals pr
+        LEFT JOIN students s ON pr.student_id = s.id
+        ${csvRenewalFilter}
+      ) combined
+      ORDER BY payment_date DESC
     `;
     const result = await pool.query(query, params);
 
