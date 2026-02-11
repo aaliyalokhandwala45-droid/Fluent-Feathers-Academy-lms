@@ -209,6 +209,12 @@
 
       /* Login section */
       .login-section { padding: 25px 15px; margin: 20px 10px; }
+
+      /* Badge summary strip responsive */
+      .badge-summary-inner { flex-direction: column; text-align: center; gap: 10px; }
+      .badge-summary-left { justify-content: center; }
+      .badge-summary-right { justify-content: center; }
+      .badge-summary-strip { padding: 14px 16px; }
     }
 
     @media screen and (max-width: 480px) {
@@ -243,10 +249,119 @@
       #currentChildBadge { font-size: 0.75rem !important; padding: 4px 8px !important; }
       #switchChildBtn { font-size: 0.75rem !important; padding: 6px 10px !important; }
 
+      /* Badge summary strip - compact on small phones */
+      .badge-summary-icon { font-size: 1.5rem; }
+      .badge-summary-count { font-size: 0.9rem; }
+      .badge-summary-latest { font-size: 0.7rem; }
+      .badge-summary-btn { padding: 6px 10px; font-size: 0.75rem; }
+
       /* Session progress card - 2 columns on very small screens */
       #sessionProgressCard > div { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
       #sessionProgressCard > div > div { padding: 8px !important; }
       #sessionProgressCard > div > div > div:first-child { font-size: 1.3rem !important; }
+      /* Leaderboard podium fully stacked on small screens */
+      .parent-podium-container { flex-direction: column; align-items: center; gap: 8px; min-height: auto !important; }
+      .parent-podium-height-1, .parent-podium-height-2, .parent-podium-height-3 { height: 40px; width: 100% !important; max-width: 180px; border-radius: 8px !important; }
+      .parent-podium-container > div > div:nth-child(2) { min-width: 80px !important; padding: 8px 10px !important; }
+      .parent-podium-container > div > div:nth-child(3) { width: 70px !important; }
+    }
+
+    /* Badge Summary Strip */
+    .badge-summary-strip {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .badge-summary-strip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    .badge-summary-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+    }
+    .badge-summary-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+    .badge-summary-icon {
+      font-size: 2rem;
+      flex-shrink: 0;
+    }
+    .badge-summary-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .badge-summary-count {
+      color: white;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    .badge-summary-latest {
+      color: rgba(255,255,255,0.8);
+      font-size: 0.8rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .badge-summary-right {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .badge-summary-btn {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+    .badge-summary-btn:hover {
+      transform: scale(1.05);
+    }
+    .leaderboard-btn {
+      background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+      color: #333;
+    }
+    .view-all-btn {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3) !important;
+    }
+    .view-all-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* Leaderboard podium styles */
+    .parent-podium-gold { background: linear-gradient(180deg, #ffd700 0%, #ffb347 100%); box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5); }
+    .parent-podium-silver { background: linear-gradient(180deg, #c0c0c0 0%, #a8a8a8 100%); box-shadow: 0 4px 15px rgba(192, 192, 192, 0.5); }
+    .parent-podium-bronze { background: linear-gradient(180deg, #cd7f32 0%, #b87333 100%); box-shadow: 0 4px 15px rgba(205, 127, 50, 0.5); }
+    .parent-podium-height-1 { height: 120px; }
+    .parent-podium-height-2 { height: 90px; }
+    .parent-podium-height-3 { height: 65px; }
+    .parent-podium-shadow-gold { box-shadow: 0 4px 15px rgba(255,215,0,0.4); }
+    .parent-podium-shadow-silver { box-shadow: 0 4px 15px rgba(192,192,192,0.4); }
+    .parent-podium-shadow-bronze { box-shadow: 0 4px 15px rgba(205,127,50,0.4); }
+
+    @media screen and (max-width: 768px) {
+      .parent-podium-height-1 { height: 80px; }
+      .parent-podium-height-2 { height: 60px; }
+      .parent-podium-height-3 { height: 45px; }
+      .parent-podium-container > div > div:nth-child(2) { min-width: 90px !important; padding: 8px 12px !important; }
+      .parent-podium-container > div > div:nth-child(3) { width: 75px !important; }
     }
   </style>
 </head>
@@ -414,61 +529,19 @@
         </div>
       </div>
 
-      <!-- Badges Section -->
-      <div class="section">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
-          <div>
-            <h2 style="color: #B05D9E; margin-bottom: 5px;">🏆 Achievement Badges</h2>
-            <p style="color: #718096; margin: 0; font-size: 0.9rem;">Keep learning to unlock more badges!</p>
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <div id="totalBadgesCount" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
-              Total: <span id="badgeCountNum">0</span>
+      <!-- Compact Badge Summary Strip -->
+      <div id="badgeSummaryStrip" class="badge-summary-strip" onclick="showTab('achievements')" style="cursor: pointer;">
+        <div class="badge-summary-inner">
+          <div class="badge-summary-left">
+            <div class="badge-summary-icon">🏆</div>
+            <div class="badge-summary-info">
+              <span class="badge-summary-count"><span id="badgeCountNum">0</span> Badges Earned</span>
+              <span class="badge-summary-latest" id="badgeLatestText">Keep learning to earn badges!</span>
             </div>
-            <button onclick="openLeaderboardModal()" class="btn btn-sm" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #333; font-weight: 600; font-size: 0.85rem; padding: 8px 12px;">
-              🏅 Leaderboard
-            </button>
           </div>
-        </div>
-        <div id="badgesContainer" class="badges-grid">
-          <p style="text-align: center; color: #718096;">Loading badges...</p>
-        </div>
-        <div id="viewAllBadgesBtn" style="display: none; text-align: center; margin-top: 15px;">
-          <button onclick="openAllBadgesModal()" class="btn" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; font-weight: 600;">
-            View All Badges →
-          </button>
-        </div>
-      </div>
-
-      <!-- Hall of Fame Section -->
-      <div class="section" id="hallOfFameSection" style="display: none;">
-        <div style="text-align: center; margin-bottom: 15px;">
-          <h2 style="color: #B05D9E; margin-bottom: 5px;">🏛️ Hall of Fame</h2>
-          <p style="color: #718096; margin: 0; font-size: 0.85rem;">Celebrating our top performers!</p>
-        </div>
-        <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
-        </div>
-      </div>
-
-      <!-- Weekly Challenges Section -->
-      <div class="section" id="challengesSection">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h2 style="color: #B05D9E; margin: 0;">🎯 Weekly Challenges</h2>
-        </div>
-        <div id="studentChallenges" style="display: grid; gap: 12px;">
-          <p style="text-align: center; color: #718096; padding: 20px;">Loading challenges...</p>
-        </div>
-      </div>
-
-      <!-- Parent Expectations Section -->
-      <div class="section">
-        <h2 style="color: #B05D9E; margin-bottom: 10px;">💭 My Expectations <span style="font-size: 0.75rem; color: #718096;">(Optional)</span></h2>
-        <p style="color: #718096; margin-bottom: 15px; font-size: 0.9rem;">Share your goals and expectations for your child's learning journey. Your teacher will see this.</p>
-        <div id="parentExpectationsSection">
-          <textarea id="myExpectations" rows="3" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; resize: vertical;" placeholder="e.g., I want my child to improve their reading fluency and confidence in speaking..."></textarea>
-          <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
-            <button onclick="saveMyExpectations()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">💾 Save Expectations</button>
-            <span id="myExpectationsSaveStatus" style="color: #718096; font-size: 0.85rem;"></span>
+          <div class="badge-summary-right">
+            <button onclick="event.stopPropagation(); openLeaderboardModal()" class="badge-summary-btn leaderboard-btn">🏅 Leaderboard</button>
+            <button onclick="event.stopPropagation(); showTab('achievements')" class="badge-summary-btn view-all-btn">View All →</button>
           </div>
         </div>
       </div>
@@ -479,8 +552,8 @@
         <button class="tab-btn" onclick="showTab('homework', event)">📝 Homework</button>
         <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
-        <button class="tab-btn" onclick="showTab('announcements', event)">📢 News</button>
-        <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
+        <button class="tab-btn" onclick="showTab('achievements', event)">🏆 Achievements</button>
+        <button class="tab-btn" onclick="showTab('updates', event)">📢 Updates</button>
         <button class="tab-btn" onclick="showTab('resources', event)">📚 Resources</button>
         <button class="tab-btn" onclick="showTab('profile', event)">👤 Profile</button>
       </div>
@@ -615,17 +688,69 @@
         </div>
       </div>
 
-      <div id="announcementsTab" class="tab-content">
+      <!-- Achievements Tab (Badges + Hall of Fame + Challenges) -->
+      <div id="achievementsTab" class="tab-content">
+        <!-- Badges Section -->
         <div class="section">
-          <h2>📢 Latest News & Announcements</h2>
-          <div id="announcementsContainer">
-            <p style="text-align: center; color: #718096;">Loading announcements...</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+            <div>
+              <h2 style="color: #B05D9E; margin-bottom: 5px;">🏆 Achievement Badges</h2>
+              <p style="color: #718096; margin: 0; font-size: 0.9rem;">Keep learning to unlock more badges!</p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div id="totalBadgesCount" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
+                Total: <span id="badgeCountNumTab">0</span>
+              </div>
+              <button onclick="openLeaderboardModal()" class="btn btn-sm" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #333; font-weight: 600; font-size: 0.85rem; padding: 8px 12px;">
+                🏅 Leaderboard
+              </button>
+            </div>
+          </div>
+          <div id="badgesContainer" class="badges-grid">
+            <p style="text-align: center; color: #718096;">Loading badges...</p>
+          </div>
+          <div id="viewAllBadgesBtn" style="display: none; text-align: center; margin-top: 15px;">
+            <button onclick="openAllBadgesModal()" class="btn" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; font-weight: 600;">
+              View All Badges →
+            </button>
+          </div>
+        </div>
+
+        <!-- Hall of Fame Section -->
+        <div class="section" id="hallOfFameSection" style="display: none;">
+          <div style="text-align: center; margin-bottom: 15px;">
+            <h2 style="color: #B05D9E; margin-bottom: 5px;">🏛️ Hall of Fame</h2>
+            <p style="color: #718096; margin: 0; font-size: 0.85rem;">Celebrating our top performers!</p>
+          </div>
+          <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+          </div>
+        </div>
+
+        <!-- Weekly Challenges Section -->
+        <div class="section" id="challengesSection">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="color: #B05D9E; margin: 0;">🎯 Weekly Challenges</h2>
+          </div>
+          <div id="studentChallenges" style="display: grid; gap: 12px;">
+            <p style="text-align: center; color: #718096; padding: 20px;">Loading challenges...</p>
           </div>
         </div>
       </div>
 
-      <div id="eventsTab" class="tab-content">
-        <div class="section"><h2>🎉 Events</h2><div id="eventsContainer">Loading...</div></div>
+      <!-- Updates Tab (News + Events combined) -->
+      <div id="updatesTab" class="tab-content">
+        <div class="section">
+          <h2 style="color: #B05D9E; margin-bottom: 15px;">📢 Latest News & Announcements</h2>
+          <div id="announcementsContainer">
+            <p style="text-align: center; color: #718096;">Loading announcements...</p>
+          </div>
+        </div>
+        <div class="section">
+          <h2 style="color: #B05D9E; margin-bottom: 15px;">🎉 Upcoming Events</h2>
+          <div id="eventsContainer">
+            <p style="text-align: center; color: #718096;">Loading events...</p>
+          </div>
+        </div>
       </div>
 
       <!-- Resources Tab -->
@@ -719,6 +844,19 @@
               </button>
             </div>
           </form>
+        </div>
+
+        <!-- Parent Expectations (moved here from above tabs) -->
+        <div class="section">
+          <h2 style="color: #B05D9E; margin-bottom: 10px;">💭 My Expectations <span style="font-size: 0.75rem; color: #718096;">(Optional)</span></h2>
+          <p style="color: #718096; margin-bottom: 15px; font-size: 0.9rem;">Share your goals and expectations for your child's learning journey. Your teacher will see this.</p>
+          <div id="parentExpectationsSection">
+            <textarea id="myExpectations" rows="3" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; resize: vertical;" placeholder="e.g., I want my child to improve their reading fluency and confidence in speaking..."></textarea>
+            <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+              <button onclick="saveMyExpectations()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">💾 Save Expectations</button>
+              <span id="myExpectationsSaveStatus" style="color: #718096; font-size: 0.85rem;"></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1287,12 +1425,12 @@
       // Save current tab to localStorage for persistence on refresh
       localStorage.setItem('parentActiveTab', name);
       if(name === 'homework') loadHomeworkSessions();
-      if(name === 'events') loadEvents();
+      if(name === 'updates') { loadAnnouncements(); loadEvents(); }
       if(name === 'payments') loadPayments();
       if(name === 'assessments') loadAssessments();
-      if(name === 'announcements') loadAnnouncements();
+      if(name === 'achievements') { loadBadges(); loadHallOfFame(); loadStudentChallenges(); }
       if(name === 'resources') loadParentResources();
-      if(name === 'profile') loadProfile();
+      if(name === 'profile') { loadProfile(); loadMyExpectations(); }
     }
 
     function showDashboard() {
@@ -1310,17 +1448,17 @@
       }
 
       loadMakeupCredits();
-      loadBadges();
-      loadHallOfFame();
-      loadStudentChallenges();
-      loadMyExpectations();
+      loadBadges(); // Also updates badge summary strip
       loadUpcoming();
       loadPast();
       loadCancelDropdown();
       checkForFeedback();
 
       // Restore last active tab from localStorage
-      const savedTab = localStorage.getItem('parentActiveTab');
+      let savedTab = localStorage.getItem('parentActiveTab');
+      // Map old tab names to new ones
+      if (savedTab === 'announcements') savedTab = 'updates';
+      if (savedTab === 'events') savedTab = 'updates';
       if (savedTab && document.getElementById(savedTab + 'Tab')) {
         showTab(savedTab);
       }
@@ -1335,8 +1473,21 @@
         allBadges = badges; // Store for modal
         const container = document.getElementById('badgesContainer');
 
-        // Update total count
+        // Update total count in summary strip and tab
         document.getElementById('badgeCountNum').textContent = badges.length;
+        const tabCount = document.getElementById('badgeCountNumTab');
+        if (tabCount) tabCount.textContent = badges.length;
+
+        // Update latest badge text in summary strip
+        const latestText = document.getElementById('badgeLatestText');
+        if (latestText) {
+          if (badges.length > 0) {
+            const latest = badges[0];
+            latestText.textContent = 'Latest: ' + latest.badge_name;
+          } else {
+            latestText.textContent = 'Keep learning to earn badges!';
+          }
+        }
 
         if (badges.length === 0) {
           container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 20px;">No badges earned yet. Attend classes and submit homework to unlock badges! 🌟</p>';
@@ -1476,7 +1627,35 @@
       modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
 
       const top5 = leaderboardData.slice(0, 5);
+      const top3 = leaderboardData.slice(0, 3);
       const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+
+      // Build podium HTML for top 3
+      let podiumHTML = '';
+      if (top3.length >= 1) {
+        const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
+        podiumOrder.forEach((student) => {
+          const actualRank = leaderboardData.indexOf(student) + 1;
+          const podiumMedals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+          const podiumClasses = { 1: 'parent-podium-gold', 2: 'parent-podium-silver', 3: 'parent-podium-bronze' };
+          const heightClasses = { 1: 'parent-podium-height-1', 2: 'parent-podium-height-2', 3: 'parent-podium-height-3' };
+          const shadowClasses = { 1: 'parent-podium-shadow-gold', 2: 'parent-podium-shadow-silver', 3: 'parent-podium-shadow-bronze' };
+
+          podiumHTML += `
+            <div style="display: flex; flex-direction: column; align-items: center; transition: transform 0.3s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+              <div style="font-size: 1.8rem; margin-bottom: 6px;">${podiumMedals[actualRank]}</div>
+              <div class="${shadowClasses[actualRank]}" style="background: white; padding: 8px 12px; border-radius: 10px; text-align: center; margin-bottom: 6px; min-width: 90px;">
+                <div style="font-weight: bold; color: #2d3748; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${student.name}</div>
+                <div style="color: #667eea; font-size: 1.2rem; font-weight: bold;">${student.total_badges}</div>
+                <div style="color: #718096; font-size: 0.65rem;">badges</div>
+              </div>
+              <div class="${podiumClasses[actualRank]} ${heightClasses[actualRank]}" style="width: 80px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 10px;">
+                <span style="color: white; font-weight: bold; font-size: 1.2rem;">#${actualRank}</span>
+              </div>
+            </div>
+          `;
+        });
+      }
 
       modal.innerHTML = `
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; max-width: 500px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 25px;">
@@ -1492,6 +1671,15 @@
             <p style="color: #333; margin: 10px 0 0 0; font-size: 1.1rem;"><strong>${currentStudent.name}</strong></p>
             <p style="color: #555; margin: 5px 0 0 0;">🏆 <strong>${myBadges}</strong> badges collected</p>
           </div>
+
+          <!-- Podium Top 3 -->
+          ${top3.length >= 1 ? `
+          <div style="background: rgba(255,255,255,0.1); border-radius: 16px; padding: 15px 10px; margin-bottom: 20px;">
+            <div class="parent-podium-container" style="display: flex; justify-content: center; align-items: flex-end; gap: 12px; min-height: 200px;">
+              ${podiumHTML}
+            </div>
+          </div>
+          ` : ''}
 
           <!-- Top 5 Leaderboard -->
           <div style="background: white; border-radius: 12px; overflow: hidden;">
