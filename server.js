@@ -6652,15 +6652,17 @@ app.get('/api/financial-reports', async (req, res) => {
     let renewalDateFilter = dateFilter.replace(/payment_date/g, 'renewal_date');
     let renewalRows = [];
     try {
+      const renewalWhere = renewalDateFilter
+        ? renewalDateFilter + ' AND '
+        : 'WHERE ';
       const renewalQuery = `
         SELECT pr.id, pr.student_id, pr.renewal_date as payment_date, pr.amount, pr.currency,
-               pr.payment_method, pr.sessions_added as sessions_covered,
+               pr.payment_method, CAST(pr.sessions_added AS TEXT) as sessions_covered,
                COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes,
                'Completed' as payment_status, s.name as student_name, s.parent_name
         FROM payment_renewals pr
         LEFT JOIN students s ON pr.student_id = s.id
-        ${renewalDateFilter || 'WHERE 1=1'}
-        AND NOT EXISTS (
+        ${renewalWhere} NOT EXISTS (
           SELECT 1 FROM payment_history ph2
           WHERE ph2.student_id = pr.student_id
           AND ph2.payment_date = pr.renewal_date
@@ -6789,14 +6791,16 @@ app.get('/api/financial-reports/export', async (req, res) => {
     // Also get renewal payments not in payment_history
     let csvRenewalDateFilter = dateFilter.replace(/ph\.payment_date/g, 'pr.renewal_date');
     try {
+      const csvRenewalWhere = csvRenewalDateFilter
+        ? csvRenewalDateFilter + ' AND '
+        : 'WHERE ';
       const renewalCsvQuery = `
         SELECT pr.renewal_date as payment_date, s.name as student_name, s.parent_name,
-               pr.amount, pr.currency, pr.payment_method, pr.sessions_added as sessions_covered,
+               pr.amount, pr.currency, pr.payment_method, CAST(pr.sessions_added AS TEXT) as sessions_covered,
                COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes
         FROM payment_renewals pr
         LEFT JOIN students s ON pr.student_id = s.id
-        ${csvRenewalDateFilter || 'WHERE 1=1'}
-        AND NOT EXISTS (
+        ${csvRenewalWhere} NOT EXISTS (
           SELECT 1 FROM payment_history ph2
           WHERE ph2.student_id = pr.student_id AND ph2.payment_date = pr.renewal_date
           AND ph2.amount = pr.amount AND ph2.notes LIKE '%Renewal%'
