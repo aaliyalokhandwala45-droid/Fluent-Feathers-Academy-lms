@@ -6601,13 +6601,22 @@ async function saveEditedPayment() {
           ${sessions.map(s => {
             const isCancelled = s.status === 'Cancelled' || s.status === 'Cancelled by Parent';
             const cancelledByText = isCancelled && s.cancelled_by ? ` (by ${s.cancelled_by})` : '';
-            const statusColor = isCancelled ? '#e53e3e' : (s.status === 'Completed' ? '#38a169' : '#718096');
+            // For group sessions, show individual student attendance instead of session status
+            let displayStatus = s.status;
+            if (s.session_type === 'Group' && s.student_attendance && s.status === 'Completed') {
+              const att = s.student_attendance;
+              if (att === 'Present') displayStatus = 'Completed';
+              else if (att === 'Absent' || att === 'Unexcused' || att === 'Missed') displayStatus = 'Missed';
+              else if (att === 'Excused') displayStatus = 'Excused';
+              else displayStatus = s.status;
+            }
+            const statusColor = isCancelled ? '#e53e3e' : (displayStatus === 'Completed' ? '#38a169' : displayStatus === 'Missed' ? '#e53e3e' : displayStatus === 'Excused' ? '#dd6b20' : '#718096');
             return `
             <div class="session-item">
               <div>
                 <strong>Session #${s.session_number}</strong> - ${s.session_type}
                 <br>
-                <span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${s.status}${cancelledByText}</span></span>
+                <span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${displayStatus}${cancelledByText}</span></span>
               </div>
               <div style="display: flex; gap: 10px;">
                 <button onclick="editSession(${s.id}, '${s.session_date}', '${s.session_time}')" class="btn btn-sm btn-primary">Edit</button>
