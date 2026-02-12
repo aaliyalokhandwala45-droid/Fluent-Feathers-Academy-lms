@@ -215,6 +215,10 @@
       .badge-summary-left { justify-content: center; }
       .badge-summary-right { justify-content: center; }
       .badge-summary-strip { padding: 14px 16px; }
+      /* Challenge summary strip responsive */
+      .challenge-summary-inner { flex-direction: column; text-align: center; gap: 8px; }
+      .challenge-summary-left { justify-content: center; }
+      .challenge-summary-strip { padding: 12px 16px; }
     }
 
     @media screen and (max-width: 480px) {
@@ -343,6 +347,73 @@
     }
     .view-all-btn:hover {
       background: rgba(255,255,255,0.3);
+    }
+
+    /* Challenge Summary Strip */
+    .challenge-summary-strip {
+      background: linear-gradient(135deg, #f5576c 0%, #ff8a5c 100%);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      display: none;
+    }
+    .challenge-summary-strip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+    }
+    .challenge-summary-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .challenge-summary-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+    .challenge-summary-icon {
+      font-size: 1.8rem;
+      flex-shrink: 0;
+    }
+    .challenge-summary-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .challenge-summary-title {
+      color: white;
+      font-weight: 700;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .challenge-summary-detail {
+      color: rgba(255,255,255,0.85);
+      font-size: 0.78rem;
+    }
+    .challenge-summary-btn {
+      background: rgba(255,255,255,0.25);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 7px 14px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.78rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .challenge-summary-btn:hover {
+      background: rgba(255,255,255,0.4);
     }
 
     /* Leaderboard podium styles */
@@ -543,6 +614,20 @@
             <button onclick="event.stopPropagation(); openLeaderboardModal()" class="badge-summary-btn leaderboard-btn">🏅 Leaderboard</button>
             <button onclick="event.stopPropagation(); showTab('achievements')" class="badge-summary-btn view-all-btn">View All →</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Challenge Summary Strip -->
+      <div id="challengeSummaryStrip" class="challenge-summary-strip" onclick="showTab('achievements')">
+        <div class="challenge-summary-inner">
+          <div class="challenge-summary-left">
+            <div class="challenge-summary-icon">🎯</div>
+            <div class="challenge-summary-info">
+              <span class="challenge-summary-title" id="challengeSummaryTitle">Weekly Challenge</span>
+              <span class="challenge-summary-detail" id="challengeSummaryDetail">Loading...</span>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); showTab('achievements')" class="challenge-summary-btn">View Challenge →</button>
         </div>
       </div>
 
@@ -1455,6 +1540,7 @@
 
       loadMakeupCredits();
       loadBadges(); // Also updates badge summary strip
+      loadChallengeSummary(); // Updates challenge strip on front page
       loadUpcoming();
       loadPast();
       loadCancelDropdown();
@@ -1733,6 +1819,32 @@
     }
 
     // Load weekly challenges for student
+    async function loadChallengeSummary() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/challenges`, { headers: authHeaders() });
+        const challenges = await res.json();
+        const strip = document.getElementById('challengeSummaryStrip');
+        const titleEl = document.getElementById('challengeSummaryTitle');
+        const detailEl = document.getElementById('challengeSummaryDetail');
+
+        if (!challenges || challenges.length === 0) {
+          strip.style.display = 'none';
+          return;
+        }
+
+        // Find active (non-completed) challenge, or show latest
+        const active = challenges.find(c => c.status !== 'Completed') || challenges[0];
+        const dueDate = new Date(active.week_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const statusLabel = active.status === 'Completed' ? 'Completed!' : active.status === 'Submitted' ? 'Awaiting Review' : `Due ${dueDate}`;
+
+        titleEl.textContent = active.title;
+        detailEl.textContent = `${statusLabel} • ${active.badge_reward || 'Earn a badge!'}`;
+        strip.style.display = 'block';
+      } catch(e) {
+        document.getElementById('challengeSummaryStrip').style.display = 'none';
+      }
+    }
+
     async function loadStudentChallenges() {
       try {
         const res = await fetch(`/api/students/${currentStudent.id}/challenges`, { headers: authHeaders() });
