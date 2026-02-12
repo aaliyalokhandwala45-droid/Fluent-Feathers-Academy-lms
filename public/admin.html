@@ -106,13 +106,14 @@
       #calendarGrid > div, #calendarDays > div { padding: 4px !important; font-size: 0.75rem !important; }
       /* Fixed-width inputs become fluid */
       input[style*="width: 250px"], input[style*="width: 300px"] { width: 100% !important; max-width: 100% !important; }
-      /* Leaderboard - awards 1 col, podium stacked horizontal with smaller heights */
+      /* Leaderboard - awards 1 col, podium centered with smaller heights */
       #awardsShowcase { grid-template-columns: 1fr !important; }
-      #leaderboardPodium { gap: 10px; flex-wrap: wrap; justify-content: center; }
+      #leaderboardPodium { gap: 10px; flex-wrap: nowrap; justify-content: center; align-items: flex-end; }
       .podium-height-1 { height: 100px; }
       .podium-height-2 { height: 80px; }
       .podium-height-3 { height: 60px; }
-      #leaderboardPodium > div > div:nth-child(2) { min-width: 100px !important; padding: 10px 12px !important; }
+      #leaderboardPodium > div { flex: 0 1 auto; }
+      #leaderboardPodium > div > div:nth-child(2) { min-width: 90px !important; padding: 10px 10px !important; }
       #leaderboardPodium > div > div:nth-child(3) { width: 80px !important; }
     }
     @media (max-width: 480px) {
@@ -139,9 +140,17 @@
       .modal-tab { padding: 8px 12px; font-size: 0.85rem; }
       /* Form groups in financial filter etc */
       div[style*="min-width: 200px"], div[style*="min-width: 150px"], div[style*="min-width: 120px"] { min-width: 0 !important; width: 100%; }
-      /* Leaderboard podium fully stacked */
-      #leaderboardPodium { flex-direction: column; align-items: center; gap: 10px; min-height: auto !important; }
-      .podium-height-1, .podium-height-2, .podium-height-3 { height: 50px; width: 100% !important; max-width: 200px; border-radius: 8px !important; }
+      /* Leaderboard podium - keep side by side, centered, compact */
+      #leaderboardPodium { flex-direction: row; align-items: flex-end; justify-content: center; gap: 6px; min-height: auto !important; flex-wrap: nowrap; }
+      #leaderboardPodium > div { max-width: 100px; }
+      #leaderboardPodium > div > div:first-child { font-size: 1.5rem !important; margin-bottom: 5px !important; }
+      #leaderboardPodium > div > div:nth-child(2) { min-width: 70px !important; padding: 8px 6px !important; }
+      #leaderboardPodium > div > div:nth-child(2) > div:first-child { font-size: 0.8rem !important; }
+      #leaderboardPodium > div > div:nth-child(2) > div:nth-child(2) { font-size: 1.1rem !important; }
+      #leaderboardPodium > div > div:nth-child(3) { width: 70px !important; }
+      .podium-height-1 { height: 70px; }
+      .podium-height-2 { height: 55px; }
+      .podium-height-3 { height: 40px; }
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }

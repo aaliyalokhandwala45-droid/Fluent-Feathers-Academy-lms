@@ -553,7 +553,8 @@
         <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
         <button class="tab-btn" onclick="showTab('achievements', event)">🏆 Achievements</button>
-        <button class="tab-btn" onclick="showTab('updates', event)">📢 Updates</button>
+        <button class="tab-btn" onclick="showTab('announcements', event)">📢 News</button>
+        <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
         <button class="tab-btn" onclick="showTab('resources', event)">📚 Resources</button>
         <button class="tab-btn" onclick="showTab('profile', event)">👤 Profile</button>
       </div>
@@ -737,14 +738,18 @@
         </div>
       </div>
 
-      <!-- Updates Tab (News + Events combined) -->
-      <div id="updatesTab" class="tab-content">
+      <!-- News Tab -->
+      <div id="announcementsTab" class="tab-content">
         <div class="section">
           <h2 style="color: #B05D9E; margin-bottom: 15px;">📢 Latest News & Announcements</h2>
           <div id="announcementsContainer">
             <p style="text-align: center; color: #718096;">Loading announcements...</p>
           </div>
         </div>
+      </div>
+
+      <!-- Events Tab -->
+      <div id="eventsTab" class="tab-content">
         <div class="section">
           <h2 style="color: #B05D9E; margin-bottom: 15px;">🎉 Upcoming Events</h2>
           <div id="eventsContainer">
@@ -1425,7 +1430,8 @@
       // Save current tab to localStorage for persistence on refresh
       localStorage.setItem('parentActiveTab', name);
       if(name === 'homework') loadHomeworkSessions();
-      if(name === 'updates') { loadAnnouncements(); loadEvents(); }
+      if(name === 'announcements') loadAnnouncements();
+      if(name === 'events') loadEvents();
       if(name === 'payments') loadPayments();
       if(name === 'assessments') loadAssessments();
       if(name === 'achievements') { loadBadges(); loadHallOfFame(); loadStudentChallenges(); }
@@ -1457,8 +1463,7 @@
       // Restore last active tab from localStorage
       let savedTab = localStorage.getItem('parentActiveTab');
       // Map old tab names to new ones
-      if (savedTab === 'announcements') savedTab = 'updates';
-      if (savedTab === 'events') savedTab = 'updates';
+      if (savedTab === 'updates') savedTab = 'announcements';
       if (savedTab && document.getElementById(savedTab + 'Tab')) {
         showTab(savedTab);
       }
