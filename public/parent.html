@@ -2554,22 +2554,20 @@
           document.getElementById('renewalWarning').style.display = 'none';
         }
 
-        // Load initial payment info
-        document.getElementById('displayInitialPayment').textContent = `${currentStudent.currency} ${currentStudent.fees_paid}`;
-        document.getElementById('displayTotalPaid').textContent = `${currentStudent.currency} ${currentStudent.fees_paid}`;
-        document.getElementById('displayPaymentMethod').textContent = currentStudent.payment_method || '-';
-        document.getElementById('displayCurrency').textContent = currentStudent.currency;
-
         // Load payment renewals
         const res = await fetch(`/api/students/${currentStudent.id}/renewals`, { headers: authHeaders() });
         const renewals = await res.json();
         const container = document.getElementById('paymentHistoryContainer');
 
-        // Calculate total paid including renewals
-        const initialPayment = parseFloat(currentStudent.fees_paid) || 0;
+        // fees_paid already includes all payments (initial + renewals), so use it directly as total
+        const totalPaid = parseFloat(currentStudent.fees_paid) || 0;
         const renewalTotal = renewals.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
-        const totalPaid = initialPayment + renewalTotal;
+        const initialPayment = Math.max(totalPaid - renewalTotal, 0);
+
+        document.getElementById('displayInitialPayment').textContent = `${currentStudent.currency} ${initialPayment.toFixed(2)}`;
         document.getElementById('displayTotalPaid').textContent = `${currentStudent.currency} ${totalPaid.toFixed(2)}`;
+        document.getElementById('displayPaymentMethod').textContent = currentStudent.payment_method || '-';
+        document.getElementById('displayCurrency').textContent = currentStudent.currency;
 
         if (renewals.length === 0) {
           container.innerHTML = '<p style="text-align: center; color: #718096;">No renewal payments yet</p>';

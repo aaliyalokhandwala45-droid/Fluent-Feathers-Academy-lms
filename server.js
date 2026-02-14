@@ -1429,6 +1429,39 @@ async function runMigrations() {
       console.log('Migration 32 note:', err.message);
     }
 
+    // Migration 33: Clean up duplicate payment_history entries created by old renewal code
+    try {
+      const dupes = await client.query(`
+        DELETE FROM payment_history WHERE id IN (
+          SELECT ph.id FROM payment_history ph
+          INNER JOIN payment_renewals pr
+            ON ph.student_id = pr.student_id
+            AND ph.amount = pr.amount
+            AND ph.payment_date = pr.renewal_date
+            AND ph.notes LIKE 'Renewal%'
+        ) RETURNING student_id, amount
+      `);
+      if (dupes.rows.length > 0) {
+        // Recalculate fees_paid for affected students from payment_history + payment_renewals
+        const affectedStudents = [...new Set(dupes.rows.map(r => r.student_id))];
+        for (const sid of affectedStudents) {
+          await client.query(`
+            UPDATE students SET fees_paid = COALESCE((
+              SELECT SUM(amount) FROM payment_history WHERE student_id = $1
+            ), 0) + COALESCE((
+              SELECT SUM(amount) FROM payment_renewals WHERE student_id = $1
+            ), 0)
+            WHERE id = $1
+          `, [sid]);
+        }
+        console.log(`✅ Migration 33: Cleaned up ${dupes.rows.length} duplicate payment_history entries, recalculated fees for ${affectedStudents.length} students`);
+      } else {
+        console.log('✅ Migration 33: No duplicate payment_history entries found');
+      }
+    } catch (err) {
+      console.log('Migration 33 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -4931,6 +4964,11 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       return String(a.session_time || '').localeCompare(String(b.session_time || ''));
     });
 
+    // Renumber sessions sequentially per student (1, 2, 3...) instead of using group-level session_number
+    allSessions.forEach((s, i) => {
+      s.session_number = i + 1;
+    });
+
     // Fix file paths for backwards compatibility
     const fixedSessions = allSessions.map(session => {
       // Helper to check if path needs prefix (skip Cloudinary URLs)
@@ -6628,12 +6666,6 @@ app.post('/api/students/:id/renewal', async (req, res) => {
       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
     `, [req.params.id, amount, currency, sessionsNum, payment_method, notes]);
 
-    // Also add to payment_history so it appears in financial reports
-    await client.query(`
-      INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
-      VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, 'Completed')
-    `, [req.params.id, amount, currency, payment_method, sessionsNum, notes ? `Renewal - ${notes}` : 'Renewal']);
-
     await client.query(`
       UPDATE students SET
         total_sessions = total_sessions + $1,
@@ -7127,7 +7159,7 @@ app.delete('/api/payment-renewals/:id', async (req, res) => {
     if (record.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Renewal record not found' }); }
     const renewal = record.rows[0];
     await client.query('DELETE FROM payment_renewals WHERE id = $1', [req.params.id]);
-    // Also delete matching payment_history entry (added by renewal endpoint)
+    // Clean up any legacy payment_history entries that were auto-created by old renewal code
     await client.query(`DELETE FROM payment_history WHERE id = (SELECT id FROM payment_history WHERE student_id = $1 AND amount = $2 AND payment_date = $3 AND notes LIKE 'Renewal%' LIMIT 1)`, [renewal.student_id, renewal.amount, renewal.renewal_date]);
     await client.query(`UPDATE students SET
       fees_paid = GREATEST(fees_paid - $1, 0),
