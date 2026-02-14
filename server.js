@@ -5042,9 +5042,60 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
 app.put('/api/sessions/:sessionId', async (req, res) => {
   const { date, time } = req.body;
   try {
+    // Get current session details before updating
+    const sessionRes = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
+    if (sessionRes.rows.length === 0) return res.status(404).json({ error: 'Session not found' });
+    const session = sessionRes.rows[0];
+    const oldDate = session.session_date;
+    const oldTime = session.session_time;
+
     const utc = istToUTC(date, time);
     await pool.query('UPDATE sessions SET session_date = $1::date, session_time = $2::time WHERE id = $3', [utc.date, utc.time, req.params.sessionId]);
-    res.json({ success: true, message: 'Session updated successfully' });
+
+    // Send reschedule notification email to affected students
+    let studentsToNotify = [];
+    if (session.session_type === 'Group' && session.group_id) {
+      const groupStudents = await pool.query(
+        'SELECT s.*, g.name as group_name FROM students s JOIN groups g ON s.group_id = g.id WHERE s.group_id = $1 AND s.is_active = true',
+        [session.group_id]
+      );
+      studentsToNotify = groupStudents.rows;
+    } else if (session.student_id) {
+      const student = await pool.query('SELECT * FROM students WHERE id = $1', [session.student_id]);
+      studentsToNotify = student.rows;
+    }
+
+    let emailsSent = 0;
+    for (const student of studentsToNotify) {
+      try {
+        await sendEmail(student.parent_email, 'Class Rescheduled - Fluent Feathers Academy', getRescheduleEmailTemplate({
+          parent_name: student.parent_name,
+          student_name: student.name,
+          session_number: session.session_number,
+          old_date: oldDate,
+          old_time: oldTime,
+          new_date: utc.date,
+          new_time: utc.time,
+          reason: 'Schedule adjustment',
+          is_group: session.session_type === 'Group',
+          group_name: student.group_name || '',
+          timezone: student.timezone || 'Asia/Kolkata'
+        }));
+        await pool.query(
+          'INSERT INTO email_log (student_id, recipient_email, recipient_name, email_type, subject, status) VALUES ($1, $2, $3, $4, $5, $6)',
+          [student.id, student.parent_email, student.parent_name, 'Reschedule', 'Class Rescheduled', 'Sent']
+        );
+        emailsSent++;
+      } catch (emailErr) {
+        console.error('Failed to send reschedule email to', student.parent_email, emailErr.message);
+        await pool.query(
+          'INSERT INTO email_log (student_id, recipient_email, recipient_name, email_type, subject, status) VALUES ($1, $2, $3, $4, $5, $6)',
+          [student.id, student.parent_email, student.parent_name, 'Reschedule', 'Class Rescheduled', 'Failed']
+        );
+      }
+    }
+
+    res.json({ success: true, message: `Session updated successfully! ${emailsSent > 0 ? `(${emailsSent} notification${emailsSent > 1 ? 's' : ''} sent)` : ''}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
