@@ -7447,7 +7447,8 @@ async function saveEditedPayment() {
             currency: student.currency,
             sessions_added: parseInt(sessions),
             payment_method: method,
-            notes: notes
+            notes: notes,
+            send_email: true
           })
         });
         const result = await res.json();
