@@ -5100,30 +5100,28 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
     let emailsSent = 0;
     for (const student of studentsToNotify) {
       try {
-        await sendEmail(student.parent_email, 'Class Rescheduled - Fluent Feathers Academy', getRescheduleEmailTemplate({
-          parent_name: student.parent_name,
-          student_name: student.name,
-          session_number: session.session_number,
-          old_date: oldDate,
-          old_time: oldTime,
-          new_date: utc.date,
-          new_time: utc.time,
-          reason: 'Schedule adjustment',
-          is_group: session.session_type === 'Group',
-          group_name: student.group_name || '',
-          timezone: student.timezone || 'Asia/Kolkata'
-        }));
-        await pool.query(
-          'INSERT INTO email_log (student_id, recipient_email, recipient_name, email_type, subject, status) VALUES ($1, $2, $3, $4, $5, $6)',
-          [student.id, student.parent_email, student.parent_name, 'Reschedule', 'Class Rescheduled', 'Sent']
+        const sent = await sendEmail(
+          student.parent_email,
+          'Class Rescheduled - Fluent Feathers Academy',
+          getRescheduleEmailTemplate({
+            parent_name: student.parent_name,
+            student_name: student.name,
+            session_number: session.session_number,
+            old_date: oldDate,
+            old_time: oldTime,
+            new_date: utc.date,
+            new_time: utc.time,
+            reason: 'Schedule adjustment',
+            is_group: session.session_type === 'Group',
+            group_name: student.group_name || '',
+            timezone: student.timezone || 'Asia/Kolkata'
+          }),
+          student.parent_name,
+          'Reschedule'
         );
-        emailsSent++;
+        if (sent) emailsSent++;
       } catch (emailErr) {
         console.error('Failed to send reschedule email to', student.parent_email, emailErr.message);
-        await pool.query(
-          'INSERT INTO email_log (student_id, recipient_email, recipient_name, email_type, subject, status) VALUES ($1, $2, $3, $4, $5, $6)',
-          [student.id, student.parent_email, student.parent_name, 'Reschedule', 'Class Rescheduled', 'Failed']
-        );
       }
     }
 
@@ -5518,23 +5516,24 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     // Send reschedule notification emails
     for (const student of studentsToNotify) {
       try {
-        await sendEmail(student.parent_email, 'Class Rescheduled - Fluent Feathers Academy', getRescheduleEmailTemplate({
-          parent_name: student.parent_name,
-          student_name: student.name,
-          session_number: session.session_number,
-          old_date: oldDate,
-          old_time: oldTime,
-          new_date: converted.date,
-          new_time: converted.time,
-          reason: reason || 'Schedule adjustment',
-          is_group: session.session_type === 'Group',
-          group_name: student.group_name || '',
-          timezone: student.timezone || 'Asia/Kolkata'
-        }));
-
-        await pool.query(
-          'INSERT INTO email_log (student_id, recipient_email, recipient_name, email_type, subject, status) VALUES ($1, $2, $3, $4, $5, $6)',
-          [student.id, student.parent_email, student.parent_name, 'Reschedule', 'Class Rescheduled', 'Sent']
+        await sendEmail(
+          student.parent_email,
+          'Class Rescheduled - Fluent Feathers Academy',
+          getRescheduleEmailTemplate({
+            parent_name: student.parent_name,
+            student_name: student.name,
+            session_number: session.session_number,
+            old_date: oldDate,
+            old_time: oldTime,
+            new_date: converted.date,
+            new_time: converted.time,
+            reason: reason || 'Schedule adjustment',
+            is_group: session.session_type === 'Group',
+            group_name: student.group_name || '',
+            timezone: student.timezone || 'Asia/Kolkata'
+          }),
+          student.parent_name,
+          'Reschedule'
         );
       } catch (emailErr) {
         console.error('Failed to send reschedule email to', student.parent_email, emailErr.message);
