@@ -1735,7 +1735,7 @@
             <button type="button" onclick="clearAnnouncementImage()" style="margin-left: 10px; background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Remove</button>
           </div>
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
-            <input type="checkbox" id="sendAnnouncementEmail" style="width: auto; margin: 0;">
+            <input type="checkbox" id="sendAnnouncementEmail" checked style="width: auto; margin: 0;">
             <label for="sendAnnouncementEmail" style="margin: 0; cursor: pointer;">Send Email to All Active Students/Parents</label>
           </div>
           <button type="submit" class="btn btn-primary">Create Announcement</button>
@@ -2930,6 +2930,18 @@ I'm passionate about helping children develop confidence in communication!"></te
         <input type="hidden" id="convertDemoId">
         <p style="margin-bottom: 15px; color: #38a169;">Converting <strong id="convertDemoName"></strong> to a permanent student!</p>
 
+        <div class="form-row">
+          <div class="form-group"><label>Class Type *</label>
+            <select id="convertClassType" required onchange="toggleConvertGroupSelect()">
+              <option value="Private">Private</option>
+              <option value="Group">Group</option>
+            </select>
+          </div>
+          <div class="form-group" id="convertGroupSelectWrapper" style="display:none;">
+            <label>Select Group *</label>
+            <select id="convertGroupId"></select>
+          </div>
+        </div>
         <div class="form-row">
           <div class="form-group"><label>Program Name *</label><input type="text" id="convertProgram" required placeholder="e.g., Phonics, Reading"></div>
           <div class="form-group"><label>Duration *</label>
@@ -7357,6 +7369,17 @@ async function saveEditedPayment() {
       }
     });
 
+    function toggleConvertGroupSelect() {
+      const classType = document.getElementById('convertClassType').value;
+      const wrapper = document.getElementById('convertGroupSelectWrapper');
+      wrapper.style.display = classType === 'Group' ? '' : 'none';
+      if (classType === 'Group') {
+        const select = document.getElementById('convertGroupId');
+        select.innerHTML = '<option value="">Select group...</option>' +
+          (allGroups || []).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+      }
+    }
+
     function openConvertDemoModal(leadId) {
       const lead = allDemoLeads.find(l => l.id === leadId);
       if (!lead) return;
@@ -7364,6 +7387,8 @@ async function saveEditedPayment() {
       document.getElementById('convertDemoId').value = leadId;
       document.getElementById('convertDemoName').textContent = lead.child_name + ' (' + lead.parent_name + ')';
       document.getElementById('convertProgram').value = lead.program_interest || '';
+      document.getElementById('convertClassType').value = 'Private';
+      toggleConvertGroupSelect();
       document.getElementById('convertDemoModal').classList.add('active');
     }
 
@@ -7374,6 +7399,10 @@ async function saveEditedPayment() {
     document.getElementById('convertDemoForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const leadId = document.getElementById('convertDemoId').value;
+      const classType = document.getElementById('convertClassType').value;
+      const groupId = classType === 'Group' ? document.getElementById('convertGroupId').value : null;
+      if (classType === 'Group' && !groupId) return alert('Please select a group');
+
       const data = {
         program_name: document.getElementById('convertProgram').value,
         duration: document.getElementById('convertDuration').value,
@@ -7383,7 +7412,9 @@ async function saveEditedPayment() {
         amount_paid: parseFloat(document.getElementById('convertAmountPaid').value),
         payment_method: document.getElementById('convertPaymentMethod').value,
         timezone: document.getElementById('convertTimezone').value,
-        send_welcome_email: document.getElementById('convertSendEmail').checked
+        send_welcome_email: document.getElementById('convertSendEmail').checked,
+        class_type: classType,
+        group_id: groupId
       };
 
       try {

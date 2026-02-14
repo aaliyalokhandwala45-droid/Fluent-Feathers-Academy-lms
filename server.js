@@ -4047,7 +4047,7 @@ app.put('/api/demo-leads/:id', async (req, res) => {
 
 // Convert demo lead to permanent student
 app.post('/api/demo-leads/:id/convert', async (req, res) => {
-  const { program_name, duration, per_session_fee, currency, total_sessions, amount_paid, payment_method, timezone, send_welcome_email } = req.body;
+  const { program_name, duration, per_session_fee, currency, total_sessions, amount_paid, payment_method, timezone, send_welcome_email, class_type, group_id } = req.body;
   try {
     // Get demo lead info
     const lead = await pool.query('SELECT * FROM demo_leads WHERE id = $1', [req.params.id]);
@@ -4056,12 +4056,19 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
     }
     const demoLead = lead.rows[0];
 
+    // Get group info if group student
+    let groupName = null;
+    if (class_type === 'Group' && group_id) {
+      const group = await pool.query('SELECT name FROM groups WHERE id = $1', [group_id]);
+      if (group.rows.length > 0) groupName = group.rows[0].name;
+    }
+
     // Create new student from demo lead
     const studentResult = await pool.query(`
-      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Private', $8, $9, $10, $11, 0, $11, $12, $13, true)
+      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active, group_id, group_name)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, $12, $13, $14, true, $15, $16)
       RETURNING *
-    `, [demoLead.child_name, demoLead.child_grade, demoLead.parent_name, demoLead.parent_email, demoLead.phone, timezone, program_name, duration, currency, per_session_fee, total_sessions, amount_paid, payment_method]);
+    `, [demoLead.child_name, demoLead.child_grade, demoLead.parent_name, demoLead.parent_email, demoLead.phone, timezone, program_name, class_type || 'Private', duration, currency, per_session_fee, total_sessions, amount_paid, payment_method, group_id || null, groupName]);
 
     const newStudent = studentResult.rows[0];
 
