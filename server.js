@@ -4378,6 +4378,80 @@ app.get('/api/groups/:groupId/students', async (req, res) => {
   }
 });
 
+// Add a student to existing upcoming group sessions
+app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
+  const { student_id, num_sessions } = req.body;
+  const groupId = req.params.groupId;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Verify student belongs to this group
+    const student = await client.query('SELECT * FROM students WHERE id = $1 AND group_id = $2', [student_id, groupId]);
+    if (student.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Student not found in this group' });
+    }
+
+    // Get upcoming group sessions that this student is NOT already in
+    const today = new Date().toISOString().split('T')[0];
+    const upcomingSessions = await client.query(`
+      SELECT s.id, s.session_date, s.session_time, s.session_number
+      FROM sessions s
+      WHERE s.group_id = $1 AND s.session_date >= $2
+        AND s.id NOT IN (SELECT session_id FROM session_attendance WHERE student_id = $3)
+      ORDER BY s.session_date ASC, s.session_time ASC
+    `, [groupId, today, student_id]);
+
+    if (upcomingSessions.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No upcoming sessions available to add this student to. All sessions already include this student.' });
+    }
+
+    const sessionsToAdd = num_sessions
+      ? upcomingSessions.rows.slice(0, parseInt(num_sessions))
+      : upcomingSessions.rows;
+
+    // Check remaining sessions
+    const regularCount = sessionsToAdd.length;
+    if (student.rows[0].remaining_sessions < regularCount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Not enough remaining sessions. Need ${regularCount} but only ${student.rows[0].remaining_sessions} remaining.` });
+    }
+
+    // Add attendance records
+    for (const session of sessionsToAdd) {
+      await client.query(
+        'INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, $3)',
+        [session.id, student_id, 'Pending']
+      );
+    }
+
+    // Deduct remaining sessions
+    await client.query(
+      'UPDATE students SET remaining_sessions = remaining_sessions - $1 WHERE id = $2',
+      [regularCount, student_id]
+    );
+
+    await client.query('COMMIT');
+
+    const studentName = student.rows[0].name;
+    res.json({
+      success: true,
+      message: `Added ${studentName} to ${sessionsToAdd.length} upcoming group sessions!`,
+      sessionsAdded: sessionsToAdd.length,
+      availableRemaining: upcomingSessions.rows.length - sessionsToAdd.length
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error adding student to sessions:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.delete('/api/groups/:id', async (req, res) => {
   const client = await pool.connect();
   try {

@@ -5183,6 +5183,39 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       document.getElementById('enrollModal').classList.remove('active');
     }
 
+    async function addStudentToExistingSessions(groupId, studentId, studentName, remaining) {
+      const numSessions = prompt(`Add ${studentName} to existing upcoming group sessions.\n\nRemaining sessions: ${remaining}\n\nHow many sessions to add? (Leave blank to add to ALL upcoming sessions)`);
+      if (numSessions === null) return; // cancelled
+
+      const num = numSessions.trim() === '' ? 0 : parseInt(numSessions);
+      if (numSessions.trim() !== '' && (isNaN(num) || num < 1)) {
+        return alert('Please enter a valid number of sessions.');
+      }
+
+      try {
+        const body = { student_id: studentId };
+        if (num > 0) body.num_sessions = num;
+
+        const res = await fetch(`/api/groups/${groupId}/add-to-sessions`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          loadUpcomingClasses();
+          loadStudents();
+          // Re-trigger group selection to refresh per-student data
+          document.getElementById('scheduleGroup').dispatchEvent(new Event('change'));
+        } else {
+          alert('❌ ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
     function deleteGroup(id) {
       if(confirm('Delete group? This will remove all group sessions.')) {
         fetch(`/api/groups/${id}`, {method:'DELETE'}).then(()=>loadGroups());
@@ -5432,6 +5465,9 @@ async function saveEditedPayment() {
               style="width: 50px; padding: 4px 8px; border: 1px solid #9f7aea; border-radius: 4px; text-align: center; color: #6b46c1;"
               onchange="updateGroupMaxSessions()">
             ` : ''}
+            <button type="button" onclick="addStudentToExistingSessions(${groupId}, ${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.remaining_sessions || 0})"
+              class="btn-sm" style="background: #3182ce; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; white-space: nowrap;"
+              title="Add this student to already scheduled group sessions">+ Add to Existing</button>
           </div>`;
         }).join('');
         container.style.display = 'block';
