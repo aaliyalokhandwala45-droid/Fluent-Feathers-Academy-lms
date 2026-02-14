@@ -2032,6 +2032,68 @@
             </div>
           </div>
 
+          <!-- Spellings Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">🔠 SPELLINGS</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_spelling_accuracy" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🎯 Spelling Accuracy</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_word_formation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🔤 Word Formation</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_dictation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📝 Dictation Skills</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_spelling_patterns" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🧩 Spelling Patterns & Rules</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_word_recall" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🧠 Word Recall & Memory</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_tricky_words" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">⚡ Tricky Words</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Handwriting Section -->
+          <div style="margin: 15px 0;">
+            <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">✏️ HANDWRITING</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 15px; background: #ecfdf5; border-radius: 8px; border-left: 4px solid #10b981;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_letter_formation" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🔤 Letter Formation</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_letter_sizing" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">📏 Letter Sizing & Spacing</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_writing_neatness" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">✨ Neatness & Presentation</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_cursive_writing" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">🖊️ Cursive Writing</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_writing_speed" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">⏱️ Writing Speed</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="skill_pencil_grip" style="width: 18px; height: 18px; cursor: pointer;">
+                <span style="font-weight: 600;">✋ Pencil Grip & Posture</span>
+              </label>
+            </div>
+          </div>
+
           <!-- Public Speaking Section -->
           <div style="margin: 15px 0;">
             <h4 style="color: #B05D9E; margin-bottom: 10px; font-size: 14px;">🎤 PUBLIC SPEAKING</h4>
@@ -2097,6 +2159,20 @@
                   <option value="Vocabulary Virtuoso">📕 Vocabulary Virtuoso</option>
                   <option value="Spelling Champion">🔤 Spelling Champion</option>
                   <option value="Word Wizard">✨ Word Wizard</option>
+                </optgroup>
+                <optgroup label="🔠 Spellings">
+                  <option value="Spelling Superstar">🌟 Spelling Superstar</option>
+                  <option value="Spelling Bee Champion">🐝 Spelling Bee Champion</option>
+                  <option value="Perfect Speller">🎯 Perfect Speller</option>
+                  <option value="Word Master">🔠 Word Master</option>
+                  <option value="Dictation Star">📝 Dictation Star</option>
+                </optgroup>
+                <optgroup label="✏️ Handwriting">
+                  <option value="Handwriting Hero">✏️ Handwriting Hero</option>
+                  <option value="Neat Writer">✨ Neat Writer</option>
+                  <option value="Beautiful Handwriting">🖊️ Beautiful Handwriting</option>
+                  <option value="Cursive Champion">📜 Cursive Champion</option>
+                  <option value="Penmanship Pro">🏆 Penmanship Pro</option>
                 </optgroup>
                 <optgroup label="✍️ Creative Writing">
                   <option value="Creative Writing Star">✍️ Creative Writing Star</option>
@@ -8259,6 +8335,10 @@ async function saveEditedPayment() {
         'grammar', 'tenses', 'punctuation', 'parts_of_speech',
         // Vocabulary
         'vocabulary', 'spelling', 'word_meanings', 'synonyms_antonyms',
+        // Spellings
+        'spelling_accuracy', 'word_formation', 'dictation', 'spelling_patterns', 'word_recall', 'tricky_words',
+        // Handwriting
+        'letter_formation', 'letter_sizing', 'writing_neatness', 'cursive_writing', 'writing_speed', 'pencil_grip',
         // Creative Writing
         'writing', 'story_writing', 'essay_writing', 'handwriting',
         // Public Speaking
@@ -8294,6 +8374,20 @@ async function saveEditedPayment() {
         'spelling': 'Spelling Mastery',
         'word_meanings': 'Word Meanings',
         'synonyms_antonyms': 'Synonyms & Antonyms',
+        // Spellings
+        'spelling_accuracy': 'Spelling Accuracy',
+        'word_formation': 'Word Formation',
+        'dictation': 'Dictation Skills',
+        'spelling_patterns': 'Spelling Patterns & Rules',
+        'word_recall': 'Word Recall & Memory',
+        'tricky_words': 'Tricky Words',
+        // Handwriting
+        'letter_formation': 'Letter Formation',
+        'letter_sizing': 'Letter Sizing & Spacing',
+        'writing_neatness': 'Neatness & Presentation',
+        'cursive_writing': 'Cursive Writing',
+        'writing_speed': 'Writing Speed',
+        'pencil_grip': 'Pencil Grip & Posture',
         // Creative Writing
         'writing': 'Creative Writing',
         'story_writing': 'Story Writing',
