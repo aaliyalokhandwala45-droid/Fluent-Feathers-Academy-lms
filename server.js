@@ -1462,6 +1462,14 @@ async function runMigrations() {
       console.log('Migration 33 note:', err.message);
     }
 
+    // Migration 34: Add student_id column to email_log table
+    try {
+      await client.query('ALTER TABLE email_log ADD COLUMN IF NOT EXISTS student_id INTEGER');
+      console.log('✅ Migration 34: Added student_id column to email_log');
+    } catch (err) {
+      console.log('Migration 34 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
