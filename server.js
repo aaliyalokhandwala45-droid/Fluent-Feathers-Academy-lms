@@ -5299,22 +5299,43 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
       ORDER BY s.name
     `, [req.params.sessionId]);
 
-    // If no records exist, get the group_id and fetch all enrolled students
+    // If no records exist, get the group_id and create attendance for booked students only
     if (result.rows.length === 0) {
       const session = await pool.query('SELECT group_id, session_date FROM sessions WHERE id = $1', [req.params.sessionId]);
       if (session.rows[0]?.group_id) {
         const groupId = session.rows[0].group_id;
         const sessionDate = session.rows[0].session_date;
-        // Get enrolled students for this group (only those enrolled before or on the session date)
-        const students = await pool.query(`
-          SELECT s.id as student_id, s.name as student_name, 'Pending' as attendance
-          FROM students s
-          WHERE s.group_id = $1 AND s.is_active = true
-            AND s.created_at::date <= $2::date
-          ORDER BY s.name
-        `, [groupId, sessionDate]);
 
-        // Create session_attendance records for each student
+        // Check if this group uses session_attendance for booking (has any attendance records for any session)
+        const hasBookings = await pool.query(
+          'SELECT 1 FROM session_attendance sa JOIN sessions s ON sa.session_id = s.id WHERE s.group_id = $1 LIMIT 1',
+          [groupId]
+        );
+
+        let students;
+        if (hasBookings.rows.length > 0) {
+          // Group uses per-student booking - only add students who have attendance records for OTHER sessions in this group
+          // (they were booked but not yet for this specific session)
+          students = await pool.query(`
+            SELECT DISTINCT s.id as student_id, s.name as student_name, 'Pending' as attendance
+            FROM students s
+            INNER JOIN session_attendance sa2 ON sa2.student_id = s.id
+            INNER JOIN sessions s2 ON sa2.session_id = s2.id AND s2.group_id = $1
+            WHERE s.group_id = $1 AND s.is_active = true
+            ORDER BY s.name
+          `, [groupId]);
+        } else {
+          // Legacy: no booking records exist yet, add all active group members enrolled before session date
+          students = await pool.query(`
+            SELECT s.id as student_id, s.name as student_name, 'Pending' as attendance
+            FROM students s
+            WHERE s.group_id = $1 AND s.is_active = true
+              AND s.created_at::date <= $2::date
+            ORDER BY s.name
+          `, [groupId, sessionDate]);
+        }
+
+        // Create session_attendance records
         for (const student of students.rows) {
           await pool.query(
             'INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, $3) ON CONFLICT (session_id, student_id) DO NOTHING',
