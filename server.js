@@ -1470,6 +1470,23 @@ async function runMigrations() {
       console.log('Migration 34 note:', err.message);
     }
 
+    // Migration 35: Fix currency symbols to currency codes in all tables
+    try {
+      const currencyMap = [
+        ['₹', 'INR'], ['$', 'USD'], ['£', 'GBP'], ['€', 'EUR']
+      ];
+      let fixed = 0;
+      for (const [symbol, code] of currencyMap) {
+        const r1 = await client.query('UPDATE students SET currency = $2 WHERE currency = $1', [symbol, code]);
+        const r2 = await client.query('UPDATE payment_history SET currency = $2 WHERE currency = $1', [symbol, code]);
+        const r3 = await client.query('UPDATE payment_renewals SET currency = $2 WHERE currency = $1', [symbol, code]);
+        fixed += r1.rowCount + r2.rowCount + r3.rowCount;
+      }
+      console.log(`✅ Migration 35: Fixed ${fixed} currency symbol records to currency codes`);
+    } catch (err) {
+      console.log('Migration 35 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
