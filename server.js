@@ -6992,14 +6992,51 @@ app.delete('/api/expenses/:id', async (req, res) => {
   }
 });
 
-// Delete payment from history (for removing test/trial payments)
+// Delete payment from history (reverses fees_paid on student)
 app.delete('/api/payment-history/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
-    await pool.query('DELETE FROM payment_history WHERE id = $1', [req.params.id]);
-    res.json({ success: true, message: 'Payment deleted from history' });
+    await client.query('BEGIN');
+    const record = await client.query('SELECT * FROM payment_history WHERE id = $1', [req.params.id]);
+    if (record.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Payment record not found' }); }
+    const payment = record.rows[0];
+    await client.query('DELETE FROM payment_history WHERE id = $1', [req.params.id]);
+    await client.query('UPDATE students SET fees_paid = GREATEST(fees_paid - $1, 0) WHERE id = $2', [payment.amount, payment.student_id]);
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Payment deleted and fees adjusted' });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Error deleting payment:', err);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Delete renewal record (reverses fees_paid, total_sessions, remaining_sessions)
+app.delete('/api/payment-renewals/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const record = await client.query('SELECT * FROM payment_renewals WHERE id = $1', [req.params.id]);
+    if (record.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Renewal record not found' }); }
+    const renewal = record.rows[0];
+    await client.query('DELETE FROM payment_renewals WHERE id = $1', [req.params.id]);
+    // Also delete matching payment_history entry (added by renewal endpoint)
+    await client.query(`DELETE FROM payment_history WHERE id = (SELECT id FROM payment_history WHERE student_id = $1 AND amount = $2 AND payment_date = $3 AND notes LIKE 'Renewal%' LIMIT 1)`, [renewal.student_id, renewal.amount, renewal.renewal_date]);
+    await client.query(`UPDATE students SET
+      fees_paid = GREATEST(fees_paid - $1, 0),
+      total_sessions = GREATEST(total_sessions - $2, 0),
+      remaining_sessions = GREATEST(remaining_sessions - $2, 0)
+      WHERE id = $3`, [renewal.amount, renewal.sessions_added, renewal.student_id]);
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Renewal deleted and sessions/fees adjusted' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting renewal:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 

@@ -2240,8 +2240,8 @@
             <h3 style="color: #B05D9E; margin-bottom: 15px;">📋 Payment History</h3>
             <div class="table-responsive">
             <table id="paymentHistoryTable">
-              <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th><th>Notes</th></tr></thead>
-              <tbody id="paymentHistoryBody"><tr><td colspan="6" style="text-align: center; color: #718096;">Select a student to view payment history</td></tr></tbody>
+              <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Sessions</th><th>Method</th><th>Notes</th><th>Action</th></tr></thead>
+              <tbody id="paymentHistoryBody"><tr><td colspan="7" style="text-align: center; color: #718096;">Select a student to view payment history</td></tr></tbody>
             </table>
             </div>
           </div>
@@ -8666,9 +8666,12 @@ async function saveEditedPayment() {
         if (data.payments) {
           data.payments.forEach(p => {
             allPayments.push({
+              id: p.id,
+              recordType: 'payment',
               date: p.payment_date,
               type: 'Initial',
               amount: `${p.currency} ${p.amount}`,
+              rawAmount: p.amount,
               sessions: p.sessions_covered || '-',
               method: p.payment_method || '-',
               notes: p.notes || '-'
@@ -8680,9 +8683,12 @@ async function saveEditedPayment() {
         if (data.renewals) {
           data.renewals.forEach(r => {
             allPayments.push({
+              id: r.id,
+              recordType: 'renewal',
               date: r.renewal_date,
               type: 'Renewal',
               amount: `${r.currency} ${r.amount}`,
+              rawAmount: r.amount,
               sessions: `+${r.sessions_added}`,
               method: r.payment_method || '-',
               notes: r.notes || '-'
@@ -8694,7 +8700,7 @@ async function saveEditedPayment() {
         allPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         if (allPayments.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #718096;">No payment records yet</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No payment records yet</td></tr>';
         } else {
           tbody.innerHTML = allPayments.map(p => `
             <tr>
@@ -8704,6 +8710,7 @@ async function saveEditedPayment() {
               <td>${p.sessions}</td>
               <td>${p.method}</td>
               <td>${p.notes}</td>
+              <td><button onclick="deletePaymentHistoryRecord(${p.id}, '${p.recordType}', '${p.amount}', ${studentId})" class="btn-sm" style="background:#e53e3e;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem;">Delete</button></td>
             </tr>
           `).join('');
         }
@@ -9349,15 +9356,37 @@ async function saveEditedPayment() {
     }
 
     async function deletePaymentRecord(id, studentName, amount) {
-      if (!confirm(`Delete payment record?\n\nStudent: ${studentName}\nAmount: ${amount}\n\nThis is for removing test/trial payments only. This action cannot be undone.`)) return;
+      if (!confirm(`Delete payment record?\n\nStudent: ${studentName}\nAmount: ${amount}\n\nThis will also adjust the student's fees_paid. This action cannot be undone.`)) return;
 
       try {
         const res = await fetch(`/api/payment-history/${id}`, { method: 'DELETE' });
         if (res.ok) {
-          alert('✅ Payment record deleted');
+          alert('✅ Payment record deleted and fees adjusted');
           loadFinancialReports();
         } else {
           alert('❌ Failed to delete payment record');
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function deletePaymentHistoryRecord(id, recordType, amount, studentId) {
+      const typeLabel = recordType === 'renewal' ? 'Renewal' : 'Payment';
+      const extraMsg = recordType === 'renewal' ? '\nThis will also reverse the sessions added and fees.' : '\nThis will also adjust fees_paid.';
+      if (!confirm(`Delete this ${typeLabel} record?\n\nAmount: ${amount}${extraMsg}\n\nThis action cannot be undone.`)) return;
+
+      try {
+        const endpoint = recordType === 'renewal' ? `/api/payment-renewals/${id}` : `/api/payment-history/${id}`;
+        const res = await fetch(endpoint, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          alert('✅ ' + data.message);
+          loadPaymentHistory(studentId);
+          loadStudents(); // Refresh student data (fees/sessions changed)
+          loadFinancialReports();
+        } else {
+          alert('❌ ' + (data.error || 'Failed to delete record'));
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);
