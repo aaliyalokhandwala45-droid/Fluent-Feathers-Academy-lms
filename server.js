@@ -4378,9 +4378,9 @@ app.get('/api/groups/:groupId/students', async (req, res) => {
   }
 });
 
-// Add a student to existing upcoming group sessions
+// Add a student to existing upcoming group sessions (supports makeup credits)
 app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
-  const { student_id, num_sessions } = req.body;
+  const { student_id, num_sessions, makeup_count } = req.body;
   const groupId = req.params.groupId;
   const client = await pool.connect();
 
@@ -4409,15 +4409,34 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
       return res.status(400).json({ error: 'No upcoming sessions available to add this student to. All sessions already include this student.' });
     }
 
-    const sessionsToAdd = num_sessions
-      ? upcomingSessions.rows.slice(0, parseInt(num_sessions))
-      : upcomingSessions.rows;
+    const totalToAdd = num_sessions ? parseInt(num_sessions) : upcomingSessions.rows.length;
+    const sessionsToAdd = upcomingSessions.rows.slice(0, totalToAdd);
+    const makeupNum = parseInt(makeup_count) || 0;
+    const regularCount = sessionsToAdd.length - makeupNum;
 
-    // Check remaining sessions
-    const regularCount = sessionsToAdd.length;
-    if (student.rows[0].remaining_sessions < regularCount) {
+    // Validate makeup credits
+    if (makeupNum > 0) {
+      const availableCredits = await client.query(
+        'SELECT id FROM makeup_classes WHERE student_id = $1 AND status = $2 ORDER BY credit_date ASC',
+        [student_id, 'Available']
+      );
+      if (availableCredits.rows.length < makeupNum) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Not enough makeup credits. Need ${makeupNum} but only ${availableCredits.rows.length} available.` });
+      }
+      // Consume makeup credits
+      for (let i = 0; i < makeupNum; i++) {
+        await client.query(
+          `UPDATE makeup_classes SET status = 'Scheduled', used_date = CURRENT_DATE WHERE id = $1`,
+          [availableCredits.rows[i].id]
+        );
+      }
+    }
+
+    // Check remaining sessions for regular (non-makeup) sessions
+    if (regularCount > 0 && student.rows[0].remaining_sessions < regularCount) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Not enough remaining sessions. Need ${regularCount} but only ${student.rows[0].remaining_sessions} remaining.` });
+      return res.status(400).json({ error: `Not enough remaining sessions. Need ${regularCount} regular but only ${student.rows[0].remaining_sessions} remaining. Try using more makeup credits.` });
     }
 
     // Add attendance records
@@ -4428,19 +4447,23 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
       );
     }
 
-    // Deduct remaining sessions
-    await client.query(
-      'UPDATE students SET remaining_sessions = remaining_sessions - $1 WHERE id = $2',
-      [regularCount, student_id]
-    );
+    // Deduct only regular sessions from remaining
+    if (regularCount > 0) {
+      await client.query(
+        'UPDATE students SET remaining_sessions = remaining_sessions - $1 WHERE id = $2',
+        [regularCount, student_id]
+      );
+    }
 
     await client.query('COMMIT');
 
     const studentName = student.rows[0].name;
+    const makeupMsg = makeupNum > 0 ? ` (${makeupNum} using makeup credits)` : '';
     res.json({
       success: true,
-      message: `Added ${studentName} to ${sessionsToAdd.length} upcoming group sessions!`,
+      message: `Added ${studentName} to ${sessionsToAdd.length} upcoming group sessions!${makeupMsg}`,
       sessionsAdded: sessionsToAdd.length,
+      makeupUsed: makeupNum,
       availableRemaining: upcomingSessions.rows.length - sessionsToAdd.length
     });
   } catch (err) {

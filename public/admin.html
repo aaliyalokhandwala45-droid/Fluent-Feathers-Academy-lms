@@ -5183,17 +5183,27 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       document.getElementById('enrollModal').classList.remove('active');
     }
 
-    async function addStudentToExistingSessions(groupId, studentId, studentName, remaining) {
-      const numSessions = prompt(`Add ${studentName} to existing upcoming group sessions.\n\nRemaining sessions: ${remaining}\n\nHow many sessions to add? (Leave blank to add to ALL upcoming sessions)`);
-      if (numSessions === null) return; // cancelled
+    async function addStudentToExistingSessions(groupId, studentId, studentName, remaining, makeupCredits) {
+      const numSessions = prompt(`Add ${studentName} to existing upcoming group sessions.\n\nRemaining sessions: ${remaining}${makeupCredits > 0 ? `\nMakeup credits: ${makeupCredits}` : ''}\n\nHow many TOTAL sessions to add? (Leave blank for ALL upcoming)`);
+      if (numSessions === null) return;
 
       const num = numSessions.trim() === '' ? 0 : parseInt(numSessions);
       if (numSessions.trim() !== '' && (isNaN(num) || num < 1)) {
         return alert('Please enter a valid number of sessions.');
       }
 
+      let makeupUse = 0;
+      if (makeupCredits > 0) {
+        const makeupInput = prompt(`${studentName} has ${makeupCredits} makeup credits.\n\nHow many makeup credits to use? (Enter 0 or leave blank for none)`);
+        if (makeupInput === null) return;
+        makeupUse = parseInt(makeupInput) || 0;
+        if (makeupUse > makeupCredits) {
+          return alert(`Only ${makeupCredits} makeup credits available.`);
+        }
+      }
+
       try {
-        const body = { student_id: studentId };
+        const body = { student_id: studentId, makeup_count: makeupUse };
         if (num > 0) body.num_sessions = num;
 
         const res = await fetch(`/api/groups/${groupId}/add-to-sessions`, {
@@ -5206,7 +5216,6 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           alert('✅ ' + result.message);
           loadUpcomingClasses();
           loadStudents();
-          // Re-trigger group selection to refresh per-student data
           document.getElementById('scheduleGroup').dispatchEvent(new Event('change'));
         } else {
           alert('❌ ' + result.error);
@@ -5465,7 +5474,7 @@ async function saveEditedPayment() {
               style="width: 50px; padding: 4px 8px; border: 1px solid #9f7aea; border-radius: 4px; text-align: center; color: #6b46c1;"
               onchange="updateGroupMaxSessions()">
             ` : ''}
-            <button type="button" onclick="addStudentToExistingSessions(${groupId}, ${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.remaining_sessions || 0})"
+            <button type="button" onclick="addStudentToExistingSessions(${groupId}, ${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.remaining_sessions || 0}, ${makeupCount})"
               class="btn-sm" style="background: #3182ce; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; white-space: nowrap;"
               title="Add this student to already scheduled group sessions">+ Add to Existing</button>
           </div>`;
