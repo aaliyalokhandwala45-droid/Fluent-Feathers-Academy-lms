@@ -1421,6 +1421,14 @@ async function runMigrations() {
       console.log('Migration 31 note:', err.message);
     }
 
+    // Migration 32: Add notes column to sessions table
+    try {
+      await client.query('ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT');
+      console.log('✅ Migration 32: Added notes column to sessions');
+    } catch (err) {
+      console.log('Migration 32 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
