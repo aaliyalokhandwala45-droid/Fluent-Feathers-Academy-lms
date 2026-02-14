@@ -4983,9 +4983,9 @@ app.get('/api/sessions/:studentId', async (req, res) => {
 
     // Combine and sort by date ascending, then time ascending
     const allSessions = [...privateSessions.rows, ...groupSessions].sort((a, b) => {
-      const dA = String(a.session_date || '').split('T')[0];
-      const dB = String(b.session_date || '').split('T')[0];
-      if (dA !== dB) return dA.localeCompare(dB);
+      const dA = new Date(a.session_date).getTime();
+      const dB = new Date(b.session_date).getTime();
+      if (dA !== dB) return dA - dB;
       return String(a.session_time || '').localeCompare(String(b.session_time || ''));
     });
 
