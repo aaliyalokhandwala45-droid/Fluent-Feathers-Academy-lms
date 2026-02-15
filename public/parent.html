@@ -263,11 +263,17 @@
       #sessionProgressCard > div { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
       #sessionProgressCard > div > div { padding: 8px !important; }
       #sessionProgressCard > div > div > div:first-child { font-size: 1.3rem !important; }
-      /* Leaderboard podium fully stacked on small screens */
-      .parent-podium-container { flex-direction: column; align-items: center; gap: 8px; min-height: auto !important; }
-      .parent-podium-height-1, .parent-podium-height-2, .parent-podium-height-3 { height: 40px; width: 100% !important; max-width: 180px; border-radius: 8px !important; }
-      .parent-podium-container > div > div:nth-child(2) { min-width: 80px !important; padding: 8px 10px !important; }
-      .parent-podium-container > div > div:nth-child(3) { width: 70px !important; }
+      /* Leaderboard podium - keep horizontal on small screens */
+      .parent-podium-container { gap: 6px !important; min-height: 140px !important; }
+      .parent-podium-height-1 { height: 55px !important; }
+      .parent-podium-height-2 { height: 40px !important; }
+      .parent-podium-height-3 { height: 30px !important; }
+      .parent-podium-container > div > div:nth-child(1) { font-size: 1.2rem !important; margin-bottom: 3px !important; }
+      .parent-podium-container > div > div:nth-child(2) { min-width: 65px !important; padding: 5px 6px !important; }
+      .parent-podium-container > div > div:nth-child(2) > div:first-child { font-size: 0.65rem !important; max-width: 70px !important; }
+      .parent-podium-container > div > div:nth-child(2) > div:nth-child(2) { font-size: 0.9rem !important; }
+      .parent-podium-container > div > div:nth-child(2) > div:nth-child(3) { font-size: 0.55rem !important; }
+      .parent-podium-container > div > div:nth-child(3) { width: 55px !important; }
     }
 
     /* Badge Summary Strip */
@@ -1642,7 +1648,7 @@
               <div style="font-size:2.2rem;margin-bottom:4px;">${e.icon}</div>
               <div style="font-size:0.7rem;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${e.label}</div>
               <div style="font-size:1.1rem;font-weight:bold;color:#2d3748;margin:6px 0 2px;">${award.name}</div>
-              <div style="font-size:0.7rem;color:#4a5568;">${award.description}</div>
+              <div style="font-size:0.65rem;color:#4a5568;">📅 ${award.attendance || 0} classes · 📝 ${award.homework || 0} HW · 🎯 ${award.challenges || 0} challenges</div>
               ${sparkle}
             </div>
           `;

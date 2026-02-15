@@ -7851,30 +7851,99 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // Get current award holders (Student of the Week/Month/Year)
+// Auto-calculated based on attendance + homework submissions + challenges completed
 app.get('/api/awards/current', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT sb.badge_type, sb.badge_name, sb.badge_description, sb.earned_date, s.name as student_name, s.id as student_id
-      FROM student_badges sb
-      JOIN students s ON sb.student_id = s.id
-      WHERE sb.badge_type LIKE 'student_of_week_%'
-         OR sb.badge_type LIKE 'student_of_month_%'
-         OR sb.badge_type LIKE 'student_of_year_%'
-      ORDER BY sb.earned_date DESC
-    `);
+    const now = new Date();
 
-    const awards = { studentOfWeek: null, studentOfMonth: null, studentOfYear: null };
-    for (const row of result.rows) {
-      if (row.badge_type.startsWith('student_of_week_') && !awards.studentOfWeek) {
-        awards.studentOfWeek = { name: row.student_name, studentId: row.student_id, badge: row.badge_name, description: row.badge_description, earned_date: row.earned_date };
-      } else if (row.badge_type.startsWith('student_of_month_') && !awards.studentOfMonth) {
-        awards.studentOfMonth = { name: row.student_name, studentId: row.student_id, badge: row.badge_name, description: row.badge_description, earned_date: row.earned_date };
-      } else if (row.badge_type.startsWith('student_of_year_') && !awards.studentOfYear) {
-        awards.studentOfYear = { name: row.student_name, studentId: row.student_id, badge: row.badge_name, description: row.badge_description, earned_date: row.earned_date };
-      }
-    }
+    // Week range: Monday to Sunday of current week
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
+    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() + diffToMon); weekStart.setHours(0,0,0,0);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999);
+
+    // Month range
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Year range
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+    // Query to get student scores for a date range
+    const getTopStudent = async (startDate, endDate) => {
+      const result = await pool.query(`
+        SELECT
+          s.id,
+          s.name,
+          COALESCE(att.att_count, 0) as attendance,
+          COALESCE(hw.hw_count, 0) as homework,
+          COALESCE(ch.ch_count, 0) as challenges,
+          COALESCE(att.att_count, 0) + COALESCE(hw.hw_count, 0) + COALESCE(ch.ch_count, 0) as total_score
+        FROM students s
+        LEFT JOIN (
+          SELECT student_id, SUM(cnt) as att_count FROM (
+            SELECT student_id, COUNT(*) as cnt FROM sessions
+            WHERE student_id IS NOT NULL AND status = 'Completed'
+              AND session_date >= $1 AND session_date <= $2
+            GROUP BY student_id
+            UNION ALL
+            SELECT sa.student_id, COUNT(*) as cnt FROM session_attendance sa
+            JOIN sessions sess ON sa.session_id = sess.id
+            WHERE sa.attendance = 'Present'
+              AND sess.session_date >= $1 AND sess.session_date <= $2
+            GROUP BY sa.student_id
+          ) combined GROUP BY student_id
+        ) att ON s.id = att.student_id
+        LEFT JOIN (
+          SELECT student_id, COUNT(*) as hw_count FROM materials
+          WHERE file_type = 'Homework' AND uploaded_by = 'Parent'
+            AND created_at >= $1 AND created_at <= $2
+          GROUP BY student_id
+        ) hw ON s.id = hw.student_id
+        LEFT JOIN (
+          SELECT student_id, COUNT(*) as ch_count FROM student_challenges
+          WHERE status = 'Completed'
+            AND completed_at >= $1 AND completed_at <= $2
+          GROUP BY student_id
+        ) ch ON s.id = ch.student_id
+        WHERE s.is_active = true
+          AND (COALESCE(att.att_count, 0) + COALESCE(hw.hw_count, 0) + COALESCE(ch.ch_count, 0)) > 0
+        ORDER BY total_score DESC, attendance DESC, homework DESC, s.name ASC
+        LIMIT 1
+      `, [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]);
+      return result.rows[0] || null;
+    };
+
+    const [weekWinner, monthWinner, yearWinner] = await Promise.all([
+      getTopStudent(weekStart, weekEnd),
+      getTopStudent(monthStart, monthEnd),
+      getTopStudent(yearStart, yearEnd)
+    ]);
+
+    const formatAward = (winner, label) => {
+      if (!winner) return null;
+      return {
+        name: winner.name,
+        studentId: winner.id,
+        badge: label,
+        description: `${winner.attendance} classes attended, ${winner.homework} HW submitted, ${winner.challenges} challenges`,
+        attendance: parseInt(winner.attendance),
+        homework: parseInt(winner.homework),
+        challenges: parseInt(winner.challenges),
+        total_score: parseInt(winner.total_score)
+      };
+    };
+
+    const awards = {
+      studentOfWeek: formatAward(weekWinner, 'Student of the Week'),
+      studentOfMonth: formatAward(monthWinner, 'Student of the Month'),
+      studentOfYear: formatAward(yearWinner, 'Student of the Year')
+    };
+
     res.json(awards);
   } catch (err) {
+    console.error('Error calculating awards:', err);
     res.status(500).json({ error: err.message });
   }
 });

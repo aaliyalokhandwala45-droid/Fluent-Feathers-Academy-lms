@@ -7719,7 +7719,8 @@ async function saveEditedPayment() {
             <div style="font-size:36px;margin-bottom:5px;">${at.icon}</div>
             <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;">${at.title}</div>
             ${a ? `<div style="font-size:20px;font-weight:bold;margin:8px 0;">${a.name}</div>
-              <div style="font-size:11px;opacity:0.85;">${a.description}</div>` :
+              <div style="font-size:11px;opacity:0.85;">📅 ${a.attendance || 0} classes · 📝 ${a.homework || 0} HW · 🎯 ${a.challenges || 0} challenges</div>
+              <div style="font-size:10px;opacity:0.7;margin-top:4px;">Score: ${a.total_score || 0}</div>` :
               `<div style="font-size:14px;margin:8px 0;opacity:0.7;">No winner yet</div>`}
           </div>`;
         }).join('');
