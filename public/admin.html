@@ -3719,7 +3719,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         const dueEl = document.getElementById('dueAssessments');
         if (dueEl) {
           dueEl.textContent = dueCount;
-          dueEl.parentElement.style.display = dueCount > 0 ? 'block' : 'block'; // Always show
+          dueEl.parentElement.style.display = dueCount > 0 ? 'block' : 'none';
         }
       } catch (err) {
         console.error(err);
@@ -7379,7 +7379,7 @@ async function saveEditedPayment() {
       if (classType === 'Group') {
         const select = document.getElementById('convertGroupId');
         select.innerHTML = '<option value="">Select group...</option>' +
-          (allGroups || []).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+          (allGroups || []).map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
       }
     }
 

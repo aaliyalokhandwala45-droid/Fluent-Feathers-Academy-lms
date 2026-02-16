@@ -1501,10 +1501,15 @@
     async function sendOTP() {
       const email = document.getElementById('parentEmail').value.trim();
       try {
-        await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
-        document.getElementById('otpSendSection').style.display = 'none';
-        document.getElementById('otpVerifySection').style.display = 'block';
-        alert('OTP sent to your email');
+        const res = await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('otpSendSection').style.display = 'none';
+          document.getElementById('otpVerifySection').style.display = 'block';
+          alert('OTP sent to your email');
+        } else {
+          alert(data.error || 'Failed to send OTP. Please try again.');
+        }
       } catch(e) {
         alert('Error sending OTP');
       }

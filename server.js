@@ -4059,8 +4059,8 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
     // Get group info if group student
     let groupName = null;
     if (class_type === 'Group' && group_id) {
-      const group = await pool.query('SELECT name FROM groups WHERE id = $1', [group_id]);
-      if (group.rows.length > 0) groupName = group.rows[0].name;
+      const group = await pool.query('SELECT group_name FROM groups WHERE id = $1', [group_id]);
+      if (group.rows.length > 0) groupName = group.rows[0].group_name;
     }
 
     // Create new student from demo lead
@@ -5069,10 +5069,10 @@ app.get('/api/sessions/search-by-name', async (req, res) => {
     // Search in sessions table - look for student name in various places
     const result = await pool.query(`
       SELECT s.id, s.session_date, s.session_time, s.session_type, s.student_id,
-             COALESCE(st.name, s.student_name, 'Unknown') as student_name
+             COALESCE(st.name, 'Unknown') as student_name
       FROM sessions s
       LEFT JOIN students st ON s.student_id = st.id
-      WHERE LOWER(COALESCE(st.name, s.student_name, '')) LIKE LOWER($1)
+      WHERE LOWER(COALESCE(st.name, '')) LIKE LOWER($1)
       ORDER BY s.session_date DESC, s.session_time DESC
       LIMIT 100
     `, [`%${name}%`]);
@@ -5304,17 +5304,25 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
       sessionStatus = 'Missed'; // Unexcused or Absent
     }
 
-    await pool.query('UPDATE sessions SET status = $1 WHERE id = $2', [sessionStatus, sessionId]);
+    // Get previous session status before updating
+    const session = await pool.query('SELECT student_id, status FROM sessions WHERE id = $1', [sessionId]);
+    const prevStatus = session.rows[0]?.status;
 
-    // Get student info for the session
-    const session = await pool.query('SELECT student_id FROM sessions WHERE id = $1', [sessionId]);
+    await pool.query('UPDATE sessions SET status = $1 WHERE id = $2', [sessionStatus, sessionId]);
 
     if (session.rows[0] && session.rows[0].student_id) {
       const studentId = session.rows[0].student_id;
 
+      // Only update student stats if status actually changed (prevent double-counting)
+      const alreadyCounted = prevStatus === 'Completed' || prevStatus === 'Excused' || prevStatus === 'Missed';
+
       if (attendance === 'Present') {
-        // Mark as completed and update student stats, reset renewal reminder so new one can be sent
-        await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
+        if (!alreadyCounted) {
+          await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
+        } else if (prevStatus !== 'Completed') {
+          // Was Excused/Missed before, now Present - add to completed but don't re-decrement remaining
+          await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1 WHERE id = $1', [studentId]);
+        }
 
         // Award attendance badges
         const student = await pool.query('SELECT completed_sessions FROM students WHERE id = $1', [studentId]);
@@ -5326,17 +5334,23 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
         if (completedCount === 25) await awardBadge(studentId, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
         if (completedCount === 50) await awardBadge(studentId, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
       } else if (attendance === 'Excused') {
-        // Excused absence - grant makeup credit
-        await pool.query(`
-          INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by)
-          VALUES ($1, $2, 'Excused absence', CURRENT_DATE, 'Available', 'admin')
-        `, [studentId, sessionId]);
-
-        // Decrement remaining_sessions, reset renewal reminder
-        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
+        if (!alreadyCounted) {
+          // First time marking - decrement remaining, grant makeup
+          await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
+        }
+        // Grant makeup credit (check if already exists for this session)
+        const existingCredit = await pool.query('SELECT id FROM makeup_classes WHERE student_id = $1 AND original_session_id = $2', [studentId, sessionId]);
+        if (existingCredit.rows.length === 0) {
+          await pool.query(`
+            INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by)
+            VALUES ($1, $2, 'Excused absence', CURRENT_DATE, 'Available', 'admin')
+          `, [studentId, sessionId]);
+        }
       } else {
-        // Unexcused absence - no makeup credit, just decrement remaining sessions, reset renewal reminder
-        await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
+        if (!alreadyCounted) {
+          // First time marking - decrement remaining
+          await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
+        }
       }
     }
 
@@ -7964,7 +7978,7 @@ app.get('/api/awards/current', async (req, res) => {
         LEFT JOIN (
           SELECT student_id, COUNT(*) as hw_count FROM materials
           WHERE file_type = 'Homework' AND uploaded_by = 'Parent'
-            AND created_at >= $1 AND created_at <= $2
+            AND uploaded_at >= $1 AND uploaded_at <= $2
           GROUP BY student_id
         ) hw ON s.id = hw.student_id
         LEFT JOIN (
