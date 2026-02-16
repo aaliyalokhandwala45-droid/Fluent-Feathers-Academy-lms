@@ -62,8 +62,9 @@
     .login-section { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 500px; margin: 50px auto; text-align: center; }
     .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #B05D9E; }
     .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-    .tab-btn { padding: 12px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+    .tab-btn { padding: 12px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; position: relative; }
     .tab-btn.active { background: #B05D9E; color: white; border-color: #B05D9E; }
+    .tab-btn .red-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; background: #e53e3e; border-radius: 50%; display: none; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
@@ -641,12 +642,12 @@
         <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
         <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
         <button class="tab-btn" onclick="showTab('homework', event)">📝 Homework</button>
-        <button class="tab-btn" onclick="showTab('payments', event)">💳 Payments</button>
+        <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">💳 Payments<span class="red-dot" id="dotPayments"></span></button>
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
-        <button class="tab-btn" onclick="showTab('achievements', event)">🏆 Achievements</button>
-        <button class="tab-btn" onclick="showTab('announcements', event)">📢 News</button>
-        <button class="tab-btn" onclick="showTab('events', event)">🎉 Events</button>
-        <button class="tab-btn" onclick="showTab('resources', event)">📚 Resources</button>
+        <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">🏆 Achievements<span class="red-dot" id="dotAchievements"></span></button>
+        <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">📢 News<span class="red-dot" id="dotAnnouncements"></span></button>
+        <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">🎉 Events<span class="red-dot" id="dotEvents"></span></button>
+        <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">📚 Resources<span class="red-dot" id="dotResources"></span></button>
         <button class="tab-btn" onclick="showTab('profile', event)">👤 Profile</button>
       </div>
 
@@ -1525,6 +1526,8 @@
       if(tabBtn) tabBtn.classList.add('active');
       // Save current tab to localStorage for persistence on refresh
       localStorage.setItem('parentActiveTab', name);
+      // Clear red dot when tab is visited
+      clearRedDot(name);
       if(name === 'homework') loadHomeworkSessions();
       if(name === 'announcements') loadAnnouncements();
       if(name === 'events') loadEvents();
@@ -1556,6 +1559,7 @@
       loadPast();
       loadCancelDropdown();
       checkForFeedback();
+      checkRedDots();
 
       // Restore last active tab from localStorage
       let savedTab = localStorage.getItem('parentActiveTab');
@@ -1563,6 +1567,79 @@
       if (savedTab === 'updates') savedTab = 'announcements';
       if (savedTab && document.getElementById(savedTab + 'Tab')) {
         showTab(savedTab);
+      }
+    }
+
+    // ==================== RED DOT INDICATORS ====================
+    function showRedDot(tabName) {
+      const dot = document.getElementById('dot' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+      if (dot) dot.style.display = 'block';
+    }
+
+    function clearRedDot(tabName) {
+      const capName = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+      const dot = document.getElementById('dot' + capName);
+      if (dot) dot.style.display = 'none';
+      localStorage.setItem('lastSeen_' + tabName, new Date().toISOString());
+    }
+
+    async function checkRedDots() {
+      const studentId = currentStudent?.id;
+      if (!studentId) return;
+
+      try {
+        // Check announcements
+        const annRes = await fetch('/api/announcements');
+        const announcements = await annRes.json();
+        if (announcements.length > 0) {
+          const lastSeen = localStorage.getItem('lastSeen_announcements');
+          const latest = new Date(announcements[0].created_at);
+          if (!lastSeen || latest > new Date(lastSeen)) showRedDot('announcements');
+        }
+
+        // Check events
+        const evRes = await fetch(`/api/events/student/${studentId}`, { headers: authHeaders() });
+        if (evRes.ok) {
+          const events = await evRes.json();
+          if (events.length > 0) {
+            const lastSeen = localStorage.getItem('lastSeen_events');
+            const latest = new Date(Math.max(...events.map(e => new Date(e.created_at || e.event_date))));
+            if (!lastSeen || latest > new Date(lastSeen)) showRedDot('events');
+          }
+        }
+
+        // Check resources
+        const resRes = await fetch('/api/resources/library', { headers: authHeaders() });
+        if (resRes.ok) {
+          const resources = await resRes.json();
+          if (resources.length > 0) {
+            const lastSeen = localStorage.getItem('lastSeen_resources');
+            const latest = new Date(Math.max(...resources.map(r => new Date(r.uploaded_at || r.created_at))));
+            if (!lastSeen || latest > new Date(lastSeen)) showRedDot('resources');
+          }
+        }
+
+        // Check achievements (badges)
+        const badgeRes = await fetch(`/api/students/${studentId}/badges`, { headers: authHeaders() });
+        if (badgeRes.ok) {
+          const badges = await badgeRes.json();
+          if (badges.length > 0) {
+            const lastSeen = localStorage.getItem('lastSeen_achievements');
+            const latest = new Date(Math.max(...badges.map(b => new Date(b.awarded_at || b.created_at))));
+            if (!lastSeen || latest > new Date(lastSeen)) showRedDot('achievements');
+          }
+        }
+
+        // Check payments - show dot if remaining sessions <= 2
+        if (currentStudent.remaining_sessions <= 2) {
+          const lastSeen = localStorage.getItem('lastSeen_payments');
+          // Show dot if they haven't visited payments since sessions went low
+          if (!lastSeen || (new Date() - new Date(lastSeen)) > 24 * 60 * 60 * 1000) {
+            showRedDot('payments');
+          }
+        }
+      } catch(e) {
+        console.error('Error checking red dots:', e);
       }
     }
 
