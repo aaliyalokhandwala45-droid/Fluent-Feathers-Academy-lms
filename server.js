@@ -8341,24 +8341,25 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // Get current award holders (Student of the Week/Month/Year)
-// Auto-calculated based on attendance + homework submissions + challenges completed
+// Shows PREVIOUS completed period winners (not live in-progress data)
 app.get('/api/awards/current', async (req, res) => {
   try {
     const now = new Date();
 
-    // Week range: Monday to Sunday of current week
+    // LAST WEEK range: Monday to Sunday of the previous completed week
     const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
     const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const weekStart = new Date(now); weekStart.setDate(now.getDate() + diffToMon); weekStart.setHours(0,0,0,0);
-    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999);
+    const thisWeekStart = new Date(now); thisWeekStart.setDate(now.getDate() + diffToMon); thisWeekStart.setHours(0,0,0,0);
+    const weekStart = new Date(thisWeekStart); weekStart.setDate(thisWeekStart.getDate() - 7); // Last Monday
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999); // Last Sunday
 
-    // Month range
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // LAST MONTH range
+    const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    // Year range
-    const yearStart = new Date(now.getFullYear(), 0, 1);
-    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    // LAST YEAR range
+    const yearStart = new Date(now.getFullYear() - 1, 0, 1);
+    const yearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
 
     // Query to get student scores for a date range
     const getTopStudent = async (startDate, endDate) => {
@@ -8411,12 +8412,19 @@ app.get('/api/awards/current', async (req, res) => {
       getTopStudent(yearStart, yearEnd)
     ]);
 
-    const formatAward = (winner, label) => {
+    // Build period labels for display
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    const monthLabel = `${monthNames[monthStart.getMonth()]} ${monthStart.getFullYear()}`;
+    const yearLabel = `${yearStart.getFullYear()}`;
+
+    const formatAward = (winner, label, periodLabel) => {
       if (!winner) return null;
       return {
         name: winner.name,
         studentId: winner.id,
         badge: label,
+        period: periodLabel,
         description: `${winner.attendance} classes attended, ${winner.homework} HW submitted, ${winner.challenges} challenges`,
         attendance: parseInt(winner.attendance),
         homework: parseInt(winner.homework),
@@ -8426,9 +8434,9 @@ app.get('/api/awards/current', async (req, res) => {
     };
 
     const awards = {
-      studentOfWeek: formatAward(weekWinner, 'Student of the Week'),
-      studentOfMonth: formatAward(monthWinner, 'Student of the Month'),
-      studentOfYear: formatAward(yearWinner, 'Student of the Year')
+      studentOfWeek: formatAward(weekWinner, 'Student of the Week', weekLabel),
+      studentOfMonth: formatAward(monthWinner, 'Student of the Month', monthLabel),
+      studentOfYear: formatAward(yearWinner, 'Student of the Year', yearLabel)
     };
 
     res.json(awards);
