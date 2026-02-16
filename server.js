@@ -4444,8 +4444,9 @@ app.get('/api/groups/:groupId/students', async (req, res) => {
 });
 
 // Add a student to existing upcoming group sessions (supports makeup credits)
+// Also adds student to recent past sessions for content access (recordings/HW)
 app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
-  const { student_id, num_sessions, makeup_count } = req.body;
+  const { student_id, num_sessions, makeup_count, include_past } = req.body;
   const groupId = req.params.groupId;
   const client = await pool.connect();
 
@@ -4459,8 +4460,31 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
       return res.status(400).json({ error: 'Student not found in this group' });
     }
 
-    // Get upcoming group sessions that this student is NOT already in
     const today = new Date().toISOString().split('T')[0];
+
+    // If include_past, add student to past sessions they missed (for content access)
+    // These don't count against remaining sessions - just so they can view recordings/HW
+    let pastSessionsAdded = 0;
+    if (include_past) {
+      const pastSessions = await client.query(`
+        SELECT s.id, s.session_date, s.session_time
+        FROM sessions s
+        WHERE s.group_id = $1 AND s.session_date < $2
+          AND s.id NOT IN (SELECT session_id FROM session_attendance WHERE student_id = $3)
+        ORDER BY s.session_date DESC, s.session_time DESC
+        LIMIT 10
+      `, [groupId, today, student_id]);
+
+      for (const ps of pastSessions.rows) {
+        await client.query(
+          'INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, $3)',
+          [ps.id, student_id, 'Absent']
+        );
+        pastSessionsAdded++;
+      }
+    }
+
+    // Get upcoming group sessions that this student is NOT already in
     const upcomingSessions = await client.query(`
       SELECT s.id, s.session_date, s.session_time, s.session_number
       FROM sessions s
@@ -4469,7 +4493,7 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
       ORDER BY s.session_date ASC, s.session_time ASC
     `, [groupId, today, student_id]);
 
-    if (upcomingSessions.rows.length === 0) {
+    if (upcomingSessions.rows.length === 0 && pastSessionsAdded === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'No upcoming sessions available to add this student to. All sessions already include this student.' });
     }
@@ -4504,7 +4528,7 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
       return res.status(400).json({ error: `Not enough remaining sessions. Need ${regularCount} regular but only ${student.rows[0].remaining_sessions} remaining. Try using more makeup credits.` });
     }
 
-    // Add attendance records
+    // Add attendance records for upcoming sessions
     for (const session of sessionsToAdd) {
       await client.query(
         'INSERT INTO session_attendance (session_id, student_id, attendance) VALUES ($1, $2, $3)',
@@ -4524,10 +4548,12 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
 
     const studentName = student.rows[0].name;
     const makeupMsg = makeupNum > 0 ? ` (${makeupNum} using makeup credits)` : '';
+    const pastMsg = pastSessionsAdded > 0 ? ` Also added to ${pastSessionsAdded} past session(s) for content access.` : '';
     res.json({
       success: true,
-      message: `Added ${studentName} to ${sessionsToAdd.length} upcoming group sessions!${makeupMsg}`,
+      message: `Added ${studentName} to ${sessionsToAdd.length} upcoming group sessions!${makeupMsg}${pastMsg}`,
       sessionsAdded: sessionsToAdd.length,
+      pastSessionsAdded,
       makeupUsed: makeupNum,
       availableRemaining: upcomingSessions.rows.length - sessionsToAdd.length
     });
@@ -5084,6 +5110,12 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
     const utc = istToUTC(date, time);
     await pool.query('UPDATE sessions SET session_date = $1::date, session_time = $2::time WHERE id = $3', [utc.date, utc.time, req.params.sessionId]);
 
+    // Clear old reminder email logs for this session so new reminders can be sent
+    await pool.query(
+      `DELETE FROM email_log WHERE email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group', 'Reminder-1hr', 'Reminder-1hr-Group') AND subject LIKE $1`,
+      [`%[SID:${req.params.sessionId}]%`]
+    );
+
     // Send reschedule notification email to affected students
     let studentsToNotify = [];
     if (session.session_type === 'Group' && session.group_id) {
@@ -5496,6 +5528,12 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     await client.query(
       'UPDATE sessions SET session_date = $1, session_time = $2, status = $3 WHERE id = $4',
       [converted.date, converted.time, 'Scheduled', sessionId]
+    );
+
+    // Clear old reminder email logs for this session so new reminders can be sent
+    await client.query(
+      `DELETE FROM email_log WHERE email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group', 'Reminder-1hr', 'Reminder-1hr-Group') AND subject LIKE $1`,
+      [`%[SID:${sessionId}]%`]
     );
 
     // Get students to notify
@@ -6368,11 +6406,29 @@ app.get('/api/sessions/past/all', async (req, res) => {
 app.post('/api/parent/cancel-class', async (req, res) => {
   const id = req.adminStudentId || req.body.student_id;
   try {
-    const session = (await pool.query('SELECT * FROM sessions WHERE id = $1 AND student_id = $2', [req.body.session_id, id])).rows[0];
-    if(!session) return res.status(404).json({ error: 'Session not found' });
+    // Try private session first
+    let session = (await pool.query('SELECT * FROM sessions WHERE id = $1 AND student_id = $2', [req.body.session_id, id])).rows[0];
+    let isGroup = false;
+
+    // If not found, check if it's a group session the student is enrolled in
+    if (!session) {
+      const groupCheck = await pool.query(`
+        SELECT s.*, sa.id as attendance_id
+        FROM sessions s
+        JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $2
+        WHERE s.id = $1 AND s.session_type = 'Group'
+      `, [req.body.session_id, id]);
+      if (groupCheck.rows.length > 0) {
+        session = groupCheck.rows[0];
+        isGroup = true;
+      }
+    }
+
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
     const sessionTime = new Date(`${session.session_date}T${session.session_time}Z`);
     const oneHour = 60 * 60 * 1000;
-    if((sessionTime - new Date()) < oneHour) {
+    if ((sessionTime - new Date()) < oneHour) {
       return res.status(400).json({ error: 'Cannot cancel class less than 1 hour before start.' });
     }
 
@@ -6380,13 +6436,23 @@ app.post('/api/parent/cancel-class', async (req, res) => {
     const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [id]);
     const student = studentResult.rows[0];
 
-    await pool.query('UPDATE sessions SET status = $1, cancelled_by = $2 WHERE id = $3', ['Cancelled by Parent', 'Parent', session.id]);
+    if (isGroup) {
+      // For group sessions: mark this student's attendance as Excused, don't cancel the whole session
+      await pool.query(
+        'UPDATE session_attendance SET attendance = $1 WHERE session_id = $2 AND student_id = $3',
+        ['Excused', session.id, id]
+      );
+    } else {
+      // For private sessions: cancel the entire session
+      await pool.query('UPDATE sessions SET status = $1, cancelled_by = $2 WHERE id = $3', ['Cancelled by Parent', 'Parent', session.id]);
+    }
+
+    // Give makeup credit in both cases
     await pool.query(`INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by) VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'parent')`, [id, session.id, req.body.reason || 'Parent cancelled']);
 
     // Send cancellation confirmation email to parent
     if (student && student.parent_email) {
       try {
-        // Convert UTC time to student's local timezone
         const studentTimezone = student.timezone || 'Asia/Kolkata';
         const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
         const timezoneLabel = getTimezoneLabel(studentTimezone);

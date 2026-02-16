@@ -5196,7 +5196,10 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
     }
 
     async function addStudentToExistingSessions(groupId, studentId, studentName, remaining, makeupCredits) {
-      const numSessions = prompt(`Add ${studentName} to existing upcoming group sessions.\n\nRemaining sessions: ${remaining}${makeupCredits > 0 ? `\nMakeup credits: ${makeupCredits}` : ''}\n\nHow many TOTAL sessions to add? (Leave blank for ALL upcoming)`);
+      // Ask if they want to include past sessions for content access (recordings/HW)
+      const includePast = confirm(`Add ${studentName} to group sessions.\n\nDo you also want to include PAST sessions this student missed?\n(So they can view recordings & homework)\n\nClick OK = Yes, include past sessions\nClick Cancel = No, only upcoming sessions`);
+
+      const numSessions = prompt(`How many UPCOMING sessions to add for ${studentName}?\n\nRemaining sessions: ${remaining}${makeupCredits > 0 ? `\nMakeup credits: ${makeupCredits}` : ''}\n\nEnter number or leave blank for ALL upcoming`);
       if (numSessions === null) return;
 
       const num = numSessions.trim() === '' ? 0 : parseInt(numSessions);
@@ -5215,7 +5218,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
       }
 
       try {
-        const body = { student_id: studentId, makeup_count: makeupUse };
+        const body = { student_id: studentId, makeup_count: makeupUse, include_past: includePast };
         if (num > 0) body.num_sessions = num;
 
         const res = await fetch(`/api/groups/${groupId}/add-to-sessions`, {
@@ -7650,6 +7653,7 @@ async function saveEditedPayment() {
 
     // Predefined manual badges for teachers to assign
     const manualBadgeOptions = [
+      // Language & Communication
       { type: 'active_listener', name: '👂 Active Listener', desc: 'Listened attentively throughout the class!' },
       { type: 'attentive_star', name: '🌟 Attentive Star', desc: 'Showed excellent focus and attention!' },
       { type: 'vocabulary_champ', name: '📚 Vocabulary Champ', desc: 'Learned new words brilliantly!' },
@@ -7657,17 +7661,59 @@ async function saveEditedPayment() {
       { type: 'pronunciation_pro', name: '🗣️ Pronunciation Pro', desc: 'Excellent pronunciation skills!' },
       { type: 'grammar_guru', name: '✏️ Grammar Guru', desc: 'Mastered grammar concepts!' },
       { type: 'creative_writer', name: '✍️ Creative Writer', desc: 'Showed amazing creativity in writing!' },
-      { type: 'quick_learner', name: '⚡ Quick Learner', desc: 'Grasped concepts super fast!' },
       { type: 'confident_speaker', name: '🎤 Confident Speaker', desc: 'Spoke with great confidence!' },
-      { type: 'perfect_participation', name: '🙋 Perfect Participation', desc: 'Participated actively in every activity!' },
-      { type: 'super_effort', name: '💪 Super Effort', desc: 'Put in outstanding effort today!' },
+      { type: 'storyteller', name: '📕 Storyteller', desc: 'Told stories wonderfully!' },
+      { type: 'spelling_bee', name: '🐝 Spelling Bee', desc: 'Spelled words perfectly!' },
+      // Handwriting & Presentation
+      { type: 'handwriting_hero', name: '🖊️ Handwriting Hero', desc: 'Beautiful and neat handwriting!' },
+      { type: 'neat_notebook', name: '📓 Neat Notebook', desc: 'Kept work exceptionally neat and organized!' },
+      { type: 'presentation_star', name: '🎬 Presentation Star', desc: 'Delivered an outstanding presentation!' },
+      // Creativity & Ideas
+      { type: 'creative_thinker', name: '🎨 Creative Thinker', desc: 'Came up with wonderfully creative ideas!' },
       { type: 'bright_spark', name: '💡 Bright Spark', desc: 'Had brilliant ideas in class!' },
-      { type: 'team_player', name: '🤝 Team Player', desc: 'Worked wonderfully with others!' },
+      { type: 'imagination_award', name: '🌈 Imagination Award', desc: 'Showed incredible imagination!' },
+      { type: 'out_of_box', name: '🧩 Out-of-the-Box Thinker', desc: 'Thought outside the box with unique solutions!' },
+      // Effort & Growth
+      { type: 'quick_learner', name: '⚡ Quick Learner', desc: 'Grasped concepts super fast!' },
+      { type: 'super_effort', name: '💪 Super Effort', desc: 'Put in outstanding effort today!' },
       { type: 'improvement_star', name: '📈 Improvement Star', desc: 'Showed great improvement!' },
+      { type: 'never_gives_up', name: '🔥 Never Gives Up', desc: 'Showed amazing perseverance and determination!' },
+      { type: 'self_corrector', name: '🔄 Self Corrector', desc: 'Identified and corrected own mistakes independently!' },
+      { type: 'practice_makes_perfect', name: '🎯 Practice Champion', desc: 'Practiced consistently and it shows!' },
+      // Social & Leadership
+      { type: 'team_player', name: '🤝 Team Player', desc: 'Worked wonderfully with others!' },
+      { type: 'leadership_star', name: '👑 Leadership Star', desc: 'Showed excellent leadership qualities!' },
+      { type: 'helpful_friend', name: '💝 Helpful Friend', desc: 'Helped classmates and showed kindness!' },
+      { type: 'social_butterfly', name: '🦋 Social Butterfly', desc: 'Interacted confidently and made everyone feel included!' },
+      { type: 'good_sport', name: '🏅 Good Sport', desc: 'Showed great sportsmanship and fair play!' },
+      { type: 'role_model', name: '🌠 Role Model', desc: 'Set a great example for other students!' },
+      // Participation & Attitude
+      { type: 'perfect_participation', name: '🙋 Perfect Participation', desc: 'Participated actively in every activity!' },
       { type: 'positive_attitude', name: '😊 Positive Attitude', desc: 'Maintained a great positive attitude!' },
       { type: 'curiosity_badge', name: '🔍 Curious Mind', desc: 'Asked thoughtful questions!' },
-      { type: 'storyteller', name: '📕 Storyteller', desc: 'Told stories wonderfully!' },
-      { type: 'spelling_bee', name: '🐝 Spelling Bee', desc: 'Spelled words perfectly!' }
+      { type: 'class_enthusiasm', name: '🎉 Class Enthusiast', desc: 'Brought amazing energy and enthusiasm to class!' },
+      // Homework & Discipline
+      { type: 'hw_excellence', name: '📝 Homework Excellence', desc: 'Submitted outstanding homework consistently!' },
+      { type: 'punctuality_pro', name: '⏰ Punctuality Pro', desc: 'Always on time and ready for class!' },
+      { type: 'consistency_king', name: '👸 Consistency Champion', desc: 'Showed remarkable consistency in effort and attendance!' },
+      // Reading & Comprehension
+      { type: 'reading_fluency', name: '📖 Reading Fluency', desc: 'Read with excellent speed and accuracy!' },
+      { type: 'reading_comprehension', name: '🧐 Reading Comprehension', desc: 'Understood and interpreted the text wonderfully!' },
+      { type: 'expressive_reader', name: '🎭 Expressive Reader', desc: 'Read with great expression and emotion!' },
+      // Spelling
+      { type: 'spelling_star', name: '⭐ Spelling Star', desc: 'Excellent spelling accuracy!' },
+      { type: 'spelling_improvement', name: '📝 Spelling Improver', desc: 'Showed great improvement in spelling!' },
+      // Conversation & Speaking
+      { type: 'conversation_pro', name: '💬 Conversation Pro', desc: 'Held a wonderful conversation with confidence!' },
+      { type: 'fluent_speaker', name: '🗣️ Fluent Speaker', desc: 'Spoke fluently with minimal pauses!' },
+      { type: 'discussion_star', name: '💭 Discussion Star', desc: 'Contributed excellent points to the discussion!' },
+      { type: 'public_speaker', name: '🎙️ Public Speaker', desc: 'Delivered a speech with poise and clarity!' },
+      // Special & Fun
+      { type: 'debate_champion', name: '⚔️ Debate Champion', desc: 'Argued points clearly and respectfully!' },
+      { type: 'poetry_star', name: '🌸 Poetry Star', desc: 'Created or recited poetry beautifully!' },
+      { type: 'book_worm', name: '📚 Bookworm', desc: 'Shows a wonderful love for reading!' },
+      { type: 'critical_thinker', name: '🧠 Critical Thinker', desc: 'Analyzed and evaluated ideas thoughtfully!' },
+      { type: 'most_improved', name: '🚀 Most Improved', desc: 'Made the biggest improvement this period!' }
     ];
 
     function openAssignBadgeModal() {
