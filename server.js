@@ -2357,9 +2357,10 @@ function getHomeworkFeedbackEmail(data) {
   const { studentName, parentName, grade, comments, fileName } = data;
 
   // Get emoji based on grade
-  const gradeEmoji = grade.toLowerCase().includes('a') || grade.toLowerCase().includes('excellent') ? '🌟' :
-                     grade.toLowerCase().includes('b') || grade.toLowerCase().includes('good') ? '👍' :
-                     grade.toLowerCase().includes('c') ? '📝' : '⭐';
+  const g = (grade || '').toLowerCase();
+  const gradeEmoji = g.includes('a') || g.includes('excellent') ? '🌟' :
+                     g.includes('b') || g.includes('good') ? '👍' :
+                     g.includes('c') ? '📝' : '⭐';
 
   return `<!DOCTYPE html>
 <html>
@@ -4282,7 +4283,7 @@ app.delete('/api/students/:id', async (req, res) => {
       // Permanently delete student and all related data
       // Delete from all tables that reference student_id (in case CASCADE isn't set)
       const tablesToClean = [
-        'demo_assessments',
+        'monthly_assessments',
         'session_attendance',
         'materials',
         'makeup_classes',
@@ -5120,7 +5121,7 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
     let studentsToNotify = [];
     if (session.session_type === 'Group' && session.group_id) {
       const groupStudents = await pool.query(
-        'SELECT s.*, g.name as group_name FROM students s JOIN groups g ON s.group_id = g.id WHERE s.group_id = $1 AND s.is_active = true',
+        'SELECT s.*, g.group_name FROM students s JOIN groups g ON s.group_id = g.id WHERE s.group_id = $1 AND s.is_active = true',
         [session.group_id]
       );
       studentsToNotify = groupStudents.rows;
@@ -5554,7 +5555,7 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     let studentsToNotify = [];
     if (session.session_type === 'Group' && session.group_id) {
       const groupStudents = await client.query(
-        'SELECT s.*, g.name as group_name FROM students s JOIN groups g ON s.group_id = g.id WHERE s.group_id = $1 AND s.is_active = true',
+        'SELECT s.*, g.group_name FROM students s JOIN groups g ON s.group_id = g.id WHERE s.group_id = $1 AND s.is_active = true',
         [session.group_id]
       );
       studentsToNotify = groupStudents.rows;
