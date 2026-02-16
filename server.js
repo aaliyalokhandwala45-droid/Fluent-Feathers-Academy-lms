@@ -7285,6 +7285,123 @@ app.post('/api/students/:id/fix-sessions', async (req, res) => {
   }
 });
 
+// ==================== ADD EXTRA SESSIONS ====================
+// Add extra sessions for an existing student without affecting current schedule
+app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const studentId = req.params.id;
+    const { classes, deduct_from, send_email } = req.body;
+    // deduct_from: 'remaining' | 'makeup' | 'none' (extra paid separately)
+
+    const student = (await client.query('SELECT * FROM students WHERE id = $1', [studentId])).rows[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    if (!classes || classes.length === 0) return res.status(400).json({ error: 'No sessions provided' });
+
+    // Validate based on deduction type
+    if (deduct_from === 'remaining') {
+      if (student.remaining_sessions < classes.length) {
+        return res.status(400).json({ error: `Not enough remaining sessions. Need ${classes.length} but only ${student.remaining_sessions} available.` });
+      }
+    } else if (deduct_from === 'makeup') {
+      const available = await client.query(
+        'SELECT id FROM makeup_classes WHERE student_id = $1 AND status = $2 ORDER BY credit_date ASC',
+        [studentId, 'Available']
+      );
+      if (available.rows.length < classes.length) {
+        return res.status(400).json({ error: `Not enough makeup credits. Need ${classes.length} but only ${available.rows.length} available.` });
+      }
+    }
+
+    // Get current session count for numbering
+    const count = (await client.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [studentId])).rows[0].count;
+    let sessionNumber = parseInt(count) + 1;
+
+    await client.query('BEGIN');
+
+    // If using makeup credits, fetch IDs
+    let makeupCreditIds = [];
+    let makeupIdx = 0;
+    if (deduct_from === 'makeup') {
+      const credits = await client.query(
+        'SELECT id FROM makeup_classes WHERE student_id = $1 AND status = $2 ORDER BY credit_date ASC LIMIT $3',
+        [studentId, 'Available', classes.length]
+      );
+      makeupCreditIds = credits.rows.map(r => r.id);
+    }
+
+    const scheduledSessions = [];
+    let emailSerial = 1;
+
+    for (const cls of classes) {
+      if (!cls.date || !cls.time) continue;
+      const utc = istToUTC(cls.date, cls.time);
+      const isMakeup = deduct_from === 'makeup';
+      const notes = deduct_from === 'none' ? 'Extra session (paid separately)' : isMakeup ? 'Makeup Class' : null;
+
+      const result = await client.query(`
+        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status, notes)
+        VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7)
+        RETURNING id
+      `, [studentId, sessionNumber, utc.date, utc.time, student.meet_link || DEFAULT_MEET, isMakeup ? 'Scheduled' : 'Pending', notes]);
+
+      // Consume makeup credit if applicable
+      if (isMakeup && makeupIdx < makeupCreditIds.length) {
+        await client.query(`
+          UPDATE makeup_classes SET status = 'Scheduled', used_date = CURRENT_DATE, scheduled_session_id = $1, scheduled_date = $2, scheduled_time = $3
+          WHERE id = $4
+        `, [result.rows[0].id, cls.date, cls.time, makeupCreditIds[makeupIdx]]);
+        makeupIdx++;
+      }
+
+      const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
+      const label = isMakeup ? ' (Makeup)' : deduct_from === 'none' ? ' (Extra)' : '';
+      scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${emailSerial}${label}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
+
+      sessionNumber++;
+      emailSerial++;
+    }
+
+    // Deduct from remaining sessions if applicable
+    if (deduct_from === 'remaining') {
+      await client.query(
+        'UPDATE students SET remaining_sessions = remaining_sessions - $1 WHERE id = $2',
+        [classes.length, studentId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Send schedule email
+    let emailSent = null;
+    if (send_email !== false && student.parent_email) {
+      const scheduleHTML = getScheduleEmail({
+        parent_name: student.parent_name,
+        student_name: student.name,
+        schedule_rows: scheduledSessions.join('')
+      });
+      emailSent = await sendEmail(
+        student.parent_email,
+        `📅 Additional Classes Scheduled for ${student.name}`,
+        scheduleHTML,
+        student.parent_name,
+        'Schedule'
+      );
+    }
+
+    const deductMsg = deduct_from === 'remaining' ? ` (deducted from remaining)` : deduct_from === 'makeup' ? ` (using makeup credits)` : ` (extra - paid separately)`;
+    const emailMsg = emailSent === true ? ' Email sent!' : emailSent === false ? ' (email failed)' : '';
+    res.json({ success: true, message: `${classes.length} extra sessions added${deductMsg}.${emailMsg}` });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error adding extra sessions:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // ==================== FINANCIAL REPORTS & EXPENSE TRACKER ====================
 
 // Get financial summary (income from payments)

@@ -6711,16 +6711,116 @@ async function saveEditedPayment() {
         const sessions = await res.json();
         const student = allStudents.find(s => s.id == studentId);
 
+        // Count makeup credits for this student
+        let makeupCount = 0;
+        try {
+          const mkRes = await fetch('/api/students/' + studentId + '/makeup-credits');
+          const mkData = await mkRes.json();
+          makeupCount = (mkData || []).length;
+        } catch(e) {}
+
         if (sessions.length === 0) {
-          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No sessions scheduled for this student</p>';
+          container.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+              <h3 style="margin: 0;">Schedule for ${student.name}</h3>
+              <button onclick="toggleExtraSessionForm()" class="btn btn-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600;">+ Add Extra Sessions</button>
+            </div>
+            <div id="extraSessionForm" style="display: none; background: linear-gradient(135deg, #f7fafc, #edf2f7); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #667eea;">
+              <h4 style="margin: 0 0 15px; color: #667eea;">+ Add Extra Sessions for ${student.name}</h4>
+              <div class="form-row">
+                <div class="form-group"><label>Start Date *</label><input type="date" id="extraStartDate" required></div>
+                <div class="form-group"><label>Number of Sessions *</label><input type="number" id="extraNumSessions" min="1" max="20" value="4" required></div>
+                <div class="form-group"><label>Class Time (IST) *</label><input type="time" id="extraClassTime" required></div>
+              </div>
+              <div class="form-group" style="margin-bottom: 15px;">
+                <label>Select Days *</label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="0" style="width:auto;"> Sun</label>
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="1" style="width:auto;"> Mon</label>
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="2" style="width:auto;"> Tue</label>
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="3" style="width:auto;"> Wed</label>
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="4" style="width:auto;"> Thu</label>
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="5" style="width:auto;"> Fri</label>
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="6" style="width:auto;"> Sat</label>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom: 15px;">
+                <label>Deduct From *</label>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:8px 15px;border:2px solid #667eea;border-radius:8px;background:white;">
+                    <input type="radio" name="extraDeductFrom" value="remaining" checked style="width:auto;"> Remaining (${student.remaining_sessions})
+                  </label>
+                  ${makeupCount > 0 ? '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:8px 15px;border:2px solid #d69e2e;border-radius:8px;background:white;"><input type="radio" name="extraDeductFrom" value="makeup" style="width:auto;"> Makeup (' + makeupCount + ')</label>' : ''}
+                  <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:8px 15px;border:2px solid #38a169;border-radius:8px;background:white;">
+                    <input type="radio" name="extraDeductFrom" value="none" style="width:auto;"> Extra (paid separately)
+                  </label>
+                </div>
+              </div>
+              <div id="extraPreviewList" style="margin-bottom: 15px;"></div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button onclick="previewExtraSessions()" class="btn" style="background: #4a5568; color: white;">Preview Sessions</button>
+                <button onclick="submitExtraSessions(${student.id})" class="btn btn-primary" id="extraSubmitBtn" style="display:none;">Add Sessions & Send Email</button>
+                <button onclick="toggleExtraSessionForm()" class="btn" style="background: #718096; color: white;">Cancel</button>
+              </div>
+            </div>
+            <p style="color: #718096; text-align: center; padding: 20px;">No sessions scheduled yet. Use the button above to add sessions.</p>
+          `;
           return;
         }
 
         container.innerHTML = `
-          <h3 style="margin-bottom: 20px;">Schedule for ${student.name}</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <h3 style="margin: 0;">Schedule for ${student.name}</h3>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <span style="background: #edf2f7; padding: 4px 10px; border-radius: 6px; font-size: 13px; color: #4a5568;">Remaining: <strong>${student.remaining_sessions}</strong></span>
+              ${makeupCount > 0 ? '<span style="background: #fefcbf; padding: 4px 10px; border-radius: 6px; font-size: 13px; color: #744210;">Makeup: <strong>' + makeupCount + '</strong></span>' : ''}
+              <button onclick="toggleExtraSessionForm()" class="btn btn-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600;">+ Add Extra Sessions</button>
+            </div>
+          </div>
+
+          <!-- Extra Sessions Form (hidden by default) -->
+          <div id="extraSessionForm" style="display: none; background: linear-gradient(135deg, #f7fafc, #edf2f7); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #667eea;">
+            <h4 style="margin: 0 0 15px; color: #667eea;">+ Add Extra Sessions for ${student.name}</h4>
+            <div class="form-row">
+              <div class="form-group"><label>Start Date *</label><input type="date" id="extraStartDate" required></div>
+              <div class="form-group"><label>Number of Sessions *</label><input type="number" id="extraNumSessions" min="1" max="20" value="4" required></div>
+              <div class="form-group"><label>Class Time (IST) *</label><input type="time" id="extraClassTime" required></div>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label>Select Days *</label>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="0" style="width:auto;"> Sun</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="1" style="width:auto;"> Mon</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="2" style="width:auto;"> Tue</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="3" style="width:auto;"> Wed</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="4" style="width:auto;"> Thu</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="5" style="width:auto;"> Fri</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" name="extraDays" value="6" style="width:auto;"> Sat</label>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label>Deduct From *</label>
+              <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:8px 15px;border:2px solid #667eea;border-radius:8px;background:white;">
+                  <input type="radio" name="extraDeductFrom" value="remaining" checked style="width:auto;"> Remaining Sessions (${student.remaining_sessions})
+                </label>
+                ${makeupCount > 0 ? '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:8px 15px;border:2px solid #d69e2e;border-radius:8px;background:white;"><input type="radio" name="extraDeductFrom" value="makeup" style="width:auto;"> Makeup Credits (' + makeupCount + ')</label>' : ''}
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:8px 15px;border:2px solid #38a169;border-radius:8px;background:white;">
+                  <input type="radio" name="extraDeductFrom" value="none" style="width:auto;"> Extra (paid separately)
+                </label>
+              </div>
+            </div>
+            <div id="extraPreviewList" style="margin-bottom: 15px;"></div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button onclick="previewExtraSessions()" class="btn" style="background: #4a5568; color: white;">Preview Sessions</button>
+              <button onclick="submitExtraSessions(${student.id})" class="btn btn-primary" id="extraSubmitBtn" style="display:none;">Add Sessions & Send Email</button>
+              <button onclick="toggleExtraSessionForm()" class="btn" style="background: #718096; color: white;">Cancel</button>
+            </div>
+          </div>
+
           ${sessions.map(s => {
             const isCancelled = s.status === 'Cancelled' || s.status === 'Cancelled by Parent';
-            const cancelledByText = isCancelled && s.cancelled_by ? ` (by ${s.cancelled_by})` : '';
+            const cancelledByText = isCancelled && s.cancelled_by ? ' (by ' + s.cancelled_by + ')' : '';
             // For group sessions, show individual student attendance instead of session status
             let displayStatus = s.status;
             if (s.session_type === 'Group' && s.student_attendance) {
@@ -6729,27 +6829,141 @@ async function saveEditedPayment() {
                 if (att === 'Present') displayStatus = 'Completed';
                 else if (att === 'Absent' || att === 'Unexcused' || att === 'Missed') displayStatus = 'Missed';
                 else if (att === 'Excused') displayStatus = 'Excused';
-                else displayStatus = 'Scheduled'; // student attendance still Pending = they weren't in this session
+                else displayStatus = 'Scheduled';
               }
             }
             const statusColor = isCancelled ? '#e53e3e' : (displayStatus === 'Completed' ? '#38a169' : displayStatus === 'Missed' ? '#e53e3e' : displayStatus === 'Excused' ? '#dd6b20' : '#718096');
-            return `
-            <div class="session-item">
-              <div>
-                <strong>Session #${s.session_number}</strong> - ${s.session_type}
-                <br>
-                <span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${displayStatus}${cancelledByText}</span></span>
-              </div>
-              <div style="display: flex; gap: 10px;">
-                <button onclick="editSession(${s.id}, '${s.session_date}', '${s.session_time}')" class="btn btn-sm btn-primary">Edit</button>
-                <button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button>
-              </div>
-            </div>
-          `}).join('')}
+            const sDate = s.session_date;
+            const sTime = s.session_time;
+            return `<div class="session-item"><div><strong>Session #${s.session_number}</strong> - ${s.session_type}<br><span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${displayStatus}${cancelledByText}</span></span></div><div style="display: flex; gap: 10px;"><button onclick="editSession(${s.id}, '${sDate}', '${sTime}')" class="btn btn-sm btn-primary">Edit</button><button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button></div></div>`;
+          }).join('')}
         `;
       } catch(err) {
         container.innerHTML = '<p style="color: #e53e3e;">Error loading schedule</p>';
         console.error(err);
+      }
+    }
+
+    // ===== Extra Sessions Functions =====
+    function toggleExtraSessionForm() {
+      const form = document.getElementById('extraSessionForm');
+      if (form) {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        if (form.style.display === 'block') {
+          // Set default start date to tomorrow
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          document.getElementById('extraStartDate').value = tomorrow.toISOString().split('T')[0];
+          document.getElementById('extraPreviewList').innerHTML = '';
+          document.getElementById('extraSubmitBtn').style.display = 'none';
+        }
+      }
+    }
+
+    let extraSessionsPreview = []; // Store generated sessions for submission
+
+    function previewExtraSessions() {
+      const startDate = document.getElementById('extraStartDate').value;
+      const numSessions = parseInt(document.getElementById('extraNumSessions').value);
+      const classTime = document.getElementById('extraClassTime').value;
+      const selectedDays = Array.from(document.querySelectorAll('input[name="extraDays"]:checked')).map(cb => parseInt(cb.value));
+
+      if (!startDate) return alert('Please select a start date');
+      if (!numSessions || numSessions < 1) return alert('Please enter number of sessions');
+      if (!classTime) return alert('Please select a class time');
+      if (selectedDays.length === 0) return alert('Please select at least one day');
+
+      // Generate sessions
+      extraSessionsPreview = [];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      let current = new Date(startDate);
+      let count = 0;
+      let iterations = 0;
+
+      while (count < numSessions && iterations < 365) {
+        if (selectedDays.includes(current.getDay())) {
+          extraSessionsPreview.push({
+            date: current.toISOString().split('T')[0],
+            time: classTime,
+            day: dayNames[current.getDay()]
+          });
+          count++;
+        }
+        current.setDate(current.getDate() + 1);
+        iterations++;
+      }
+
+      // Show preview
+      const previewDiv = document.getElementById('extraPreviewList');
+      previewDiv.innerHTML = `
+        <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #e2e8f0;">
+          <h5 style="margin: 0 0 10px; color: #2d3748;">Preview: ${extraSessionsPreview.length} sessions</h5>
+          <div style="max-height: 200px; overflow-y: auto;">
+            ${extraSessionsPreview.map((s, i) => `
+              <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: ${i % 2 === 0 ? '#f7fafc' : 'white'}; border-radius: 4px; font-size: 13px;">
+                <span><strong>${s.day}</strong> ${new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                <span style="color: #667eea; font-weight: 600;">${s.time}</span>
+                <button onclick="removeExtraSession(${i})" style="background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 14px;">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      document.getElementById('extraSubmitBtn').style.display = 'inline-block';
+    }
+
+    function removeExtraSession(index) {
+      extraSessionsPreview.splice(index, 1);
+      // Re-render preview
+      const previewDiv = document.getElementById('extraPreviewList');
+      if (extraSessionsPreview.length === 0) {
+        previewDiv.innerHTML = '';
+        document.getElementById('extraSubmitBtn').style.display = 'none';
+        return;
+      }
+      previewDiv.innerHTML = `
+        <div style="background: white; border-radius: 8px; padding: 15px; border: 1px solid #e2e8f0;">
+          <h5 style="margin: 0 0 10px; color: #2d3748;">Preview: ${extraSessionsPreview.length} sessions</h5>
+          <div style="max-height: 200px; overflow-y: auto;">
+            ${extraSessionsPreview.map((s, i) => `
+              <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: ${i % 2 === 0 ? '#f7fafc' : 'white'}; border-radius: 4px; font-size: 13px;">
+                <span><strong>${s.day}</strong> ${new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                <span style="color: #667eea; font-weight: 600;">${s.time}</span>
+                <button onclick="removeExtraSession(${i})" style="background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 14px;">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    async function submitExtraSessions(studentId) {
+      if (extraSessionsPreview.length === 0) return alert('No sessions to add');
+      const deductFrom = document.querySelector('input[name="extraDeductFrom"]:checked')?.value || 'remaining';
+      const deductLabel = deductFrom === 'remaining' ? 'remaining sessions' : deductFrom === 'makeup' ? 'makeup credits' : 'extra (paid separately)';
+
+      if (!confirm(`Add ${extraSessionsPreview.length} extra sessions?\n\nDeduct from: ${deductLabel}\n\nThis will also send a schedule email to the parent.`)) return;
+
+      try {
+        const res = await fetch(`/api/students/${studentId}/add-extra-sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            classes: extraSessionsPreview,
+            deduct_from: deductFrom,
+            send_email: true
+          })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          loadStudentSchedule();
+          loadUpcomingClasses();
+        } else {
+          alert('❌ ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
       }
     }
 
