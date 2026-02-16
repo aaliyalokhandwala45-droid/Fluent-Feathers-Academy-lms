@@ -2961,6 +2961,169 @@ function getGoogleReviewEmail(childName, isDemoParent) {
 </html>`;
 }
 
+// ==================== DEMO FOLLOW-UP EMAIL TEMPLATES ====================
+
+function getDemoFollowUp24hrEmail(data) {
+  const { parentName, childName, programInterest } = data;
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">💜</div>
+      <h1 style="color: white; margin: 0; font-size: 26px;">Thank You for the Demo!</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Hi <strong>${parentName}</strong>,</p>
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        It was wonderful meeting <strong style="color: #B05D9E;">${childName}</strong> yesterday! We truly enjoyed the demo session and hope you and ${childName} did too.
+      </p>
+      <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
+        <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 17px;">✨ What ${childName} Can Look Forward To</h3>
+        <ul style="color: #4a5568; margin: 0; padding-left: 20px; line-height: 2;">
+          <li>Personalized learning plan tailored to ${childName}'s level</li>
+          <li>Fun, interactive sessions that build confidence</li>
+          <li>Regular progress reports & assessments</li>
+          <li>Homework support & practice materials</li>
+          <li>Certificates & badges to celebrate achievements</li>
+        </ul>
+      </div>
+      ${programInterest ? `<p style="font-size: 15px; color: #4a5568; line-height: 1.8;">Based on your interest in <strong>${programInterest}</strong>, we have some great options that would be perfect for ${childName}.</p>` : ''}
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        If you have any questions or would like to discuss the best plan for ${childName}, simply reply to this email. We're happy to help!
+      </p>
+      <p style="font-size: 16px; color: #2d3748; margin-top: 30px;">
+        Warm regards,<br>
+        <strong style="color: #B05D9E;">Aaliya</strong><br>
+        <span style="color: #718096; font-size: 14px;">Fluent Feathers Academy</span>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getDemoFollowUp3DayEmail(data) {
+  const { parentName, childName, programInterest } = data;
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">🌟</div>
+      <h1 style="color: white; margin: 0; font-size: 26px;">We'd Love to Have ${childName} Back!</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Hi <strong>${parentName}</strong>,</p>
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        Just checking in! We had such a wonderful time with <strong style="color: #667eea;">${childName}</strong> during the demo class. We wanted to share why parents love Fluent Feathers Academy:
+      </p>
+      <div style="margin: 25px 0;">
+        <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: 18px;">
+          <span style="font-size: 28px;">📚</span>
+          <div>
+            <strong style="color: #2d3748;">Structured Curriculum</strong>
+            <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Age-appropriate lessons designed to build skills progressively</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: 18px;">
+          <span style="font-size: 28px;">🎯</span>
+          <div>
+            <strong style="color: #2d3748;">Small Batch Sizes</strong>
+            <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Personal attention for every child to thrive at their own pace</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: 18px;">
+          <span style="font-size: 28px;">📊</span>
+          <div>
+            <strong style="color: #2d3748;">Monthly Assessments</strong>
+            <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Track your child's growth with detailed reports & certificates</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 15px;">
+          <span style="font-size: 28px;">🏆</span>
+          <div>
+            <strong style="color: #2d3748;">Rewards & Recognition</strong>
+            <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Badges, leaderboards & certificates keep children motivated</p>
+          </div>
+        </div>
+      </div>
+      ${programInterest ? `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; margin: 25px 0;">
+        <p style="margin: 0 0 5px; font-size: 14px; opacity: 0.9;">Recommended Program</p>
+        <p style="margin: 0; font-size: 20px; font-weight: bold;">${programInterest}</p>
+      </div>` : ''}
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        We have flexible scheduling options available. Reply to this email and we'll help you find the perfect slot for ${childName}!
+      </p>
+      <p style="font-size: 16px; color: #2d3748; margin-top: 30px;">
+        Looking forward to hearing from you!<br><br>
+        <strong style="color: #B05D9E;">Aaliya</strong><br>
+        <span style="color: #718096; font-size: 14px;">Fluent Feathers Academy</span>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getDemoFollowUp7DayEmail(data) {
+  const { parentName, childName, programInterest } = data;
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 50px; margin-bottom: 10px;">🎓</div>
+      <h1 style="color: white; margin: 0; font-size: 26px;">${childName}'s Spot is Waiting!</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Hi <strong>${parentName}</strong>,</p>
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        It's been a week since <strong style="color: #f5576c;">${childName}</strong>'s demo class, and we wanted to reach out one last time. We truly believe ${childName} has great potential, and we'd love to be part of their learning journey!
+      </p>
+      <div style="background: #fff5f5; border: 2px solid #feb2b2; padding: 20px; border-radius: 12px; margin: 25px 0; text-align: center;">
+        <p style="margin: 0 0 8px; font-size: 15px; color: #c53030; font-weight: 600;">⏰ Limited Slots Available</p>
+        <p style="margin: 0; font-size: 14px; color: #742a2a;">Our batches fill up quickly. Enroll now to secure ${childName}'s preferred time slot!</p>
+      </div>
+      <div style="background: #f0fff4; padding: 20px; border-radius: 12px; margin: 25px 0;">
+        <h3 style="color: #276749; margin: 0 0 15px; font-size: 16px;">🎁 What You Get When You Enroll</h3>
+        <ul style="color: #2f855a; margin: 0; padding-left: 20px; line-height: 2;">
+          <li>Flexible scheduling - choose days & times that work for you</li>
+          <li>Makeup classes if you miss a session</li>
+          <li>Access to homework, recordings & learning materials</li>
+          <li>Parent portal to track progress anytime</li>
+          <li>Free participation in academy events & competitions</li>
+        </ul>
+      </div>
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
+        If you have any concerns or questions, I'd be happy to discuss them. Just reply to this email or message us - no pressure at all! 😊
+      </p>
+      <p style="font-size: 16px; color: #2d3748; margin-top: 30px;">
+        Hope to see ${childName} soon!<br><br>
+        <strong style="color: #B05D9E;">Aaliya</strong><br>
+        <span style="color: #718096; font-size: 14px;">Fluent Feathers Academy</span>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 // Demo Assessment Email Template
 function getDemoAssessmentEmail(data) {
   const { assessmentId, childName, childGrade, demoDate, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
@@ -3585,6 +3748,122 @@ cron.schedule('0 5 1 * *', () => awardStudentOfPeriod('month'));
 cron.schedule('0 5 1 1 *', () => awardStudentOfPeriod('year'));
 console.log('✅ Student awards system initialized - weekly (Sun), monthly (1st), yearly (Jan 1)');
 
+// ==================== DEMO LEAD FOLLOW-UP CRON JOB ====================
+// Runs every hour to check for demo leads that need follow-up emails
+// 24hr thank-you, 3-day reminder, 7-day last nudge
+async function checkAndSendDemoFollowUps() {
+  try {
+    console.log('📩 Checking for demo lead follow-ups...');
+
+    // Get all completed/follow-up demo leads that haven't been converted or lost
+    const completedLeads = await pool.query(`
+      SELECT * FROM demo_leads
+      WHERE status IN ('Completed', 'Follow Up')
+        AND parent_email IS NOT NULL
+        AND demo_date IS NOT NULL
+    `);
+
+    if (completedLeads.rows.length === 0) {
+      console.log('No completed demo leads needing follow-up');
+      return;
+    }
+
+    const now = new Date();
+    let sentCount = 0;
+
+    for (const lead of completedLeads.rows) {
+      try {
+        // Calculate hours since demo
+        const demoDateTime = new Date(`${lead.demo_date.toISOString().split('T')[0]}T${lead.demo_time || '12:00:00'}Z`);
+        const hoursSinceDemo = (now - demoDateTime) / (1000 * 60 * 60);
+
+        // Skip if demo hasn't happened yet
+        if (hoursSinceDemo < 0) continue;
+
+        const emailData = {
+          parentName: lead.parent_name,
+          childName: lead.child_name,
+          programInterest: lead.program_interest
+        };
+
+        // 24-hour follow-up (window: 20-28 hours after demo)
+        if (hoursSinceDemo >= 20 && hoursSinceDemo <= 28) {
+          const alreadySent = await pool.query(
+            `SELECT id FROM email_log WHERE recipient_email = $1 AND email_type = 'Demo-FollowUp-24hr' AND subject LIKE $2`,
+            [lead.parent_email, `%[DLID:${lead.id}]%`]
+          );
+          if (alreadySent.rows.length === 0) {
+            await sendEmail(
+              lead.parent_email,
+              `💜 Thank you for the demo class, ${lead.parent_name}! [DLID:${lead.id}]`,
+              getDemoFollowUp24hrEmail(emailData),
+              lead.parent_name,
+              'Demo-FollowUp-24hr'
+            );
+            console.log(`✅ Sent 24hr follow-up to ${lead.parent_email} for ${lead.child_name}`);
+            sentCount++;
+          }
+        }
+
+        // 3-day follow-up (window: 68-76 hours after demo)
+        if (hoursSinceDemo >= 68 && hoursSinceDemo <= 76) {
+          const alreadySent = await pool.query(
+            `SELECT id FROM email_log WHERE recipient_email = $1 AND email_type = 'Demo-FollowUp-3Day' AND subject LIKE $2`,
+            [lead.parent_email, `%[DLID:${lead.id}]%`]
+          );
+          if (alreadySent.rows.length === 0) {
+            await sendEmail(
+              lead.parent_email,
+              `🌟 We'd love to have ${lead.child_name} back! [DLID:${lead.id}]`,
+              getDemoFollowUp3DayEmail(emailData),
+              lead.parent_name,
+              'Demo-FollowUp-3Day'
+            );
+            console.log(`✅ Sent 3-day follow-up to ${lead.parent_email} for ${lead.child_name}`);
+            sentCount++;
+          }
+        }
+
+        // 7-day follow-up (window: 164-172 hours after demo)
+        if (hoursSinceDemo >= 164 && hoursSinceDemo <= 172) {
+          const alreadySent = await pool.query(
+            `SELECT id FROM email_log WHERE recipient_email = $1 AND email_type = 'Demo-FollowUp-7Day' AND subject LIKE $2`,
+            [lead.parent_email, `%[DLID:${lead.id}]%`]
+          );
+          if (alreadySent.rows.length === 0) {
+            await sendEmail(
+              lead.parent_email,
+              `🎓 ${lead.child_name}'s spot is waiting! [DLID:${lead.id}]`,
+              getDemoFollowUp7DayEmail(emailData),
+              lead.parent_name,
+              'Demo-FollowUp-7Day'
+            );
+            console.log(`✅ Sent 7-day follow-up to ${lead.parent_email} for ${lead.child_name}`);
+            sentCount++;
+          }
+        }
+      } catch (leadErr) {
+        console.error(`Error processing follow-up for lead ${lead.id}:`, leadErr);
+      }
+    }
+
+    console.log(sentCount > 0 ? `📩 Sent ${sentCount} demo follow-up emails` : 'No demo follow-ups needed right now');
+  } catch (err) {
+    console.error('❌ Error in demo follow-up cron job:', err);
+  }
+}
+
+// Run demo follow-up check every hour
+cron.schedule('30 * * * *', async () => {
+  try {
+    await checkAndSendDemoFollowUps();
+  } catch (err) {
+    console.error('❌ Error in demo follow-up cron:', err);
+  }
+});
+
+console.log('✅ Demo lead follow-up system initialized - checking every hour');
+
 // ==================== API ROUTES ====================
 
 // Currency conversion rates to INR (approximate)
@@ -3874,7 +4153,20 @@ res.status(500).json({
 app.get('/api/demo-leads', async (req, res) => {
   try {
     const r = await pool.query('SELECT * FROM demo_leads ORDER BY created_at DESC');
-    res.json(r.rows);
+    // Attach follow-up status for each lead
+    const leads = r.rows;
+    if (leads.length > 0) {
+      const followUpLogs = await pool.query(
+        `SELECT email_type, subject FROM email_log WHERE email_type LIKE 'Demo-FollowUp%'`
+      );
+      for (const lead of leads) {
+        const leadLogs = followUpLogs.rows.filter(log => log.subject && log.subject.includes(`[DLID:${lead.id}]`));
+        lead.followup_24hr = leadLogs.some(l => l.email_type === 'Demo-FollowUp-24hr');
+        lead.followup_3day = leadLogs.some(l => l.email_type === 'Demo-FollowUp-3Day');
+        lead.followup_7day = leadLogs.some(l => l.email_type === 'Demo-FollowUp-7Day');
+      }
+    }
+    res.json(leads);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -9105,6 +9397,65 @@ app.post('/api/demo-leads/:id/ask-review', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Demo review request error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual follow-up email for demo leads
+app.post('/api/demo-leads/:id/send-followup', async (req, res) => {
+  try {
+    const { followup_type } = req.body; // '24hr', '3day', or '7day'
+    const lead = await pool.query('SELECT * FROM demo_leads WHERE id = $1', [req.params.id]);
+    if (lead.rows.length === 0) return res.status(404).json({ error: 'Demo lead not found' });
+
+    const l = lead.rows[0];
+    if (!l.parent_email) return res.status(400).json({ error: 'No parent email found' });
+
+    const emailData = { parentName: l.parent_name, childName: l.child_name, programInterest: l.program_interest };
+
+    let emailHTML, subject, emailType;
+    if (followup_type === '3day') {
+      emailHTML = getDemoFollowUp3DayEmail(emailData);
+      subject = `🌟 We'd love to have ${l.child_name} back! [DLID:${l.id}]`;
+      emailType = 'Demo-FollowUp-3Day';
+    } else if (followup_type === '7day') {
+      emailHTML = getDemoFollowUp7DayEmail(emailData);
+      subject = `🎓 ${l.child_name}'s spot is waiting! [DLID:${l.id}]`;
+      emailType = 'Demo-FollowUp-7Day';
+    } else {
+      emailHTML = getDemoFollowUp24hrEmail(emailData);
+      subject = `💜 Thank you for the demo class, ${l.parent_name}! [DLID:${l.id}]`;
+      emailType = 'Demo-FollowUp-24hr';
+    }
+
+    await sendEmail(l.parent_email, subject, emailHTML, l.parent_name, emailType);
+
+    // Append note to demo lead
+    const existingNotes = l.notes || '';
+    const newNote = existingNotes + '\n[' + new Date().toLocaleDateString() + '] Sent follow-up: ' + (followup_type || '24hr');
+    await pool.query('UPDATE demo_leads SET notes = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [newNote, l.id]);
+
+    res.json({ success: true, message: `Follow-up email sent to ${l.parent_email}` });
+  } catch (err) {
+    console.error('Demo follow-up error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get follow-up status for a demo lead (which emails have been sent)
+app.get('/api/demo-leads/:id/followup-status', async (req, res) => {
+  try {
+    const logs = await pool.query(
+      `SELECT email_type, sent_at FROM email_log WHERE subject LIKE $1 AND email_type LIKE 'Demo-FollowUp%' ORDER BY sent_at`,
+      [`%[DLID:${req.params.id}]%`]
+    );
+    res.json({
+      sent_24hr: logs.rows.some(r => r.email_type === 'Demo-FollowUp-24hr'),
+      sent_3day: logs.rows.some(r => r.email_type === 'Demo-FollowUp-3Day'),
+      sent_7day: logs.rows.some(r => r.email_type === 'Demo-FollowUp-7Day'),
+      logs: logs.rows
+    });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

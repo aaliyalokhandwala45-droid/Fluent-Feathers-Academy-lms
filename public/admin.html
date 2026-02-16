@@ -280,6 +280,7 @@
     .lead-status-completed { background: #38a169; }
     .lead-status-converted { background: #d69e2e; }
     .lead-status-lost { background: #e53e3e; }
+    .lead-status-followup { background: #dd6b20; }
     .lead-status-default { background: #718096; }
     /* Challenge card states */
     .challenge-card-active { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -647,7 +648,9 @@
           <button onclick="filterDemoLeads('Scheduled')" class="btn btn-sm" style="background: #3182ce; color: white;">📅 Scheduled</button>
           <button onclick="filterDemoLeads('Completed')" class="btn btn-sm" style="background: #38a169; color: white;">✅ Completed</button>
           <button onclick="filterDemoLeads('Converted')" class="btn btn-sm" style="background: #d69e2e; color: white;">🎉 Converted</button>
+          <button onclick="filterDemoLeads('Follow Up')" class="btn btn-sm" style="background: #dd6b20; color: white;">📩 Follow Up</button>
           <button onclick="filterDemoLeads('Lost')" class="btn btn-sm" style="background: #e53e3e; color: white;">❌ Lost</button>
+          <button onclick="filterDemoLeads('NeedsFollowUp')" class="btn btn-sm" style="background: #ed8936; color: white;">🔔 Needs Follow-Up</button>
         </div>
 
         <!-- Search Demo Leads -->
@@ -2771,6 +2774,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           <select id="newDemoStatus" required>
             <option value="Scheduled">📅 Scheduled</option>
             <option value="Completed">✅ Demo Completed</option>
+            <option value="Follow Up">📩 Follow Up</option>
             <option value="Converted">🎉 Converted to Student</option>
             <option value="Lost">❌ Lost/Not Interested</option>
           </select>
@@ -7141,7 +7145,9 @@ async function saveEditedPayment() {
       let leads = allDemoLeads;
 
       // Apply status filter
-      if (currentDemoFilter !== 'all') {
+      if (currentDemoFilter === 'NeedsFollowUp') {
+        leads = leads.filter(l => (l.status === 'Completed' || l.status === 'Follow Up') && !(l.followup_24hr && l.followup_3day && l.followup_7day));
+      } else if (currentDemoFilter !== 'all') {
         leads = leads.filter(l => l.status === currentDemoFilter);
       }
 
@@ -7173,12 +7179,14 @@ async function saveEditedPayment() {
         const statusClasses = {
           'Scheduled': 'lead-status-scheduled',
           'Completed': 'lead-status-completed',
+          'Follow Up': 'lead-status-followup',
           'Converted': 'lead-status-converted',
           'Lost': 'lead-status-lost'
         };
         const statusIcons = {
           'Scheduled': '📅',
           'Completed': '✅',
+          'Follow Up': '📩',
           'Converted': '🎉',
           'Lost': '❌'
         };
@@ -7197,11 +7205,32 @@ async function saveEditedPayment() {
           });
         }
 
+        // Follow-up status indicators
+        let followUpBadges = '';
+        if (lead.status === 'Completed' || lead.status === 'Follow Up') {
+          const f24 = lead.followup_24hr ? '✅' : '⬜';
+          const f3d = lead.followup_3day ? '✅' : '⬜';
+          const f7d = lead.followup_7day ? '✅' : '⬜';
+          followUpBadges = `<div style="margin-top:4px;font-size:11px;color:#718096;">${f24}24hr ${f3d}3day ${f7d}7day</div>`;
+        }
+
         const editBtn = `<button onclick="openEditDemoModal(${lead.id})" class="btn btn-sm" style="background: #667eea; color: white;">✏️</button>`;
         const reviewBtn = `<button onclick="askDemoReview(${lead.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button>`;
-        const actionButtons = lead.status === 'Completed'
+
+        // Follow-up dropdown button for completed/follow-up leads
+        const followUpBtn = (lead.status === 'Completed' || lead.status === 'Follow Up') ? `<div style="display:inline-block;position:relative;">
+          <button onclick="toggleFollowUpMenu(${lead.id})" class="btn btn-sm" style="background:#dd6b20;color:white;">📩 Follow Up</button>
+          <div id="followUpMenu_${lead.id}" style="display:none;position:absolute;top:100%;right:0;background:white;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:180px;padding:4px 0;">
+            <button onclick="sendDemoFollowUp(${lead.id},'24hr')" style="display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;" ${lead.followup_24hr ? 'disabled style="display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;opacity:0.5;"' : ''}>💜 24hr Thank You ${lead.followup_24hr ? '(Sent)' : ''}</button>
+            <button onclick="sendDemoFollowUp(${lead.id},'3day')" style="display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;" ${lead.followup_3day ? 'disabled style="display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;opacity:0.5;"' : ''}>🌟 3-Day Reminder ${lead.followup_3day ? '(Sent)' : ''}</button>
+            <button onclick="sendDemoFollowUp(${lead.id},'7day')" style="display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;" ${lead.followup_7day ? 'disabled style="display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;opacity:0.5;"' : ''}>🎓 7-Day Last Nudge ${lead.followup_7day ? '(Sent)' : ''}</button>
+          </div>
+        </div>` : '';
+
+        const actionButtons = (lead.status === 'Completed' || lead.status === 'Follow Up')
           ? `${editBtn}
              <button onclick="openConvertDemoModal(${lead.id})" class="btn btn-sm" style="background: #38a169; color: white;">🎉 Convert</button>
+             ${followUpBtn}
              ${reviewBtn}
              <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Status</button>`
           : lead.status === 'Converted'
@@ -7214,7 +7243,7 @@ async function saveEditedPayment() {
           <td>${lead.phone || 'N/A'}<br><small style="color:#a0aec0;">${lead.source || ''}</small></td>
           <td>${lead.program_interest || 'Not specified'}</td>
           <td>${demoDateTime}</td>
-          <td><span class="lead-status ${statusClasses[lead.status] || 'lead-status-default'}">${statusIcons[lead.status] || ''} ${lead.status}</span></td>
+          <td><span class="lead-status ${statusClasses[lead.status] || 'lead-status-default'}">${statusIcons[lead.status] || ''} ${lead.status}</span>${followUpBadges}</td>
           <td style="white-space: nowrap;">
             ${actionButtons}
             <button onclick="deleteDemoLead(${lead.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">✕</button>
@@ -7448,6 +7477,46 @@ async function saveEditedPayment() {
         const result = await res.json();
         if (res.ok) {
           alert('✅ Demo lead deleted');
+          loadDemoLeads();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    // Demo Follow-Up Functions
+    function toggleFollowUpMenu(leadId) {
+      // Close all other menus first
+      document.querySelectorAll('[id^="followUpMenu_"]').forEach(menu => {
+        if (menu.id !== `followUpMenu_${leadId}`) menu.style.display = 'none';
+      });
+      const menu = document.getElementById(`followUpMenu_${leadId}`);
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Close follow-up menus when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('[id^="followUpMenu_"]') && !e.target.closest('button[onclick*="toggleFollowUpMenu"]')) {
+        document.querySelectorAll('[id^="followUpMenu_"]').forEach(menu => menu.style.display = 'none');
+      }
+    });
+
+    async function sendDemoFollowUp(leadId, type) {
+      const typeLabels = { '24hr': '24-hour Thank You', '3day': '3-Day Reminder', '7day': '7-Day Last Nudge' };
+      if (!confirm(`Send "${typeLabels[type]}" follow-up email to this parent?`)) return;
+
+      try {
+        const res = await fetch(`/api/demo-leads/${leadId}/send-followup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ followup_type: type })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Follow-up email sent!');
+          document.querySelectorAll('[id^="followUpMenu_"]').forEach(menu => menu.style.display = 'none');
           loadDemoLeads();
         } else {
           alert('❌ Error: ' + result.error);
