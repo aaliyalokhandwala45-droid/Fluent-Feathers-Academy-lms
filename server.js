@@ -1910,7 +1910,6 @@ function getDemoConfirmationEmail(data) {
         <ul style="color: #744210; margin: 0; padding-left: 20px; line-height: 1.8;">
           <li>Interactive and fun 30-minute session</li>
           <li>Assessment of your child's current level</li>
-          <li>Discussion about learning goals</li>
           <li>Q&A with the instructor</li>
         </ul>
       </div>
@@ -2254,7 +2253,7 @@ function getClassReminderEmail(data) {
 
       <div style="text-align: center; margin: 30px 0;">
         <a href="${classLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
-  🎥 Join Class Class
+  🎥 Join Class
 </a>
       </div>
 
@@ -6954,7 +6953,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       </div>
 
       <div style="text-align: center; margin: 25px 0;">
-        <a href="${studentData.class_link || DEFAULT_CLASS}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">🎥 Join Class on Class</a>
+        <a href="${studentData.class_link || DEFAULT_CLASS}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">🎥 Join Class</a>
       </div>
 
       <p style="font-size: 14px; color: #718096;">We look forward to seeing ${studentData.name} in class!</p>

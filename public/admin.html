@@ -3629,7 +3629,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           <p>🌍 ${isDemo ? 'Demo Class' : 'Student TZ: ' + cls.timezone}</p>
           ${studentsHtml}
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
-           <a href="${cls.ClassLink_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join Meet</a>
+           <a href="${cls.ClassLink_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join Class</a>
             ${isDemo ? `<button onclick="showTab('demoStudents', event)" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">📋 View Demo Leads</button>` : `<button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
             <button onclick="openCancelClassModal(${cls.id}, decodeURIComponent('${encodeURIComponent(cls.student_name || '')}'), '${cls.session_type}')" class="btn btn-sm" style="background:#e53e3e; color:white;">✕ Cancel</button>`}
           </div>
