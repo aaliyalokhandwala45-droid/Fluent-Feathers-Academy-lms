@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIG ====================
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'super_secret_change_this_in_production';
-const DEFAULT_MEET = process.env.DEFAULT_MEET_LINK || 'https://meet.google.com/gir-zwin-yww';
+const DEFAULT_CLASS = process.env.DEFAULT_CLASS_LINK || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
 
 // Warn if using default secrets
 if (ADMIN_SECRET === 'super_secret_change_this_in_production') {
@@ -611,7 +611,7 @@ async function initializeDatabase() {
         status TEXT DEFAULT 'Pending',
         attendance TEXT,
         cancelled_by TEXT,
-        meet_link TEXT,
+        class_link TEXT,
         teacher_notes TEXT,
         ppt_file_path TEXT,
         recording_file_path TEXT,
@@ -706,7 +706,7 @@ async function initializeDatabase() {
         event_duration TEXT,
         target_audience TEXT DEFAULT 'All',
         specific_grades TEXT,
-        meet_link TEXT,
+        class_link TEXT,
         max_participants INTEGER,
         current_participants INTEGER DEFAULT 0,
         status TEXT DEFAULT 'Active',
@@ -1131,9 +1131,9 @@ async function runMigrations() {
       await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS badge_reward TEXT DEFAULT '🎯 Challenge Champion'`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS renewal_reminder_sent BOOLEAN DEFAULT false`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS last_reminder_remaining INTEGER`);
-      // Add meet_link column to students table
-      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS meet_link TEXT`);
-      console.log('✅ Parent expectations, renewal reminder & meet_link columns added');
+      // Add class_link column to students table
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS class_link TEXT`);
+      console.log('✅ Parent expectations, renewal reminder & class_link columns added');
     } catch (err) {
       console.error('❌ Error adding columns:', err.message);
     }
@@ -1714,20 +1714,20 @@ function getWelcomeEmail(data) {
         <ul style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
           <li>Check your email for class schedule details</li>
           <li>Access the parent portal to view sessions and materials</li>
-          <li>Join classes using the Meet link provided</li>
+          <li>Join classes using the link provided</li>
           <li>Upload homework and track progress</li>
         </ul>
       </div>
 
       <div style="text-align: center; margin: 35px 0;">
-        <a href="${data.meet_link}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
-  🎥 Join Your First Class on Meet
+        <a href="${data.class_link}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
+  🎥 Join Your First Class
 </a>
       </div>
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>💡 Pro Tip:</strong> Save the Google Meet link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
+          <strong>💡 Pro Tip:</strong> Save the Class link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
         </p>
       </div>
 
@@ -1782,7 +1782,7 @@ function getScheduleEmail(data) {
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Your Classes</h3>
 <p style="color: #234e52; margin: 0; font-size: 14px; line-height: 1.8;">
-  All classes will use the same Google Meet link. We recommend joining 5 minutes early to ensure a smooth start.
+  All classes will use the same class link. We recommend joining 5 minutes early to ensure a smooth start.
           The link will also be available in your parent portal next to each class.
         </p>
       </div>
@@ -1865,7 +1865,7 @@ function getAnnouncementEmail(data) {
 function getDemoConfirmationEmail(data) {
   const bioHtml = data.adminBio ? `
     <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
-      <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 18px;">👋 Meet Your Instructor</h3>
+      <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 18px;">👋 Class Your Instructor</h3>
       <div style="display: flex; align-items: flex-start; gap: 20px;">
         <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; flex-shrink: 0;">
           ${data.adminName ? data.adminName.charAt(0).toUpperCase() : 'A'}
@@ -1892,7 +1892,7 @@ function getDemoConfirmationEmail(data) {
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 25px;">Hi <strong>${data.parentName}</strong>,</p>
 
       <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
-        Thank you for scheduling a demo class for <strong style="color: #B05D9E;">${data.childName}</strong>! We're excited to meet you and your child.
+        Thank you for scheduling a demo class for <strong style="color: #B05D9E;">${data.childName}</strong>! We're excited to class you and your child.
       </p>
 
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; margin: 25px 0; border-radius: 12px; text-align: center;">
@@ -1900,7 +1900,7 @@ function getDemoConfirmationEmail(data) {
         <p style="margin: 0 0 8px; font-size: 20px; font-weight: bold;">${data.demoDate}</p>
         <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${data.demoTime} IST</p>
         <p style="margin: 15px 0 0; font-size: 14px; opacity: 0.9;">Program: ${data.programInterest}</p>
-        ${data.meetLink ? `<a href="${data.meetLink}" style="display: inline-block; margin-top: 20px; background: white; color: #667eea; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">🎥 Join Demo Class</a>` : ''}
+        ${data.classLink ? `<a href="${data.classLink}" style="display: inline-block; margin-top: 20px; background: white; color: #667eea; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">🎥 Join Demo Class</a>` : ''}
       </div>
 
       ${bioHtml}
@@ -1916,11 +1916,11 @@ function getDemoConfirmationEmail(data) {
       </div>
 
       <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
-        ${data.meetLink ? 'Click the "Join Demo Class" button above at the scheduled time to join the demo.' : 'We\'ll send you the meeting link closer to the demo time.'} If you have any questions, feel free to reply to this email.
+        ${data.classLink ? 'Click the "Join Demo Class" button above at the scheduled time to join the demo.' : 'We\'ll send you the classing link closer to the demo time.'} If you have any questions, feel free to reply to this email.
       </p>
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 30px;">
-        Looking forward to meeting ${data.childName}!<br><br>
+        Looking forward to classing ${data.childName}!<br><br>
         Best regards,<br>
         <strong style="color: #B05D9E;">${data.adminName || 'Aaliya'}</strong><br>
         <span style="color: #718096; font-size: 14px;">${data.adminTitle || 'Fluent Feathers Academy'}</span>
@@ -2080,14 +2080,14 @@ function getEventEmail(data) {
         </a>
       </div>
 
-      ${data.meet_link ? `
+      ${data.class_link ? `
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Information</h3>
         <p style="color: rgba(255,255,255,0.9); margin: 0 0 15px 0; font-size: 14px;">
-  After registering, you'll receive the Google Meet link to join the event. We recommend joining 5 minutes early!
+  After registering, you'll receive the Class link to join the event. We recommend joining 5 minutes early!
 </p>
-<a href="${data.meet_link}" style="display: inline-block; background: #38b2ac; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
-  🔗 Event Meet Link
+<a href="${data.class_link}" style="display: inline-block; background: #38b2ac; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
+  🔗 Event Class Link
 </a>
       </div>
       ` : ''}
@@ -2216,7 +2216,7 @@ function getOTPEmail(data) {
 }
 
 function getClassReminderEmail(data) {
-  const { studentName, localDate, localTime, localDay, meetLink, hoursBeforeClass, timezoneLabel } = data;
+  const { studentName, localDate, localTime, localDay, classLink, hoursBeforeClass, timezoneLabel } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -2253,8 +2253,8 @@ function getClassReminderEmail(data) {
       </div>
 
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${meetLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
-  🎥 Join Meet Class
+        <a href="${classLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
+  🎥 Join Class Class
 </a>
       </div>
 
@@ -2283,7 +2283,7 @@ function getClassReminderEmail(data) {
 }
 
 function getEventReminderEmail(data) {
-  const { childName, eventName, eventDate, eventTime, eventDuration, meetLink } = data;
+  const { childName, eventName, eventDate, eventTime, eventDuration, classLink } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -2324,9 +2324,9 @@ function getEventReminderEmail(data) {
         </table>
       </div>
 
-      ${meetLink ? `
+      ${classLink ? `
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${meetLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
+        <a href="${classLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
           🎥 Join Event Now
         </a>
       </div>
@@ -2978,7 +2978,7 @@ function getDemoFollowUp24hrEmail(data) {
     <div style="padding: 40px 30px;">
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Hi <strong>${parentName}</strong>,</p>
       <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
-        It was wonderful meeting <strong style="color: #B05D9E;">${childName}</strong> yesterday! We truly enjoyed the demo session and hope you and ${childName} did too.
+        It was wonderful classing <strong style="color: #B05D9E;">${childName}</strong> yesterday! We truly enjoyed the demo session and hope you and ${childName} did too.
       </p>
       <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
         <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 17px;">✨ What ${childName} Can Look Forward To</h3>
@@ -3424,7 +3424,7 @@ async function checkAndSendReminders() {
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
-              meetLink: session.meet_link || DEFAULT_MEET,
+              classLink: session.class_link || DEFAULT_CLASS,
               hoursBeforeClass: 5,
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
@@ -3469,7 +3469,7 @@ async function checkAndSendReminders() {
               localDate: localTime.date,
               localTime: localTime.time,
               localDay: localTime.day,
-              meetLink: session.meet_link || DEFAULT_MEET,
+              classLink: session.class_link || DEFAULT_CLASS,
               hoursBeforeClass: 1,
               timezoneLabel: getTimezoneLabel(studentTimezone)
             });
@@ -3566,7 +3566,7 @@ async function checkAndSendEventReminders() {
               eventDate: eventDate,
               eventTime: formattedTime,
               eventDuration: event.event_duration,
-              meetLink: event.meet_link
+              classLink: event.class_link
             });
 
             await sendEmail(
@@ -3992,25 +3992,25 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
       CONCAT(st.program_name, ' - ', st.duration) as class_info,
       'Private' as display_type,
-      COALESCE(s.meet_link, $1) as meet_link
+      COALESCE(s.class_link, $1) as class_link
       FROM sessions s
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
         AND st.is_active = true
       ORDER BY s.session_date ASC, s.session_time ASC
-    `, [DEFAULT_MEET]);
+    `, [DEFAULT_CLASS]);
 
     // Get group sessions
     const grp = await executeQuery(`
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
       CONCAT(g.program_name, ' - ', g.duration) as class_info,
       'Group' as display_type,
-      COALESCE(s.meet_link, $1) as meet_link
+      COALESCE(s.class_link, $1) as class_link
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
       ORDER BY s.session_date ASC, s.session_time ASC
-    `, [DEFAULT_MEET]);
+    `, [DEFAULT_CLASS]);
 
     // Get upcoming events as well
     const events = await executeQuery(`
@@ -4023,7 +4023,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     0 as session_number,
     'Event' as display_type,
     'Event' as session_type,
-    COALESCE(e.meet_link, '') as meet_link
+    COALESCE(e.class_link, '') as class_link
   FROM events e
   WHERE status = 'Active'
   ORDER BY event_date ASC, event_time ASC
@@ -4040,11 +4040,11 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
         0 as session_number,
         'Demo' as display_type,
         'Demo' as session_type,
-        $1 as meet_link
+        $1 as class_link
       FROM demo_leads
       WHERE status = 'Scheduled' AND demo_date IS NOT NULL
       ORDER BY demo_date ASC, demo_time ASC
-    `, [DEFAULT_MEET]);
+    `, [DEFAULT_CLASS]);
 
     // Combine all
     const all = [...priv.rows, ...grp.rows, ...events.rows, ...demos.rows];
@@ -4216,7 +4216,7 @@ app.post('/api/demo-leads', async (req, res) => {
           adminName: settings.admin_name || 'Aaliya',
           adminTitle: settings.admin_title || 'Founder & Lead Instructor',
           adminBio: settings.admin_bio || '',
-          meetLink: DEFAULT_MEET
+          classLink: DEFAULT_CLASS
         });
 
         emailSent = await sendEmail(
@@ -4313,7 +4313,7 @@ app.put('/api/demo-leads/:id', async (req, res) => {
           adminName: settings.admin_name || 'Aaliya',
           adminTitle: settings.admin_title || 'Founder & Lead Instructor',
           adminBio: settings.admin_bio || '',
-          meetLink: DEFAULT_MEET
+          classLink: DEFAULT_CLASS
         });
 
         emailSent = await sendEmail(
@@ -4405,7 +4405,7 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
           parent_name: demoLead.parent_name,
           student_name: demoLead.child_name,
           program_name,
-          meet_link: DEFAULT_MEET
+          class_link: DEFAULT_CLASS
         });
 
         await sendEmail(
@@ -4538,7 +4538,7 @@ app.post('/api/students', async (req, res) => {
       emailSent = await sendEmail(
         parent_email,
         `🎓 Welcome to Fluent Feathers Academy - ${name}`,
-        getWelcomeEmail({ parent_name, student_name: name, program_name, meet_link: DEFAULT_MEET }),
+        getWelcomeEmail({ parent_name, student_name: name, program_name, class_link: DEFAULT_CLASS }),
         parent_name,
         'Welcome'
       );
@@ -4929,10 +4929,10 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       const isMakeup = cls.use_makeup === true;
 
       const result = await client.query(`
-        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status, notes)
+        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes)
         VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7)
         RETURNING id
-      `, [student_id, sessionNumber, utc.date, utc.time, student.meet_link || DEFAULT_MEET, isMakeup ? 'Scheduled' : 'Pending', isMakeup ? 'Makeup Class' : null]);
+      `, [student_id, sessionNumber, utc.date, utc.time, student.class_link || DEFAULT_CLASS, isMakeup ? 'Scheduled' : 'Pending', isMakeup ? 'Makeup Class' : null]);
 
       // If makeup, consume a makeup credit
       if (isMakeup && makeupCreditIndex < makeupCreditIds.length) {
@@ -5053,10 +5053,10 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
       const r = await client.query(`
-        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, meet_link, status)
+        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status)
         VALUES ($1, 'Group', $2, $3::date, $4::time, $5, 'Pending')
         RETURNING id
-      `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_MEET]);
+      `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_CLASS]);
 
       const sessionId = r.rows[0].id;
       const sessionIndex = i + 1;
@@ -6110,14 +6110,14 @@ app.get('/api/events', async (req, res) => {
 });
 
 app.post('/api/events', async (req, res) => {
-  const { event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, meet_link, max_participants, send_email } = req.body;
+  const { event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, class_link, max_participants, send_email } = req.body;
   try {
     const utc = istToUTC(event_date, event_time);
     const result = await pool.query(`
-      INSERT INTO events (event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, meet_link, max_participants, status)
+      INSERT INTO events (event_name, event_description, event_date, event_time, event_duration, target_audience, specific_grades, class_link, max_participants, status)
       VALUES ($1, $2, $3::date, $4::time, $5, $6, $7, $8, $9, 'Active')
       RETURNING id
-    `, [event_name, event_description || '', utc.date, utc.time, event_duration, target_audience || 'All', specific_grades || '', meet_link || DEFAULT_MEET, max_participants || null]);
+    `, [event_name, event_description || '', utc.date, utc.time, event_duration, target_audience || 'All', specific_grades || '', class_link || DEFAULT_CLASS, max_participants || null]);
 
     const eventId = result.rows[0].id;
     let students = [];
@@ -6141,7 +6141,7 @@ app.post('/api/events', async (req, res) => {
           event_date: display.date,
           event_time: display.time,
           event_duration,
-          meet_link: meet_link || DEFAULT_MEET,
+          class_link: class_link || DEFAULT_CLASS,
           registration_link: registrationLink
         });
 
@@ -6240,7 +6240,7 @@ app.post('/api/events/:eventId/attendance', async (req, res) => {
 });
 
 app.put('/api/events/:id', async (req, res) => {
-  const { event_name, event_description, event_duration, status, max_participants, meet_link } = req.body;
+  const { event_name, event_description, event_duration, status, max_participants, class_link } = req.body;
   try {
     await pool.query(`
       UPDATE events SET
@@ -6249,9 +6249,9 @@ app.put('/api/events/:id', async (req, res) => {
         event_duration = $3,
         status = $4,
         max_participants = $5,
-        meet_link = $6
+        class_link = $6
       WHERE id = $7
-    `, [event_name, event_description, event_duration, status, max_participants, meet_link, req.params.id]);
+    `, [event_name, event_description, event_duration, status, max_participants, class_link, req.params.id]);
     res.json({ success: true, message: 'Event updated successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -6316,7 +6316,7 @@ app.get('/api/public/event/:id', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT id, event_name, event_description, event_date, event_time, event_duration,
-             max_participants, current_participants, status, meet_link
+             max_participants, current_participants, status, class_link
       FROM events WHERE id = $1 AND status = 'Active'
     `, [req.params.id]);
 
@@ -6410,7 +6410,7 @@ app.post('/api/public/event/:id/register', async (req, res) => {
             <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${eventDate}</p>
             <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${event.event_time}</p>
             ${event.event_duration ? `<p style="margin: 5px 0;"><strong>⏱️ Duration:</strong> ${event.event_duration}</p>` : ''}
-            ${event.meet_link ? `<p style="margin: 15px 0 5px;"><strong>🔗 Join Link:</strong></p><a href="${event.meet_link}" style="color: #ffd700; word-break: break-all;">${event.meet_link}</a>` : ''}
+            ${event.class_link ? `<p style="margin: 15px 0 5px;"><strong>🔗 Join Link:</strong></p><a href="${event.class_link}" style="color: #ffd700; word-break: break-all;">${event.class_link}</a>` : ''}
           </div>
 
           <p style="font-size: 14px; color: #666;">We look forward to seeing ${escapeHtml(child_name)} at the event!</p>
@@ -6476,7 +6476,7 @@ app.post('/api/public/demo-register', async (req, res) => {
     <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 50px; margin-bottom: 10px;">🎯</div>
       <h1 style="margin: 0; color: white; font-size: 28px;">Free Demo Class Registration</h1>
-      <p style="color: rgba(255,255,255,0.9); margin-top: 10px; font-size: 16px;">We're excited to meet ${child_name}!</p>
+      <p style="color: rgba(255,255,255,0.9); margin-top: 10px; font-size: 16px;">We're excited to class ${child_name}!</p>
     </div>
     <div style="padding: 30px;">
       <p style="font-size: 16px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${parent_name}</strong>,</p>
@@ -6896,7 +6896,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       return res.status(400).json({ error: 'Makeup credit not found or already used' });
     }
 
-    // Get student info for timezone and meet link
+    // Get student info for timezone and class link
     const student = await client.query('SELECT * FROM students WHERE id = $1', [student_id]);
     if (student.rows.length === 0) {
       return res.status(400).json({ error: 'Student not found' });
@@ -6913,10 +6913,10 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 
     // Create the makeup session
     const sessionResult = await client.query(`
-      INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status, notes)
+      INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes)
       VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Scheduled', 'Makeup Class')
       RETURNING id
-    `, [student_id, sessionNumber, utc.date, utc.time, student.rows[0].meet_link || DEFAULT_MEET]);
+    `, [student_id, sessionNumber, utc.date, utc.time, student.rows[0].class_link || DEFAULT_CLASS]);
 
     const newSessionId = sessionResult.rows[0].id;
 
@@ -6954,7 +6954,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       </div>
 
       <div style="text-align: center; margin: 25px 0;">
-        <a href="${studentData.meet_link || DEFAULT_MEET}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">🎥 Join Class on Meet</a>
+        <a href="${studentData.class_link || DEFAULT_CLASS}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">🎥 Join Class</a>
       </div>
 
       <p style="font-size: 14px; color: #718096;">We look forward to seeing ${studentData.name} in class!</p>
@@ -7341,10 +7341,10 @@ app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
       const notes = deduct_from === 'none' ? 'Extra session (paid separately)' : isMakeup ? 'Makeup Class' : null;
 
       const result = await client.query(`
-        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, meet_link, status, notes)
+        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes)
         VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7)
         RETURNING id
-      `, [studentId, sessionNumber, utc.date, utc.time, student.meet_link || DEFAULT_MEET, isMakeup ? 'Scheduled' : 'Pending', notes]);
+      `, [studentId, sessionNumber, utc.date, utc.time, student.class_link || DEFAULT_CLASS, isMakeup ? 'Scheduled' : 'Pending', notes]);
 
       // Consume makeup credit if applicable
       if (isMakeup && makeupIdx < makeupCreditIds.length) {
@@ -7972,16 +7972,16 @@ app.get('/api/cleanup/orphaned-count', async (req, res) => {
 
 // ==================== EDIT & DELETE STUDENT ====================
 app.put('/api/students/:id', async (req, res) => {
-  const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth, meet_link } = req.body;
+  const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth, class_link } = req.body;
   try {
     await pool.query(`
       UPDATE students SET
         name = $1, grade = $2, parent_name = $3, parent_email = $4,
         primary_contact = $5, timezone = $6, program_name = $7,
         duration = $8, per_session_fee = $9, currency = $10,
-        date_of_birth = $11, meet_link = $12
+        date_of_birth = $11, class_link = $12
       WHERE id = $13
-    `, [name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth || null, meet_link || null, req.params.id]);
+    `, [name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth || null, class_link || null, req.params.id]);
     res.json({ success: true, message: 'Student updated successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });

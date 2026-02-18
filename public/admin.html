@@ -3103,7 +3103,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         </div>
         <div class="form-row">
           <div class="form-group"><label>Date of Birth</label><input type="date" id="editDateOfBirth" onchange="autoFillAge(this.value, 'editGrade')"></div>
-          <div class="form-group"><label>Google Meet Link</label><input type="url" id="editMeetLink" placeholder="https://meet.google.com/..."></div>
+          <div class="form-group"><label>Class Link</label><input type="url" id="editClassLink" placeholder="https://Class.google.com/..."></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Currency *</label>
@@ -3629,7 +3629,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
           <p>🌍 ${isDemo ? 'Demo Class' : 'Student TZ: ' + cls.timezone}</p>
           ${studentsHtml}
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
-           <a href="${cls.meet_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join Meet</a>
+           <a href="${cls.ClassLink_link || '#'}" target="_blank" class="btn btn-sm" style="background:white; color:#B05D9E; text-decoration:none;">🎥 Join Meet</a>
             ${isDemo ? `<button onclick="showTab('demoStudents', event)" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">📋 View Demo Leads</button>` : `<button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
             <button onclick="openCancelClassModal(${cls.id}, decodeURIComponent('${encodeURIComponent(cls.student_name || '')}'), '${cls.session_type}')" class="btn btn-sm" style="background:#e53e3e; color:white;">✕ Cancel</button>`}
           </div>
@@ -3711,7 +3711,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         document.getElementById('editProgramName').value = student.program_name;
         document.getElementById('editDuration').value = student.duration;
         document.getElementById('editDateOfBirth').value = student.date_of_birth ? student.date_of_birth.split('T')[0] : '';
-        document.getElementById('editMeetLink').value = student.meet_link || '';
+        document.getElementById('editClassLink').value = student.Class_link || '';
         document.getElementById('editCurrency').value = student.currency;
         document.getElementById('editPerSessionFee').value = student.per_session_fee;
         document.getElementById('editStudentModal').classList.add('active');
@@ -3733,7 +3733,7 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         program_name: document.getElementById('editProgramName').value,
         duration: document.getElementById('editDuration').value,
         date_of_birth: document.getElementById('editDateOfBirth').value || null,
-        meet_link: document.getElementById('editMeetLink').value || null,
+        Class_link: document.getElementById('editClassLink').value || null,
         currency: document.getElementById('editCurrency').value,
         per_session_fee: parseFloat(document.getElementById('editPerSessionFee').value)
       };
@@ -9295,7 +9295,7 @@ async function saveEditedPayment() {
               <div><strong>Target Audience:</strong> ${event.target_audience || 'All'}</div>
               <div><strong>Max Participants:</strong> ${event.max_participants || 'Unlimited'}</div>
               <div><strong>Current Registrations:</strong> ${event.current_participants || 0}</div>
-              <div><strong>Meet Link:</strong> <a href="${event.meet_link}" target="_blank" style="color: #B05D9E;">Open</a></div>
+              <div><strong>Class Link:</strong> <a href="${event.Class_link}" target="_blank" style="color: #B05D9E;">Open</a></div>
             </div>
             ${event.event_description ? `<div style="margin-top: 15px;"><strong>Description:</strong><p style="margin-top: 5px; color: #4a5568;">${event.event_description}</p></div>` : ''}
           </div>
@@ -9343,7 +9343,7 @@ async function saveEditedPayment() {
               </div>
               <div class="form-group"><label>Max Participants</label><input type="number" id="editEventMaxParticipants" value="${event.max_participants || ''}"></div>
             </div>
-            <div class="form-group"><label>Meet Link</label><input type="text" id="editEventMeetLink" value="${event.meet_link|| ''}"></div>
+            <div class="form-group"><label>Class Link</label><input type="text" id="editEventClassLink" value="${event.Class_link|| ''}"></div>
             <button type="submit" class="btn btn-primary">Update Event</button>
           </form>
         `;
@@ -9366,7 +9366,7 @@ async function saveEditedPayment() {
         event_duration: document.getElementById('editEventDuration').value,
         status: document.getElementById('editEventStatus').value,
         max_participants: document.getElementById('editEventMaxParticipants').value || null,
-        meet_link: document.getElementById('editEventMeetLink').value
+        Class_link: document.getElementById('editEventClassLink').value
       };
 
       try {
