@@ -4001,16 +4001,17 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     `, [DEFAULT_CLASS]);
 
     // Get group sessions
-    const grp = await executeQuery(`
-      SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
-      CONCAT(g.program_name, ' - ', g.duration) as class_info,
-      'Group' as display_type,
-      COALESCE(s.class_link, $1) as class_link
-      FROM sessions s
-      JOIN groups g ON s.group_id = g.id
-      WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
-      ORDER BY s.session_date ASC, s.session_time ASC
-    `, [DEFAULT_CLASS]);
+   const grp = await executeQuery(`
+  SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
+  CONCAT(g.program_name, ' - ', g.duration) as class_info,
+  'Group' as display_type,
+  COALESCE(st.class_link, $1) as class_link
+  FROM sessions s
+  JOIN groups g ON s.group_id = g.id
+  LEFT JOIN settings st ON st.group_id = g.id
+  WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
+  ORDER BY s.session_date ASC, s.session_time ASC
+`, [DEFAULT_CLASS]);
 
     // Get upcoming events as well
     const events = await executeQuery(`
