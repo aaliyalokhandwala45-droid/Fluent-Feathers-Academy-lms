@@ -1714,7 +1714,7 @@ function getWelcomeEmail(data) {
         <ul style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
           <li>Check your email for class schedule details</li>
           <li>Access the parent portal to view sessions and materials</li>
-          <li>Join classes using the link provided</li>
+          <li>Join classes using the Class link provided</li>
           <li>Upload homework and track progress</li>
         </ul>
       </div>
@@ -1727,7 +1727,7 @@ function getWelcomeEmail(data) {
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>💡 Pro Tip:</strong> Save the Class link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
+          <strong>💡 Pro Tip:</strong> Save the Google Class link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
         </p>
       </div>
 
@@ -1782,7 +1782,7 @@ function getScheduleEmail(data) {
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Your Classes</h3>
 <p style="color: #234e52; margin: 0; font-size: 14px; line-height: 1.8;">
-  All classes will use the same class link. We recommend joining 5 minutes early to ensure a smooth start.
+  All classes will use the same Google Class link. We recommend joining 5 minutes early to ensure a smooth start.
           The link will also be available in your parent portal next to each class.
         </p>
       </div>
@@ -2084,7 +2084,7 @@ function getEventEmail(data) {
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Information</h3>
         <p style="color: rgba(255,255,255,0.9); margin: 0 0 15px 0; font-size: 14px;">
-  After registering, you'll receive the Class link to join the event. We recommend joining 5 minutes early!
+  After registering, you'll receive the Google Class link to join the event. We recommend joining 5 minutes early!
 </p>
 <a href="${data.class_link}" style="display: inline-block; background: #38b2ac; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
   🔗 Event Class Link
@@ -4001,16 +4001,16 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     `, [DEFAULT_CLASS]);
 
     // Get group sessions
-   const grp = await executeQuery(`
-  SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
-CONCAT(g.program_name, ' - ', g.duration) as class_info,
-'Group' as display_type,
-$1 as class_link
-FROM sessions s
-JOIN groups g ON s.group_id = g.id
-WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
-ORDER BY s.session_date ASC, s.session_time ASC
-`, [DEFAULT_CLASS]);
+    const grp = await executeQuery(`
+      SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
+      CONCAT(g.program_name, ' - ', g.duration) as class_info,
+      'Group' as display_type,
+      COALESCE(s.class_link, $1) as class_link
+      FROM sessions s
+      JOIN groups g ON s.group_id = g.id
+      WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
+      ORDER BY s.session_date ASC, s.session_time ASC
+    `, [DEFAULT_CLASS]);
 
     // Get upcoming events as well
     const events = await executeQuery(`
@@ -6954,7 +6954,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       </div>
 
       <div style="text-align: center; margin: 25px 0;">
-        <a href="${studentData.class_link || DEFAULT_CLASS}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">🎥 Join Class</a>
+        <a href="${studentData.class_link || DEFAULT_CLASS}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">🎥 Join Class on Class</a>
       </div>
 
       <p style="font-size: 14px; color: #718096;">We look forward to seeing ${studentData.name} in class!</p>
