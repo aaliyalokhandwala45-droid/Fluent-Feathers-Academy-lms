@@ -3992,7 +3992,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       SELECT s.*, st.name as student_name, st.timezone, s.session_number,
       CONCAT(st.program_name, ' - ', st.duration) as class_info,
       'Private' as display_type,
-      COALESCE(s.class_link, $1) as class_link
+      COALESCE(st.class_link, $1) as class_link
       FROM sessions s
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
@@ -4005,7 +4005,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
       CONCAT(g.program_name, ' - ', g.duration) as class_info,
       'Group' as display_type,
-      COALESCE(s.class_link, $1) as class_link
+      COALESCE(st.class_link, $1) as class_link
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
