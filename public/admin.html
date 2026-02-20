@@ -8984,9 +8984,12 @@ async function saveEditedPayment() {
       originalShowTab(name, event);
       if (name === 'announcements') loadAnnouncements();
       if (name === 'monthlyAssessment') {
-        loadAssessments();
-        loadAssessmentStudents();
-      }
+    loadAssessments();
+    loadAssessmentStudents();
+    if (typeof allStudents !== 'undefined' && allStudents.length > 0) {
+        loadDueAssessments();
+    }
+}
       if (name === 'payments') {
         loadPaymentStudentDropdown();
       }
