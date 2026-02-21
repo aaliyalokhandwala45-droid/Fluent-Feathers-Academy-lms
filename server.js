@@ -3911,7 +3911,23 @@ app.get('/api/dashboard/stats', async (req, res) => {
       const ch = await executeQuery(`SELECT COUNT(*) as pending FROM student_challenges WHERE status = 'Submitted'`);
       pendingChallenges = parseInt(ch.rows[0].pending) || 0;
     } catch (e) { /* table may not exist */ }
-
+let pendingAssessments = 0;
+try {
+  const assessRes = await executeQuery(`
+    SELECT COUNT(*) as count FROM (
+      SELECT s.id,
+        COALESCE(s.completed_sessions, 0) as completed,
+        COALESCE(s.remaining_sessions, 0) as remaining,
+        COALESCE((SELECT COUNT(*) FROM monthly_assessments ma WHERE ma.student_id = s.id AND ma.assessment_type = 'monthly'), 0) as total_assessments
+      FROM students s
+      WHERE s.is_active = true
+    ) sub
+    WHERE 
+      (sub.completed - (sub.total_assessments * 7)) >= 7
+      OR (sub.remaining <= 2 AND (sub.completed - (sub.total_assessments * 7)) >= 3)
+  `);
+  pendingAssessments = parseInt(assessRes.rows[0].count) || 0;
+} catch(e) { console.error('Assessment count error:', e.message); }
     res.json({
       totalStudents: parseInt(countResult.rows[0].total)||0,
       totalRevenue: Math.round(totalRevenueINR),
@@ -3919,7 +3935,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
       totalGroups: parseInt(g.rows[0].total)||0,
       activeEvents: parseInt(e.rows[0].total)||0,
       pendingHomework: parseInt(hw.rows[0].pending)||0,
-      pendingChallenges: pendingChallenges
+      pendingChallenges: pendingChallenges,
+      pendingAssessments: pendingAssessments
     });
   } catch (err) {
     console.error('Dashboard stats error:', err.message);

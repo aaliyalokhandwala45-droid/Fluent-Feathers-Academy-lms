@@ -3577,6 +3577,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('activeEvents').textContent = stats.activeEvents;
         document.getElementById('pendingHomework').textContent = stats.pendingHomework || 0;
         document.getElementById('pendingChallenges').textContent = stats.pendingChallenges || 0;
+        document.getElementById('dueAssessments').textContent = data.pendingAssessments || 0;
       } catch (err) {
         console.error(err);
       }
@@ -5418,14 +5419,14 @@ async function saveEditedPayment() {
             <span style="color: #718096; font-size: 0.85rem;">Remaining: ${s.remaining_sessions || 0}</span>
             <label style="font-size: 0.8rem; color: #4a5568;">Sessions:</label>
             <input type="number" class="student-session-count" data-student-id="${s.id}"
-              value="${s.remaining_sessions || 0}" min="0" max="100"
+              value="${(s.remaining_sessions || 0) > 0 ? s.remaining_sessions : 0}" min="0" max="100"
               style="width: 60px; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center;"
               onchange="updateGroupMaxSessions()">
             ${makeupCount > 0 ? `
             <span style="color: #6b46c1; font-size: 0.8rem; font-weight: 600;">🎫 Makeup: ${makeupCount}</span>
             <label style="font-size: 0.8rem; color: #6b46c1;">Use:</label>
             <input type="number" class="student-makeup-count" data-student-id="${s.id}"
-              value="0" min="0" max="${makeupCount}"
+              value="${(s.remaining_sessions || 0) === 0 && makeupCount > 0 ? makeupCount : 0}" min="0" max="${makeupCount}"
               style="width: 50px; padding: 4px 8px; border: 1px solid #9f7aea; border-radius: 4px; text-align: center; color: #6b46c1;"
               onchange="updateGroupMaxSessions()">
             ` : ''}
@@ -5470,7 +5471,7 @@ async function saveEditedPayment() {
         if (total > max) max = total;
       });
       const numSessionsEl = document.getElementById('groupBulkNumSessions');
-      if (max > 0) numSessionsEl.value = max;
+      numSessionsEl.value = max;
     }
 
     // Convert existing private sessions to group sessions
