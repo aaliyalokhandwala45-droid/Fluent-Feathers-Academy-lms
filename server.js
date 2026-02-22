@@ -7429,15 +7429,14 @@ app.get('/api/financial-reports', async (req, res) => {
     let params = [];
 
     if (startDate && endDate) {
-      dateFilter = 'WHERE payment_date >= $1 AND payment_date <= ($2::date + INTERVAL \'1 day\' - INTERVAL \'1 second\')';
-params = [startDate, endDate];
-    } else if (year) {
-      // Indian Financial Year: April 1 to March 31
-      const fyStart = `${year}-04-01`;
-const fyEnd = `${parseInt(year) + 1}-03-31`;
-dateFilter = 'WHERE payment_date >= $1 AND payment_date <= ($2::date + INTERVAL \'1 day\' - INTERVAL \'1 second\')';
-params = [fyStart, fyEnd];
-    }
+  dateFilter = 'WHERE payment_date >= $1 AND payment_date < ($2::date + INTERVAL \'1 day\')';
+  params = [startDate, endDate];
+}  else if (year) {
+  const fyStart = `${year}-04-01`;
+  const fyEnd = `${parseInt(year) + 1}-03-31`;
+  dateFilter = 'WHERE payment_date >= $1 AND payment_date < ($2::date + INTERVAL \'1 day\')';
+  params = [fyStart, fyEnd];
+}
 
     // Get all payments from payment_history
     const paymentsQuery = `
