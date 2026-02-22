@@ -7429,14 +7429,14 @@ app.get('/api/financial-reports', async (req, res) => {
     let params = [];
 
     if (startDate && endDate) {
-      dateFilter = 'WHERE payment_date >= $1 AND payment_date <= $2';
-      params = [startDate, endDate];
+      dateFilter = 'WHERE payment_date >= $1 AND payment_date <= ($2::date + INTERVAL \'1 day\' - INTERVAL \'1 second\')';
+params = [startDate, endDate];
     } else if (year) {
       // Indian Financial Year: April 1 to March 31
       const fyStart = `${year}-04-01`;
-      const fyEnd = `${parseInt(year) + 1}-03-31`;
-      dateFilter = 'WHERE payment_date >= $1 AND payment_date <= $2';
-      params = [fyStart, fyEnd];
+const fyEnd = `${parseInt(year) + 1}-03-31`;
+dateFilter = 'WHERE payment_date >= $1 AND payment_date <= ($2::date + INTERVAL \'1 day\' - INTERVAL \'1 second\')';
+params = [fyStart, fyEnd];
     }
 
     // Get all payments from payment_history
@@ -9912,21 +9912,32 @@ app.get('/api/health', async (req, res) => {
 
 // ==================== KEEPALIVE PING ====================
 // Self-ping every 14 minutes to prevent server sleep on free tier platforms
-const SELF_PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
-const DB_CHECK_INTERVAL = 5 * 60 * 1000;   // Check DB every 5 minutes
+const SELF_PING_INTERVAL = 14 * 60 * 1000; // 14 minutes (keep server alive)
+const DB_CHECK_INTERVAL = 60 * 1000;        // Check DB every 1 minute
 let selfPingUrl = null;
 
 // Database health check - tries to reconnect if disconnected
 async function checkDatabaseHealth() {
   try {
+    // Always ping DB every minute to prevent Supabase cold start
+    await executeQuery('SELECT 1');
     if (!dbReady) {
-      console.log('🔄 Database not ready, attempting to reconnect...');
-      await executeQuery('SELECT 1');
       console.log('✅ Database reconnected successfully');
+      dbReady = true;
     }
   } catch (err) {
     console.error('❌ Database health check failed:', err.message);
     dbReady = false;
+    // Try once more after 5 seconds
+    setTimeout(async () => {
+      try {
+        await executeQuery('SELECT 1');
+        dbReady = true;
+        console.log('✅ Database reconnected on retry');
+      } catch(e) {
+        console.error('❌ Retry also failed:', e.message);
+      }
+    }, 5000);
   }
 }
 
