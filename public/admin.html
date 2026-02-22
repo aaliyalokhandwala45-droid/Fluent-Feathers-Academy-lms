@@ -371,7 +371,17 @@
       <div class="stats-grid">
         <div class="stat-card"><h3>Total Students</h3><div class="value" id="totalStudents">0</div></div>
         <div class="stat-card"><h3>Upcoming Sessions</h3><div class="value" id="upcomingSessions">0</div></div>
-        <div class="stat-card" onclick="toggleRevenue()" style="cursor: pointer;" title="Click to show/hide"><h3>Total Revenue</h3><div class="value" id="totalRevenue">*****</div></div>
+       <div class="stat-card" style="border-left-color: #38a169;">
+  <h3>💰 Total Revenue</h3>
+  <div class="value" id="totalRevenue" style="color: #38a169;">*****</div>
+  <select id="revenueFilter" onchange="filterRevenue()" 
+    style="margin-top:8px; width:100%; padding:4px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:0.8rem; color:#4a5568;">
+    <option value="all">All Time</option>
+    <option value="thismonth">This Month</option>
+    <option value="lastmonth">Last Month</option>
+    <option value="thisyear">This Year (FY)</option>
+  </select>
+</div>
         <div class="stat-card"><h3>Total Groups</h3><div class="value" id="totalGroups">0</div></div>
         <div class="stat-card"><h3>Active Events</h3><div class="value" id="activeEvents">0</div></div>
         <div class="stat-card" onclick="showTab('monthlyAssessment', event)" style="cursor: pointer; border-left-color: #f59e0b;"><h3>📊 Due for Assessment</h3><div class="value" id="dueAssessments" style="color: #f59e0b;">0</div></div>
@@ -1469,6 +1479,14 @@
             <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Income (USD)</h3>
             <div id="totalIncomeUSD" style="font-size: 28px; font-weight: bold;">$0</div>
           </div>
+          <div style="background: linear-gradient(135deg, #fef9c3, #fde68a); padding: 20px; border-radius: 12px; border-left: 4px solid #d69e2e;">
+  <h4 style="margin: 0 0 8px; color: #744210; font-size: 14px;">🇧🇩 Total BDT Income</h4>
+  <p style="margin: 0; font-size: 24px; font-weight: bold; color: #92400e;" id="totalIncomeBDT">৳0</p>
+</div>
+<div style="background: linear-gradient(135deg, #e9d8fd, #d6bcfa); padding: 20px; border-radius: 12px; border-left: 4px solid #805ad5;">
+  <h4 style="margin: 0 0 8px; color: #44337a; font-size: 14px;">🇦🇺 Total AUD Income</h4>
+  <p style="margin: 0; font-size: 24px; font-weight: bold; color: #553c9a;" id="totalIncomeAUD">A$0</p>
+</div>
           <div style="background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); padding: 25px; border-radius: 12px; color: white;">
             <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Expenses (INR)</h3>
             <div id="totalExpensesINR" style="font-size: 28px; font-weight: bold;">₹0</div>
@@ -9665,13 +9683,17 @@ async function saveEditedPayment() {
         const data = await res.json();
 
         // Update income totals
-        let inrTotal = 0, usdTotal = 0;
-        data.totals.forEach(t => {
-          if (t.currency === 'INR') inrTotal = parseFloat(t.total_amount) || 0;
-          if (t.currency === 'USD') usdTotal = parseFloat(t.total_amount) || 0;
-        });
-        document.getElementById('totalIncomeINR').textContent = '₹' + inrTotal.toLocaleString('en-IN');
-        document.getElementById('totalIncomeUSD').textContent = '$' + usdTotal.toLocaleString('en-US');
+        let inrTotal = 0, usdTotal = 0, bdtTotal = 0, audTotal = 0;
+data.totals.forEach(t => {
+  if (t.currency === 'INR') inrTotal = parseFloat(t.total_amount) || 0;
+  if (t.currency === 'USD') usdTotal = parseFloat(t.total_amount) || 0;
+  if (t.currency === 'BDT') bdtTotal = parseFloat(t.total_amount) || 0;
+  if (t.currency === 'AUD') audTotal = parseFloat(t.total_amount) || 0;
+});
+document.getElementById('totalIncomeINR').textContent = '₹' + inrTotal.toLocaleString('en-IN');
+document.getElementById('totalIncomeUSD').textContent = '$' + usdTotal.toLocaleString('en-US');
+if (document.getElementById('totalIncomeBDT')) document.getElementById('totalIncomeBDT').textContent = '৳' + bdtTotal.toLocaleString();
+if (document.getElementById('totalIncomeAUD')) document.getElementById('totalIncomeAUD').textContent = 'A$' + audTotal.toLocaleString();
 
         // Load expenses for totals
         let expUrl = '/api/expenses?';
@@ -9695,22 +9717,26 @@ async function saveEditedPayment() {
         } else {
           // Group by month/year
           const monthlyData = {};
-          data.monthlySummary.forEach(m => {
-            const key = `${m.year}-${m.month}`;
-            if (!monthlyData[key]) monthlyData[key] = { year: m.year, month: m.month, INR: 0, USD: 0, count: 0 };
-            if (m.currency === 'INR') monthlyData[key].INR = parseFloat(m.total_amount);
-            if (m.currency === 'USD') monthlyData[key].USD = parseFloat(m.total_amount);
-            monthlyData[key].count += parseInt(m.payment_count);
-          });
+data.monthlySummary.forEach(m => {
+  const key = `${m.year}-${m.month}`;
+  if (!monthlyData[key]) monthlyData[key] = { year: m.year, month: m.month, INR: 0, USD: 0, BDT: 0, AUD: 0, count: 0 };
+  if (m.currency === 'INR') monthlyData[key].INR = parseFloat(m.total_amount);
+  if (m.currency === 'USD') monthlyData[key].USD = parseFloat(m.total_amount);
+  if (m.currency === 'BDT') monthlyData[key].BDT = parseFloat(m.total_amount);
+  if (m.currency === 'AUD') monthlyData[key].AUD = parseFloat(m.total_amount);
+  monthlyData[key].count += parseInt(m.payment_count);
+});
 
-          monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
-            <tr>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${monthNames[m.month - 1]} ${m.year}</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #38a169;">₹${m.INR.toLocaleString('en-IN')}</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #3182ce;">$${m.USD.toLocaleString('en-US')}</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">${m.count}</td>
-            </tr>
-          `).join('');
+monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
+  <tr>
+    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${monthNames[m.month - 1]} ${m.year}</td>
+    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #38a169;">₹${m.INR.toLocaleString('en-IN')}</td>
+    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #3182ce;">$${m.USD.toLocaleString('en-US')}</td>
+    ${m.BDT > 0 ? `<td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #d69e2e;">৳${m.BDT.toLocaleString()}</td>` : '<td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #cbd5e0;">-</td>'}
+    ${m.AUD > 0 ? `<td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #805ad5;">A$${m.AUD.toLocaleString()}</td>` : '<td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #cbd5e0;">-</td>'}
+    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">${m.count}</td>
+  </tr>
+`).join('');
         }
 
         // Recent payments table
@@ -9723,7 +9749,10 @@ async function saveEditedPayment() {
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${new Date(p.payment_date).toLocaleDateString('en-IN')}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.student_name || '<span style="color:#e53e3e;">Deleted Student</span>'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.parent_name || '-'}</td>
-              <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${p.currency === 'USD' ? '$' : '₹'}${parseFloat(p.amount).toLocaleString()}</td>
+             <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600;">
+  ${p.currency === 'USD' ? '$' : p.currency === 'BDT' ? '৳' : p.currency === 'AUD' ? 'A$' : '₹'}${parseFloat(p.amount).toLocaleString()}
+  <span style="font-size:0.75rem; color:#718096;">${p.currency}</span>
+</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.payment_method || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.sessions_covered || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
@@ -10057,6 +10086,45 @@ async function saveEditedPayment() {
         }).join('');
       }
     }
+
+    async function filterRevenue() {
+  const filter = document.getElementById('revenueFilter').value;
+  const el = document.getElementById('totalRevenue');
+  
+  let url = '/api/financial-reports?';
+  const now = new Date();
+  
+  if (filter === 'thismonth') {
+    const start = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const end = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
+    url += `startDate=${start}&endDate=${end}`;
+  } else if (filter === 'lastmonth') {
+    const d = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const start = d.toISOString().split('T')[0];
+    const end = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    url += `startDate=${start}&endDate=${end}`;
+  } else if (filter === 'thisyear') {
+    url += `year=${now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear()-1}`;
+  } else {
+    // All time — use existing dashboard stats
+    loadDashboardStats();
+    return;
+  }
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    // Convert all to INR
+    const currencyToINR = { INR:1, USD:83, GBP:105, EUR:90, AED:22, SGD:61, CAD:61, SAR:22, BDT:0.71, AUD:54 };
+    let totalINR = 0;
+    data.totals.forEach(t => {
+      totalINR += (parseFloat(t.total_amount) || 0) * (currencyToINR[t.currency] || 1);
+    });
+    el.textContent = '₹' + Math.round(totalINR).toLocaleString('en-IN');
+  } catch(err) {
+    console.error(err);
+  }
+}
   </script>
 
       <!-- Footer -->
