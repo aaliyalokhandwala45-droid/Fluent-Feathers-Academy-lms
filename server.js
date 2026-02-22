@@ -3867,16 +3867,16 @@ console.log('✅ Demo lead follow-up system initialized - checking every hour');
 
 // Currency conversion rates to INR (approximate)
 const currencyToINR = {
-  '₹': 1,
-  'INR': 1,
-  '$': 83,
-  'USD': 83,
-  '£': 105,
-  'GBP': 105,
-  '€': 90,
-  'EUR': 90,
-  'AED': 23,
-  'د.إ': 23
+  INR: 1,
+  USD: 83,
+  GBP: 105,
+  EUR: 90,
+  AED: 22,
+  SGD: 61,
+  CAD: 61,
+  SAR: 22,
+  BDT: 0.71,
+  AUD: 54
 };
 
 function convertToINR(amount, currency) {
