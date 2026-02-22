@@ -3656,12 +3656,12 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
         // Update due assessments count
-        const dueCount = allStudents.filter(s => s.assessment_due).length;
-        const dueEl = document.getElementById('dueAssessments');
-        if (dueEl) {
-          dueEl.textContent = dueCount;
-          dueEl.parentElement.style.display = dueCount > 0 ? 'block' : 'none';
-        }
+       const dueCount = allStudents.filter(s => s.assessment_due).length;
+const dueEl = document.getElementById('dueAssessments');
+if (dueEl) {
+  dueEl.textContent = dueCount;
+  dueEl.parentElement.style.display = 'block';
+}
       } catch (err) {
         console.error(err);
       }
