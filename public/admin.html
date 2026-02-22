@@ -10106,7 +10106,6 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
   } else if (filter === 'thisyear') {
     url += `year=${now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear()-1}`;
   } else {
-    // All time — use existing dashboard stats
     loadDashboardStats();
     return;
   }
@@ -10114,12 +10113,15 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
   try {
     const res = await fetch(url);
     const data = await res.json();
-    // Convert all to INR
     const currencyToINR = { INR:1, USD:83, GBP:105, EUR:90, AED:22, SGD:61, CAD:61, SAR:22, BDT:0.71, AUD:54 };
+    
     let totalINR = 0;
-    data.totals.forEach(t => {
-      totalINR += (parseFloat(t.total_amount) || 0) * (currencyToINR[t.currency] || 1);
+    // Use payments array — this includes both payment_history AND renewals
+    data.payments.forEach(p => {
+      const rate = currencyToINR[p.currency] || 1;
+      totalINR += (parseFloat(p.amount) || 0) * rate;
     });
+    
     el.textContent = '₹' + Math.round(totalINR).toLocaleString('en-IN');
   } catch(err) {
     console.error(err);
