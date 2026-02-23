@@ -253,6 +253,17 @@ setInterval(async () => {
   }
 }, 4 * 60 * 1000); // 4 minutes
 
+// Additional cron job: ping every 2 minutes to keep free-tier Supabase from sleeping
+cron.schedule('*/2 * * * *', async () => {
+  try {
+    await pool.query('SELECT 1');
+    console.log('🕑 Cron DB ping successful');
+  } catch (err) {
+    console.warn('⚠️ Cron DB ping error:', err.message);
+    dbReady = false;
+  }
+});
+
 // ==================== MIDDLEWARE ====================
 app.use(express.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
