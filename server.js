@@ -1,7 +1,7 @@
 // ==================== ADVANCED LMS - SERVER.JS (PRODUCTION READY V2.0) ====================
 console.log("🚀 Starting Advanced LMS Server v2.0 - Full Feature Update...");
 
-import express from 'express';
+const express = require('express');
 const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
