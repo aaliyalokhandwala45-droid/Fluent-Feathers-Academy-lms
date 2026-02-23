@@ -54,7 +54,19 @@
     .nav-btn:hover { background: rgba(255,255,255,0.15); }
     .nav-btn.active { background: rgba(255,255,255,0.25); font-weight: 600; }
 
-    .main-content { margin-left: 240px; flex: 1; padding: 20px 30px; }
+    /* main content area sits to the right of the fixed sidebar. giving it a calculated
+       width prevents it from slipping underneath the panel and ensures every tab's
+       contents are always visible. position/ z-index help in case some inner elements
+       borrow absolute positioning. */
+    .main-content {
+      position: relative;
+      z-index: 1;
+      margin-left: 240px;
+      width: calc(100% - 240px);
+      flex: 1;
+      padding: 20px 30px;
+      overflow-x: auto; /* allow horizontal scrolling if a table is very wide */
+    }
     header { background: white; padding: 15px 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     header h1 { color: #B05D9E; font-size: 24px; }
     .stats-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; margin-bottom: 25px; }
@@ -79,7 +91,7 @@
       .sidebar { width: 60px; }
       .sidebar-header h2, .sidebar-header p, .nav-btn span { display: none; }
       .nav-btn { justify-content: center; padding: 12px; }
-      .main-content { margin-left: 60px; padding: 15px; }
+      .main-content { margin-left: 60px; width: calc(100% - 60px); padding: 15px; }
       header { flex-wrap: wrap; }
       .stats-grid { grid-template-columns: repeat(4, 1fr); }
       .upcoming-classes-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
@@ -125,7 +137,7 @@
       .nav-btn span { display: inline; }
       .nav-btn { justify-content: flex-start; }
       .hamburger-btn { display: inline-block; }
-      .main-content { margin-left: 0; padding: 10px; }
+      .main-content { margin-left: 0; width: 100%; padding: 10px; }
       body { overflow-x: hidden; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .stat-card { padding: 10px 8px; }
@@ -997,6 +1009,7 @@
               <option value="">Select student...</option>
             </select>
           </div>
+          <p id="manageSchedulePlaceholder" style="color:#718096; margin-bottom:15px;">Select a student above to view or modify their schedule.</p>
           <div id="studentScheduleContainer"></div>
         </div>
       </div>
@@ -3571,6 +3584,10 @@ I'm passionate about helping children develop confidence in communication!"></te
       if(navBtn) navBtn.classList.add('active');
       // Save current tab to localStorage for persistence on refresh
       localStorage.setItem('adminActiveTab', tabName);
+
+      // reset scroll so newly shown page is not hidden under the sidebar
+      const mainContent = document.querySelector('.main-content');
+      if(mainContent){ mainContent.scrollTop = 0; mainContent.scrollLeft = 0; }
 
       // Clean view for Profile and Whiteboard tabs - directly hide elements with JS
       const header = document.querySelector('.main-content > header');
@@ -6459,7 +6476,11 @@ async function saveEditedPayment() {
           const logs = data.logs || data;
           const total = data.total || logs.length;
           const totalPages = Math.ceil(total / (data.limit || 50));
-          document.getElementById('emailLogsBody').innerHTML=logs.map((l, idx)=>{
+          const bodyEl = document.getElementById('emailLogsBody');
+          if(!logs || logs.length === 0){
+            bodyEl.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#718096;">No email logs available</td></tr>';
+          } else {
+            bodyEl.innerHTML=logs.map((l, idx)=>{
             const isGroup = l.email_type && l.email_type.includes('-Group');
             const displayType = isGroup ? l.email_type.replace('-Group', '') : l.email_type;
             const badgeClass = isGroup ? 'email-badge-group' : 'email-badge-default';
@@ -6484,6 +6505,7 @@ async function saveEditedPayment() {
           } else if (paginationEl) {
             paginationEl.innerHTML = '';
           }
+        }
         })
         .catch(err => console.error(err));
     }
@@ -6786,10 +6808,13 @@ async function saveEditedPayment() {
       const studentId = document.getElementById('manageScheduleStudent').value;
       const container = document.getElementById('studentScheduleContainer');
 
+      const placeholder = document.getElementById('manageSchedulePlaceholder');
       if (!studentId) {
         container.innerHTML = '';
+        if(placeholder) placeholder.style.display = '';
         return;
       }
+      if(placeholder) placeholder.style.display = 'none';
 
       try {
         const res = await fetch(`/api/sessions/${studentId}`);
