@@ -407,9 +407,14 @@
         <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
       </div>
 
-      <div id="upcomingTab" class="tab-content active">
-      <div class="section"><h2>📅 Upcoming Classes</h2><div id="upcomingClassesGrid" class="upcoming-classes-grid"><p>Loading...</p></div></div>
-    </div>
+      <div class="section">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+    <h2 style="margin:0;">📅 Upcoming Classes</h2>
+    <button onclick="openBulkReschedule()" class="btn" 
+      style="background: linear-gradient(135deg, #667eea, #764ba2); color:white; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-weight:600;">
+      📅 Bulk Reschedule
+    </button>
+  </div>
 
     <div id="studentsTab" class="tab-content">
       <div class="section"><h2>➕ Add New Student</h2>
@@ -752,10 +757,14 @@
       <div class="section"><h2>📋 All Groups</h2><div class="table-responsive"><table id="groupsTable"><thead><tr><th>Group Name</th><th>Program</th><th>Duration</th><th>Students</th><th>Max</th><th>Actions</th></tr></thead><tbody id="groupsBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div></div>
     </div>
 
-    <div id="scheduleTab" class="tab-content">
-      <div class="section"><h2>📅 Schedule Classes</h2>
-        <div class="form-group" style="margin-bottom: 20px;"><label>Schedule Type *</label><select id="scheduleType" onchange="handleScheduleTypeChange()"><option value="private">Private Session</option><option value="group">Group Session</option></select></div>
-
+   <div class="section">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+    <h2 style="margin:0;">📅 Schedule Classes</h2>
+    <button onclick="openBulkReschedule()" class="btn" 
+      style="background: linear-gradient(135deg, #667eea, #764ba2); color:white; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-weight:600;">
+      📅 Bulk Reschedule
+    </button>
+  </div>
         <!-- Private Class Scheduling -->
         <form id="schedulePrivateForm">
           <div class="form-group"><label>Select Student *</label><select id="scheduleStudent" required><option value="">Select student...</option></select></div>
@@ -979,6 +988,10 @@
     </div>
 
     <div id="scheduleManagerTab" class="tab-content">
+      <button onclick="openBulkReschedule()" class="btn" 
+  style="background: linear-gradient(135deg, #667eea, #764ba2); color:white; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-weight:600; margin-bottom:15px;">
+  📅 Bulk Reschedule
+</button>
       <div class="section">
         <h2>📋 Manage Student Schedules</h2>
         <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
@@ -10099,10 +10112,13 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
     const end = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
     url += `startDate=${start}&endDate=${end}`;
   } else if (filter === 'lastmonth') {
-    const d = new Date(now.getFullYear(), now.getMonth()-1, 1);
-    const start = d.toISOString().split('T')[0];
-    const end = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
-    url += `startDate=${start}&endDate=${end}`;
+  const now = new Date();
+  const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const month = now.getMonth() === 0 ? 12 : now.getMonth();
+  const start = `${year}-${String(month).padStart(2,'0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  url += `startDate=${start}&endDate=${end}`;
   } else if (filter === 'thisyear') {
     url += `year=${now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear()-1}`;
   } else {
@@ -10127,8 +10143,236 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
     console.error(err);
   }
 }
-  </script>
+let currentBulkTab = 'private';
 
+function switchBulkTab(tab) {
+  currentBulkTab = tab;
+  document.getElementById('bulkPrivateTab').style.display = tab === 'private' ? 'block' : 'none';
+  document.getElementById('bulkGroupTab').style.display = tab === 'group' ? 'block' : 'none';
+  document.getElementById('bulkTabPrivate').style.background = tab === 'private' ? '#667eea' : '#e2e8f0';
+  document.getElementById('bulkTabPrivate').style.color = tab === 'private' ? 'white' : '#4a5568';
+  document.getElementById('bulkTabGroup').style.background = tab === 'group' ? '#667eea' : '#e2e8f0';
+  document.getElementById('bulkTabGroup').style.color = tab === 'group' ? 'white' : '#4a5568';
+}
+
+function openBulkReschedule() {
+  // Populate student dropdown
+  const studentSelect = document.getElementById('bulkRescheduleStudent');
+  studentSelect.innerHTML = '<option value="">Select student...</option>' +
+    allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+  // Populate group dropdown
+  const groupSelect = document.getElementById('bulkRescheduleGroup');
+  groupSelect.innerHTML = '<option value="">Select group...</option>';
+  fetch('/api/groups').then(r => r.json()).then(groups => {
+    groupSelect.innerHTML += groups.map(g =>
+      `<option value="${g.id}">${g.group_name}</option>`
+    ).join('');
+  });
+
+  switchBulkTab('private');
+  document.getElementById('bulkRescheduleModal').classList.add('active');
+}
+
+function closeBulkReschedule() {
+  document.getElementById('bulkRescheduleModal').classList.remove('active');
+  document.getElementById('bulkRescheduleList').innerHTML = '';
+  document.getElementById('bulkGroupRescheduleList').innerHTML = '';
+}
+
+async function loadGroupSessionsForBulkReschedule() {
+  const groupId = document.getElementById('bulkRescheduleGroup').value;
+  if (!groupId) return;
+
+  // Get all upcoming group sessions
+  const res = await fetch(`/api/calendar/sessions?start=2020-01-01&end=2030-12-31`);
+  const data = await res.json();
+  const groupSessions = (data.groupSessions || [])
+    .filter(s => s.group_id == groupId && (s.status === 'Pending' || s.status === 'Scheduled'))
+    .sort((a, b) => new Date(a.session_date) - new Date(b.session_date));
+
+  if (groupSessions.length === 0) {
+    document.getElementById('bulkGroupRescheduleList').innerHTML =
+      '<p style="color:#718096;">No upcoming sessions for this group</p>';
+    return;
+  }
+
+  document.getElementById('bulkGroupRescheduleList').innerHTML = `
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f7fafc;">
+          <th style="padding:10px; text-align:left;">Session</th>
+          <th style="padding:10px; text-align:left;">Current Date</th>
+          <th style="padding:10px; text-align:left;">New Date</th>
+          <th style="padding:10px; text-align:left;">New Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${groupSessions.map(s => `
+          <tr style="border-bottom:1px solid #e2e8f0;">
+            <td style="padding:10px;">#${s.session_number}</td>
+            <td style="padding:10px; color:#718096;">
+              ${new Date(s.session_date).toLocaleDateString('en-IN')}
+            </td>
+            <td style="padding:10px;">
+              <input type="date" class="bulk-group-new-date"
+                data-session-id="${s.id}"
+                data-old-date="${new Date(s.session_date).toLocaleDateString('en-IN')}"
+                data-session-number="${s.session_number}"
+                value="${s.session_date ? s.session_date.split('T')[0] : ''}"
+                style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;">
+            </td>
+            <td style="padding:10px;">
+              <input type="time" class="bulk-group-new-time"
+                data-session-id="${s.id}"
+                value="${s.session_time ? s.session_time.substring(0,5) : ''}"
+                style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;">
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function submitBulkReschedule() {
+  const sendEmail = document.getElementById('bulkRescheduleSendEmail').checked;
+
+  if (currentBulkTab === 'private') {
+    // Private reschedule
+    const dateInputs = document.querySelectorAll('.bulk-new-date');
+    const sessions = [];
+    dateInputs.forEach(inp => {
+      const sessionId = inp.dataset.sessionId;
+      const newDate = inp.value;
+      const timeInp = document.querySelector(`.bulk-new-time[data-session-id="${sessionId}"]`);
+      const newTime = timeInp?.value;
+      if (newDate && newTime) {
+        sessions.push({ session_id: sessionId, new_date: newDate, new_time: newTime });
+      }
+    });
+
+    if (sessions.length === 0) return alert('No sessions to reschedule');
+
+    try {
+      const res = await fetch('/api/sessions/bulk-reschedule', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ sessions, send_email: sendEmail })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('✅ ' + result.message);
+        closeBulkReschedule();
+        loadUpcomingClasses();
+        loadCalendar();
+      } else {
+        alert('❌ ' + result.error);
+      }
+    } catch(err) {
+      alert('❌ Error: ' + err.message);
+    }
+
+  } else {
+    // Group reschedule
+    const groupId = document.getElementById('bulkRescheduleGroup').value;
+    if (!groupId) return alert('Please select a group');
+
+    const dateInputs = document.querySelectorAll('.bulk-group-new-date');
+    const sessions = [];
+    dateInputs.forEach(inp => {
+      const sessionId = inp.dataset.sessionId;
+      const newDate = inp.value;
+      const timeInp = document.querySelector(`.bulk-group-new-time[data-session-id="${sessionId}"]`);
+      const newTime = timeInp?.value;
+      if (newDate && newTime) {
+        sessions.push({
+          session_id: sessionId,
+          new_date: newDate,
+          new_time: newTime,
+          old_date: inp.dataset.oldDate,
+          session_number: inp.dataset.sessionNumber
+        });
+      }
+    });
+
+    if (sessions.length === 0) return alert('No sessions to reschedule');
+
+    try {
+      const res = await fetch('/api/sessions/bulk-reschedule-group', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ sessions, send_email: sendEmail, group_id: groupId })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert('✅ ' + result.message);
+        closeBulkReschedule();
+        loadUpcomingClasses();
+        loadCalendar();
+      } else {
+        alert('❌ ' + result.error);
+      }
+    } catch(err) {
+      alert('❌ Error: ' + err.message);
+    }
+  }
+}
+
+  </script>
+<div id="bulkRescheduleModal" class="modal-overlay">
+  <div class="modal" style="max-width: 750px;">
+    <div class="modal-header">
+      <h2>📅 Bulk Reschedule Classes</h2>
+      <button onclick="closeBulkReschedule()" class="close-btn">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Tabs -->
+      <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <button id="bulkTabPrivate" onclick="switchBulkTab('private')"
+          style="padding:8px 20px; border-radius:20px; border:none; cursor:pointer; background:#667eea; color:white; font-weight:600;">
+          👤 Private
+        </button>
+        <button id="bulkTabGroup" onclick="switchBulkTab('group')"
+          style="padding:8px 20px; border-radius:20px; border:none; cursor:pointer; background:#e2e8f0; color:#4a5568; font-weight:600;">
+          👥 Group
+        </button>
+      </div>
+
+      <!-- Private Tab -->
+      <div id="bulkPrivateTab">
+        <div style="margin-bottom:15px;">
+          <label>Select Student</label>
+          <select id="bulkRescheduleStudent" onchange="loadSessionsForBulkReschedule()" class="form-control">
+            <option value="">Select student...</option>
+          </select>
+        </div>
+        <div id="bulkRescheduleList" style="max-height:400px; overflow-y:auto;"></div>
+      </div>
+
+      <!-- Group Tab -->
+      <div id="bulkGroupTab" style="display:none;">
+        <div style="margin-bottom:15px;">
+          <label>Select Group</label>
+          <select id="bulkRescheduleGroup" onchange="loadGroupSessionsForBulkReschedule()" class="form-control">
+            <option value="">Select group...</option>
+          </select>
+        </div>
+        <div id="bulkGroupRescheduleList" style="max-height:400px; overflow-y:auto;"></div>
+      </div>
+
+      <label style="display:flex; align-items:center; gap:10px; margin-top:15px; cursor:pointer;">
+        <input type="checkbox" id="bulkRescheduleSendEmail" checked style="width:18px; height:18px;">
+        <span>Send reschedule email to parent(s)</span>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button onclick="submitBulkReschedule()" id="bulkSubmitBtn" class="btn btn-primary">📅 Reschedule All</button>
+      <button onclick="closeBulkReschedule()" class="btn" style="background:#718096; color:white;">Cancel</button>
+    </div>
+  </div>
+</div>
       <!-- Footer -->
       <footer style="background: white; padding: 20px; text-align: center; margin: 30px 0 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
         <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>

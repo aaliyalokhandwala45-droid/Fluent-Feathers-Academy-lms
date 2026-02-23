@@ -5404,7 +5404,17 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+// Renumber remaining sessions for this student
+await pool.query(`
+  WITH numbered AS (
+    SELECT id,
+      ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY session_date ASC, session_time ASC) as new_number
+    FROM sessions
+    WHERE session_type = 'Private' AND student_id = $1
+  )
+  UPDATE sessions SET session_number = numbered.new_number
+  FROM numbered WHERE sessions.id = numbered.id
+`, [studentId]);
 // Update a session
 app.put('/api/sessions/:sessionId', async (req, res) => {
   const { date, time } = req.body;
@@ -5848,10 +5858,15 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     const converted = istToUTC(new_date, new_time);
 
     // Update the session with new date and time
-    await client.query(
-      'UPDATE sessions SET session_date = $1, session_time = $2, status = $3 WHERE id = $4',
-      [converted.date, converted.time, 'Scheduled', sessionId]
-    );
+    await client.query(`
+  UPDATE sessions SET
+    session_date = $1,
+    session_time = $2,
+    original_date = COALESCE(original_date, $3),
+    original_time = COALESCE(original_time, $4)
+  WHERE id = $5
+`, [utc.date, utc.time, oldDate, oldTime, sessionId]);
+  
 
     // Clear old reminder email logs for this session so new reminders can be sent
     await client.query(
@@ -9992,7 +10007,189 @@ process.on('SIGINT', async () => {
   }
   process.exit(0);
 });
+app.post('/api/sessions/bulk-reschedule', async (req, res) => {
+  const { sessions } = req.body;
+  // sessions = [{ session_id, new_date, new_time }]
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const rescheduled = [];
+    for (const s of sessions) {
+      // Get old session
+      const old = await client.query('SELECT * FROM sessions WHERE id = $1', [s.session_id]);
+      if (old.rows.length === 0) continue;
+      const session = old.rows[0];
+      
+      // Convert to UTC
+      const utc = istToUTC(s.new_date, s.new_time);
+      
+      // Save old date, update new
+      await client.query(`
+        UPDATE sessions SET
+          session_date = $1,
+          session_time = $2,
+          original_date = COALESCE(original_date, session_date),
+          original_time = COALESCE(original_time, session_time)
+        WHERE id = $3
+      `, [utc.date, utc.time, s.session_id]);
 
+      // Clear old reminder logs
+      await client.query(
+        `DELETE FROM email_log WHERE subject LIKE $1`,
+        [`%[SID:${s.session_id}]%`]
+      );
+
+      rescheduled.push(session);
+    }
+
+    await client.query('COMMIT');
+
+    // Send emails if requested
+    if (req.body.send_email) {
+      // Group sessions by student to send one email per student
+      const studentSessions = {};
+      for (const session of rescheduled) {
+        const sid = session.student_id || session.group_id;
+        if (!studentSessions[sid]) studentSessions[sid] = [];
+        studentSessions[sid].push(session);
+      }
+
+      for (const [sid, sessions] of Object.entries(studentSessions)) {
+        const student = await pool.query('SELECT * FROM students WHERE id = $1', [sid]);
+        if (!student.rows[0]?.parent_email) continue;
+        
+        const s = student.rows[0];
+        const sessionRows = sessions.map(sess => {
+          const local = formatUTCToLocal(sess.session_date, sess.session_time, s.timezone);
+          return `<tr>
+            <td style="padding:10px;">Session #${sess.session_number}</td>
+            <td style="padding:10px;">${local.date}</td>
+            <td style="padding:10px;"><strong>${local.time}</strong></td>
+          </tr>`;
+        }).join('');
+
+        await sendEmail(
+          s.parent_email,
+          `📅 Classes Rescheduled - ${s.name}`,
+          getRescheduleEmailTemplate({
+            parentName: s.parent_name,
+            studentName: s.name,
+            sessionRows
+          }),
+          s.parent_name,
+          'Reschedule'
+        );
+      }
+    }
+
+    res.json({ success: true, message: `${sessions.length} sessions rescheduled successfully!` });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
+  const { sessions, send_email } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    for (const s of sessions) {
+      const utc = istToUTC(s.new_date, s.new_time);
+      await client.query(`
+        UPDATE sessions SET
+          session_date = $1,
+          session_time = $2,
+          original_date = COALESCE(original_date, session_date),
+          original_time = COALESCE(original_time, session_time)
+        WHERE id = $3
+      `, [utc.date, utc.time, s.session_id]);
+
+      // Clear old reminder logs
+      await client.query(
+        `DELETE FROM email_log WHERE subject LIKE $1`,
+        [`%[SID:${s.session_id}]%`]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Send ONE email per student in the group
+    if (send_email && req.body.group_id) {
+      const groupStudents = await pool.query(`
+        SELECT s.* FROM students s
+        JOIN group_students gs ON gs.student_id = s.id
+        WHERE gs.group_id = $1 AND s.is_active = true
+      `, [req.body.group_id]);
+
+      const group = await pool.query('SELECT * FROM groups WHERE id = $1', [req.body.group_id]);
+      const groupName = group.rows[0]?.group_name || 'Group';
+
+      for (const student of groupStudents.rows) {
+        if (!student.parent_email) continue;
+
+        const sessionRows = sessions.map(s => {
+          const local = formatUTCToLocal(
+            istToUTC(s.new_date, s.new_time).date,
+            istToUTC(s.new_date, s.new_time).time,
+            student.timezone || 'Asia/Kolkata'
+          );
+          return `<tr>
+            <td style="padding:10px;">Session #${s.session_number}</td>
+            <td style="padding:10px; color:#718096;">${s.old_date}</td>
+            <td style="padding:10px; color:#38a169;"><strong>${local.date}</strong></td>
+            <td style="padding:10px;"><strong style="color:#667eea;">${local.time}</strong></td>
+          </tr>`;
+        }).join('');
+
+        await sendEmail(
+          student.parent_email,
+          `📅 Group Classes Rescheduled - ${groupName}`,
+          `<!DOCTYPE html>
+<html>
+<body style="font-family:'Segoe UI',sans-serif; background:#f0f4f8; margin:0; padding:20px;">
+  <div style="max-width:600px; margin:0 auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#667eea,#764ba2); padding:30px; text-align:center;">
+      <h1 style="color:white; margin:0;">📅 Classes Rescheduled</h1>
+      <p style="color:rgba(255,255,255,0.9); margin-top:8px;">${groupName}</p>
+    </div>
+    <div style="padding:30px;">
+      <p>Dear <strong>${student.parent_name}</strong>,</p>
+      <p>The following group classes for <strong>${student.name}</strong> have been rescheduled:</p>
+      <table style="width:100%; border-collapse:collapse; margin:20px 0;">
+        <thead>
+          <tr style="background:#f7fafc;">
+            <th style="padding:10px; text-align:left;">Session</th>
+            <th style="padding:10px; text-align:left;">Old Date</th>
+            <th style="padding:10px; text-align:left;">New Date</th>
+            <th style="padding:10px; text-align:left;">New Time</th>
+          </tr>
+        </thead>
+        <tbody>${sessionRows}</tbody>
+      </table>
+      <p style="color:#718096; font-size:14px;">Please update your calendar accordingly.</p>
+      <p>Best regards,<br><strong style="color:#B05D9E;">Team Fluent Feathers Academy</strong></p>
+    </div>
+  </div>
+</body>
+</html>`,
+          student.parent_name,
+          'Reschedule'
+        );
+      }
+    }
+
+    res.json({ success: true, message: `${sessions.length} group sessions rescheduled!` });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
 app.listen(PORT, () => {
   console.log(`🚀 LMS Running on port ${PORT}`);
   startKeepAlive();
