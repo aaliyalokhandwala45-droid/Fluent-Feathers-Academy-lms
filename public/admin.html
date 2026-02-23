@@ -389,6 +389,14 @@
         <div class="stat-card" onclick="showTab('challenges', event)" style="cursor: pointer; border-left-color: #805ad5;"><h3>🎯 Pending Challenges</h3><div class="value" id="pendingChallenges" style="color: #805ad5;">0</div></div>
       </div>
 
+      <!-- Upcoming classes section (now a proper tab) -->
+      <div id="upcomingTab" class="tab-content active">
+        <div class="section">
+          <h2>📅 Upcoming Classes</h2>
+          <div id="upcomingClassesGrid" class="upcoming-classes-grid">Loading...</div>
+        </div>
+      </div>
+
       <!-- Old tabs - HIDDEN (using sidebar navigation instead) -->
       <div class="tabs" style="display: none !important;">
         <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
@@ -750,6 +758,7 @@
     </div>
 
    
+      <div id="scheduleTab" class="tab-content">
         <!-- Private Class Scheduling -->
         <form id="schedulePrivateForm">
           <div class="form-group"><label>Select Student *</label><select id="scheduleStudent" required><option value="">Select student...</option></select></div>
@@ -973,19 +982,70 @@
     </div>
 
     <div id="scheduleManagerTab" class="tab-content">
-      <button onclick="openBulkReschedule()" class="btn" 
-  style="background: linear-gradient(135deg, #667eea, #764ba2); color:white; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-weight:600; margin-bottom:15px;">
-  📅 Bulk Reschedule
-</button>
-      <div class="section">
-        <h2>📋 Manage Student Schedules</h2>
-        <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
-          <label>Select Student</label>
-          <select id="manageScheduleStudent" onchange="loadStudentSchedule()">
-            <option value="">Select student...</option>
-          </select>
+      <!-- subtabs for manage/bulk -->
+      <div id="manageSubTabs" style="display:flex; gap:10px; margin-bottom:15px;">
+        <button id="manageTabList" class="btn subtab active" onclick="showManageSubTab('list')">👤 Manage Schedules</button>
+        <button id="manageTabBulk" class="btn subtab" onclick="showManageSubTab('bulk')">📅 Bulk Reschedule</button>
+      </div>
+      <!-- list section -->
+      <div id="manageSubList">
+        <div class="section">
+          <h2>📋 Manage Student Schedules</h2>
+          <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+            <label>Select Student</label>
+            <select id="manageScheduleStudent" onchange="loadStudentSchedule()">
+              <option value="">Select student...</option>
+            </select>
+          </div>
+          <div id="studentScheduleContainer"></div>
         </div>
-        <div id="studentScheduleContainer"></div>
+      </div>
+      <!-- bulk reschedule section (hidden by default) -->
+      <div id="manageSubBulk" style="display:none;">
+        <div style="padding:20px 0;">
+          <!-- Tabs inside bulk -->
+          <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <button id="bulkTabPrivate" onclick="switchBulkTab('private')"
+              style="padding:8px 20px; border-radius:20px; border:none; cursor:pointer; background:#667eea; color:white; font-weight:600;">
+              👤 Private
+            </button>
+            <button id="bulkTabGroup" onclick="switchBulkTab('group')"
+              style="padding:8px 20px; border-radius:20px; border:none; cursor:pointer; background:#e2e8f0; color:#4a5568; font-weight:600;">
+              👥 Group
+            </button>
+          </div>
+
+          <!-- Private Tab -->
+          <div id="bulkPrivateTab">
+            <div style="margin-bottom:15px;">
+              <label style="font-weight:600; color:#4a5568;">Select Student</label>
+              <select id="bulkRescheduleStudent" onchange="loadSessionsForBulkReschedule()" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-top:5px;">
+                <option value="">Select student...</option>
+              </select>
+            </div>
+            <div id="bulkRescheduleList" style="max-height:400px; overflow-y:auto;"></div>
+          </div>
+
+          <!-- Group Tab -->
+          <div id="bulkGroupTab" style="display:none;">
+            <div style="margin-bottom:15px;">
+              <label style="font-weight:600; color:#4a5568;">Select Group</label>
+              <select id="bulkRescheduleGroup" onchange="loadGroupSessionsForBulkReschedule()" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-top:5px;">
+                <option value="">Select group...</option>
+              </select>
+            </div>
+            <div id="bulkGroupRescheduleList" style="max-height:400px; overflow-y:auto;"></div>
+          </div>
+
+          <label style="display:flex; align-items:center; gap:10px; margin-top:15px; cursor:pointer;">
+            <input type="checkbox" id="bulkRescheduleSendEmail" checked style="width:18px; height:18px;">
+            <span>Send reschedule email to parent(s)</span>
+          </label>
+        </div>
+        <div style="padding:15px 0 0; display:flex; gap:10px;">
+          <button onclick="submitBulkReschedule()" style="background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; padding:10px 25px; border-radius:8px; cursor:pointer; font-weight:600;">📅 Reschedule All</button>
+          <button onclick="showManageSubTab('list')" style="background:#718096; color:white; border:none; padding:10px 25px; border-radius:8px; cursor:pointer;">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -10140,29 +10200,41 @@ function switchBulkTab(tab) {
   document.getElementById('bulkTabGroup').style.color = tab === 'group' ? 'white' : '#4a5568';
 }
 
-function openBulkReschedule() {
-  // Populate student dropdown
-  const studentSelect = document.getElementById('bulkRescheduleStudent');
-  studentSelect.innerHTML = '<option value="">Select student...</option>' +
-    allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-
-  // Populate group dropdown
-  const groupSelect = document.getElementById('bulkRescheduleGroup');
-  groupSelect.innerHTML = '<option value="">Select group...</option>';
-  fetch('/api/groups').then(r => r.json()).then(groups => {
-    groupSelect.innerHTML += groups.map(g =>
-      `<option value="${g.id}">${g.group_name}</option>`
-    ).join('');
-  });
-
-  switchBulkTab('private');
-  document.getElementById('bulkRescheduleModal').classList.add('active');
+function showManageSubTab(name) {
+  // toggle between list view and bulk reschedule view inside manage schedule tab
+  const listEl = document.getElementById('manageSubList');
+  const bulkEl = document.getElementById('manageSubBulk');
+  const tabList = document.getElementById('manageTabList');
+  const tabBulk = document.getElementById('manageTabBulk');
+  if (name === 'bulk') {
+    listEl.style.display = 'none';
+    bulkEl.style.display = 'block';
+    tabList.classList.remove('active');
+    tabBulk.classList.add('active');
+    // prepare dropdowns
+    const studentSelect = document.getElementById('bulkRescheduleStudent');
+    studentSelect.innerHTML = '<option value="">Select student...</option>' +
+      allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    const groupSelect = document.getElementById('bulkRescheduleGroup');
+    groupSelect.innerHTML = '<option value="">Select group...</option>';
+    fetch('/api/groups').then(r => r.json()).then(groups => {
+      groupSelect.innerHTML += groups.map(g =>
+        `<option value="${g.id}">${g.group_name}</option>`
+      ).join('');
+    });
+    switchBulkTab('private');
+  } else {
+    listEl.style.display = 'block';
+    bulkEl.style.display = 'none';
+    tabList.classList.add('active');
+    tabBulk.classList.remove('active');
+  }
 }
 
+// existing closeBulkReschedule behaviour repurposed
 function closeBulkReschedule() {
-  document.getElementById('bulkRescheduleModal').classList.remove('active');
-  document.getElementById('bulkRescheduleList').innerHTML = '';
-  document.getElementById('bulkGroupRescheduleList').innerHTML = '';
+  // just go back to the manage list subtab
+  showManageSubTab('list');
 }
 
 async function loadGroupSessionsForBulkReschedule() {
@@ -10307,61 +10379,6 @@ async function submitBulkReschedule() {
 
   </script>
 
-  <!-- Bulk Reschedule Modal - MUST be inside body, before </body> -->
-  <div id="bulkRescheduleModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background:white; border-radius:16px; max-width:750px; width:95%; max-height:90vh; overflow-y:auto; margin:auto;">
-      <div style="padding:20px 25px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-        <h2 style="margin:0; color:#2d3748;">📅 Bulk Reschedule Classes</h2>
-        <button onclick="closeBulkReschedule()" style="background:#e53e3e; color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:18px;">×</button>
-      </div>
-      <div style="padding:20px;">
-
-        <!-- Tabs -->
-        <div style="display:flex; gap:10px; margin-bottom:20px;">
-          <button id="bulkTabPrivate" onclick="switchBulkTab('private')"
-            style="padding:8px 20px; border-radius:20px; border:none; cursor:pointer; background:#667eea; color:white; font-weight:600;">
-            👤 Private
-          </button>
-          <button id="bulkTabGroup" onclick="switchBulkTab('group')"
-            style="padding:8px 20px; border-radius:20px; border:none; cursor:pointer; background:#e2e8f0; color:#4a5568; font-weight:600;">
-            👥 Group
-          </button>
-        </div>
-
-        <!-- Private Tab -->
-        <div id="bulkPrivateTab">
-          <div style="margin-bottom:15px;">
-            <label style="font-weight:600; color:#4a5568;">Select Student</label>
-            <select id="bulkRescheduleStudent" onchange="loadSessionsForBulkReschedule()" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-top:5px;">
-              <option value="">Select student...</option>
-            </select>
-          </div>
-          <div id="bulkRescheduleList" style="max-height:400px; overflow-y:auto;"></div>
-        </div>
-
-        <!-- Group Tab -->
-        <div id="bulkGroupTab" style="display:none;">
-          <div style="margin-bottom:15px;">
-            <label style="font-weight:600; color:#4a5568;">Select Group</label>
-            <select id="bulkRescheduleGroup" onchange="loadGroupSessionsForBulkReschedule()" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-top:5px;">
-              <option value="">Select group...</option>
-            </select>
-          </div>
-          <div id="bulkGroupRescheduleList" style="max-height:400px; overflow-y:auto;"></div>
-        </div>
-
-        <label style="display:flex; align-items:center; gap:10px; margin-top:15px; cursor:pointer;">
-          <input type="checkbox" id="bulkRescheduleSendEmail" checked style="width:18px; height:18px;">
-          <span>Send reschedule email to parent(s)</span>
-        </label>
-      </div>
-
-      <div style="padding:15px 20px; border-top:1px solid #e2e8f0; display:flex; gap:10px;">
-        <button onclick="submitBulkReschedule()" style="background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; padding:10px 25px; border-radius:8px; cursor:pointer; font-weight:600;">📅 Reschedule All</button>
-        <button onclick="closeBulkReschedule()" style="background:#718096; color:white; border:none; padding:10px 25px; border-radius:8px; cursor:pointer;">Cancel</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Footer -->
   <footer style="background: white; padding: 20px; text-align: center; margin: 30px 0 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">

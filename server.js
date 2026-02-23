@@ -4062,7 +4062,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       ORDER BY demo_date ASC, demo_time ASC
     `, [DEFAULT_CLASS]);
 
-    // Combine all
+    // Combine all types: private, group, events, demos
     const all = [...priv.rows, ...grp.rows, ...events.rows, ...demos.rows];
 
     // Filter and sort by UTC datetime (since database stores UTC)
@@ -5428,8 +5428,7 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-                      // ← route ends here (after the renumber query)
-// Update a session
+
 app.put('/api/sessions/:sessionId', async (req, res) => {
   const { date, time } = req.body;
   try {
