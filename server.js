@@ -5396,25 +5396,39 @@ app.get('/api/sessions/search-by-name', async (req, res) => {
 // Delete a session
 app.delete('/api/sessions/:sessionId', async (req, res) => {
   try {
-    // Also delete related session_materials
+    // Get studentId BEFORE deleting
+    const sessionResult = await pool.query(
+      'SELECT student_id FROM sessions WHERE id = $1', 
+      [req.params.sessionId]
+    );
+    const studentId = sessionResult.rows[0]?.student_id;
+
+    // Delete related session_materials
     await pool.query('DELETE FROM session_materials WHERE session_id = $1', [req.params.sessionId]);
+    
+    // Delete the session
     await pool.query('DELETE FROM sessions WHERE id = $1', [req.params.sessionId]);
+
+    // Renumber remaining sessions for this student
+    if (studentId) {
+      await pool.query(`
+        WITH numbered AS (
+          SELECT id,
+          ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY session_date ASC, session_time ASC) AS new_number
+          FROM sessions
+          WHERE session_type = 'Private' AND student_id = $1
+        )
+        UPDATE sessions SET session_number = numbered.new_number
+        FROM numbered WHERE sessions.id = numbered.id
+      `, [studentId]);
+    }
+
     res.json({ success: true, message: 'Session deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-// Renumber remaining sessions for this student
-await pool.query(`
-  WITH numbered AS (
-    SELECT id,
-      ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY session_date ASC, session_time ASC) as new_number
-    FROM sessions
-    WHERE session_type = 'Private' AND student_id = $1
-  )
-  UPDATE sessions SET session_number = numbered.new_number
-  FROM numbered WHERE sessions.id = numbered.id
-`, [studentId]);
+                      // ← route ends here (after the renumber query)
 // Update a session
 app.put('/api/sessions/:sessionId', async (req, res) => {
   const { date, time } = req.body;
