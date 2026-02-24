@@ -575,6 +575,7 @@ async function initializeDatabase() {
         primary_contact TEXT,
         alternate_contact TEXT,
         timezone TEXT DEFAULT 'Asia/Kolkata',
+        parent_timezone TEXT DEFAULT 'Asia/Kolkata',
         program_name TEXT,
         class_type TEXT,
         duration TEXT,
@@ -763,6 +764,8 @@ async function initializeDatabase() {
         program_interest TEXT,
         demo_date DATE,
         demo_time TIME,
+        student_timezone TEXT DEFAULT 'Asia/Kolkata',
+        parent_timezone TEXT DEFAULT 'Asia/Kolkata',
         source TEXT,
         notes TEXT,
         status TEXT DEFAULT 'Scheduled',
@@ -1087,6 +1090,8 @@ async function runMigrations() {
           program_interest TEXT,
           demo_date DATE,
           demo_time TIME,
+          student_timezone TEXT DEFAULT 'Asia/Kolkata',
+          parent_timezone TEXT DEFAULT 'Asia/Kolkata',
           source TEXT,
           notes TEXT,
           status TEXT DEFAULT 'Scheduled',
@@ -1496,6 +1501,19 @@ async function runMigrations() {
       console.log('Migration 35 note:', err.message);
     }
 
+    // Migration 36: Add parent/student timezone columns for localized demo and portal views
+    try {
+      await client.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_timezone TEXT DEFAULT 'Asia/Kolkata'");
+      await client.query("UPDATE students SET parent_timezone = COALESCE(parent_timezone, timezone, 'Asia/Kolkata') WHERE parent_timezone IS NULL");
+      await client.query("ALTER TABLE demo_leads ADD COLUMN IF NOT EXISTS student_timezone TEXT DEFAULT 'Asia/Kolkata'");
+      await client.query("ALTER TABLE demo_leads ADD COLUMN IF NOT EXISTS parent_timezone TEXT DEFAULT 'Asia/Kolkata'");
+      await client.query("UPDATE demo_leads SET student_timezone = COALESCE(student_timezone, 'Asia/Kolkata') WHERE student_timezone IS NULL");
+      await client.query("UPDATE demo_leads SET parent_timezone = COALESCE(parent_timezone, student_timezone, 'Asia/Kolkata') WHERE parent_timezone IS NULL");
+      console.log('✅ Migration 36: Added parent/student timezone columns');
+    } catch (err) {
+      console.log('Migration 36 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -1872,6 +1890,9 @@ function getAnnouncementEmail(data) {
 }
 
 function getDemoConfirmationEmail(data) {
+  const studentTimezoneLabel = data.demoTimezoneLabel || 'Student Local Time';
+  const parentTimezoneLabel = data.parentTimezoneLabel || studentTimezoneLabel;
+
   const bioHtml = data.adminBio ? `
     <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
       <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 18px;">👋 Class Your Instructor</h3>
@@ -1907,7 +1928,9 @@ function getDemoConfirmationEmail(data) {
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; margin: 25px 0; border-radius: 12px; text-align: center;">
         <h3 style="margin: 0 0 15px; font-size: 16px; opacity: 0.9;">📅 Demo Class Details</h3>
         <p style="margin: 0 0 8px; font-size: 20px; font-weight: bold;">${data.demoDate}</p>
-        <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${data.demoTime} IST</p>
+        <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${data.demoTime}</p>
+        <p style="margin: 8px 0 0; font-size: 13px; opacity: 0.9;">Student Time: ${studentTimezoneLabel}</p>
+        ${data.parentDemoTime ? `<p style="margin: 12px 0 0; font-size: 15px; opacity: 0.95;">Parent Local Time: <strong>${data.parentDemoDate || data.demoDate}, ${data.parentDemoTime}</strong> (${parentTimezoneLabel})</p>` : ''}
         <p style="margin: 15px 0 0; font-size: 14px; opacity: 0.9;">Program: ${data.programInterest}</p>
         ${data.classLink ? `<a href="${data.classLink}" style="display: inline-block; margin-top: 20px; background: white; color: #667eea; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">🎥 Join Demo Class</a>` : ''}
       </div>
@@ -3375,7 +3398,7 @@ async function checkAndSendReminders() {
       SELECT id, child_name as student_name, parent_email, parent_name,
              demo_date as session_date, demo_time as session_time,
              CONCAT(demo_date, 'T', demo_time, 'Z') as full_datetime,
-             1 as session_number, 'Asia/Kolkata' as timezone,
+             1 as session_number, COALESCE(parent_timezone, student_timezone, 'Asia/Kolkata') as timezone,
              COALESCE(program_interest, 'Demo Class') as program_interest
       FROM demo_leads
       WHERE status IN ('Scheduled', 'Demo Scheduled', 'Pending')
@@ -4235,22 +4258,25 @@ app.get('/api/demo-leads', async (req, res) => {
 
 // Add new demo lead
 app.post('/api/demo-leads', async (req, res) => {
-  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, notes, send_email } = req.body;
+  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, notes, send_email } = req.body;
   try {
+    const studentTimezone = student_timezone || 'Asia/Kolkata';
+    const parentTimezone = parent_timezone || studentTimezone || 'Asia/Kolkata';
+
     // Convert demo date/time to UTC
     let utcDate = demo_date;
     let utcTime = demo_time;
     if (demo_date && demo_time) {
-      const utc = istToUTC(demo_date, demo_time);
+      const utc = istToUTC(demo_date, demo_time, studentTimezone);
       utcDate = utc.date;
       utcTime = utc.time;
     }
 
     const r = await pool.query(`
-      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, notes, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Scheduled')
+      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, notes, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Scheduled')
       RETURNING *
-    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, utcDate, utcTime, source, notes]);
+    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, utcDate, utcTime, studentTimezone, parentTimezone, source, notes]);
 
     let emailSent = false;
 
@@ -4264,15 +4290,18 @@ app.post('/api/demo-leads', async (req, res) => {
           settings[row.setting_key] = row.setting_value;
         });
 
-        // Format date and time for display (IST)
-        const displayDate = new Date(demo_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        const displayTime = demo_time;
+        const studentLocal = formatUTCToLocal(utcDate, utcTime, studentTimezone);
+        const parentLocal = formatUTCToLocal(utcDate, utcTime, parentTimezone);
 
         const emailHtml = getDemoConfirmationEmail({
           parentName: parent_name || 'Parent',
           childName: child_name,
-          demoDate: displayDate,
-          demoTime: displayTime,
+          demoDate: studentLocal.date,
+          demoTime: studentLocal.time,
+          demoTimezoneLabel: getTimezoneLabel(studentTimezone),
+          parentDemoDate: parentLocal.date,
+          parentDemoTime: parentLocal.time,
+          parentTimezoneLabel: getTimezoneLabel(parentTimezone),
           programInterest: program_interest || 'English Communication',
           adminName: settings.admin_name || 'Aaliya',
           adminTitle: settings.admin_title || 'Founder & Lead Instructor',
@@ -4323,9 +4352,12 @@ app.put('/api/demo-leads/:id/status', async (req, res) => {
 
 // Update demo lead details (edit)
 app.put('/api/demo-leads/:id', async (req, res) => {
-  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, source, status, notes, send_email } = req.body;
+  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, status, notes, send_email } = req.body;
 
   try {
+    const studentTimezone = student_timezone || 'Asia/Kolkata';
+    const parentTimezone = parent_timezone || studentTimezone || 'Asia/Kolkata';
+
     // Get original lead data for comparison
     const originalLead = await pool.query('SELECT * FROM demo_leads WHERE id = $1', [req.params.id]);
     if (originalLead.rows.length === 0) {
@@ -4333,11 +4365,13 @@ app.put('/api/demo-leads/:id', async (req, res) => {
     }
     const original = originalLead.rows[0];
 
-    // Convert demo time to UTC for storage
+    // Convert demo date/time to UTC for storage
+    let utcDate = demo_date;
     let utcTime = demo_time;
     if (demo_date && demo_time) {
-      const istDateTime = new Date(`${demo_date}T${demo_time}:00+05:30`);
-      utcTime = istDateTime.toISOString().substr(11, 5);
+      const utc = istToUTC(demo_date, demo_time, studentTimezone);
+      utcDate = utc.date;
+      utcTime = utc.time;
     }
 
     // Update the demo lead
@@ -4345,14 +4379,15 @@ app.put('/api/demo-leads/:id', async (req, res) => {
       UPDATE demo_leads
       SET child_name = $1, child_grade = $2, parent_name = $3, parent_email = $4,
           phone = $5, program_interest = $6, demo_date = $7, demo_time = $8,
-          source = $9, status = $10, notes = $11, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $12
+          student_timezone = $9, parent_timezone = $10,
+          source = $11, status = $12, notes = $13, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $14
       RETURNING *
-    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, utcTime, source, status, notes, req.params.id]);
+    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, utcDate, utcTime, studentTimezone, parentTimezone, source, status, notes, req.params.id]);
 
     // Send updated confirmation email if requested and date/time changed
     let emailSent = false;
-    if (send_email && parent_email && (original.demo_date !== demo_date || original.demo_time !== utcTime)) {
+    if (send_email && parent_email && (original.demo_date !== utcDate || original.demo_time !== utcTime || original.student_timezone !== studentTimezone || original.parent_timezone !== parentTimezone)) {
       try {
         // Get admin settings for email
         const settingsResult = await pool.query('SELECT setting_key, setting_value FROM admin_settings');
@@ -4361,15 +4396,18 @@ app.put('/api/demo-leads/:id', async (req, res) => {
           settings[row.setting_key] = row.setting_value;
         });
 
-        // Format date and time for display
-        const displayDate = new Date(demo_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        const displayTime = demo_time;
+        const studentLocal = formatUTCToLocal(utcDate, utcTime, studentTimezone);
+        const parentLocal = formatUTCToLocal(utcDate, utcTime, parentTimezone);
 
         const emailHtml = getDemoConfirmationEmail({
           parentName: parent_name || 'Parent',
           childName: child_name,
-          demoDate: displayDate,
-          demoTime: displayTime,
+          demoDate: studentLocal.date,
+          demoTime: studentLocal.time,
+          demoTimezoneLabel: getTimezoneLabel(studentTimezone),
+          parentDemoDate: parentLocal.date,
+          parentDemoTime: parentLocal.time,
+          parentTimezoneLabel: getTimezoneLabel(parentTimezone),
           programInterest: program_interest || 'English Communication',
           adminName: settings.admin_name || 'Aaliya',
           adminTitle: settings.admin_title || 'Founder & Lead Instructor',
@@ -4401,7 +4439,7 @@ app.put('/api/demo-leads/:id', async (req, res) => {
 
 // Convert demo lead to permanent student
 app.post('/api/demo-leads/:id/convert', async (req, res) => {
-  const { program_name, duration, per_session_fee, currency, total_sessions, amount_paid, payment_method, timezone, send_welcome_email, class_type, group_id } = req.body;
+  const { program_name, duration, per_session_fee, currency, total_sessions, amount_paid, payment_method, timezone, parent_timezone, send_welcome_email, class_type, group_id } = req.body;
   try {
     // Get demo lead info
     const lead = await pool.query('SELECT * FROM demo_leads WHERE id = $1', [req.params.id]);
@@ -4417,12 +4455,15 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
       if (group.rows.length > 0) groupName = group.rows[0].group_name;
     }
 
+    const studentTimezone = timezone || demoLead.student_timezone || 'Asia/Kolkata';
+    const parentTimezone = parent_timezone || demoLead.parent_timezone || studentTimezone || 'Asia/Kolkata';
+
     // Create new student from demo lead
     const studentResult = await pool.query(`
-      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active, group_id, group_name)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, $12, $13, $14, true, $15, $16)
+      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active, group_id, group_name)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, $14, $15, true, $16, $17)
       RETURNING *
-    `, [demoLead.child_name, demoLead.child_grade, demoLead.parent_name, demoLead.parent_email, demoLead.phone, timezone, program_name, class_type || 'Private', duration, currency, per_session_fee, total_sessions, amount_paid, payment_method, group_id || null, groupName]);
+    `, [demoLead.child_name, demoLead.child_grade, demoLead.parent_name, demoLead.parent_email, demoLead.phone, studentTimezone, parentTimezone, program_name, class_type || 'Private', duration, currency, per_session_fee, total_sessions, amount_paid, payment_method, group_id || null, groupName]);
 
     const newStudent = studentResult.rows[0];
 
@@ -4586,13 +4627,15 @@ app.get('/api/students/due-for-assessment', async (req, res) => {
 });
 
 app.post('/api/students', async (req, res) => {
-  const { name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, date_of_birth, payment_method, send_email } = req.body;
+  const { name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, parent_timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, date_of_birth, payment_method, send_email } = req.body;
   try {
+    const studentTimezone = timezone || 'Asia/Kolkata';
+    const parentTimezone = parent_timezone || studentTimezone;
     const r = await pool.query(`
-      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, date_of_birth, payment_method, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, 0, $14, $15, true)
+      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, parent_timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, date_of_birth, payment_method, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 0, $14, 0, $15, $16, true)
       RETURNING id
-    `, [name, grade, parent_name, parent_email, primary_contact, alternate_contact, timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, date_of_birth, payment_method]);
+    `, [name, grade, parent_name, parent_email, primary_contact, alternate_contact, studentTimezone, parentTimezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, date_of_birth, payment_method]);
 
     let emailSent = false;
     if (send_email !== false) {  // Send email by default unless explicitly set to false
@@ -6518,11 +6561,11 @@ app.post('/api/public/event/:id/register', async (req, res) => {
 // ==================== PUBLIC DEMO REGISTRATION ====================
 app.post('/api/public/demo-register', async (req, res) => {
   try {
-    const { child_name, child_age, program_interest, parent_name, email, phone } = req.body;
+    const { child_name, child_age, program_interest, parent_name, email, phone, student_timezone, parent_timezone } = req.body;
 
     // Validate required fields
-    if (!child_name || !child_age || !program_interest || !parent_name || !email || !phone) {
-      return res.status(400).json({ error: 'All fields are required' });
+    if (!child_name || !child_age || !program_interest || !parent_name || !email || !phone || !student_timezone || !parent_timezone) {
+      return res.status(400).json({ error: 'All fields are required, including student and parent timezones' });
     }
 
     // Check for duplicate email in demo_leads (prevent double registrations)
@@ -6534,12 +6577,15 @@ app.post('/api/public/demo-register', async (req, res) => {
       return res.status(400).json({ error: 'You have already registered for a demo class. We will contact you shortly!' });
     }
 
+    const studentTimezone = student_timezone || 'Asia/Kolkata';
+    const parentTimezone = parent_timezone || studentTimezone || 'Asia/Kolkata';
+
     // Insert into demo_leads
     const result = await pool.query(`
-      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, source, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'Website Form', 'Pending')
+      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, student_timezone, parent_timezone, source, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Website Form', 'Pending')
       RETURNING *
-    `, [child_name, child_age, parent_name, email, phone, program_interest]);
+    `, [child_name, child_age, parent_name, email, phone, program_interest, studentTimezone, parentTimezone]);
 
     // Send confirmation email
     try {
@@ -6564,6 +6610,8 @@ app.post('/api/public/demo-register', async (req, res) => {
           <tr><td style="padding: 8px 0;">Child's Name:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${child_name}</td></tr>
           <tr><td style="padding: 8px 0;">Age:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${child_age}</td></tr>
           <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #B05D9E;">${program_interest}</td></tr>
+          <tr><td style="padding: 8px 0;">Student Timezone:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentTimezone}</td></tr>
+          <tr><td style="padding: 8px 0;">Parent Timezone:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${parentTimezone}</td></tr>
         </table>
       </div>
 
@@ -8124,16 +8172,18 @@ app.get('/api/cleanup/orphaned-count', async (req, res) => {
 
 // ==================== EDIT & DELETE STUDENT ====================
 app.put('/api/students/:id', async (req, res) => {
-  const { name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth, class_link } = req.body;
+  const { name, grade, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, duration, per_session_fee, currency, date_of_birth, class_link } = req.body;
   try {
+    const studentTimezone = timezone || 'Asia/Kolkata';
+    const parentTimezone = parent_timezone || studentTimezone;
     await pool.query(`
       UPDATE students SET
         name = $1, grade = $2, parent_name = $3, parent_email = $4,
-        primary_contact = $5, timezone = $6, program_name = $7,
-        duration = $8, per_session_fee = $9, currency = $10,
-        date_of_birth = $11, class_link = $12
-      WHERE id = $13
-    `, [name, grade, parent_name, parent_email, primary_contact, timezone, program_name, duration, per_session_fee, currency, date_of_birth || null, class_link || null, req.params.id]);
+        primary_contact = $5, timezone = $6, parent_timezone = $7, program_name = $8,
+        duration = $9, per_session_fee = $10, currency = $11,
+        date_of_birth = $12, class_link = $13
+      WHERE id = $14
+    `, [name, grade, parent_name, parent_email, primary_contact, studentTimezone, parentTimezone, program_name, duration, per_session_fee, currency, date_of_birth || null, class_link || null, req.params.id]);
     res.json({ success: true, message: 'Student updated successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });

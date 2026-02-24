@@ -1145,6 +1145,11 @@
       return adminToken ? { 'x-admin-token': adminToken } : {};
     }
 
+    function getPortalTimezone() {
+      if (!currentStudent) return 'Asia/Kolkata';
+      return currentStudent.parent_timezone || currentStudent.timezone || 'Asia/Kolkata';
+    }
+
     function toLocalTime(dateStr, timeStr, tz) {
       try {
         if (!dateStr || !timeStr) {
@@ -2235,7 +2240,7 @@
         }
 
         tbody.innerHTML = upcoming.map(s => {
-          const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
           // Get day name
           const dateStr = s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date;
           const d = new Date(dateStr + 'T00:00:00');
@@ -2333,7 +2338,7 @@
       }
 
       const filtered = allPastSessions.filter(s => {
-        const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+        const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
         const searchStr = `#${getSerial(s)} ${t.date} ${t.time} ${s.status || ''} ${s.student_attendance || ''}`.toLowerCase();
         return searchStr.includes(searchTerm);
       });
@@ -2358,7 +2363,7 @@
         }
 
         tbody.innerHTML = past.map(s => {
-          const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
 
           // Helper to format material links/files properly with proper viewer support
           // isProtected = true means view-only with watermark (for class PPTs)
@@ -2499,7 +2504,7 @@
         }
 
         sel.innerHTML = '<option value="">Select Session...</option>' + completed.map(s => {
-          const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+          const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
           return `<option value="${s.id}">Class #${getSerial(s)} - ${t.date}</option>`;
         }).join('');
 
@@ -2634,7 +2639,7 @@
         }
 
         sel.innerHTML = '<option value="">Select Class...</option>' + upcoming.map(s => {
-            const t = toLocalTime(s.session_date, s.session_time, currentStudent.timezone);
+            const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
             return `<option value="${s.id}">Class #${getSerial(s)} - ${t.date} at ${t.time}</option>`;
         }).join('');
       } catch(e) {
@@ -3205,7 +3210,7 @@
         }
 
         container.innerHTML = events.map(e => {
-          const t = toLocalTime(e.event_date, e.event_time, currentStudent.timezone);
+          const t = toLocalTime(e.event_date, e.event_time, getPortalTimezone());
           return `
           <div style="background:white; border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:8px;">
             <h3 style="color: #B05D9E; margin-bottom: 10px;">${e.event_name}</h3>
@@ -3725,7 +3730,7 @@
 
       // Additional details
       document.getElementById('profileDOB').value = currentStudent.date_of_birth ? currentStudent.date_of_birth.split('T')[0] : '';
-      document.getElementById('profileTimezone').value = currentStudent.timezone || 'Asia/Kolkata';
+      document.getElementById('profileTimezone').value = getPortalTimezone();
     }
 
     document.getElementById('profileForm').addEventListener('submit', async (e) => {
