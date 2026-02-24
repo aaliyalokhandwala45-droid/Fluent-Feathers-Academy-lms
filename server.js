@@ -10093,10 +10093,11 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ==================== KEEPALIVE PING ====================
-// Self-ping every 14 minutes to prevent server sleep on free tier platforms
-const SELF_PING_INTERVAL = 14 * 60 * 1000; // 14 minutes (keep server alive)
+// Self-ping every 1 minute to keep free-tier service awake during active hours
+const SELF_PING_INTERVAL = Math.max(60 * 1000, Number(process.env.SELF_PING_INTERVAL_MS) || 60 * 1000);
 const DB_CHECK_INTERVAL = 60 * 1000;        // Check DB every 1 minute
 let selfPingUrl = null;
+let selfPingInFlight = false;
 
 // Database health check - tries to reconnect if disconnected
 async function checkDatabaseHealth() {
@@ -10149,9 +10150,11 @@ function startKeepAlive() {
   // Only start external keepalive in production
   if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
     selfPingUrl = process.env.RENDER_EXTERNAL_URL;
-    console.log(`🏓 Keepalive ping enabled for: ${selfPingUrl}`);
+    console.log(`🏓 Keepalive ping enabled for: ${selfPingUrl} every ${Math.round(SELF_PING_INTERVAL / 1000)}s`);
 
     setInterval(async () => {
+      if (selfPingInFlight) return;
+      selfPingInFlight = true;
       try {
         const response = await axios.get(`${selfPingUrl}/api/health`, { timeout: 15000 });
         const data = response.data;
@@ -10165,6 +10168,8 @@ function startKeepAlive() {
         }
       } catch (err) {
         console.log(`🏓 Keepalive ping failed: ${err.message}`);
+      } finally {
+        selfPingInFlight = false;
       }
     }, SELF_PING_INTERVAL);
   }
