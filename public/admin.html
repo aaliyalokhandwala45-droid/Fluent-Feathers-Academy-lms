@@ -3376,7 +3376,7 @@ I'm passionate about helping children develop confidence in communication!"></te
     (function() {
       let serverReady = false;
       let checkAttempts = 0;
-      const maxAttempts = 30;
+      const maxAttempts = 6;
 
       const loadingScreen = document.getElementById('serverLoadingScreen');
       const loadingMessage = document.getElementById('loadingMessage');
@@ -3451,7 +3451,7 @@ I'm passionate about helping children develop confidence in communication!"></te
             break;
           }
 
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 600));
         }
 
         if (!serverReady) {

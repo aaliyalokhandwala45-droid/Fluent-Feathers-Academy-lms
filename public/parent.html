@@ -993,7 +993,7 @@
 (function() {
   let serverReady = false;
   let checkAttempts = 0;
-  const maxAttempts = 30; // 30 seconds maximum
+  const maxAttempts = 6; // fail open quickly (~6 seconds)
   
   const loadingScreen = document.getElementById('serverLoadingScreen');
   const loadingMessage = document.getElementById('loadingMessage');
@@ -1077,7 +1077,7 @@
       }
       
       // Wait 1 second before next attempt
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 600));
     }
     
     // If server didn't respond after max attempts, still hide loading screen
