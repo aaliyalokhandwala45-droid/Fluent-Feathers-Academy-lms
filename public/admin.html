@@ -3534,6 +3534,14 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    function safePreload(taskFn, label) {
+      try {
+        Promise.resolve(taskFn()).catch(e => console.warn(`Failed to pre-load ${label}:`, e.message));
+      } catch (e) {
+        console.warn(`Failed to pre-load ${label}:`, e.message);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       // Load critical data FIRST (dashboard stats & upcoming classes)
       await Promise.all([
@@ -3551,40 +3559,32 @@ I'm passionate about helping children develop confidence in communication!"></te
       // Pre-load ALL tabs in background (non-blocking) after 1.5 seconds
       // Batch 1 (1.5s): Students, Demo Leads, Groups
       setTimeout(async () => {
-        Promise.all([
-          loadStudents().catch(e => console.warn('Failed to pre-load students:', e.message)),
-          loadGroups().catch(e => console.warn('Failed to pre-load groups:', e.message)),
-          loadDemoLeads().catch(e => console.warn('Failed to pre-load demo leads:', e.message))
-        ]);
+        safePreload(() => loadStudents(), 'students');
+        safePreload(() => loadGroups(), 'groups');
+        safePreload(() => loadDemoLeads(), 'demo leads');
       }, 1500); // Defer by 1.5 seconds to let database warm up
 
       // Batch 2 (3s): Email, Calendar, Events
       setTimeout(async () => {
-        Promise.all([
-          loadEmailLogs().catch(e => console.warn('Failed to pre-load email logs:', e.message)),
-          loadCalendar().catch(e => console.warn('Failed to pre-load calendar:', e.message)),
-          checkOrphanedCount().catch(e => console.warn('Failed to check orphaned:', e.message)),
-          loadEvents().catch(e => console.warn('Failed to pre-load events:', e.message))
-        ]);
+        safePreload(() => loadEmailLogs(), 'email logs');
+        safePreload(() => loadCalendar(), 'calendar');
+        safePreload(() => checkOrphanedCount(), 'orphaned count');
+        safePreload(() => loadEvents(), 'events');
       }, 3000); // Defer to avoid DB overload
 
       // Batch 3 (5s): Homework, Ratings, Leaderboard, Challenges, Financials, Assessments
       setTimeout(async () => {
-        Promise.all([
-          loadScheduleManager().catch(e => console.warn('Failed to pre-load schedule manager:', e.message)),
-          loadHomeworkSubmissions().catch(e => console.warn('Failed to pre-load homework:', e.message)),
-          loadClassRatings().catch(e => console.warn('Failed to pre-load ratings:', e.message)),
-          loadLeaderboard().catch(e => console.warn('Failed to pre-load leaderboard:', e.message)),
-          loadChallenges().catch(e => console.warn('Failed to pre-load challenges:', e.message))
-        ]);
+        safePreload(() => loadScheduleManager(), 'schedule manager');
+        safePreload(() => loadHomeworkSubmissions(), 'homework');
+        safePreload(() => loadClassRatings(), 'ratings');
+        safePreload(() => loadLeaderboard(), 'leaderboard');
+        safePreload(() => loadChallenges(), 'challenges');
       }, 5000); // Spread load further
 
       // Batch 4 (7s): Resources, Financials, Assessments
       setTimeout(async () => {
-        Promise.all([
-          loadFinancialReports().catch(e => console.warn('Failed to pre-load financials:', e.message)),
-          loadDueAssessments().catch(e => console.warn('Failed to pre-load assessments:', e.message))
-        ]);
+        safePreload(() => loadFinancialReports(), 'financials');
+        safePreload(() => loadDueAssessments(), 'assessments');
       }, 7000); // Final batch
     });
 
@@ -4286,11 +4286,20 @@ if (dueEl) {
           tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096; padding:20px;">Loading past sessions...</td></tr>';
         }
         const res = await fetchWithTimeout('/api/sessions/past/all?limit=120', 12000);
-        allPastSessions = await res.json();
+        const payload = await res.json();
+        if (!res.ok) {
+          throw new Error(payload?.error || `Failed to load past sessions (${res.status})`);
+        }
+        allPastSessions = Array.isArray(payload) ? payload : [];
         pastSessionsLoadedAt = Date.now();
         filterPastSessions(); // Apply initial filter (show 10)
       } catch(err) {
-        console.error(err);
+        console.error('Past sessions load error:', err);
+        allPastSessions = [];
+        const tbody = document.getElementById('pastSessionsBody');
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#e53e3e; padding:20px;">Failed to load past sessions: ${err.message}</td></tr>`;
+        }
       }
     }
 
@@ -4299,7 +4308,7 @@ if (dueEl) {
       const dateFilter = document.getElementById('pastDateFilter')?.value || '';
       const showCount = document.getElementById('pastShowCount')?.value || '10';
 
-      let filtered = allPastSessions;
+      let filtered = Array.isArray(allPastSessions) ? [...allPastSessions] : [];
 
       // Apply search filter
       if (searchTerm) {
@@ -4312,7 +4321,13 @@ if (dueEl) {
 
       // Apply date filter
       if (dateFilter) {
-        filtered = filtered.filter(s => s.session_date && s.session_date.includes(dateFilter));
+        filtered = filtered.filter(s => {
+          if (!s.session_date) return false;
+          const dateStr = typeof s.session_date === 'string'
+            ? (s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date)
+            : (s.session_date instanceof Date ? s.session_date.toISOString().split('T')[0] : String(s.session_date));
+          return dateStr === dateFilter;
+        });
       }
 
       // Apply count limit
