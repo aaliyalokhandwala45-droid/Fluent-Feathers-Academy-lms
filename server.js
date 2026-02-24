@@ -99,16 +99,18 @@ const pool = new Pool({
   // Pool configuration optimized for free-tier hosting (Supabase)
   max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
   min: 0,                          // Allow pool to shrink to 0 when idle
-  idleTimeoutMillis: 10000,        // Close idle connections after 10 seconds
-  connectionTimeoutMillis: 12000,  // Fail fast on cold start/network issues
+  idleTimeoutMillis: 30000,        // Keep connections longer to reduce reconnect churn
+  connectionTimeoutMillis: 30000,  // Allow extra time for cold starts/network wake-up
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
-  statement_timeout: 12000,        // Fail fast and return friendly errors
-  query_timeout: 12000             // Fail fast and return friendly errors
+  statement_timeout: 30000,        // More tolerant for cold starts
+  query_timeout: 30000             // More tolerant for cold starts
 });
 
 // Track database readiness
 let dbReady = false;
 let dbInitializing = false;
+let dbReconnectScheduled = false;
+let lastDbFailureLogAt = 0;
 
 // Pool error handler - critical for catching connection issues
 pool.on('error', (err, client) => {
@@ -149,7 +151,7 @@ function getAgeDisplay(student) {
 }
 
 // Robust query wrapper with retry logic for transient errors
-async function executeQuery(queryText, params = [], retries = 2) {
+async function executeQuery(queryText, params = [], retries = 3) {
   let lastError;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -179,7 +181,9 @@ async function executeQuery(queryText, params = [], retries = 2) {
         err.message.includes('Connection terminated') ||
         err.message.includes('connection timeout') ||
         err.message.includes('timeout expired') ||
-        err.message.includes('Client has encountered a connection error');
+        err.message.includes('Client has encountered a connection error') ||
+        err.message.includes('timeout exceeded when trying to connect') ||
+        err.message.includes('Connection terminated due to connection timeout');
 
       if (isTransientError && attempt < retries) {
         console.warn(`⚠️ Database query failed (attempt ${attempt}/${retries}): ${err.message}`);
@@ -204,8 +208,8 @@ async function initializeDatabaseConnection() {
   if (dbInitializing) return;
   dbInitializing = true;
 
-  const maxAttempts = 5;
-  const retryDelay = 3000; // 3 seconds
+  const maxAttempts = 8;
+  const retryDelay = 5000; // 5 seconds
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -250,17 +254,6 @@ async function initializeDatabaseConnection() {
 
 // Start database connection
 initializeDatabaseConnection();
-
-// Keep-alive ping every 1 minute to prevent idle disconnection and cold starts
-setInterval(async () => {
-  try {
-    await pool.query('SELECT 1');
-    console.log('🏓 Database keep-alive ping successful');
-  } catch (err) {
-    console.warn('⚠️ Keep-alive ping failed, connection will be re-established on next request');
-    dbReady = false;
-  }
-}, 60 * 1000); // 1 minute
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json({ limit: '20mb' }));
@@ -10096,40 +10089,47 @@ let selfPingUrl = null;
 // Database health check - tries to reconnect if disconnected
 async function checkDatabaseHealth() {
   try {
-    // Always ping DB every minute to prevent Supabase cold start
+    // Always ping DB to prevent Supabase cold start
     await executeQuery('SELECT 1');
     if (!dbReady) {
       console.log('✅ Database reconnected successfully');
       dbReady = true;
     }
+    dbReconnectScheduled = false;
   } catch (err) {
-    console.error('❌ Database health check failed:', err.message);
+    const now = Date.now();
+    if (now - lastDbFailureLogAt > 60 * 1000) {
+      console.error('❌ Database health check failed:', err.message);
+      lastDbFailureLogAt = now;
+    }
     dbReady = false;
-    // Try once more after 5 seconds
-    setTimeout(async () => {
-      try {
-        await executeQuery('SELECT 1');
-        dbReady = true;
-        console.log('✅ Database reconnected on retry');
-      } catch(e) {
-        console.error('❌ Retry also failed:', e.message);
-      }
-    }, 5000);
+
+    if (!dbInitializing) {
+      initializeDatabaseConnection();
+    }
+
+    if (!dbReconnectScheduled) {
+      dbReconnectScheduled = true;
+      setTimeout(async () => {
+        try {
+          await executeQuery('SELECT 1');
+          dbReady = true;
+          dbReconnectScheduled = false;
+          console.log('✅ Database reconnected on delayed retry');
+        } catch(e) {
+          dbReconnectScheduled = false;
+          if (Date.now() - lastDbFailureLogAt > 60 * 1000) {
+            console.error('❌ Delayed retry failed:', e.message);
+            lastDbFailureLogAt = Date.now();
+          }
+        }
+      }, 10000);
+    }
   }
 }
 
 function startKeepAlive() {
-  // Database keep-alive ping - every 1 minute to prevent cold starts
-  setInterval(async () => {
-    try {
-      await pool.query('SELECT 1');
-      console.log(`✅ Database keep-alive ping successful at ${new Date().toISOString()}`);
-    } catch (err) {
-      console.error(`⚠️ Database keep-alive failed: ${err.message}`);
-    }
-  }, 60000); // 1 minute
-
-  // Database health check - runs every 5 minutes
+  // Database health check - runs every minute
   setInterval(async () => {
     await checkDatabaseHealth();
   }, DB_CHECK_INTERVAL);
