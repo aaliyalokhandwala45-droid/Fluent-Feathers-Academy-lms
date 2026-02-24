@@ -91,19 +91,28 @@ if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('pgbouncer=true')) 
   dbUrl += dbUrl.includes('?') ? '&pgbouncer=true' : '?pgbouncer=true';
   console.log('📌 Added pgbouncer=true for Supabase pooler');
 }
+if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('sslmode=')) {
+  dbUrl += dbUrl.includes('?') ? '&sslmode=require' : '?sslmode=require';
+  console.log('📌 Added sslmode=require for Supabase pooler');
+}
+if (dbUrl && !dbUrl.includes('application_name=')) {
+  dbUrl += dbUrl.includes('?') ? '&application_name=fluentfeathers_lms' : '?application_name=fluentfeathers_lms';
+}
 
 // Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
   connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },  // Always use SSL for Supabase
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
   // Pool configuration optimized for free-tier hosting (Supabase)
   max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
-  min: 0,                          // Allow pool to shrink to 0 when idle
+  min: 1,                          // Keep one warm connection when service is awake
   idleTimeoutMillis: 30000,        // Keep connections longer to reduce reconnect churn
-  connectionTimeoutMillis: 30000,  // Allow extra time for cold starts/network wake-up
+  connectionTimeoutMillis: 45000,  // Allow extra time for cold starts/network wake-up
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
-  statement_timeout: 30000,        // More tolerant for cold starts
-  query_timeout: 30000             // More tolerant for cold starts
+  statement_timeout: 45000,        // More tolerant for cold starts
+  query_timeout: 45000             // More tolerant for cold starts
 });
 
 // Track database readiness
@@ -275,7 +284,6 @@ app.use((req, res, next) => {
     initializeDatabaseConnection(); // fire-and-forget reconnect attempt
 
     const failOpenRoutes =
-      req.method === 'GET' ||
       req.path.startsWith('/api/public/') ||
       req.path === '/api/parent/login-password';
 
