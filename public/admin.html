@@ -3480,7 +3480,7 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // Load critical data FIRST (dashboard stats & upcoming)
+      // Load critical data FIRST (dashboard stats & upcoming classes)
       await Promise.all([
         loadConfig(),
         loadDashboardStats(),
@@ -3493,16 +3493,24 @@ I'm passionate about helping children develop confidence in communication!"></te
         showTab(savedTab);
       }
 
-      // Load secondary data in background (non-blocking) after a short delay
+      // Load first 5 tabs data in background (non-blocking) after 1.5 seconds
+      // Tabs: Upcoming (done), Students, Demo Leads, Groups, Schedule
       setTimeout(async () => {
         Promise.all([
-          loadStudents().catch(e => console.error('Failed to load students:', e.message)),
-          loadGroups().catch(e => console.error('Failed to load groups:', e.message)),
-          loadEmailLogs().catch(e => console.error('Failed to load logs:', e.message)),
-          loadCalendar().catch(e => console.error('Failed to load calendar:', e.message)),
-          checkOrphanedCount().catch(e => console.error('Failed to check orphaned:', e.message))
+          loadStudents().catch(e => console.warn('Failed to load students:', e.message)),
+          loadGroups().catch(e => console.warn('Failed to load groups:', e.message)),
+          loadDemoLeads().catch(e => console.warn('Failed to load demo leads:', e.message))
         ]);
-      }, 2000); // Defer by 2 seconds to let database warm up
+      }, 1500); // Defer by 1.5 seconds to let database warm up
+
+      // Load remaining secondary data after 4 seconds (non-critical tabs)
+      setTimeout(async () => {
+        Promise.all([
+          loadEmailLogs().catch(e => console.warn('Failed to load email logs:', e.message)),
+          loadCalendar().catch(e => console.warn('Failed to load calendar:', e.message)),
+          checkOrphanedCount().catch(e => console.warn('Failed to check orphaned:', e.message))
+        ]);
+      }, 4000); // Defer further to avoid DB overload
     });
 
     function toggleMobileSidebar() {
@@ -3553,13 +3561,13 @@ I'm passionate about helping children develop confidence in communication!"></te
         if (statsGrid) statsGrid.style.display = '';
       }
 
+      // Load tab-specific data on demand (lazy loading)
       if (tabName === 'emails') { loadEmailLogs(); checkOrphanedCount(); }
       if (tabName === 'past') loadPastSessions();
       if (tabName === 'events') loadEvents();
       if (tabName === 'scheduleManager') loadScheduleManager();
       if (tabName === 'homework') loadHomeworkSubmissions();
       if (tabName === 'classRatings') loadClassRatings();
-      if (tabName === 'demoStudents') loadDemoLeads();
       if (tabName === 'leaderboard') loadLeaderboard();
       if (tabName === 'challenges') loadChallenges();
       if (tabName === 'financials') loadFinancialReports();
@@ -3635,6 +3643,27 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('pendingHomework').textContent = stats.pendingHomework || 0;
         document.getElementById('pendingChallenges').textContent = stats.pendingChallenges || 0;
         document.getElementById('dueAssessments').textContent = stats.pendingAssessments || 0;
+        
+        // Display monthly revenue breakdown if available
+        if (stats.monthlyRevenue) {
+          const monthlyHtml = Object.entries(stats.monthlyRevenue)
+            .sort().reverse()  // Show latest months first
+            .slice(0, 6)  // Show last 6 months
+            .map(([month, revenue]) => {
+              const [year, monthNum] = month.split('-');
+              const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+              const monthLabel = `${monthNames[parseInt(monthNum)]} ${year}`;
+              return `<div style="padding: 4px 0; font-size: 12px; color: #718096;">
+                <strong>${monthLabel}:</strong> ₹${revenue.toLocaleString('en-IN')}
+              </div>`;
+            }).join('');
+          
+          const revenueEl = document.getElementById('totalRevenue');
+          if (revenueEl && revenueEl.parentElement) {
+            revenueEl.title = monthlyHtml;
+            revenueEl.style.cursor = 'help';
+          }
+        }
       } catch (err) {
         console.warn('⏳ Dashboard stats slow to load:', err.message);
         // Show placeholder text instead of erroring out

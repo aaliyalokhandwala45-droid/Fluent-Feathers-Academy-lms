@@ -3898,13 +3898,28 @@ app.get('/api/dashboard/stats', async (req, res) => {
     // Get student count
     const countResult = await executeQuery('SELECT COUNT(*) as total FROM students WHERE is_active = true');
 
-    // Get all students with fees and currency to convert to INR
-    const studentsResult = await executeQuery('SELECT fees_paid, currency FROM students WHERE is_active = true');
+    // Get all students with fees and currency to convert to INR AND group by month
+    const studentsResult = await executeQuery('SELECT fees_paid, currency, created_at FROM students WHERE is_active = true');
+    const monthlyRevenue = {};
     let totalRevenueINR = 0;
+    
     for (const student of studentsResult.rows) {
       const fees = parseFloat(student.fees_paid) || 0;
       const currency = student.currency || '₹';
-      totalRevenueINR += convertToINR(fees, currency);
+      const inrAmount = convertToINR(fees, currency);
+      totalRevenueINR += inrAmount;
+      
+      // Group by month (YYYY-MM format)
+      try {
+        const createdDate = student.created_at ? new Date(student.created_at) : new Date();
+        const monthKey = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthlyRevenue[monthKey]) {
+          monthlyRevenue[monthKey] = 0;
+        }
+        monthlyRevenue[monthKey] += inrAmount;
+      } catch (e) {
+        // skip invalid dates
+      }
     }
 
     const sess = await executeQuery(`SELECT COUNT(*) as upcoming FROM sessions WHERE status IN ('Pending', 'Scheduled') AND session_date >= CURRENT_DATE`);
@@ -3920,26 +3935,34 @@ app.get('/api/dashboard/stats', async (req, res) => {
       const ch = await executeQuery(`SELECT COUNT(*) as pending FROM student_challenges WHERE status = 'Submitted'`);
       pendingChallenges = parseInt(ch.rows[0].pending) || 0;
     } catch (e) { /* table may not exist */ }
-let pendingAssessments = 0;
-try {
-  const assessRes = await executeQuery(`
-    SELECT COUNT(*) as count FROM (
-      SELECT s.id,
-        COALESCE(s.completed_sessions, 0) as completed,
-        COALESCE(s.remaining_sessions, 0) as remaining,
-        COALESCE((SELECT COUNT(*) FROM monthly_assessments ma WHERE ma.student_id = s.id AND ma.assessment_type = 'monthly'), 0) as total_assessments
-      FROM students s
-      WHERE s.is_active = true
-    ) sub
-    WHERE 
-      (sub.completed - (sub.total_assessments * 7)) >= 7
-      OR (sub.remaining <= 2 AND (sub.completed - (sub.total_assessments * 7)) >= 3)
-  `);
-  pendingAssessments = parseInt(assessRes.rows[0].count) || 0;
-} catch(e) { console.error('Assessment count error:', e.message); }
+    
+    let pendingAssessments = 0;
+    try {
+      const assessRes = await executeQuery(`
+        SELECT COUNT(*) as count FROM (
+          SELECT s.id,
+            COALESCE(s.completed_sessions, 0) as completed,
+            COALESCE(s.remaining_sessions, 0) as remaining,
+            COALESCE((SELECT COUNT(*) FROM monthly_assessments ma WHERE ma.student_id = s.id AND ma.assessment_type = 'monthly'), 0) as total_assessments
+          FROM students s
+          WHERE s.is_active = true
+        ) sub
+        WHERE 
+          (sub.completed - (sub.total_assessments * 7)) >= 7
+          OR (sub.remaining <= 2 AND (sub.completed - (sub.total_assessments * 7)) >= 3)
+      `);
+      pendingAssessments = parseInt(assessRes.rows[0].count) || 0;
+    } catch(e) { console.error('Assessment count error:', e.message); }
+    
     res.json({
       totalStudents: parseInt(countResult.rows[0].total)||0,
       totalRevenue: Math.round(totalRevenueINR),
+      monthlyRevenue: Object.entries(monthlyRevenue)
+        .sort()
+        .reduce((acc, [month, revenue]) => {
+          acc[month] = Math.round(revenue);
+          return acc;
+        }, {}),
       upcomingSessions: parseInt(sess.rows[0].upcoming)||0,
       totalGroups: parseInt(g.rows[0].total)||0,
       activeEvents: parseInt(e.rows[0].total)||0,

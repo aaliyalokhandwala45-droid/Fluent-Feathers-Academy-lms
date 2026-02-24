@@ -1552,14 +1552,19 @@
         document.getElementById('currentChildName').textContent = currentStudent.name;
       }
 
+      // Load critical data immediately
       loadMakeupCredits();
       loadBadges(); // Also updates badge summary strip
       loadChallengeSummary(); // Updates challenge strip on front page
       loadUpcoming();
-      loadPast();
       loadCancelDropdown();
       checkForFeedback();
-      checkRedDots();
+
+      // Defer non-critical data loads (1.5 seconds) - for first 5 tabs
+      setTimeout(() => {
+        loadPast().catch(e => console.warn('Failed to load past classes:', e.message));
+        checkRedDots().catch(e => console.warn('Failed to check red dots:', e.message));
+      }, 1500);
 
       // Restore last active tab from localStorage
       let savedTab = localStorage.getItem('parentActiveTab');
