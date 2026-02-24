@@ -3687,7 +3687,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('activeEvents').textContent = stats.activeEvents;
         document.getElementById('pendingHomework').textContent = stats.pendingHomework || 0;
         document.getElementById('pendingChallenges').textContent = stats.pendingChallenges || 0;
-        document.getElementById('dueAssessments').textContent = data.pendingAssessments || 0;
+        document.getElementById('dueAssessments').textContent = stats.pendingAssessments || 0;
       } catch (err) {
         console.error(err);
       }
