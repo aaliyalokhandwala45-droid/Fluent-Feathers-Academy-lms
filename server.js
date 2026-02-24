@@ -266,6 +266,17 @@ cron.schedule('*/2 * * * *', async () => {
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json({ limit: '20mb' }));
+// Static assets - disable caching for HTML to ensure clients get latest UX fixes
+app.use((req, res, next) => {
+  // force no-cache for HTML files (admin, parent, etc.)
+  if (req.path.endsWith('.html')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
