@@ -3999,7 +3999,7 @@ app.get('/api/calendar/sessions', async (req, res) => {
 
     // Get private sessions (student_id set, no group_id - these are 1-on-1 sessions)
     const privateSessions = await pool.query(`
-      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
+      SELECT s.id, s.student_id, s.group_id, s.session_date, s.session_time, s.session_number, s.status,
              'Private' as session_type,
              st.name as student_name
       FROM sessions s
@@ -4012,7 +4012,7 @@ app.get('/api/calendar/sessions', async (req, res) => {
 
     // Get group sessions (group_id set - these are group classes)
     const groupSessions = await pool.query(`
-      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status,
+      SELECT s.id, s.student_id, s.group_id, s.session_date, s.session_time, s.session_number, s.status,
              'Group' as session_type,
              g.group_name as student_name
       FROM sessions s
