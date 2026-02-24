@@ -5404,17 +5404,7 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// Renumber remaining sessions for this student
-await pool.query(`
-  WITH numbered AS (
-    SELECT id,
-      ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY session_date ASC, session_time ASC) as new_number
-    FROM sessions
-    WHERE session_type = 'Private' AND student_id = $1
-  )
-  UPDATE sessions SET session_number = numbered.new_number
-  FROM numbered WHERE sessions.id = numbered.id
-`, [studentId]);
+
 // Update a session
 app.put('/api/sessions/:sessionId', async (req, res) => {
   const { date, time } = req.body;
