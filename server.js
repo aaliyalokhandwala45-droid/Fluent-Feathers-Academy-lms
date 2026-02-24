@@ -91,9 +91,13 @@ if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('pgbouncer=true')) 
   dbUrl += dbUrl.includes('?') ? '&pgbouncer=true' : '?pgbouncer=true';
   console.log('📌 Added pgbouncer=true for Supabase pooler');
 }
-if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('sslmode=')) {
-  dbUrl += dbUrl.includes('?') ? '&sslmode=require' : '?sslmode=require';
-  console.log('📌 Added sslmode=require for Supabase pooler');
+if (dbUrl.includes('pooler.supabase.com')) {
+  if (dbUrl.includes('sslmode=')) {
+    dbUrl = dbUrl.replace(/sslmode=[^&]*/g, 'sslmode=no-verify');
+  } else {
+    dbUrl += dbUrl.includes('?') ? '&sslmode=no-verify' : '?sslmode=no-verify';
+  }
+  console.log('📌 Enforced sslmode=no-verify for Supabase pooler');
 }
 if (dbUrl && !dbUrl.includes('application_name=')) {
   dbUrl += dbUrl.includes('?') ? '&application_name=fluentfeathers_lms' : '?application_name=fluentfeathers_lms';
