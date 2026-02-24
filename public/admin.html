@@ -8310,7 +8310,7 @@ async function saveEditedPayment() {
             <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;">${at.title}</div>
             ${a ? `${a.period ? '<div style="font-size:10px;opacity:0.75;margin-top:4px;">' + a.period + '</div>' : ''}
               <div style="font-size:20px;font-weight:bold;margin:8px 0;">${a.name}</div>
-              <div style="font-size:11px;opacity:0.85;">📅 ${a.attendance || 0} classes · 📝 ${a.homework || 0} HW · 🎯 ${a.challenges || 0} challenges</div>
+              <div style="font-size:11px;opacity:0.85;">📝 ${a.homework || 0} HW · 🎯 ${a.challenges || 0} challenges · 🏅 ${a.badges || 0} badges</div>
               <div style="font-size:10px;opacity:0.7;margin-top:4px;">Score: ${a.total_score || 0}</div>` :
               `<div style="font-size:14px;margin:8px 0;opacity:0.7;">No winner yet</div>`}
           </div>`;
@@ -10371,8 +10371,10 @@ function openBulkReschedule() {
   const hydrateStudents = async () => {
     if (!Array.isArray(allStudents) || allStudents.length === 0) {
       const sRes = await fetch('/api/students');
-      allStudents = await sRes.json();
+      const payload = await sRes.json();
+      allStudents = Array.isArray(payload) ? payload : [];
     }
+    if (!Array.isArray(allStudents)) allStudents = [];
     studentSelect.innerHTML = '<option value="">Select student...</option>' +
       allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   };
@@ -10404,7 +10406,11 @@ async function loadSessionsForBulkReschedule() {
   list.innerHTML = '<p style="color:#718096;">Loading sessions...</p>';
   try {
     const res = await fetch(`/api/students/${studentId}/upcoming-sessions`);
-    const sessions = await res.json();
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload?.error || `Failed to load sessions (${res.status})`);
+    }
+    const sessions = Array.isArray(payload) ? payload : [];
     if (!Array.isArray(sessions) || sessions.length === 0) {
       list.innerHTML = '<p style="color:#718096;">No upcoming sessions found for this student</p>';
       return;

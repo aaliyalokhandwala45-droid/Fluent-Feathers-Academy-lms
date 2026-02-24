@@ -6733,7 +6733,7 @@ app.get('/api/sessions/past/all', async (req, res) => {
       SELECT * FROM (
         SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
                s.ppt_file_path, s.recording_file_path, s.homework_file_path,
-               s.teacher_notes, s.class_notes, s.feedback, s.student_id, s.group_id,
+           s.teacher_notes, s.feedback, s.student_id, s.group_id,
                st.name as student_name, st.timezone, NULL::text as group_name
         FROM sessions s
         JOIN students st ON s.student_id = st.id
@@ -6743,7 +6743,7 @@ app.get('/api/sessions/past/all', async (req, res) => {
 
         SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
                s.ppt_file_path, s.recording_file_path, s.homework_file_path,
-               s.teacher_notes, s.class_notes, s.feedback, s.student_id, s.group_id,
+           s.teacher_notes, s.feedback, s.student_id, s.group_id,
                g.group_name as student_name, g.timezone, g.group_name
         FROM sessions s
         JOIN groups g ON s.group_id = g.id
@@ -8517,22 +8517,6 @@ app.get('/api/awards/current', async (req, res) => {
     // Query to get student scores for a date range
    const getTopStudent = async (startDate, endDate) => {
   const result = await pool.query(`
-    WITH attendance_pts AS (
-      SELECT student_id, COUNT(*) * 10 as pts FROM sessions
-      WHERE student_id IS NOT NULL AND status = 'Completed'
-        AND session_date >= $1 AND session_date <= $2
-      GROUP BY student_id
-      UNION ALL
-      SELECT sa.student_id, COUNT(*) * 10 as pts
-      FROM session_attendance sa
-      JOIN sessions s ON sa.session_id = s.id
-      WHERE sa.attendance = 'Present'
-        AND s.session_date >= $1 AND s.session_date <= $2
-      GROUP BY sa.student_id
-    ),
-    attendance_total AS (
-      SELECT student_id, SUM(pts) as pts FROM attendance_pts GROUP BY student_id
-    ),
     homework_pts AS (
       SELECT student_id, COUNT(*) * 10 as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
@@ -8551,19 +8535,17 @@ app.get('/api/awards/current', async (req, res) => {
       GROUP BY student_id
     )
     SELECT s.id, s.name,
-      COALESCE(a.pts, 0) as attendance,
       COALESCE(h.pts, 0) as homework,
       COALESCE(c.pts, 0) as challenges,
       COALESCE(b.pts, 0) as badges,
-      COALESCE(a.pts, 0) + COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
-    LEFT JOIN attendance_total a ON s.id = a.student_id
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(a.pts, 0) + COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, attendance DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+    ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
     LIMIT 1
   `, [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]);
   return result.rows[0] || null;
@@ -8588,10 +8570,10 @@ app.get('/api/awards/current', async (req, res) => {
         studentId: winner.id,
         badge: label,
         period: periodLabel,
-       description: `${winner.attendance} pts classes, ${winner.homework} pts homework, ${winner.challenges} pts challenges, ${winner.badges} pts badges`,
-        attendance: parseInt(winner.attendance),
+        description: `${winner.homework} pts homework, ${winner.challenges} pts challenges, ${winner.badges} pts badges`,
         homework: parseInt(winner.homework),
         challenges: parseInt(winner.challenges),
+        badges: parseInt(winner.badges),
         total_score: parseInt(winner.total_score)
       };
     };
