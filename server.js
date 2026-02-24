@@ -5422,8 +5422,16 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
     const sessionRes = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
     if (sessionRes.rows.length === 0) return res.status(404).json({ error: 'Session not found' });
     const session = sessionRes.rows[0];
-    const oldDate = session.session_date;
-    const oldTime = session.session_time;
+    
+    // Convert database date objects to ISO string (YYYY-MM-DD)
+    let oldDate = session.session_date;
+    if (oldDate instanceof Date) {
+      oldDate = oldDate.toISOString().split('T')[0];
+    }
+    let oldTime = session.session_time;
+    if (typeof oldTime !== 'string') {
+      oldTime = oldTime.toString();
+    }
 
     const utc = istToUTC(date, time);
     await pool.query('UPDATE sessions SET session_date = $1::date, session_time = $2::time WHERE id = $3', [utc.date, utc.time, req.params.sessionId]);
