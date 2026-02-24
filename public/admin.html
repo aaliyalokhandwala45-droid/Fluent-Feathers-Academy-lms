@@ -377,10 +377,7 @@
   <div class="value" id="totalRevenue" style="color: #38a169;">*****</div>
   <select id="revenueFilter" onchange="filterRevenue()" 
     style="margin-top:8px; width:100%; padding:4px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:0.8rem; color:#4a5568;">
-    <option value="all">All Time</option>
-    <option value="thismonth">This Month</option>
-    <option value="lastmonth">Last Month</option>
-    <option value="thisyear">This Year (FY)</option>
+      <option value="all">All Time (Monthly Breakdown)</option>
   </select>
 </div>
         <div class="stat-card"><h3>Total Groups</h3><div class="value" id="totalGroups">0</div></div>
@@ -1530,11 +1527,13 @@
                 <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Month</th>
                 <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">INR</th>
                 <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">USD</th>
+                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">BDT</th>
+                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">AUD</th>
                 <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Payments</th>
               </tr>
             </thead>
             <tbody id="monthlyIncomeBody">
-              <tr><td colspan="4" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
+              <tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -9822,7 +9821,7 @@ if (document.getElementById('totalIncomeAUD')) document.getElementById('totalInc
         // Monthly summary table
         const monthlyBody = document.getElementById('monthlyIncomeBody');
         if (data.monthlySummary.length === 0) {
-          monthlyBody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #718096;">No payments found</td></tr>';
+          monthlyBody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #718096;">No payments found</td></tr>';
         } else {
           // Group by month/year
           const monthlyData = {};
@@ -9866,7 +9865,7 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.sessions_covered || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
                 <button onclick="openEditPaymentRecord(${p.id}, '${p.payment_date ? p.payment_date.split('T')[0] : ''}', ${parseFloat(p.amount)}, '${p.currency}', '${(p.payment_method || '').replace(/'/g, "\\'")}', '${(p.sessions_covered || '').replace(/'/g, "\\'")}', '${(p.notes || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-warning" title="Edit this payment">✏️</button>
-                <button onclick="deletePaymentRecord(${p.id}, '${(p.student_name || 'Unknown').replace(/'/g, "\\'")}', '${p.currency === 'USD' ? '$' : '₹'}${parseFloat(p.amount).toLocaleString()}')" class="btn btn-sm btn-danger" title="Delete this payment record">🗑️</button>
+                <button onclick="deletePaymentRecord(${p.id}, '${(p.student_name || 'Unknown').replace(/'/g, "\\'")}', '${p.currency === 'USD' ? '$' : p.currency === 'BDT' ? '৳' : p.currency === 'AUD' ? 'A$' : '₹'}${parseFloat(p.amount).toLocaleString()}')" class="btn btn-sm btn-danger" title="Delete this payment record">🗑️</button>
               </td>
             </tr>
           `).join('');
@@ -10197,47 +10196,7 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
     }
 
     async function filterRevenue() {
-  const filter = document.getElementById('revenueFilter').value;
-  const el = document.getElementById('totalRevenue');
-  
-  let url = '/api/financial-reports?';
-  const now = new Date();
-  
-  if (filter === 'thismonth') {
-    const start = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-    const end = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
-    url += `startDate=${start}&endDate=${end}`;
-  } else if (filter === 'lastmonth') {
-  const now = new Date();
-  const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const month = now.getMonth() === 0 ? 12 : now.getMonth();
-  const start = `${year}-${String(month).padStart(2,'0')}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const end = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-  url += `startDate=${start}&endDate=${end}`;
-  } else if (filter === 'thisyear') {
-    url += `year=${now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear()-1}`;
-  } else {
-    loadDashboardStats();
-    return;
-  }
-
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const currencyToINR = { INR:1, USD:83, GBP:105, EUR:90, AED:22, SGD:61, CAD:61, SAR:22, BDT:0.71, AUD:54 };
-    
-    let totalINR = 0;
-    // Use payments array — this includes both payment_history AND renewals
-    data.payments.forEach(p => {
-      const rate = currencyToINR[p.currency] || 1;
-      totalINR += (parseFloat(p.amount) || 0) * rate;
-    });
-    
-    el.textContent = '₹' + Math.round(totalINR).toLocaleString('en-IN');
-  } catch(err) {
-    console.error(err);
-  }
+  loadDashboardStats();
 }
 let currentBulkTab = 'private';
 

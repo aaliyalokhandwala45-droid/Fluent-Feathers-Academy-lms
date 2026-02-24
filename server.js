@@ -3898,21 +3898,34 @@ app.get('/api/dashboard/stats', async (req, res) => {
     // Get student count
     const countResult = await executeQuery('SELECT COUNT(*) as total FROM students WHERE is_active = true');
 
-    // Get all students with fees and currency to convert to INR AND group by month
-    const studentsResult = await executeQuery('SELECT fees_paid, currency, created_at FROM students WHERE is_active = true');
+    // Build revenue from actual payment transactions (payment_history + renewal records not yet synced)
+    const paymentsResult = await executeQuery(`
+      SELECT payment_date, amount, currency FROM payment_history
+      UNION ALL
+      SELECT pr.renewal_date as payment_date, pr.amount, pr.currency
+      FROM payment_renewals pr
+      WHERE NOT EXISTS (
+        SELECT 1 FROM payment_history ph2
+        WHERE ph2.student_id = pr.student_id
+          AND ph2.payment_date = pr.renewal_date
+          AND ph2.amount = pr.amount
+          AND ph2.notes LIKE '%Renewal%'
+      )
+    `);
+
     const monthlyRevenue = {};
     let totalRevenueINR = 0;
     
-    for (const student of studentsResult.rows) {
-      const fees = parseFloat(student.fees_paid) || 0;
-      const currency = student.currency || '₹';
-      const inrAmount = convertToINR(fees, currency);
+    for (const payment of paymentsResult.rows) {
+      const amount = parseFloat(payment.amount) || 0;
+      const currency = payment.currency || 'INR';
+      const inrAmount = convertToINR(amount, currency);
       totalRevenueINR += inrAmount;
       
       // Group by month (YYYY-MM format)
       try {
-        const createdDate = student.created_at ? new Date(student.created_at) : new Date();
-        const monthKey = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
+        const paidDate = payment.payment_date ? new Date(payment.payment_date) : new Date();
+        const monthKey = `${paidDate.getFullYear()}-${String(paidDate.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyRevenue[monthKey]) {
           monthlyRevenue[monthKey] = 0;
         }
