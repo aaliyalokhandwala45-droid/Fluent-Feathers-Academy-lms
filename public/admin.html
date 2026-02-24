@@ -61,8 +61,8 @@
     .main-content {
       position: relative;
       z-index: 1;
-      margin-left: 240px;
-      width: calc(100% - 240px);
+      margin-left: 240px !important; /* always push right of sidebar */
+      width: calc(100% - 240px) !important;
       flex: 1;
       padding: 20px 30px;
       overflow-x: auto; /* allow horizontal scrolling if a table is very wide */
@@ -91,7 +91,7 @@
       .sidebar { width: 60px; }
       .sidebar-header h2, .sidebar-header p, .nav-btn span { display: none; }
       .nav-btn { justify-content: center; padding: 12px; }
-      .main-content { margin-left: 60px; width: calc(100% - 60px); padding: 15px; }
+      .main-content { margin-left: 60px !important; width: calc(100% - 60px) !important; padding: 15px; }
       header { flex-wrap: wrap; }
       .stats-grid { grid-template-columns: repeat(4, 1fr); }
       .upcoming-classes-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
@@ -137,7 +137,7 @@
       .nav-btn span { display: inline; }
       .nav-btn { justify-content: flex-start; }
       .hamburger-btn { display: inline-block; }
-      .main-content { margin-left: 0; width: 100%; padding: 10px; }
+      .main-content { margin-left: 0 !important; width: 100% !important; padding: 10px; }
       body { overflow-x: hidden; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .stat-card { padding: 10px 8px; }
@@ -3563,6 +3563,19 @@ I'm passionate about helping children develop confidence in communication!"></te
       overlay.style.display = sidebar.classList.contains('mobile-open') ? 'block' : 'none';
     }
 
+    // adjust margin/width of main content based on current sidebar width
+    function adjustContentMargin() {
+      const sidebar = document.querySelector('.sidebar');
+      const main = document.querySelector('.main-content');
+      if (sidebar && main) {
+        const w = sidebar.offsetWidth;
+        main.style.marginLeft = w + 'px';
+        main.style.width = `calc(100% - ${w}px)`;
+      }
+    }
+    window.addEventListener('resize', adjustContentMargin);
+    document.addEventListener('DOMContentLoaded', adjustContentMargin);
+
     async function showTab(tabName, e) {
       if(e) e.stopPropagation();
       // Close mobile sidebar when a tab is selected
@@ -3622,6 +3635,8 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
+      // make sure margin is correct after tab switch (sidebar may have changed width)
+      adjustContentMargin();
     }
 
     function showModalTab(tabName, e) {
