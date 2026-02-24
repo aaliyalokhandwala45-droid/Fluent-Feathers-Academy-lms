@@ -100,10 +100,10 @@ const pool = new Pool({
   max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
   min: 0,                          // Allow pool to shrink to 0 when idle
   idleTimeoutMillis: 10000,        // Close idle connections after 10 seconds
-  connectionTimeoutMillis: 60000,  // Wait 60 seconds for connection (cold start)
+  connectionTimeoutMillis: 12000,  // Fail fast on cold start/network issues
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
-  statement_timeout: 60000,        // 60 second query timeout (Supabase free tier can be slow)
-  query_timeout: 60000             // 60 second query timeout
+  statement_timeout: 12000,        // Fail fast and return friendly errors
+  query_timeout: 12000             // Fail fast and return friendly errors
 });
 
 // Track database readiness
@@ -149,7 +149,7 @@ function getAgeDisplay(student) {
 }
 
 // Robust query wrapper with retry logic for transient errors
-async function executeQuery(queryText, params = [], retries = 5) {
+async function executeQuery(queryText, params = [], retries = 2) {
   let lastError;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -266,6 +266,28 @@ setInterval(async () => {
 app.use(express.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Fast-fail API responses while database is waking up (prevents long page hangs)
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) return next();
+
+  const alwaysAvailable =
+    req.path === '/api/config' ||
+    req.path === '/api/health' ||
+    req.path === '/api/admin/reconnect-db';
+
+  if (alwaysAvailable) return next();
+
+  if (!dbReady) {
+    initializeDatabaseConnection(); // fire-and-forget reconnect attempt
+    return res.status(503).json({
+      error: 'Database is waking up. Please retry in 5-10 seconds.',
+      code: 'DB_WAKING_UP'
+    });
+  }
+
+  next();
+});
 
 // Create upload directories
 ['uploads', 'uploads/materials', 'uploads/homework'].forEach(dir => {
