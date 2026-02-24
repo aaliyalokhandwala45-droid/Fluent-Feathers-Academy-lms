@@ -103,6 +103,10 @@ if (dbUrl && !dbUrl.includes('application_name=')) {
   dbUrl += dbUrl.includes('?') ? '&application_name=fluentfeathers_lms' : '?application_name=fluentfeathers_lms';
 }
 
+const DB_CONNECT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_CONNECT_TIMEOUT_MS) || 8000);
+const DB_STATEMENT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_STATEMENT_TIMEOUT_MS) || 15000);
+const DB_QUERY_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_QUERY_TIMEOUT_MS) || 15000);
+
 // Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
   connectionString: dbUrl,
@@ -113,10 +117,10 @@ const pool = new Pool({
   max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
   min: 1,                          // Keep one warm connection when service is awake
   idleTimeoutMillis: 30000,        // Keep connections longer to reduce reconnect churn
-  connectionTimeoutMillis: 45000,  // Allow extra time for cold starts/network wake-up
+  connectionTimeoutMillis: DB_CONNECT_TIMEOUT_MS,
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
-  statement_timeout: 45000,        // More tolerant for cold starts
-  query_timeout: 45000             // More tolerant for cold starts
+  statement_timeout: DB_STATEMENT_TIMEOUT_MS,
+  query_timeout: DB_QUERY_TIMEOUT_MS
 });
 
 // Track database readiness
@@ -306,6 +310,7 @@ app.use((req, res, next) => {
   const alwaysAvailable =
     req.path === '/api/config' ||
     req.path === '/api/health' ||
+    req.path === '/api/health/light' ||
     req.path === '/api/admin/reconnect-db';
 
   if (alwaysAvailable) return next();
@@ -10035,6 +10040,46 @@ app.post('/api/admin/reconnect-db', async (req, res) => {
   }
 });
 
+// Lightweight health endpoint for keepalive and uptime checks
+app.get('/api/health/light', async (req, res) => {
+  const now = new Date();
+  const dbStart = Date.now();
+
+  try {
+    await executeQuery('SELECT 1', [], 1);
+    const dbLatency = Date.now() - dbStart;
+    return res.json({
+      status: 'healthy',
+      server_time_utc: now.toISOString(),
+      database: {
+        status: 'connected',
+        latency_ms: dbLatency,
+        pool: {
+          totalCount: pool.totalCount,
+          idleCount: pool.idleCount,
+          waitingCount: pool.waitingCount
+        },
+        ready: dbReady
+      }
+    });
+  } catch (err) {
+    return res.status(503).json({
+      status: 'degraded',
+      server_time_utc: now.toISOString(),
+      error: err.message,
+      database: {
+        status: 'disconnected',
+        pool: {
+          totalCount: pool.totalCount,
+          idleCount: pool.idleCount,
+          waitingCount: pool.waitingCount
+        },
+        ready: dbReady
+      }
+    });
+  }
+});
+
 // Endpoint to check server health and upcoming reminders
 app.get('/api/health', async (req, res) => {
   try {
@@ -10133,7 +10178,7 @@ async function checkDatabaseHealth() {
   dbHealthCheckInFlight = true;
   try {
     // Always ping DB to prevent Supabase cold start
-    await executeQuery('SELECT 1');
+    await executeQuery('SELECT 1', [], 1);
     if (!dbReady) {
       console.log('✅ Database reconnected successfully');
       dbReady = true;
@@ -10180,7 +10225,7 @@ function startKeepAlive() {
       if (selfPingInFlight) return;
       selfPingInFlight = true;
       try {
-        const response = await axios.get(`${selfPingUrl}/api/health`, { timeout: 15000 });
+        const response = await axios.get(`${selfPingUrl}/api/health/light`, { timeout: 10000 });
         const data = response.data;
         const dbStatus = data.database?.status || 'unknown';
         console.log(`🏓 Keepalive: ${data.status}, DB: ${dbStatus}, Pool: ${JSON.stringify(data.database?.pool || {})} at ${new Date().toISOString()}`);
