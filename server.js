@@ -267,7 +267,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Fast-fail API responses while database is waking up (prevents long page hangs)
+// DB wake-up handling: fail-open for page-critical routes, fast-fail for writes
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/')) return next();
 
@@ -280,6 +280,14 @@ app.use((req, res, next) => {
 
   if (!dbReady) {
     initializeDatabaseConnection(); // fire-and-forget reconnect attempt
+
+    const failOpenRoutes =
+      req.method === 'GET' ||
+      req.path.startsWith('/api/public/') ||
+      req.path === '/api/parent/login-password';
+
+    if (failOpenRoutes) return next();
+
     return res.status(503).json({
       error: 'Database is waking up. Please retry in 5-10 seconds.',
       code: 'DB_WAKING_UP'
