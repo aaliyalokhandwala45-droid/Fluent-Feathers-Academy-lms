@@ -4260,7 +4260,8 @@ app.get('/api/demo-leads', async (req, res) => {
 app.post('/api/demo-leads', async (req, res) => {
   const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, notes, send_email } = req.body;
   try {
-    const studentTimezone = student_timezone || 'Asia/Kolkata';
+    // Demo schedule is entered by admin in IST
+    const studentTimezone = 'Asia/Kolkata';
     const parentTimezone = parent_timezone || studentTimezone || 'Asia/Kolkata';
 
     // Convert demo date/time to UTC
@@ -4355,7 +4356,8 @@ app.put('/api/demo-leads/:id', async (req, res) => {
   const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, status, notes, send_email } = req.body;
 
   try {
-    const studentTimezone = student_timezone || 'Asia/Kolkata';
+    // Demo schedule is entered by admin in IST
+    const studentTimezone = 'Asia/Kolkata';
     const parentTimezone = parent_timezone || studentTimezone || 'Asia/Kolkata';
 
     // Get original lead data for comparison
