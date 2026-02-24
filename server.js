@@ -8218,27 +8218,6 @@ app.post('/api/students/:id/badges/assign', async (req, res) => {
 
 async function calculateStudentScores(startDate, endDate) {
   const result = await pool.query(`
-    WITH attendance_pts AS (
-      -- Private sessions (Completed)
-      SELECT student_id, COUNT(*) * 10 as pts
-      FROM sessions
-      WHERE student_id IS NOT NULL AND status = 'Completed'
-        AND session_date >= $1 AND session_date <= $2
-      GROUP BY student_id
-      UNION ALL
-      -- Group sessions (Present in session_attendance)
-      SELECT sa.student_id, COUNT(*) * 10 as pts
-      FROM session_attendance sa
-      JOIN sessions s ON sa.session_id = s.id
-      WHERE sa.attendance = 'Present'
-        AND s.session_date >= $1 AND s.session_date <= $2
-      GROUP BY sa.student_id
-    ),
-    attendance_total AS (
-      SELECT student_id, SUM(pts) as pts
-      FROM attendance_pts
-      GROUP BY student_id
-    ),
     homework_pts AS (
       SELECT student_id, COUNT(*) * 10 as pts
       FROM materials
@@ -8267,19 +8246,17 @@ async function calculateStudentScores(startDate, endDate) {
       s.completed_sessions,
       s.parent_email,
       s.parent_name,
-      COALESCE(a.pts, 0) as attendance_score,
-      COALESCE(h.pts, 0) as homework_score,
-      COALESCE(c.pts, 0) as challenge_score,
-      COALESCE(b.pts, 0) as badge_score,
-      COALESCE(a.pts, 0) + COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
-    FROM students s
-    LEFT JOIN attendance_total a ON s.id = a.student_id
-    LEFT JOIN homework_pts h ON s.id = h.student_id
-    LEFT JOIN challenge_pts c ON s.id = c.student_id
-    LEFT JOIN badge_pts b ON s.id = b.student_id
-    WHERE s.is_active = true
-      AND (COALESCE(a.pts, 0) + COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, s.completed_sessions DESC, s.name ASC
+     COALESCE(h.pts, 0) as homework_score,
+COALESCE(c.pts, 0) as challenge_score,
+COALESCE(b.pts, 0) as badge_score,
+COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+FROM students s
+LEFT JOIN homework_pts h ON s.id = h.student_id
+LEFT JOIN challenge_pts c ON s.id = c.student_id
+LEFT JOIN badge_pts b ON s.id = b.student_id
+WHERE s.is_active = true
+  AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+ORDER BY total_score DESC, s.name ASC
   `, [startDate, endDate]);
   return result.rows;
 }
@@ -8302,7 +8279,6 @@ function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, 
       </div>
       <div style="background:#f7fafc;border-radius:10px;padding:20px;margin:20px 0;text-align:left;">
         <p style="margin:0 0 10px;font-weight:600;color:#2d3748;">Score Breakdown:</p>
-        <p style="margin:4px 0;color:#4a5568;">📚 Classes Attended: <strong>${breakdown.attendance} pts</strong></p>
 <p style="margin:4px 0;color:#4a5568;">📖 Homework Submitted: <strong>${breakdown.homework} pts</strong></p>
 <p style="margin:4px 0;color:#4a5568;">🎯 Challenges Completed: <strong>${breakdown.challenges} pts</strong></p>
 <p style="margin:4px 0;color:#4a5568;">🏅 Badges Earned: <strong>${breakdown.badges} pts</strong></p>
@@ -8377,7 +8353,6 @@ async function awardStudentOfPeriod(periodType) {
 
     if (winner.parent_email) {
       const emailHTML = getStudentAwardEmail(winner.name, awardTitle, periodLabel, winner.total_score, {
-  attendance: winner.attendance_score,
   homework: winner.homework_score,
   challenges: winner.challenge_score,
   badges: winner.badge_score
@@ -8438,22 +8413,7 @@ app.get('/api/awards/current', async (req, res) => {
     // Query to get student scores for a date range
    const getTopStudent = async (startDate, endDate) => {
   const result = await pool.query(`
-    WITH attendance_pts AS (
-      SELECT student_id, COUNT(*) * 10 as pts FROM sessions
-      WHERE student_id IS NOT NULL AND status = 'Completed'
-        AND session_date >= $1 AND session_date <= $2
-      GROUP BY student_id
-      UNION ALL
-      SELECT sa.student_id, COUNT(*) * 10 as pts
-      FROM session_attendance sa
-      JOIN sessions s ON sa.session_id = s.id
-      WHERE sa.attendance = 'Present'
-        AND s.session_date >= $1 AND s.session_date <= $2
-      GROUP BY sa.student_id
-    ),
-    attendance_total AS (
-      SELECT student_id, SUM(pts) as pts FROM attendance_pts GROUP BY student_id
-    ),
+  
     homework_pts AS (
       SELECT student_id, COUNT(*) * 10 as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
@@ -8472,19 +8432,17 @@ app.get('/api/awards/current', async (req, res) => {
       GROUP BY student_id
     )
     SELECT s.id, s.name,
-      COALESCE(a.pts, 0) as attendance,
       COALESCE(h.pts, 0) as homework,
-      COALESCE(c.pts, 0) as challenges,
-      COALESCE(b.pts, 0) as badges,
-      COALESCE(a.pts, 0) + COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
-    FROM students s
-    LEFT JOIN attendance_total a ON s.id = a.student_id
-    LEFT JOIN homework_pts h ON s.id = h.student_id
-    LEFT JOIN challenge_pts c ON s.id = c.student_id
-    LEFT JOIN badge_pts b ON s.id = b.student_id
-    WHERE s.is_active = true
-      AND (COALESCE(a.pts, 0) + COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, attendance DESC, s.name ASC
+COALESCE(c.pts, 0) as challenges,
+COALESCE(b.pts, 0) as badges,
+COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+FROM students s
+LEFT JOIN homework_pts h ON s.id = h.student_id
+LEFT JOIN challenge_pts c ON s.id = c.student_id
+LEFT JOIN badge_pts b ON s.id = b.student_id
+WHERE s.is_active = true
+  AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+ORDER BY total_score DESC, s.name ASC
     LIMIT 1
   `, [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]);
   return result.rows[0] || null;
