@@ -3658,27 +3658,38 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('dueAssessments').textContent = stats.pendingAssessments || 0;
         
         // Display monthly revenue breakdown if available
-        if (stats.monthlyRevenue) {
-          const monthlyHtml = Object.entries(stats.monthlyRevenue)
+        if (stats.monthlyRevenue && Object.keys(stats.monthlyRevenue).length > 0) {
+          const monthlyEntries = Object.entries(stats.monthlyRevenue)
             .sort().reverse()  // Show latest months first
-            .slice(0, 6)  // Show last 6 months
-            .map(([month, revenue]) => {
-              const [year, monthNum] = month.split('-');
-              const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-              const monthLabel = `${monthNames[parseInt(monthNum)]} ${year}`;
-              return `<div style="padding: 4px 0; font-size: 12px; color: #718096;">
-                <strong>${monthLabel}:</strong> ₹${revenue.toLocaleString('en-IN')}
-              </div>`;
-            }).join('');
+            .slice(0, 6);  // Show last 6 months
+          
+          const monthlyHtml = monthlyEntries.map(([month, revenue]) => {
+            const [year, monthNum] = month.split('-');
+            const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthLabel = `${monthNames[parseInt(monthNum)]} ${year}`;
+            return `<div style="padding: 4px 0; font-size: 12px; color: #718096;">
+              <strong>${monthLabel}:</strong> ₹${revenue.toLocaleString('en-IN')}
+            </div>`;
+          }).join('');
           
           const revenueEl = document.getElementById('totalRevenue');
           if (revenueEl && revenueEl.parentElement) {
-            revenueEl.title = monthlyHtml;
+            revenueEl.title = monthlyHtml;  // Also add tooltip
             revenueEl.style.cursor = 'help';
+            // Add monthly breakdown text below the stat
+            let monthlyDisplay = revenueEl.parentElement.querySelector('.monthly-revenue-display');
+            if (!monthlyDisplay) {
+              monthlyDisplay = document.createElement('div');
+              monthlyDisplay.className = 'monthly-revenue-display';
+              monthlyDisplay.style.cssText = 'margin-top:8px; font-size:11px; color:#a0aec0; border-top:1px solid rgba(255,255,255,0.1); padding-top:8px;';
+              revenueEl.parentElement.appendChild(monthlyDisplay);
+            }
+            monthlyDisplay.innerHTML = monthlyHtml;
           }
         }
+        console.log('✅ Dashboard stats loaded:', stats);
       } catch (err) {
-        console.warn('⏳ Dashboard stats slow to load:', err.message);
+        console.error('❌ Dashboard stats error:', err.message);
         // Show placeholder text instead of erroring out
         document.getElementById('totalStudents').textContent = '...';
         document.getElementById('upcomingSessions').textContent = '...';
@@ -3689,15 +3700,25 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('pendingChallenges').textContent = '...';
         document.getElementById('dueAssessments').textContent = '...';
       }
+      }
     }
 
     async function loadUpcomingClasses() {
       try {
+        console.log('🔄 Loading upcoming classes...');
         const res = await fetchWithTimeout('/api/dashboard/upcoming-classes', 15000);
-const data = await res.json();
-const classes = Array.isArray(data.classes) ? data.classes : [];
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        const data = await res.json();
+        console.log('✅ Upcoming classes data:', data);
+        const classes = Array.isArray(data.classes) ? data.classes : [];
         const grid = document.getElementById('upcomingClassesGrid');
-        if (classes.length === 0) return grid.innerHTML = '<p>No upcoming classes</p>';
+        if (!grid) {
+          console.error('❌ upcomingClassesGrid element not found');
+          return;
+        }
+        if (classes.length === 0) return grid.innerHTML = '<p style="color:#a0aec0; padding:20px; text-align:center;">No upcoming classes scheduled 📅</p>';
         grid.innerHTML = classes.map(cls => {
           // Get day name
           const dateStr = cls.session_date.includes('T') ? cls.session_date.split('T')[0] : cls.session_date;
