@@ -6728,43 +6728,33 @@ app.get('/api/email-logs', async (req, res) => {
 app.get('/api/sessions/past/all', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const p = await pool.query(`
-      SELECT s.*, st.name as student_name, st.timezone, NULL as group_name
-      FROM sessions s
-      JOIN students st ON s.student_id = st.id
-      WHERE s.session_date <= $1 AND s.session_type = 'Private'
-      ORDER BY s.session_date DESC, s.session_time DESC
-      LIMIT 50
-    `, [today]);
+    const requestedLimit = Math.min(Math.max(parseInt(req.query.limit) || 50, 10), 300);
+    const r = await pool.query(`
+      SELECT * FROM (
+        SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
+               s.ppt_file_path, s.recording_file_path, s.homework_file_path,
+               s.teacher_notes, s.class_notes, s.feedback, s.student_id, s.group_id,
+               st.name as student_name, st.timezone, NULL::text as group_name
+        FROM sessions s
+        JOIN students st ON s.student_id = st.id
+        WHERE s.session_date <= $1 AND s.session_type = 'Private'
 
-    const g = await pool.query(`
-      SELECT s.*, g.group_name as student_name, g.timezone, g.group_name
-      FROM sessions s
-      JOIN groups g ON s.group_id = g.id
-      WHERE s.session_date <= $1 AND s.session_type = 'Group'
-      ORDER BY s.session_date DESC, s.session_time DESC
-      LIMIT 50
-    `, [today]);
+        UNION ALL
 
-    const all = [...p.rows, ...g.rows].sort((a, b) => {
-      // Handle date which could be Date object or string
-      const getDateStr = (d) => {
-        if (!d) return '1970-01-01';
-        if (d instanceof Date) return d.toISOString().split('T')[0];
-        if (typeof d === 'string' && d.includes('T')) return d.split('T')[0];
-        return String(d);
-      };
-      const dateStrA = getDateStr(a.session_date);
-      const dateStrB = getDateStr(b.session_date);
-      const timeA = a.session_time || '00:00:00';
-      const timeB = b.session_time || '00:00:00';
-      const dateA = new Date(`${dateStrA}T${timeA}Z`);
-      const dateB = new Date(`${dateStrB}T${timeB}Z`);
-      return dateB - dateA; // Descending - most recent first
-    }).slice(0, 50);
+        SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
+               s.ppt_file_path, s.recording_file_path, s.homework_file_path,
+               s.teacher_notes, s.class_notes, s.feedback, s.student_id, s.group_id,
+               g.group_name as student_name, g.timezone, g.group_name
+        FROM sessions s
+        JOIN groups g ON s.group_id = g.id
+        WHERE s.session_date <= $1 AND s.session_type = 'Group'
+      ) past
+      ORDER BY past.session_date DESC, past.session_time DESC
+      LIMIT $2
+    `, [today, requestedLimit]);
 
     // Fix file paths for backwards compatibility (skip Cloudinary URLs)
-    const fixed = all.map(session => {
+    const fixed = r.rows.map(session => {
       const needsPrefix = (path) => path && !path.startsWith('/uploads/') && !path.startsWith('LINK:') && !path.startsWith('https://') && !path.startsWith('http://');
       if (needsPrefix(session.ppt_file_path)) {
         session.ppt_file_path = '/uploads/materials/' + session.ppt_file_path;
@@ -6781,6 +6771,102 @@ app.get('/api/sessions/past/all', async (req, res) => {
     res.json(fixed);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Upcoming private sessions for bulk reschedule student picker
+app.get('/api/students/:id/upcoming-sessions', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT id, session_number, session_date, session_time, status
+      FROM sessions
+      WHERE student_id = $1
+        AND session_type = 'Private'
+        AND status IN ('Pending', 'Scheduled')
+        AND session_date >= CURRENT_DATE
+      ORDER BY session_date ASC, session_time ASC
+      LIMIT 200
+    `, [req.params.id]);
+    res.json(r.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cancel one student from a group session (Excused/Unexcused)
+app.post('/api/sessions/:sessionId/group-cancel-student', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { student_id, attendance, reason, notes } = req.body;
+    const sessionId = req.params.sessionId;
+
+    if (!student_id) return res.status(400).json({ error: 'student_id is required' });
+    if (!['Excused', 'Unexcused'].includes(attendance)) return res.status(400).json({ error: 'attendance must be Excused or Unexcused' });
+
+    await client.query('BEGIN');
+
+    const sessionCheck = await client.query('SELECT id FROM sessions WHERE id = $1 AND session_type = $2', [sessionId, 'Group']);
+    if (sessionCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Group session not found' });
+    }
+
+    const prev = await client.query(
+      'SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2',
+      [sessionId, student_id]
+    );
+    const prevAttendance = prev.rows[0]?.attendance;
+
+    await client.query(`
+      INSERT INTO session_attendance (session_id, student_id, attendance)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (session_id, student_id)
+      DO UPDATE SET attendance = EXCLUDED.attendance
+    `, [sessionId, student_id, attendance]);
+
+    const wasPresent = prevAttendance === 'Present';
+    const wasExcused = prevAttendance === 'Excused';
+    const wasPending = !prevAttendance || prevAttendance === 'Pending';
+
+    if (wasPresent) {
+      await client.query(`UPDATE students SET completed_sessions = GREATEST(completed_sessions - 1, 0) WHERE id = $1`, [student_id]);
+    }
+
+    if (attendance === 'Excused') {
+      const existingCredit = await client.query(
+        'SELECT id FROM makeup_classes WHERE student_id = $1 AND original_session_id = $2',
+        [student_id, sessionId]
+      );
+      if (existingCredit.rows.length === 0) {
+        await client.query(`
+          INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by, notes)
+          VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'admin', $4)
+        `, [student_id, sessionId, reason || 'Parent requested cancellation (group class)', notes || '']);
+      }
+
+      if (wasPending) {
+        await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`, [student_id]);
+      }
+    } else {
+      if (wasExcused) {
+        await client.query(
+          `DELETE FROM makeup_classes WHERE student_id = $1 AND original_session_id = $2 AND status = 'Available'`,
+          [student_id, sessionId]
+        );
+      }
+
+      if (wasPending) {
+        await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`, [student_id]);
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: attendance === 'Excused' ? 'Student marked Excused and makeup credit added' : 'Student marked Unexcused (no makeup credit)' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 

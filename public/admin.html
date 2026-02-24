@@ -2789,6 +2789,38 @@ I'm passionate about helping children develop confidence in communication!"></te
     </div>
   </div>
 
+  <!-- Group Student Cancel Modal -->
+  <div id="groupStudentCancelModal" class="modal">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <h2>👥 Cancel Student in Group Class</h2>
+        <button onclick="closeGroupStudentCancelModal()" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <input type="hidden" id="groupCancelSessionId">
+      <p style="margin-bottom: 12px;">Group: <strong id="groupCancelGroupName"></strong></p>
+      <div class="form-row" style="margin-bottom: 12px;">
+        <div class="form-group">
+          <label>Reason</label>
+          <select id="groupCancelReason">
+            <option value="Parent Requested">Parent Requested</option>
+            <option value="Medical">Medical</option>
+            <option value="Travel">Travel</option>
+            <option value="Technical Issues">Technical Issues</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes (Optional)</label>
+          <input id="groupCancelNotes" type="text" placeholder="Optional note for this cancellation">
+        </div>
+      </div>
+      <div id="groupCancelStudentsList" style="max-height: 360px; overflow-y: auto;"></div>
+      <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+        <button type="button" onclick="closeGroupStudentCancelModal()" class="btn" style="background:#718096; color:white;">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Update Demo Status Modal -->
   <div id="updateDemoStatusModal" class="modal">
     <div class="modal-content" style="max-width: 450px;">
@@ -3526,13 +3558,12 @@ I'm passionate about helping children develop confidence in communication!"></te
         ]);
       }, 1500); // Defer by 1.5 seconds to let database warm up
 
-      // Batch 2 (3s): Email, Calendar, Emails, Financials, Assessments
+      // Batch 2 (3s): Email, Calendar, Events
       setTimeout(async () => {
         Promise.all([
           loadEmailLogs().catch(e => console.warn('Failed to pre-load email logs:', e.message)),
           loadCalendar().catch(e => console.warn('Failed to pre-load calendar:', e.message)),
           checkOrphanedCount().catch(e => console.warn('Failed to check orphaned:', e.message)),
-          loadPastSessions().catch(e => console.warn('Failed to pre-load past sessions:', e.message)),
           loadEvents().catch(e => console.warn('Failed to pre-load events:', e.message))
         ]);
       }, 3000); // Defer to avoid DB overload
@@ -3608,6 +3639,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       // All tabs are pre-loaded in background, just trigger refresh if needed
       // For certain tabs that need fresh data on click, add explicit load here
       if (tabName === 'emails') checkOrphanedCount();
+      if (tabName === 'past') loadPastSessions();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
@@ -3751,8 +3783,8 @@ I'm passionate about helping children develop confidence in communication!"></te
           const isGroup = cls.display_type === 'Group';
           let studentsHtml = '';
           if (isGroup && cls.enrolled_students && cls.enrolled_students.length > 0) {
-            const joining = cls.enrolled_students.filter(s => !['Cancelled', 'Cancelled by Parent'].includes(s.attendance));
-            const cancelled = cls.enrolled_students.filter(s => ['Cancelled', 'Cancelled by Parent'].includes(s.attendance));
+            const joining = cls.enrolled_students.filter(s => !['Cancelled', 'Cancelled by Parent', 'Excused', 'Unexcused', 'Absent'].includes(s.attendance));
+            const cancelled = cls.enrolled_students.filter(s => ['Cancelled', 'Cancelled by Parent', 'Excused', 'Unexcused', 'Absent'].includes(s.attendance));
             const dropdownId = 'students-' + cls.id;
             studentsHtml = `<div style="margin-top: 8px;">
               <div onclick="var el=document.getElementById('${dropdownId}'); el.style.display = el.style.display==='none'?'block':'none'; this.querySelector('.arrow').textContent = el.style.display==='none'?'▸':'▾';" style="cursor: pointer; background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
@@ -3784,7 +3816,8 @@ I'm passionate about helping children develop confidence in communication!"></te
   Join Class
 </button>
             ${isDemo ? `<button onclick="showTab('demoStudents', event)" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">📋 View Demo Leads</button>` : `<button onclick="openSessionModal(${cls.id}, '${cls.session_type}')" class="btn btn-sm" style="background:rgba(255,255,255,0.3); color:white;">⚙️ Manage</button>
-            <button onclick="openCancelClassModal(${cls.id}, decodeURIComponent('${encodeURIComponent(cls.student_name || '')}'), '${cls.session_type}')" class="btn btn-sm" style="background:#e53e3e; color:white;">✕ Cancel</button>`}
+            ${isGroup ? `<button onclick="openGroupStudentCancelModal(${cls.id}, decodeURIComponent('${encodeURIComponent(cls.student_name || '')}'))" class="btn btn-sm" style="background:#dd6b20; color:white;">👥 Cancel Student</button>` : ''}
+            <button onclick="openCancelClassModal(${cls.id}, decodeURIComponent('${encodeURIComponent(cls.student_name || '')}'), '${cls.session_type}')" class="btn btn-sm" style="background:#e53e3e; color:white;">✕ Cancel Class</button>`}
           </div>
         </div>`;
         }).join('');
@@ -4240,11 +4273,21 @@ if (dueEl) {
     });
 
     let allPastSessions = []; // Store all past sessions for filtering
+    let pastSessionsLoadedAt = 0;
 
     async function loadPastSessions() {
+      if (allPastSessions.length > 0 && (Date.now() - pastSessionsLoadedAt) < 60000) {
+        filterPastSessions();
+        return;
+      }
       try {
-        const res = await fetch('/api/sessions/past/all');
+        const tbody = document.getElementById('pastSessionsBody');
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096; padding:20px;">Loading past sessions...</td></tr>';
+        }
+        const res = await fetchWithTimeout('/api/sessions/past/all?limit=120', 12000);
         allPastSessions = await res.json();
+        pastSessionsLoadedAt = Date.now();
         filterPastSessions(); // Apply initial filter (show 10)
       } catch(err) {
         console.error(err);
@@ -7228,6 +7271,77 @@ async function saveEditedPayment() {
         alert('❌ Error: ' + err.message);
       }
     });
+
+    // GROUP STUDENT CANCELLATION (Upcoming Group Classes)
+    async function openGroupStudentCancelModal(sessionId, groupName) {
+      document.getElementById('groupCancelSessionId').value = sessionId;
+      document.getElementById('groupCancelGroupName').textContent = groupName;
+      document.getElementById('groupCancelReason').value = 'Parent Requested';
+      document.getElementById('groupCancelNotes').value = '';
+      document.getElementById('groupStudentCancelModal').classList.add('active');
+      await loadGroupCancelStudents();
+    }
+
+    function closeGroupStudentCancelModal() {
+      document.getElementById('groupStudentCancelModal').classList.remove('active');
+    }
+
+    async function loadGroupCancelStudents() {
+      const sessionId = document.getElementById('groupCancelSessionId').value;
+      const container = document.getElementById('groupCancelStudentsList');
+      container.innerHTML = '<p style="color:#718096;">Loading students...</p>';
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/group-attendance`);
+        const students = await res.json();
+        if (!Array.isArray(students) || students.length === 0) {
+          container.innerHTML = '<p style="color:#718096;">No students found for this group session.</p>';
+          return;
+        }
+
+        container.innerHTML = students.map(st => {
+          const status = st.attendance || 'Pending';
+          return `
+            <div style="display:flex; gap:8px; align-items:center; padding:8px; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:8px;">
+              <div style="flex:1; min-width:140px;"><strong>${st.student_name}</strong><div style="font-size:12px; color:#718096;">Current: ${status}</div></div>
+              <select id="groupCancelType-${st.student_id}" style="padding:6px; border:1px solid #cbd5e0; border-radius:6px;">
+                <option value="Excused">Excused (+ makeup credit)</option>
+                <option value="Unexcused">Unexcused (no credit)</option>
+              </select>
+              <button onclick="cancelGroupStudent(${st.student_id})" class="btn btn-sm" style="background:#B05D9E; color:white;">Apply</button>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<p style="color:#e53e3e;">Failed to load students: ${err.message}</p>`;
+      }
+    }
+
+    async function cancelGroupStudent(studentId) {
+      const sessionId = document.getElementById('groupCancelSessionId').value;
+      const reason = document.getElementById('groupCancelReason').value;
+      const notes = document.getElementById('groupCancelNotes').value;
+      const attendanceEl = document.getElementById(`groupCancelType-${studentId}`);
+      const attendance = attendanceEl ? attendanceEl.value : 'Excused';
+
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/group-cancel-student`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_id: studentId, attendance, reason, notes })
+        });
+        const result = await res.json();
+        if (!res.ok) {
+          alert('❌ ' + (result.error || 'Failed to update student cancellation'));
+          return;
+        }
+        alert('✅ ' + result.message);
+        loadUpcomingClasses();
+        loadGroupCancelStudents();
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
 
     // MAKEUP CREDIT FUNCTIONS
     function openAddMakeupCreditModal(studentId, studentName) {
@@ -10231,22 +10345,81 @@ function switchBulkTab(tab) {
 }
 
 function openBulkReschedule() {
+  const modal = document.getElementById('bulkRescheduleModal');
+  if (!modal) {
+    alert('Bulk reschedule modal not found. Please refresh the page once.');
+    return;
+  }
+
   // Populate student dropdown
   const studentSelect = document.getElementById('bulkRescheduleStudent');
-  studentSelect.innerHTML = '<option value="">Select student...</option>' +
-    allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  const hydrateStudents = async () => {
+    if (!Array.isArray(allStudents) || allStudents.length === 0) {
+      const sRes = await fetch('/api/students');
+      allStudents = await sRes.json();
+    }
+    studentSelect.innerHTML = '<option value="">Select student...</option>' +
+      allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  };
 
   // Populate group dropdown
   const groupSelect = document.getElementById('bulkRescheduleGroup');
   groupSelect.innerHTML = '<option value="">Select group...</option>';
-  fetch('/api/groups').then(r => r.json()).then(groups => {
-    groupSelect.innerHTML += groups.map(g =>
-      `<option value="${g.id}">${g.group_name}</option>`
-    ).join('');
+  Promise.all([
+    hydrateStudents(),
+    fetch('/api/groups').then(r => r.json()).then(groups => {
+      groupSelect.innerHTML += groups.map(g =>
+        `<option value="${g.id}">${g.group_name}</option>`
+      ).join('');
+    })
+  ]).finally(() => {
+    switchBulkTab('private');
+    modal.classList.add('active');
   });
+}
 
-  switchBulkTab('private');
-  document.getElementById('bulkRescheduleModal').classList.add('active');
+async function loadSessionsForBulkReschedule() {
+  const studentId = document.getElementById('bulkRescheduleStudent').value;
+  const list = document.getElementById('bulkRescheduleList');
+  if (!studentId) {
+    list.innerHTML = '<p style="color:#718096;">Select a student to load upcoming sessions</p>';
+    return;
+  }
+
+  list.innerHTML = '<p style="color:#718096;">Loading sessions...</p>';
+  try {
+    const res = await fetch(`/api/students/${studentId}/upcoming-sessions`);
+    const sessions = await res.json();
+    if (!Array.isArray(sessions) || sessions.length === 0) {
+      list.innerHTML = '<p style="color:#718096;">No upcoming sessions found for this student</p>';
+      return;
+    }
+
+    list.innerHTML = `
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f7fafc;">
+            <th style="padding:10px; text-align:left;">Session</th>
+            <th style="padding:10px; text-align:left;">Current Date</th>
+            <th style="padding:10px; text-align:left;">New Date</th>
+            <th style="padding:10px; text-align:left;">New Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sessions.map(s => `
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:10px;">#${s.session_number}</td>
+              <td style="padding:10px; color:#718096;">${new Date(s.session_date).toLocaleDateString('en-IN')}</td>
+              <td style="padding:10px;"><input type="date" class="bulk-new-date" data-session-id="${s.id}" value="${s.session_date ? s.session_date.split('T')[0] : ''}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
+              <td style="padding:10px;"><input type="time" class="bulk-new-time" data-session-id="${s.id}" value="${(s.session_time || '').toString().substring(0,5)}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    list.innerHTML = `<p style="color:#e53e3e;">Failed to load sessions: ${err.message}</p>`;
+  }
 }
 
 function closeBulkReschedule() {
