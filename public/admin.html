@@ -3556,36 +3556,15 @@ I'm passionate about helping children develop confidence in communication!"></te
         showTab(savedTab);
       }
 
-      // Pre-load ALL tabs in background (non-blocking) after 1.5 seconds
-      // Batch 1 (1.5s): Students, Demo Leads, Groups
+      // Load only lightweight secondary data in background (non-blocking)
+      // Keep initial load fast; heavy tabs load on click.
       setTimeout(async () => {
         safePreload(() => loadStudents(), 'students');
         safePreload(() => loadGroups(), 'groups');
-        safePreload(() => loadDemoLeads(), 'demo leads');
-      }, 1500); // Defer by 1.5 seconds to let database warm up
-
-      // Batch 2 (3s): Email, Calendar, Events
-      setTimeout(async () => {
         safePreload(() => loadEmailLogs(), 'email logs');
         safePreload(() => loadCalendar(), 'calendar');
         safePreload(() => checkOrphanedCount(), 'orphaned count');
-        safePreload(() => loadEvents(), 'events');
-      }, 3000); // Defer to avoid DB overload
-
-      // Batch 3 (5s): Homework, Ratings, Leaderboard, Challenges, Financials, Assessments
-      setTimeout(async () => {
-        safePreload(() => loadScheduleManager(), 'schedule manager');
-        safePreload(() => loadHomeworkSubmissions(), 'homework');
-        safePreload(() => loadClassRatings(), 'ratings');
-        safePreload(() => loadLeaderboard(), 'leaderboard');
-        safePreload(() => loadChallenges(), 'challenges');
-      }, 5000); // Spread load further
-
-      // Batch 4 (7s): Resources, Financials, Assessments
-      setTimeout(async () => {
-        safePreload(() => loadFinancialReports(), 'financials');
-        safePreload(() => loadDueAssessments(), 'assessments');
-      }, 7000); // Final batch
+      }, 2000);
     });
 
     function toggleMobileSidebar() {
@@ -3636,10 +3615,18 @@ I'm passionate about helping children develop confidence in communication!"></te
         if (statsGrid) statsGrid.style.display = '';
       }
 
-      // All tabs are pre-loaded in background, just trigger refresh if needed
-      // For certain tabs that need fresh data on click, add explicit load here
-      if (tabName === 'emails') checkOrphanedCount();
+      // Load tab data on demand for responsiveness and reliability
+      if (tabName === 'emails') { loadEmailLogs(); checkOrphanedCount(); }
       if (tabName === 'past') loadPastSessions();
+      if (tabName === 'events') loadEvents();
+      if (tabName === 'scheduleManager') loadScheduleManager();
+      if (tabName === 'homework') loadHomeworkSubmissions();
+      if (tabName === 'classRatings') loadClassRatings();
+      if (tabName === 'demoStudents') loadDemoLeads();
+      if (tabName === 'leaderboard') loadLeaderboard();
+      if (tabName === 'challenges') loadChallenges();
+      if (tabName === 'financials') loadFinancialReports();
+      if (tabName === 'monthlyAssessment') loadDueAssessments();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
