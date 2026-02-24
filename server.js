@@ -8510,7 +8510,7 @@ app.get('/api/awards/current', async (req, res) => {
     // Query to get student scores for a date range
    const getTopStudent = async (startDate, endDate) => {
   const result = await pool.query(`
-    homework_pts AS (
+    WITH homework_pts AS (
       SELECT student_id, COUNT(*) * 10 as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
         AND uploaded_at >= $1 AND uploaded_at <= $2
