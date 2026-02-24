@@ -288,6 +288,7 @@ app.use((req, res, next) => {
     initializeDatabaseConnection(); // fire-and-forget reconnect attempt
 
     const failOpenRoutes =
+      req.method === 'GET' ||
       req.path.startsWith('/api/public/') ||
       req.path === '/api/parent/login-password';
 
