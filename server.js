@@ -4019,7 +4019,8 @@ app.get('/api/calendar/sessions', async (req, res) => {
     res.json(allSessions);
   } catch (err) {
     console.error('Calendar error:', err);
-    res.status(500).json({ error: err.message });
+    // return empty array to client so calendar still renders (no crash)
+    res.json([]);
   }
 });
 

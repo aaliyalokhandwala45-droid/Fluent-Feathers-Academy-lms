@@ -5776,7 +5776,13 @@ async function saveEditedPayment() {
         const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
         const res = await fetch(`/api/calendar/sessions?start=${startDate}&end=${endDate}`);
-        calendarSessions = await res.json();
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          calendarSessions = data;
+        } else {
+          console.error('Calendar API returned non-array:', data);
+          calendarSessions = [];
+        }
 
         renderCalendar();
       } catch (err) {
