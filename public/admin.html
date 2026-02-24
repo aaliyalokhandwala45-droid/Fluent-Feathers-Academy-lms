@@ -3742,7 +3742,7 @@ I'm passionate about helping children develop confidence in communication!"></te
     async function loadUpcomingClasses() {
       try {
         console.log('🔄 Loading upcoming classes...');
-        const res = await fetchWithTimeout('/api/dashboard/upcoming-classes', 15000);
+        const res = await fetchWithTimeout('/api/dashboard/upcoming-classes', 30000);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
@@ -4272,7 +4272,7 @@ if (dueEl) {
         if (tbody) {
           tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096; padding:20px;">Loading past sessions...</td></tr>';
         }
-        const res = await fetchWithTimeout('/api/sessions/past/all?limit=120', 12000);
+        const res = await fetchWithTimeout('/api/sessions/past/all?limit=120', 30000);
         const payload = await res.json();
         if (!res.ok) {
           throw new Error(payload?.error || `Failed to load past sessions (${res.status})`);

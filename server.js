@@ -251,7 +251,7 @@ async function initializeDatabaseConnection() {
 // Start database connection
 initializeDatabaseConnection();
 
-// Keep-alive ping every 4 minutes to prevent idle disconnection (Supabase pooler timeout is ~5min)
+// Keep-alive ping every 1 minute to prevent idle disconnection and cold starts
 setInterval(async () => {
   try {
     await pool.query('SELECT 1');
@@ -260,7 +260,7 @@ setInterval(async () => {
     console.warn('⚠️ Keep-alive ping failed, connection will be re-established on next request');
     dbReady = false;
   }
-}, 4 * 60 * 1000); // 4 minutes
+}, 60 * 1000); // 1 minute
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json({ limit: '20mb' }));
@@ -6729,7 +6729,8 @@ app.get('/api/sessions/past/all', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     const requestedLimit = Math.min(Math.max(parseInt(req.query.limit) || 50, 10), 300);
-    const r = await pool.query(`
+    // Use executeQuery with retry logic for cold-start resilience
+    const r = await executeQuery(`
       SELECT * FROM (
         SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
                s.ppt_file_path, s.recording_file_path, s.homework_file_path,
