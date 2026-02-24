@@ -124,6 +124,10 @@ let dbReady = false;
 let dbInitializing = false;
 let dbReconnectScheduled = false;
 let lastDbFailureLogAt = 0;
+let schemaInitialized = false;
+let schemaInitPromise = null;
+let keepAliveStarted = false;
+let dbHealthCheckInFlight = false;
 
 // Pool error handler - critical for catching connection issues
 pool.on('error', (err, client) => {
@@ -217,52 +221,74 @@ async function executeQuery(queryText, params = [], retries = 3) {
 }
 
 // Initialize database with retry logic
+async function ensureDatabaseSchemaInitialized() {
+  if (schemaInitialized) return;
+  if (schemaInitPromise) {
+    await schemaInitPromise;
+    return;
+  }
+
+  schemaInitPromise = (async () => {
+    await initializeDatabase();
+    await runMigrations();
+    schemaInitialized = true;
+    console.log('✅ Database schema/migrations verified for this process');
+  })();
+
+  try {
+    await schemaInitPromise;
+  } catch (err) {
+    schemaInitPromise = null;
+    throw err;
+  }
+}
+
 async function initializeDatabaseConnection() {
-  if (dbInitializing) return;
+  if (dbInitializing) return false;
   dbInitializing = true;
 
   const maxAttempts = 8;
   const retryDelay = 5000; // 5 seconds
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      console.log(`🔄 Attempting database connection (attempt ${attempt}/${maxAttempts})...`);
-
-      // Test the connection
-      const client = await pool.connect();
-      console.log('✅ Connected to PostgreSQL');
-      
-      // Warm up the database with a simple priming query (Supabase cold-start optimization)
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await client.query('SELECT 1 as warmup');
-        console.log('🔥 Database primed (cold-start warmup complete)');
-      } catch (e) {
-        console.warn('⚠️ Database priming query failed:', e.message);
-      }
-      
-      client.release();
+        console.log(`🔄 Attempting database connection (attempt ${attempt}/${maxAttempts})...`);
 
-      dbReady = true;
+        // Test the connection
+        const client = await pool.connect();
+        console.log('✅ Connected to PostgreSQL');
 
-      // Run initialization
-      await initializeDatabase();
-      await runMigrations();
+        // Warm up the database with a simple priming query (Supabase cold-start optimization)
+        try {
+          await client.query('SELECT 1 as warmup');
+          console.log('🔥 Database primed (cold-start warmup complete)');
+        } catch (e) {
+          console.warn('⚠️ Database priming query failed:', e.message);
+        }
 
-      dbInitializing = false;
-      return true;
-    } catch (err) {
-      console.error(`❌ Database connection attempt ${attempt} failed:`, err.message);
+        client.release();
+        dbReady = true;
 
-      if (attempt < maxAttempts) {
-        console.log(`⏳ Retrying in ${retryDelay / 1000} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        // Initialize schema only once per process (avoids heavy repeat work on reconnect)
+        await ensureDatabaseSchemaInitialized();
+
+        return true;
+      } catch (err) {
+        console.error(`❌ Database connection attempt ${attempt} failed:`, err.message);
+
+        if (attempt < maxAttempts) {
+          console.log(`⏳ Retrying in ${retryDelay / 1000} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
       }
     }
-  }
 
-  console.error('❌ Failed to connect to database after all attempts. Server will retry on first request.');
-  dbInitializing = false;
-  return false;
+    console.error('❌ Failed to connect to database after all attempts. Server will retry on first request.');
+    return false;
+  } finally {
+    dbInitializing = false;
+  }
 }
 
 // Start database connection
@@ -9986,6 +10012,7 @@ app.post('/api/admin/reconnect-db', async (req, res) => {
     dbReady = false;
 
     // Try to establish a fresh connection
+    await initializeDatabaseConnection();
     const testResult = await executeQuery('SELECT NOW() as current_time');
 
     res.json({
@@ -10102,6 +10129,8 @@ let selfPingInFlight = false;
 
 // Database health check - tries to reconnect if disconnected
 async function checkDatabaseHealth() {
+  if (dbHealthCheckInFlight) return;
+  dbHealthCheckInFlight = true;
   try {
     // Always ping DB to prevent Supabase cold start
     await executeQuery('SELECT 1');
@@ -10118,31 +10147,25 @@ async function checkDatabaseHealth() {
     }
     dbReady = false;
 
-    if (!dbInitializing) {
-      initializeDatabaseConnection();
-    }
-
     if (!dbReconnectScheduled) {
       dbReconnectScheduled = true;
       setTimeout(async () => {
         try {
-          await executeQuery('SELECT 1');
-          dbReady = true;
+          await initializeDatabaseConnection();
+        } finally {
           dbReconnectScheduled = false;
-          console.log('✅ Database reconnected on delayed retry');
-        } catch(e) {
-          dbReconnectScheduled = false;
-          if (Date.now() - lastDbFailureLogAt > 60 * 1000) {
-            console.error('❌ Delayed retry failed:', e.message);
-            lastDbFailureLogAt = Date.now();
-          }
         }
       }, 10000);
     }
+  } finally {
+    dbHealthCheckInFlight = false;
   }
 }
 
 function startKeepAlive() {
+  if (keepAliveStarted) return;
+  keepAliveStarted = true;
+
   // Database health check - runs every minute
   setInterval(async () => {
     await checkDatabaseHealth();
