@@ -374,7 +374,7 @@
         <div class="stat-card"><h3>Upcoming Sessions</h3><div class="value" id="upcomingSessions">0</div></div>
        <div class="stat-card" style="border-left-color: #38a169;">
   <h3>💰 Total Revenue</h3>
-  <div class="value" id="totalRevenue" style="color: #38a169;">*****</div>
+  <div class="value" id="totalRevenue" onclick="toggleRevenue()" title="Click to show/hide" style="color: #38a169; cursor: pointer;">*****</div>
   <select id="revenueFilter" onchange="filterRevenue()" 
     style="margin-top:8px; width:100%; padding:4px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:0.8rem; color:#4a5568;">
       <option value="all">All Time (Monthly Breakdown)</option>
@@ -1478,30 +1478,30 @@
         </div>
 
         <!-- Income Summary Cards -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
-          <div style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); padding: 25px; border-radius: 12px; color: white;">
-            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Income (INR)</h3>
-            <div id="totalIncomeINR" style="font-size: 28px; font-weight: bold;">₹0</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: nowrap; overflow-x: auto;">
+          <div style="min-width: 165px; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); padding: 14px; border-radius: 10px; color: white;">
+            <h3 style="font-size: 12px; opacity: 0.9; margin-bottom: 6px; white-space: nowrap;">Total Income (INR)</h3>
+            <div id="totalIncomeINR" style="font-size: 22px; font-weight: bold; white-space: nowrap;">₹0</div>
           </div>
-          <div style="background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); padding: 25px; border-radius: 12px; color: white;">
-            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Income (USD)</h3>
-            <div id="totalIncomeUSD" style="font-size: 28px; font-weight: bold;">$0</div>
+          <div style="min-width: 165px; background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); padding: 14px; border-radius: 10px; color: white;">
+            <h3 style="font-size: 12px; opacity: 0.9; margin-bottom: 6px; white-space: nowrap;">Total Income (USD)</h3>
+            <div id="totalIncomeUSD" style="font-size: 22px; font-weight: bold; white-space: nowrap;">$0</div>
           </div>
-          <div style="background: linear-gradient(135deg, #fef9c3, #fde68a); padding: 20px; border-radius: 12px; border-left: 4px solid #d69e2e;">
-  <h4 style="margin: 0 0 8px; color: #744210; font-size: 14px;">🇧🇩 Total BDT Income</h4>
-  <p style="margin: 0; font-size: 24px; font-weight: bold; color: #92400e;" id="totalIncomeBDT">৳0</p>
-</div>
-<div style="background: linear-gradient(135deg, #e9d8fd, #d6bcfa); padding: 20px; border-radius: 12px; border-left: 4px solid #805ad5;">
-  <h4 style="margin: 0 0 8px; color: #44337a; font-size: 14px;">🇦🇺 Total AUD Income</h4>
-  <p style="margin: 0; font-size: 24px; font-weight: bold; color: #553c9a;" id="totalIncomeAUD">A$0</p>
-</div>
-          <div style="background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); padding: 25px; border-radius: 12px; color: white;">
-            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Total Expenses (INR)</h3>
-            <div id="totalExpensesINR" style="font-size: 28px; font-weight: bold;">₹0</div>
+          <div style="min-width: 165px; background: linear-gradient(135deg, #fef9c3, #fde68a); padding: 14px; border-radius: 10px; border-left: 4px solid #d69e2e;">
+            <h4 style="margin: 0 0 6px; color: #744210; font-size: 12px; white-space: nowrap;">🇧🇩 Total BDT Income</h4>
+            <p style="margin: 0; font-size: 22px; font-weight: bold; color: #92400e; white-space: nowrap;" id="totalIncomeBDT">৳0</p>
           </div>
-          <div style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); padding: 25px; border-radius: 12px; color: white;">
-            <h3 style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Net Profit (INR)</h3>
-            <div id="netProfitINR" style="font-size: 28px; font-weight: bold;">₹0</div>
+          <div style="min-width: 165px; background: linear-gradient(135deg, #e9d8fd, #d6bcfa); padding: 14px; border-radius: 10px; border-left: 4px solid #805ad5;">
+            <h4 style="margin: 0 0 6px; color: #44337a; font-size: 12px; white-space: nowrap;">🇦🇺 Total AUD Income</h4>
+            <p style="margin: 0; font-size: 22px; font-weight: bold; color: #553c9a; white-space: nowrap;" id="totalIncomeAUD">A$0</p>
+          </div>
+          <div style="min-width: 165px; background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); padding: 14px; border-radius: 10px; color: white;">
+            <h3 style="font-size: 12px; opacity: 0.9; margin-bottom: 6px; white-space: nowrap;">Total Expenses (INR)</h3>
+            <div id="totalExpensesINR" style="font-size: 22px; font-weight: bold; white-space: nowrap;">₹0</div>
+          </div>
+          <div style="min-width: 165px; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); padding: 14px; border-radius: 10px; color: white;">
+            <h3 style="font-size: 12px; opacity: 0.9; margin-bottom: 6px; white-space: nowrap;">Net Profit (INR)</h3>
+            <div id="netProfitINR" style="font-size: 22px; font-weight: bold; white-space: nowrap;">₹0</div>
           </div>
         </div>
 
@@ -10215,6 +10215,7 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
     }
 
     async function filterRevenue() {
+      revenueVisible = true;
       applyRevenueSelection();
     }
 let currentBulkTab = 'private';
