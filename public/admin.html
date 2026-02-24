@@ -3493,24 +3493,45 @@ I'm passionate about helping children develop confidence in communication!"></te
         showTab(savedTab);
       }
 
-      // Load first 5 tabs data in background (non-blocking) after 1.5 seconds
-      // Tabs: Upcoming (done), Students, Demo Leads, Groups, Schedule
+      // Pre-load ALL tabs in background (non-blocking) after 1.5 seconds
+      // Batch 1 (1.5s): Students, Demo Leads, Groups
       setTimeout(async () => {
         Promise.all([
-          loadStudents().catch(e => console.warn('Failed to load students:', e.message)),
-          loadGroups().catch(e => console.warn('Failed to load groups:', e.message)),
-          loadDemoLeads().catch(e => console.warn('Failed to load demo leads:', e.message))
+          loadStudents().catch(e => console.warn('Failed to pre-load students:', e.message)),
+          loadGroups().catch(e => console.warn('Failed to pre-load groups:', e.message)),
+          loadDemoLeads().catch(e => console.warn('Failed to pre-load demo leads:', e.message))
         ]);
       }, 1500); // Defer by 1.5 seconds to let database warm up
 
-      // Load remaining secondary data after 4 seconds (non-critical tabs)
+      // Batch 2 (3s): Email, Calendar, Emails, Financials, Assessments
       setTimeout(async () => {
         Promise.all([
-          loadEmailLogs().catch(e => console.warn('Failed to load email logs:', e.message)),
-          loadCalendar().catch(e => console.warn('Failed to load calendar:', e.message)),
-          checkOrphanedCount().catch(e => console.warn('Failed to check orphaned:', e.message))
+          loadEmailLogs().catch(e => console.warn('Failed to pre-load email logs:', e.message)),
+          loadCalendar().catch(e => console.warn('Failed to pre-load calendar:', e.message)),
+          checkOrphanedCount().catch(e => console.warn('Failed to check orphaned:', e.message)),
+          loadPastSessions().catch(e => console.warn('Failed to pre-load past sessions:', e.message)),
+          loadEvents().catch(e => console.warn('Failed to pre-load events:', e.message))
         ]);
-      }, 4000); // Defer further to avoid DB overload
+      }, 3000); // Defer to avoid DB overload
+
+      // Batch 3 (5s): Homework, Ratings, Leaderboard, Challenges, Financials, Assessments
+      setTimeout(async () => {
+        Promise.all([
+          loadScheduleManager().catch(e => console.warn('Failed to pre-load schedule manager:', e.message)),
+          loadHomeworkSubmissions().catch(e => console.warn('Failed to pre-load homework:', e.message)),
+          loadClassRatings().catch(e => console.warn('Failed to pre-load ratings:', e.message)),
+          loadLeaderboard().catch(e => console.warn('Failed to pre-load leaderboard:', e.message)),
+          loadChallenges().catch(e => console.warn('Failed to pre-load challenges:', e.message))
+        ]);
+      }, 5000); // Spread load further
+
+      // Batch 4 (7s): Resources, Financials, Assessments
+      setTimeout(async () => {
+        Promise.all([
+          loadFinancialReports().catch(e => console.warn('Failed to pre-load financials:', e.message)),
+          loadDueAssessments().catch(e => console.warn('Failed to pre-load assessments:', e.message))
+        ]);
+      }, 7000); // Final batch
     });
 
     function toggleMobileSidebar() {
@@ -3561,17 +3582,9 @@ I'm passionate about helping children develop confidence in communication!"></te
         if (statsGrid) statsGrid.style.display = '';
       }
 
-      // Load tab-specific data on demand (lazy loading)
-      if (tabName === 'emails') { loadEmailLogs(); checkOrphanedCount(); }
-      if (tabName === 'past') loadPastSessions();
-      if (tabName === 'events') loadEvents();
-      if (tabName === 'scheduleManager') loadScheduleManager();
-      if (tabName === 'homework') loadHomeworkSubmissions();
-      if (tabName === 'classRatings') loadClassRatings();
-      if (tabName === 'leaderboard') loadLeaderboard();
-      if (tabName === 'challenges') loadChallenges();
-      if (tabName === 'financials') loadFinancialReports();
-      if (tabName === 'monthlyAssessment') loadDueAssessments();
+      // All tabs are pre-loaded in background, just trigger refresh if needed
+      // For certain tabs that need fresh data on click, add explicit load here
+      if (tabName === 'emails') checkOrphanedCount();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }

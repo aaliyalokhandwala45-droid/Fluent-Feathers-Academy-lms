@@ -1528,14 +1528,7 @@
       localStorage.setItem('parentActiveTab', name);
       // Clear red dot when tab is visited
       clearRedDot(name);
-      if(name === 'homework') loadHomeworkSessions();
-      if(name === 'announcements') loadAnnouncements();
-      if(name === 'events') loadEvents();
-      if(name === 'payments') loadPayments();
-      if(name === 'assessments') loadAssessments();
-      if(name === 'achievements') { loadBadges(); loadHallOfFame(); loadStudentChallenges(); }
-      if(name === 'resources') loadParentResources();
-      if(name === 'profile') { loadProfile(); loadMyExpectations(); }
+      // All tabs are pre-loaded in background, just clear dot
     }
 
     function showDashboard() {
@@ -1560,11 +1553,42 @@
       loadCancelDropdown();
       checkForFeedback();
 
-      // Defer non-critical data loads (1.5 seconds) - for first 5 tabs
+      // Pre-load ALL tabs in background after 1.5 seconds
+      // Batch 1 (1.5s): Past, Red Dots, Homework, Announcements
       setTimeout(() => {
-        loadPast().catch(e => console.warn('Failed to load past classes:', e.message));
-        checkRedDots().catch(e => console.warn('Failed to check red dots:', e.message));
+        Promise.all([
+          loadPast().catch(e => console.warn('Failed to pre-load past classes:', e.message)),
+          checkRedDots().catch(e => console.warn('Failed to check red dots:', e.message)),
+          loadHomeworkSessions().catch(e => console.warn('Failed to pre-load homework:', e.message)),
+          loadAnnouncements().catch(e => console.warn('Failed to pre-load announcements:', e.message))
+        ]);
       }, 1500);
+
+      // Batch 2 (3.5s): Events, Payments, Assessments
+      setTimeout(() => {
+        Promise.all([
+          loadEvents().catch(e => console.warn('Failed to pre-load events:', e.message)),
+          loadPayments().catch(e => console.warn('Failed to pre-load payments:', e.message)),
+          loadAssessments().catch(e => console.warn('Failed to pre-load assessments:', e.message))
+        ]);
+      }, 3500);
+
+      // Batch 3 (5.5s): Achievements, Resources, Profile
+      setTimeout(() => {
+        Promise.all([
+          loadHallOfFame().catch(e => console.warn('Failed to pre-load hall of fame:', e.message)),
+          loadStudentChallenges().catch(e => console.warn('Failed to pre-load challenges:', e.message)),
+          loadParentResources().catch(e => console.warn('Failed to pre-load resources:', e.message))
+        ]);
+      }, 5500);
+
+      // Batch 4 (7.5s): Profile Details
+      setTimeout(() => {
+        Promise.all([
+          loadProfile().catch(e => console.warn('Failed to pre-load profile:', e.message)),
+          loadMyExpectations().catch(e => console.warn('Failed to pre-load expectations:', e.message))
+        ]);
+      }, 7500);
 
       // Restore last active tab from localStorage
       let savedTab = localStorage.getItem('parentActiveTab');
