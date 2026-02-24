@@ -116,15 +116,18 @@
     .form-group label .required {
       color: #e53e3e;
     }
-    .form-group input {
+    .form-group input,
+    .form-group select {
       width: 100%;
       padding: 14px 16px;
       border: 2px solid #e2e8f0;
       border-radius: 10px;
       font-size: 16px;
+      background: white;
       transition: all 0.2s;
     }
-    .form-group input:focus {
+    .form-group input:focus,
+    .form-group select:focus {
       outline: none;
       border-color: #B05D9E;
       box-shadow: 0 0 0 3px rgba(176, 93, 158, 0.1);
@@ -346,6 +349,11 @@
                 <input type="tel" id="phone" placeholder="+91 98765 43210" required>
               </div>
 
+              <div class="form-group">
+                <label>Parent Timezone <span class="required">*</span></label>
+                <select id="parentTimezone" required></select>
+              </div>
+
               <button type="submit" class="submit-btn" id="submitBtn">
                 Register Now
               </button>
@@ -365,6 +373,37 @@
           </div>
         </div>
       `;
+
+      initParentTimezoneSelector();
+    }
+
+    function buildTimezoneOptions(selectedTimezone) {
+      const preferred = [
+        'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London',
+        'Europe/Berlin', 'America/New_York', 'America/Chicago',
+        'America/Los_Angeles', 'Australia/Sydney'
+      ];
+
+      let zones = preferred;
+      try {
+        if (typeof Intl.supportedValuesOf === 'function') {
+          const supported = Intl.supportedValuesOf('timeZone');
+          const merged = [...new Set([selectedTimezone, ...preferred, ...supported])].filter(Boolean);
+          zones = merged;
+        }
+      } catch (e) {}
+
+      return zones
+        .map((zone) => `<option value="${zone}" ${zone === selectedTimezone ? 'selected' : ''}>${zone.replace(/_/g, ' ')}</option>`)
+        .join('');
+    }
+
+    function initParentTimezoneSelector() {
+      const timezoneSelect = document.getElementById('parentTimezone');
+      if (!timezoneSelect) return;
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+      timezoneSelect.innerHTML = buildTimezoneOptions(browserTimezone);
+      timezoneSelect.value = browserTimezone;
     }
 
     function showSuccess(eventName) {
@@ -395,7 +434,8 @@
         child_name: document.getElementById('childName').value.trim(),
         child_age: document.getElementById('childAge').value.trim(),
         email: document.getElementById('email').value.trim(),
-        phone: document.getElementById('phone').value.trim()
+        phone: document.getElementById('phone').value.trim(),
+        parent_timezone: document.getElementById('parentTimezone').value
       };
 
       try {

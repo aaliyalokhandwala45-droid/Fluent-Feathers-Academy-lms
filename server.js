@@ -1544,6 +1544,15 @@ async function runMigrations() {
       console.log('Migration 36 note:', err.message);
     }
 
+    // Migration 37: Add parent timezone to event_registrations for localized public event emails/reminders
+    try {
+      await client.query("ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS parent_timezone TEXT DEFAULT 'Asia/Kolkata'");
+      await client.query("UPDATE event_registrations SET parent_timezone = 'Asia/Kolkata' WHERE parent_timezone IS NULL");
+      console.log('✅ Migration 37: Added parent_timezone to event_registrations');
+    } catch (err) {
+      console.log('Migration 37 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -1920,8 +1929,9 @@ function getAnnouncementEmail(data) {
 }
 
 function getDemoConfirmationEmail(data) {
-  const studentTimezoneLabel = data.demoTimezoneLabel || 'Student Local Time';
-  const parentTimezoneLabel = data.parentTimezoneLabel || studentTimezoneLabel;
+  const parentTimezoneLabel = data.parentTimezoneLabel || 'Your Local Time';
+  const displayDemoDate = data.parentDemoDate || data.demoDate;
+  const displayDemoTime = data.parentDemoTime || data.demoTime;
 
   const bioHtml = data.adminBio ? `
     <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
@@ -1957,10 +1967,9 @@ function getDemoConfirmationEmail(data) {
 
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; margin: 25px 0; border-radius: 12px; text-align: center;">
         <h3 style="margin: 0 0 15px; font-size: 16px; opacity: 0.9;">📅 Demo Class Details</h3>
-        <p style="margin: 0 0 8px; font-size: 20px; font-weight: bold;">${data.demoDate}</p>
-        <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${data.demoTime}</p>
-        <p style="margin: 8px 0 0; font-size: 13px; opacity: 0.9;">Student Time: ${studentTimezoneLabel}</p>
-        ${data.parentDemoTime ? `<p style="margin: 12px 0 0; font-size: 15px; opacity: 0.95;">Parent Local Time: <strong>${data.parentDemoDate || data.demoDate}, ${data.parentDemoTime}</strong> (${parentTimezoneLabel})</p>` : ''}
+        <p style="margin: 0 0 8px; font-size: 20px; font-weight: bold;">${displayDemoDate}</p>
+        <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${displayDemoTime}</p>
+        <p style="margin: 12px 0 0; font-size: 15px; opacity: 0.95;">Parent Local Time (${parentTimezoneLabel})</p>
         <p style="margin: 15px 0 0; font-size: 14px; opacity: 0.9;">Program: ${data.programInterest}</p>
         ${data.classLink ? `<a href="${data.classLink}" style="display: inline-block; margin-top: 20px; background: white; color: #667eea; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">🎥 Join Demo Class</a>` : ''}
       </div>
@@ -3390,7 +3399,7 @@ async function checkAndSendReminders() {
     // Find all upcoming PRIVATE sessions
     // Use session_date >= CURRENT_DATE - 1 to catch sessions that might span across midnight UTC
     const privateSessions = await pool.query(`
-      SELECT s.*, st.name as student_name, st.parent_email, st.parent_name, st.timezone,
+      SELECT s.*, st.name as student_name, st.parent_email, st.parent_name, st.timezone, st.parent_timezone,
              CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
       FROM sessions s
       JOIN students st ON s.student_id = st.id
@@ -3408,9 +3417,9 @@ async function checkAndSendReminders() {
     // to students who weren't scheduled (e.g. students who didn't renew).
 
     // Find all upcoming GROUP sessions and get enrolled students via session_attendance
-    const groupSessions = await pool.query(`
-      SELECT s.*, g.group_name, g.timezone as group_timezone,
-             st.name as student_name, st.parent_email, st.parent_name, st.timezone,
+        const groupSessions = await pool.query(`
+          SELECT s.*, g.group_name, g.timezone as group_timezone,
+            st.name as student_name, st.parent_email, st.parent_name, st.timezone, st.parent_timezone,
              CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
@@ -3475,10 +3484,10 @@ async function checkAndSendReminders() {
           );
 
           if (sentCheck.rows.length === 0) {
-            // Use student timezone, fallback to group timezone for group sessions
-            const studentTimezone = session.timezone || session.group_timezone || 'Asia/Kolkata';
-            console.log(`📍 Using timezone: ${studentTimezone} for ${session.student_name}`);
-            const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
+            // Use parent timezone for parent-facing emails, fallback to student/group timezone
+            const parentTimezone = session.parent_timezone || session.timezone || session.group_timezone || 'Asia/Kolkata';
+            console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
+            const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
@@ -3487,7 +3496,7 @@ async function checkAndSendReminders() {
               localDay: localTime.day,
               classLink: session.class_link || DEFAULT_CLASS,
               hoursBeforeClass: 5,
-              timezoneLabel: getTimezoneLabel(studentTimezone)
+              timezoneLabel: getTimezoneLabel(parentTimezone)
             });
 
             const subjectPrefix = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
@@ -3520,10 +3529,10 @@ async function checkAndSendReminders() {
           );
 
           if (sentCheck.rows.length === 0) {
-            // Use student timezone, fallback to group timezone for group sessions
-            const studentTimezone = session.timezone || session.group_timezone || 'Asia/Kolkata';
-            console.log(`📍 Using timezone: ${studentTimezone} for ${session.student_name}`);
-            const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
+            // Use parent timezone for parent-facing emails, fallback to student/group timezone
+            const parentTimezone = session.parent_timezone || session.timezone || session.group_timezone || 'Asia/Kolkata';
+            console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
+            const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
@@ -3532,7 +3541,7 @@ async function checkAndSendReminders() {
               localDay: localTime.day,
               classLink: session.class_link || DEFAULT_CLASS,
               hoursBeforeClass: 1,
-              timezoneLabel: getTimezoneLabel(studentTimezone)
+              timezoneLabel: getTimezoneLabel(parentTimezone)
             });
 
             const subjectPrefix1hr = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
@@ -3591,7 +3600,8 @@ async function checkAndSendEventReminders() {
             SELECT er.*,
                    COALESCE(s.name, er.child_name) as display_child_name,
                    COALESCE(s.parent_email, er.email) as display_email,
-                   COALESCE(s.parent_name, er.parent_name) as display_parent_name
+                       COALESCE(s.parent_name, er.parent_name) as display_parent_name,
+                       COALESCE(s.parent_timezone, s.timezone, er.parent_timezone, 'Asia/Kolkata') as display_timezone
             FROM event_registrations er
             LEFT JOIN students s ON er.student_id = s.id
             WHERE er.event_id = $1
@@ -3612,14 +3622,10 @@ async function checkAndSendEventReminders() {
 
             if (sentCheck.rows.length > 0) continue;
 
-            // Format the event time in 12-hour format (as entered by admin)
-            const [hours, minutes] = event.event_time.split(':');
-            const hr = parseInt(hours);
-            const ampm = hr >= 12 ? 'PM' : 'AM';
-            const hour12 = hr % 12 || 12;
-            const formattedTime = `${hour12}:${minutes} ${ampm}`;
-
-            const eventDate = new Date(event.event_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const participantTimezone = reg.display_timezone || 'Asia/Kolkata';
+            const localEvent = formatUTCToLocal(event.event_date, event.event_time, participantTimezone);
+            const eventDate = `${localEvent.day}, ${localEvent.date}`;
+            const formattedTime = `${localEvent.time} (${getTimezoneLabel(participantTimezone)})`;
 
             const emailHtml = getEventReminderEmail({
               childName: reg.display_child_name || 'Student',
@@ -4321,15 +4327,13 @@ app.post('/api/demo-leads', async (req, res) => {
           settings[row.setting_key] = row.setting_value;
         });
 
-        const studentLocal = formatUTCToLocal(utcDate, utcTime, studentTimezone);
         const parentLocal = formatUTCToLocal(utcDate, utcTime, parentTimezone);
 
         const emailHtml = getDemoConfirmationEmail({
           parentName: parent_name || 'Parent',
           childName: child_name,
-          demoDate: studentLocal.date,
-          demoTime: studentLocal.time,
-          demoTimezoneLabel: getTimezoneLabel(studentTimezone),
+          demoDate: parentLocal.date,
+          demoTime: parentLocal.time,
           parentDemoDate: parentLocal.date,
           parentDemoTime: parentLocal.time,
           parentTimezoneLabel: getTimezoneLabel(parentTimezone),
@@ -4428,15 +4432,13 @@ app.put('/api/demo-leads/:id', async (req, res) => {
           settings[row.setting_key] = row.setting_value;
         });
 
-        const studentLocal = formatUTCToLocal(utcDate, utcTime, studentTimezone);
         const parentLocal = formatUTCToLocal(utcDate, utcTime, parentTimezone);
 
         const emailHtml = getDemoConfirmationEmail({
           parentName: parent_name || 'Parent',
           childName: child_name,
-          demoDate: studentLocal.date,
-          demoTime: studentLocal.time,
-          demoTimezoneLabel: getTimezoneLabel(studentTimezone),
+          demoDate: parentLocal.date,
+          demoTime: parentLocal.time,
           parentDemoDate: parentLocal.date,
           parentDemoTime: parentLocal.time,
           parentTimezoneLabel: getTimezoneLabel(parentTimezone),
@@ -5081,7 +5083,7 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       }
 
       // Store for email (use serial number, not session_number)
-      const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
+      const display = formatUTCToLocal(utc.date, utc.time, student.parent_timezone || student.timezone || 'Asia/Kolkata');
       const makeupLabel = isMakeup ? ' (Makeup)' : '';
       scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${emailSerial}${makeupLabel}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
 
@@ -5227,13 +5229,13 @@ app.post('/api/schedule/group-classes', async (req, res) => {
         }
 
         if (!studentEmailRows[s.id]) { studentEmailRows[s.id] = []; studentEmailSerial[s.id] = 1; }
-        const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
+        const display = formatUTCToLocal(utc.date, utc.time, s.parent_timezone || s.timezone || group.timezone || 'Asia/Kolkata');
         const makeupLabel = isMakeup ? ' (Makeup)' : '';
         studentEmailRows[s.id].push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${studentEmailSerial[s.id]}${makeupLabel}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
         studentEmailSerial[s.id]++;
       }
 
-      const display = formatUTCToLocal(utc.date, utc.time, group.timezone);
+      const display = formatUTCToLocal(utc.date, utc.time, group.timezone || 'Asia/Kolkata');
       scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${groupEmailSerial}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
 
       sessionNumber++;
@@ -5583,7 +5585,7 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
             reason: 'Schedule adjustment',
             is_group: session.session_type === 'Group',
             group_name: student.group_name || '',
-            timezone: student.timezone || 'Asia/Kolkata'
+            timezone: student.parent_timezone || student.timezone || 'Asia/Kolkata'
           }),
           student.parent_name,
           'Reschedule'
@@ -5634,9 +5636,9 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
     if (student && student.parent_email) {
       try {
         // Convert UTC time to student's local timezone
-        const studentTimezone = student.timezone || 'Asia/Kolkata';
-        const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
-        const timezoneLabel = getTimezoneLabel(studentTimezone);
+        const parentTimezone = student.parent_timezone || student.timezone || 'Asia/Kolkata';
+        const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
+        const timezoneLabel = getTimezoneLabel(parentTimezone);
 
         const emailHTML = getClassCancelledEmail({
           parentName: student.parent_name || 'Parent',
@@ -6024,7 +6026,7 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
             reason: reason || 'Schedule adjustment',
             is_group: session.session_type === 'Group',
             group_name: student.group_name || '',
-            timezone: student.timezone || 'Asia/Kolkata'
+            timezone: student.parent_timezone || student.timezone || 'Asia/Kolkata'
           }),
           student.parent_name,
           'Reschedule'
@@ -6280,7 +6282,7 @@ app.post('/api/events', async (req, res) => {
     let emailsSent = 0;
     if (students?.rows?.length > 0 && send_email !== false) {
       for(const student of students.rows) {
-        const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
+        const display = formatUTCToLocal(utc.date, utc.time, student.parent_timezone || student.timezone || 'Asia/Kolkata');
         const registrationLink = `${req.protocol}://${req.get('host')}/parent.html?event=${eventId}&student=${student.id}`;
 
         const eventEmailHTML = getEventEmail({
@@ -6492,11 +6494,12 @@ app.get('/api/public/event/:id', async (req, res) => {
 app.post('/api/public/event/:id/register', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { parent_name, child_name, child_age, email, phone } = req.body;
+    const { parent_name, child_name, child_age, email, phone, parent_timezone } = req.body;
     const eventId = req.params.id;
+    const parentTimezone = parent_timezone || 'Asia/Kolkata';
 
     // Validate required fields
-    if (!parent_name || !child_name || !email || !phone) {
+    if (!parent_name || !child_name || !email || !phone || !parent_timezone) {
       return res.status(400).json({ error: 'Please fill all required fields' });
     }
 
@@ -6529,9 +6532,9 @@ app.post('/api/public/event/:id/register', async (req, res) => {
 
     // Insert public registration
     await client.query(`
-      INSERT INTO event_registrations (event_id, parent_name, child_name, child_age, email, phone, registration_source, registration_method)
-      VALUES ($1, $2, $3, $4, $5, $6, 'public', 'Public Form')
-    `, [eventId, parent_name, child_name, child_age || '', email, phone]);
+      INSERT INTO event_registrations (event_id, parent_name, child_name, child_age, email, phone, parent_timezone, registration_source, registration_method)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'public', 'Public Form')
+    `, [eventId, parent_name, child_name, child_age || '', email, phone, parentTimezone]);
 
     // Update participant count
     await client.query('UPDATE events SET current_participants = COALESCE(current_participants, 0) + 1 WHERE id = $1', [eventId]);
@@ -6540,9 +6543,9 @@ app.post('/api/public/event/:id/register', async (req, res) => {
 
     // Send confirmation email
     try {
-      const eventDate = new Date(event.event_date).toLocaleDateString('en-IN', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
+      const localEvent = formatUTCToLocal(event.event_date, event.event_time, parentTimezone);
+      const eventDate = `${localEvent.day}, ${localEvent.date}`;
+      const eventTime = `${localEvent.time} (${getTimezoneLabel(parentTimezone)})`;
 
       await sendEmail(email, 'Event Registration Confirmed! 🎉', `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -6557,7 +6560,7 @@ app.post('/api/public/event/:id/register', async (req, res) => {
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin: 20px 0; color: white;">
             <h2 style="margin: 0 0 15px; font-size: 22px;">${event.event_name}</h2>
             <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${eventDate}</p>
-            <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${event.event_time}</p>
+            <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${eventTime}</p>
             ${event.event_duration ? `<p style="margin: 5px 0;"><strong>⏱️ Duration:</strong> ${event.event_duration}</p>` : ''}
             ${event.class_link ? `<p style="margin: 15px 0 5px;"><strong>🔗 Join Link:</strong></p><a href="${event.class_link}" style="color: #ffd700; word-break: break-all;">${event.class_link}</a>` : ''}
           </div>
@@ -6993,9 +6996,9 @@ app.post('/api/parent/cancel-class', async (req, res) => {
     // Send cancellation confirmation email to parent
     if (student && student.parent_email) {
       try {
-        const studentTimezone = student.timezone || 'Asia/Kolkata';
-        const localTime = formatUTCToLocal(session.session_date, session.session_time, studentTimezone);
-        const timezoneLabel = getTimezoneLabel(studentTimezone);
+        const parentTimezone = student.parent_timezone || student.timezone || 'Asia/Kolkata';
+        const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
+        const timezoneLabel = getTimezoneLabel(parentTimezone);
 
         const emailHTML = getClassCancelledEmail({
           parentName: student.parent_name || 'Parent',
@@ -7164,7 +7167,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 
     // Send email notification to parent
     const studentData = student.rows[0];
-    const localTime = formatUTCToLocal(utc.date, utc.time, studentData.timezone || 'Asia/Kolkata');
+    const localTime = formatUTCToLocal(utc.date, utc.time, studentData.parent_timezone || studentData.timezone || 'Asia/Kolkata');
 
     if (studentData.parent_email) {
       const emailHTML = `<!DOCTYPE html>
@@ -7588,7 +7591,7 @@ app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
         makeupIdx++;
       }
 
-      const display = formatUTCToLocal(utc.date, utc.time, student.timezone);
+      const display = formatUTCToLocal(utc.date, utc.time, student.parent_timezone || student.timezone || 'Asia/Kolkata');
       const label = isMakeup ? ' (Makeup)' : deduct_from === 'none' ? ' (Extra)' : '';
       scheduledSessions.push(`<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; color: #4a5568;">Class ${emailSerial}${label}</td><td style="padding:15px; color: #4a5568;">${display.date}</td><td style="padding:15px;"><strong style="color:#667eea;">${display.time}</strong></td></tr>`);
 
@@ -10231,7 +10234,7 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
         
         const s = student.rows[0];
         const sessionRows = sessions.map(sess => {
-          const local = formatUTCToLocal(sess.session_date, sess.session_time, s.timezone);
+          const local = formatUTCToLocal(sess.session_date, sess.session_time, s.parent_timezone || s.timezone || 'Asia/Kolkata');
           return `<tr>
             <td style="padding:10px;">Session #${sess.session_number}</td>
             <td style="padding:10px;">${local.date}</td>
