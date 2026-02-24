@@ -3480,20 +3480,29 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      await loadConfig();
-      await loadDashboardStats();
-      await loadUpcomingClasses();
-      await loadStudents();
-      await loadGroups();
-      await loadEmailLogs();
-      checkOrphanedCount(); // Check for orphaned sessions
-      await loadCalendar(); // Pre-load calendar data
+      // Load critical data FIRST (dashboard stats & upcoming)
+      await Promise.all([
+        loadConfig(),
+        loadDashboardStats(),
+        loadUpcomingClasses()
+      ]);
 
       // Restore last active tab from localStorage
       const savedTab = localStorage.getItem('adminActiveTab');
       if (savedTab && document.getElementById(savedTab + 'Tab')) {
         showTab(savedTab);
       }
+
+      // Load secondary data in background (non-blocking) after a short delay
+      setTimeout(async () => {
+        Promise.all([
+          loadStudents().catch(e => console.error('Failed to load students:', e.message)),
+          loadGroups().catch(e => console.error('Failed to load groups:', e.message)),
+          loadEmailLogs().catch(e => console.error('Failed to load logs:', e.message)),
+          loadCalendar().catch(e => console.error('Failed to load calendar:', e.message)),
+          checkOrphanedCount().catch(e => console.error('Failed to check orphaned:', e.message))
+        ]);
+      }, 2000); // Defer by 2 seconds to let database warm up
     });
 
     function toggleMobileSidebar() {
@@ -3595,9 +3604,26 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    // Helper: Fetch with timeout (15 seconds for critical operations)
+    async function fetchWithTimeout(url, timeoutMs = 15000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        return res;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          throw new Error(`Request timeout after ${timeoutMs}ms (Supabase cold start)`);
+        }
+        throw err;
+      }
+    }
+
     async function loadDashboardStats() {
       try {
-        const res = await fetch('/api/dashboard/stats');
+        const res = await fetchWithTimeout('/api/dashboard/stats', 15000);
         const stats = await res.json();
         document.getElementById('totalStudents').textContent = stats.totalStudents;
         document.getElementById('upcomingSessions').textContent = stats.upcomingSessions;
@@ -3608,15 +3634,24 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('activeEvents').textContent = stats.activeEvents;
         document.getElementById('pendingHomework').textContent = stats.pendingHomework || 0;
         document.getElementById('pendingChallenges').textContent = stats.pendingChallenges || 0;
-        document.getElementById('dueAssessments').textContent = data.pendingAssessments || 0;
+        document.getElementById('dueAssessments').textContent = stats.pendingAssessments || 0;
       } catch (err) {
-        console.error(err);
+        console.warn('⏳ Dashboard stats slow to load:', err.message);
+        // Show placeholder text instead of erroring out
+        document.getElementById('totalStudents').textContent = '...';
+        document.getElementById('upcomingSessions').textContent = '...';
+        document.getElementById('totalRevenue').textContent = '...';
+        document.getElementById('totalGroups').textContent = '...';
+        document.getElementById('activeEvents').textContent = '...';
+        document.getElementById('pendingHomework').textContent = '...';
+        document.getElementById('pendingChallenges').textContent = '...';
+        document.getElementById('dueAssessments').textContent = '...';
       }
     }
 
     async function loadUpcomingClasses() {
       try {
-        const res = await fetch('/api/dashboard/upcoming-classes');
+        const res = await fetchWithTimeout('/api/dashboard/upcoming-classes', 15000);
 const data = await res.json();
 const classes = Array.isArray(data.classes) ? data.classes : [];
         const grid = document.getElementById('upcomingClassesGrid');
@@ -3674,7 +3709,8 @@ const classes = Array.isArray(data.classes) ? data.classes : [];
         </div>`;
         }).join('');
       } catch (err) {
-        console.error(err);
+        console.warn('⏳ Upcoming classes slow to load:', err.message);
+        document.getElementById('upcomingClassesGrid').innerHTML = '<p style="color:#a0aec0; padding:20px; text-align:center;">Loading upcoming classes... (Database warming up) 🔄</p>';
       }
     }
 

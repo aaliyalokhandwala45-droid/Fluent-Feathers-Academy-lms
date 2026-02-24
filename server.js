@@ -102,8 +102,8 @@ const pool = new Pool({
   idleTimeoutMillis: 10000,        // Close idle connections after 10 seconds
   connectionTimeoutMillis: 60000,  // Wait 60 seconds for connection (cold start)
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
-  statement_timeout: 30000,        // 30 second query timeout
-  query_timeout: 30000             // 30 second query timeout
+  statement_timeout: 60000,        // 60 second query timeout (Supabase free tier can be slow)
+  query_timeout: 60000             // 60 second query timeout
 });
 
 // Track database readiness
@@ -214,6 +214,15 @@ async function initializeDatabaseConnection() {
       // Test the connection
       const client = await pool.connect();
       console.log('✅ Connected to PostgreSQL');
+      
+      // Warm up the database with a simple priming query (Supabase cold-start optimization)
+      try {
+        await client.query('SELECT 1 as warmup');
+        console.log('🔥 Database primed (cold-start warmup complete)');
+      } catch (e) {
+        console.warn('⚠️ Database priming query failed:', e.message);
+      }
+      
       client.release();
 
       dbReady = true;
