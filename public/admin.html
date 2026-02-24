@@ -10443,7 +10443,10 @@ async function loadGroupSessionsForBulkReschedule() {
   // Get all upcoming group sessions
   const res = await fetch(`/api/calendar/sessions?start=2020-01-01&end=2030-12-31`);
   const data = await res.json();
-  const groupSessions = (data.groupSessions || [])
+  const calendarRows = Array.isArray(data)
+    ? data
+    : (Array.isArray(data.groupSessions) ? data.groupSessions : []);
+  const groupSessions = calendarRows
     .filter(s => s.group_id == groupId && (s.status === 'Pending' || s.status === 'Scheduled'))
     .sort((a, b) => new Date(a.session_date) - new Date(b.session_date));
 

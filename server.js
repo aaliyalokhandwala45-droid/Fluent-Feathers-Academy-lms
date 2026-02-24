@@ -6733,7 +6733,7 @@ app.get('/api/sessions/past/all', async (req, res) => {
       SELECT * FROM (
         SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
                s.ppt_file_path, s.recording_file_path, s.homework_file_path,
-           s.teacher_notes, s.feedback, s.student_id, s.group_id,
+             s.teacher_notes, s.student_id, s.group_id,
                st.name as student_name, st.timezone, NULL::text as group_name
         FROM sessions s
         JOIN students st ON s.student_id = st.id
@@ -6743,7 +6743,7 @@ app.get('/api/sessions/past/all', async (req, res) => {
 
         SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
                s.ppt_file_path, s.recording_file_path, s.homework_file_path,
-           s.teacher_notes, s.feedback, s.student_id, s.group_id,
+             s.teacher_notes, s.student_id, s.group_id,
                g.group_name as student_name, g.timezone, g.group_name
         FROM sessions s
         JOIN groups g ON s.group_id = g.id
