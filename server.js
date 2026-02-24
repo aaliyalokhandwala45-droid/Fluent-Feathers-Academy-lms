@@ -6729,28 +6729,20 @@ app.get('/api/sessions/past/all', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     const requestedLimit = Math.min(Math.max(parseInt(req.query.limit) || 50, 10), 300);
-    // Use executeQuery with retry logic for cold-start resilience
+    
+    // Simplified query with LEFT JOINs - get all past sessions with names
     const r = await executeQuery(`
-      SELECT * FROM (
-        SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
-               s.ppt_file_path, s.recording_file_path, s.homework_file_path,
+      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
+             s.ppt_file_path, s.recording_file_path, s.homework_file_path,
              s.teacher_notes, s.student_id, s.group_id,
-               st.name as student_name, st.timezone, NULL::text as group_name
-        FROM sessions s
-        JOIN students st ON s.student_id = st.id
-        WHERE s.session_date <= $1 AND s.session_type = 'Private'
-
-        UNION ALL
-
-        SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
-               s.ppt_file_path, s.recording_file_path, s.homework_file_path,
-             s.teacher_notes, s.student_id, s.group_id,
-               g.group_name as student_name, g.timezone, g.group_name
-        FROM sessions s
-        JOIN groups g ON s.group_id = g.id
-        WHERE s.session_date <= $1 AND s.session_type = 'Group'
-      ) past
-      ORDER BY past.session_date DESC, past.session_time DESC
+             COALESCE(st.name, g.group_name, 'Unknown') as student_name,
+             COALESCE(st.timezone, g.timezone, 'Asia/Kolkata') as timezone,
+             g.group_name
+      FROM sessions s
+      LEFT JOIN students st ON s.student_id = st.id AND s.session_type = 'Private'
+      LEFT JOIN groups g ON s.group_id = g.id AND s.session_type = 'Group'
+      WHERE s.session_date <= $1
+      ORDER BY s.session_date DESC, s.session_time DESC
       LIMIT $2
     `, [today, requestedLimit]);
 
