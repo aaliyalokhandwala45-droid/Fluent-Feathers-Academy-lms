@@ -106,6 +106,7 @@ if (dbUrl && !dbUrl.includes('application_name=')) {
 const DB_CONNECT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_CONNECT_TIMEOUT_MS) || 8000);
 const DB_STATEMENT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_STATEMENT_TIMEOUT_MS) || 15000);
 const DB_QUERY_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_QUERY_TIMEOUT_MS) || 15000);
+const DB_ACTIVE_WINDOW_MS = Math.max(5 * 60 * 1000, Number(process.env.DB_ACTIVE_WINDOW_MS) || 20 * 60 * 1000);
 
 // Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
@@ -116,7 +117,7 @@ const pool = new Pool({
   // Pool configuration optimized for free-tier hosting (Supabase)
   max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
   min: 1,                          // Keep one warm connection when service is awake
-  idleTimeoutMillis: 900000,       // Close idle connections after 15 minutes of inactivity
+  idleTimeoutMillis: 1200000,      // Close idle connections after 20 minutes of inactivity
   connectionTimeoutMillis: DB_CONNECT_TIMEOUT_MS,
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
   statement_timeout: DB_STATEMENT_TIMEOUT_MS,
@@ -132,6 +133,11 @@ let schemaInitialized = false;
 let schemaInitPromise = null;
 let keepAliveStarted = false;
 let dbHealthCheckInFlight = false;
+let lastDbActivityAt = Date.now();
+
+function markDbActivity() {
+  lastDbActivityAt = Date.now();
+}
 
 // Pool error handler - critical for catching connection issues
 pool.on('error', (err, client) => {
@@ -183,6 +189,7 @@ async function executeQuery(queryText, params = [], retries = 3) {
         dbReady = true;
         console.log('✅ Database connection restored');
       }
+      markDbActivity();
       return result;
     } catch (err) {
       lastError = err;
@@ -317,6 +324,11 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) markDbActivity();
+  next();
+});
 
 // DB wake-up handling: fail-open for page-critical routes, fast-fail for writes
 app.use((req, res, next) => {
@@ -492,7 +504,7 @@ app.post('/api/zoom/webhook', async (req, res) => {
 
     if (event === 'recording.completed') {
       res.json({ received: true });
-      processZoomRecordingCompleted(req.body).catch(err => {
+      processZoomRecordingCompletedWithRetry(req.body).catch(err => {
         console.error('❌ Zoom recording processing error:', err.message);
       });
       return;
@@ -1922,6 +1934,63 @@ const zoomTokenCache = {
   token: null,
   expiresAt: 0
 };
+
+const ZOOM_PROCESS_MAX_RETRIES = Math.max(0, Number(process.env.ZOOM_PROCESS_MAX_RETRIES) || 5);
+const ZOOM_PROCESS_RETRY_DELAYS_MS = [
+  1 * 60 * 1000,
+  3 * 60 * 1000,
+  5 * 60 * 1000,
+  10 * 60 * 1000,
+  20 * 60 * 1000
+];
+const zoomRecordingRetryTimers = new Map();
+
+function getZoomRetryKey(webhookBody) {
+  const object = webhookBody && webhookBody.payload && webhookBody.payload.object;
+  const meetingId = object && object.id ? String(object.id).replace(/\D/g, '') : 'unknown';
+  const endTime = object && object.recording_end ? String(object.recording_end) : '';
+  const uuid = object && object.uuid ? String(object.uuid) : '';
+  return `${meetingId}:${uuid}:${endTime}`;
+}
+
+function clearZoomRetryTimer(retryKey) {
+  const existingTimer = zoomRecordingRetryTimers.get(retryKey);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    zoomRecordingRetryTimers.delete(retryKey);
+  }
+}
+
+function scheduleZoomRecordingRetry(webhookBody, attempt, err) {
+  if (attempt >= ZOOM_PROCESS_MAX_RETRIES) {
+    console.error(`❌ Zoom recording processing exhausted retries after ${attempt} attempts: ${err.message}`);
+    return;
+  }
+
+  const retryKey = getZoomRetryKey(webhookBody);
+  const delayMs = ZOOM_PROCESS_RETRY_DELAYS_MS[Math.min(attempt, ZOOM_PROCESS_RETRY_DELAYS_MS.length - 1)];
+  clearZoomRetryTimer(retryKey);
+
+  console.warn(`⚠️ Zoom recording process failed (attempt ${attempt + 1}). Retrying in ${Math.round(delayMs / 1000)}s. Reason: ${err.message}`);
+  const timer = setTimeout(() => {
+    zoomRecordingRetryTimers.delete(retryKey);
+    processZoomRecordingCompletedWithRetry(webhookBody, attempt + 1).catch(retryErr => {
+      console.error('❌ Zoom recording retry failed unexpectedly:', retryErr.message);
+    });
+  }, delayMs);
+
+  zoomRecordingRetryTimers.set(retryKey, timer);
+}
+
+async function processZoomRecordingCompletedWithRetry(webhookBody, attempt = 0) {
+  const retryKey = getZoomRetryKey(webhookBody);
+  try {
+    await processZoomRecordingCompleted(webhookBody);
+    clearZoomRetryTimer(retryKey);
+  } catch (err) {
+    scheduleZoomRecordingRetry(webhookBody, attempt, err);
+  }
+}
 
 function getZoomWebhookSecret() {
   return process.env.ZOOM_WEBHOOK_SECRET_TOKEN || process.env.ZOOM_WEBHOOK_SECRET || '';
@@ -10940,9 +11009,16 @@ let selfPingInFlight = false;
 // Database health check - tries to reconnect if disconnected
 async function checkDatabaseHealth() {
   if (dbHealthCheckInFlight) return;
+
+  const msSinceActivity = Date.now() - lastDbActivityAt;
+  if (msSinceActivity > DB_ACTIVE_WINDOW_MS) {
+    dbReconnectScheduled = false;
+    return;
+  }
+
   dbHealthCheckInFlight = true;
   try {
-    // Always ping DB to prevent Supabase cold start
+    // Keep DB warm only during rolling activity window
     await executeQuery('SELECT 1', [], 1);
     if (!dbReady) {
       console.log('✅ Database reconnected successfully');
