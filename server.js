@@ -1806,27 +1806,15 @@ function normalizeTimezone(timezone) {
 async function syncParentTimezoneByEmail(email, timezone) {
   try {
     const normalizedTimezone = normalizeTimezone(timezone);
-    const normalizedEmail = (email || '').toString().trim().toLowerCase();
+    const normalizedEmail = (email || '').toString().trim();
     if (!normalizedTimezone || !normalizedEmail) return;
 
     await pool.query(
       `UPDATE students
        SET parent_timezone = $2
-       WHERE LOWER(parent_email) = $1 AND is_active = true`,
-      [normalizedEmail, normalizedTimezone]
-    );
-
-    await pool.query(
-      `UPDATE demo_leads
-       SET parent_timezone = $2
-       WHERE LOWER(parent_email) = $1`,
-      [normalizedEmail, normalizedTimezone]
-    );
-
-    await pool.query(
-      `UPDATE event_registrations
-       SET parent_timezone = $2
-       WHERE LOWER(email) = $1`,
+       WHERE parent_email = $1
+         AND is_active = true
+         AND COALESCE(parent_timezone, '') <> $2`,
       [normalizedEmail, normalizedTimezone]
     );
   } catch (err) {
@@ -7344,7 +7332,6 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 app.post('/api/parent/check-email', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [parentEmail])).rows;
     if(s.length===0) return res.status(404).json({ error: 'No student found.' });
     const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
@@ -7369,7 +7356,6 @@ app.post('/api/parent/setup-password', async (req, res) => {
 app.post('/api/parent/login-password', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
     if(!c || !(await bcrypt.compare(req.body.password, c.password))) {
       return res.status(401).json({ error: 'Incorrect password' });
@@ -7380,6 +7366,7 @@ app.post('/api/parent/login-password', async (req, res) => {
       FROM students s
       WHERE s.parent_email = $1 AND s.is_active = true
     `, [parentEmail])).rows;
+    syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     res.json({ students: s });
   } catch(e) {
     res.status(500).json({error:e.message});
@@ -7429,7 +7416,6 @@ app.post('/api/parent/send-otp', async (req, res) => {
 app.post('/api/parent/verify-otp', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     const c = (await pool.query('SELECT otp, otp_expiry, otp_attempts FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
     if (!c) return res.status(401).json({ error: 'Invalid or Expired OTP' });
 
@@ -7450,6 +7436,7 @@ app.post('/api/parent/verify-otp', async (req, res) => {
       WHERE s.parent_email = $1 AND s.is_active = true
     `, [parentEmail])).rows;
     await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE parent_email = $1', [parentEmail]);
+    syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     res.json({ students: s });
   } catch(e) {
     res.status(500).json({error:e.message});
