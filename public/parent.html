@@ -1096,6 +1096,38 @@
   }
 })();
 
+let portalDbLoadingCounter = 0;
+let portalDbLoadingDelayTimer = null;
+function setPortalDbLoading(isLoading, message = 'Loading classes from database...') {
+  const loadingScreen = document.getElementById('serverLoadingScreen');
+  const loadingMessage = document.getElementById('loadingMessage');
+  if (!loadingScreen) return;
+
+  if (isLoading) {
+    portalDbLoadingCounter++;
+    if (loadingMessage) loadingMessage.textContent = message;
+    if (portalDbLoadingCounter === 1) {
+      clearTimeout(portalDbLoadingDelayTimer);
+      portalDbLoadingDelayTimer = setTimeout(() => {
+        if (portalDbLoadingCounter > 0) {
+          loadingScreen.style.display = 'flex';
+          loadingScreen.style.opacity = '1';
+        }
+      }, 250);
+    }
+    return;
+  }
+
+  portalDbLoadingCounter = Math.max(0, portalDbLoadingCounter - 1);
+  if (portalDbLoadingCounter === 0) {
+    clearTimeout(portalDbLoadingDelayTimer);
+    loadingScreen.style.opacity = '0';
+    setTimeout(() => {
+      if (portalDbLoadingCounter === 0) loadingScreen.style.display = 'none';
+    }, 220);
+  }
+}
+
     // Calculate age from date of birth
     function getAge(dob) {
       if (!dob) return null;
@@ -1533,10 +1565,12 @@
       localStorage.setItem('parentActiveTab', name);
       // Clear red dot when tab is visited
       clearRedDot(name);
-      // All tabs are pre-loaded in background, just clear dot
+      if (name === 'upcoming') loadUpcoming(true);
+      if (name === 'past') loadPast(true);
     }
 
     function showDashboard() {
+      resetSessionsCache();
       document.getElementById('displayName').textContent = currentStudent.name;
       document.getElementById('displayGrade').textContent = getAgeDisplay(currentStudent);
       document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
@@ -1562,7 +1596,7 @@
       // Batch 1 (1.5s): Past, Red Dots, Homework, Announcements
       setTimeout(() => {
         Promise.all([
-          loadPast().catch(e => console.warn('Failed to pre-load past classes:', e.message)),
+          loadPast(false).catch(e => console.warn('Failed to pre-load past classes:', e.message)),
           checkRedDots().catch(e => console.warn('Failed to check red dots:', e.message)),
           loadHomeworkSessions().catch(e => console.warn('Failed to pre-load homework:', e.message)),
           loadAnnouncements().catch(e => console.warn('Failed to pre-load announcements:', e.message))
@@ -2194,6 +2228,48 @@
 
     // Build serial number map: assigns 1,2,3... based on chronological order of non-cancelled sessions
     let sessionSerialMap = {}; // session.id -> serial number
+    const sessionsCacheTTL = 60000;
+    let lightSessionsCache = { studentId: null, loadedAt: 0, data: null, promise: null };
+    let fullSessionsCache = { studentId: null, loadedAt: 0, data: null, promise: null };
+
+    function resetSessionsCache() {
+      lightSessionsCache = { studentId: null, loadedAt: 0, data: null, promise: null };
+      fullSessionsCache = { studentId: null, loadedAt: 0, data: null, promise: null };
+    }
+
+    async function getStudentSessions({ light = false, forceRefresh = false } = {}) {
+      if (!currentStudent?.id) return [];
+      const cache = light ? lightSessionsCache : fullSessionsCache;
+      const now = Date.now();
+      const sameStudent = cache.studentId === currentStudent.id;
+      if (!forceRefresh && sameStudent && Array.isArray(cache.data) && (now - cache.loadedAt) < sessionsCacheTTL) {
+        return cache.data;
+      }
+      if (!forceRefresh && sameStudent && cache.promise) {
+        return cache.promise;
+      }
+
+      const cacheRef = light ? lightSessionsCache : fullSessionsCache;
+      const url = `/api/sessions/${currentStudent.id}${light ? '?light=1' : ''}`;
+      cacheRef.studentId = currentStudent.id;
+      cacheRef.promise = (async () => {
+        const res = await fetch(url, { headers: authHeaders() });
+        const payload = await res.json();
+        if (!res.ok) {
+          throw new Error(payload?.error || `Failed to load sessions (${res.status})`);
+        }
+        cacheRef.data = Array.isArray(payload) ? payload : [];
+        cacheRef.loadedAt = Date.now();
+        return cacheRef.data;
+      })();
+
+      try {
+        return await cacheRef.promise;
+      } finally {
+        cacheRef.promise = null;
+      }
+    }
+
     function getDateStr(d) { return (d || '').includes('T') ? d.split('T')[0] : (d || ''); }
     function buildSerialNumbers(sessions) {
       sessionSerialMap = {};
@@ -2213,10 +2289,10 @@
       return sessionSerialMap[session.id] || '-';
     }
 
-    async function loadUpcoming() {
+    async function loadUpcoming(showLoadingOverlay = true) {
       try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
-        const sessions = await res.json();
+        if (showLoadingOverlay) setPortalDbLoading(true, 'Loading upcoming classes...');
+        const sessions = await getStudentSessions({ light: true });
 
         // Build serial numbers from ALL sessions (sorted ascending by date from API)
         buildSerialNumbers(sessions);
@@ -2273,16 +2349,18 @@
       } catch(e) {
         console.error('Error loading upcoming:', e);
         document.getElementById('upcomingBody').innerHTML = '<tr><td colspan="4">Error loading sessions</td></tr>';
+      } finally {
+        if (showLoadingOverlay) setPortalDbLoading(false);
       }
     }
 
     let allPastSessions = []; // Store all past sessions for filtering
     let showAllPastClasses = false;
 
-    async function loadPast() {
+    async function loadPast(showLoadingOverlay = false) {
       try {
-        const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
-        const sessions = await res.json();
+        if (showLoadingOverlay) setPortalDbLoading(true, 'Loading past classes...');
+        const sessions = await getStudentSessions({ light: false });
 
         // Build serial numbers from ALL sessions (sorted ascending by date from API)
         buildSerialNumbers(sessions);
@@ -2304,6 +2382,8 @@
         updatePastClassCount();
       } catch(e) {
         console.error('Error loading past:', e);
+      } finally {
+        if (showLoadingOverlay) setPortalDbLoading(false);
       }
     }
 

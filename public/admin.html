@@ -1236,10 +1236,10 @@
               <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                 <th style="padding: 15px; text-align: center; width: 60px;">Rank</th>
                 <th style="padding: 15px; text-align: left;">Student</th>
-                <th style="padding: 15px; text-align: center;">Total Badges</th>
-                <th style="padding: 15px; text-align: center;">Class Badges</th>
-                <th style="padding: 15px; text-align: center;">Milestone Badges</th>
-                <th style="padding: 15px; text-align: center;">Latest Badge</th>
+                <th style="padding: 15px; text-align: center;">Total Points</th>
+                <th style="padding: 15px; text-align: center;">Homework Pts</th>
+                <th style="padding: 15px; text-align: center;">Challenge Pts</th>
+                <th style="padding: 15px; text-align: center;">Badge Pts</th>
               </tr>
             </thead>
             <tbody id="leaderboardBody">
@@ -3468,6 +3468,38 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     })();
 
+    let dbLoadingCounter = 0;
+    let dbLoadingDelayTimer = null;
+    function setDbLoading(isLoading, message = 'Loading classes from database...') {
+      const loadingScreen = document.getElementById('serverLoadingScreen');
+      const loadingMessage = document.getElementById('loadingMessage');
+      if (!loadingScreen) return;
+
+      if (isLoading) {
+        dbLoadingCounter++;
+        if (loadingMessage) loadingMessage.textContent = message;
+        if (dbLoadingCounter === 1) {
+          clearTimeout(dbLoadingDelayTimer);
+          dbLoadingDelayTimer = setTimeout(() => {
+            if (dbLoadingCounter > 0) {
+              loadingScreen.style.display = 'flex';
+              loadingScreen.style.opacity = '1';
+            }
+          }, 250);
+        }
+        return;
+      }
+
+      dbLoadingCounter = Math.max(0, dbLoadingCounter - 1);
+      if (dbLoadingCounter === 0) {
+        clearTimeout(dbLoadingDelayTimer);
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => {
+          if (dbLoadingCounter === 0) loadingScreen.style.display = 'none';
+        }, 220);
+      }
+    }
+
     // Calculate age from date of birth
     function getAge(dob) {
       if (!dob) return null;
@@ -3565,6 +3597,31 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    const tabLoadState = {};
+    const TAB_CACHE_TTL_MS = 2 * 60 * 1000;
+
+    function loadTabCached(tabKey, loaderFn, force = false) {
+      const now = Date.now();
+      const state = tabLoadState[tabKey] || {};
+
+      if (!force && state.inFlight) return state.inFlight;
+      if (!force && state.lastLoadedAt && (now - state.lastLoadedAt) < TAB_CACHE_TTL_MS) {
+        return Promise.resolve();
+      }
+
+      const inFlight = Promise.resolve(loaderFn())
+        .then(() => {
+          tabLoadState[tabKey] = { ...tabLoadState[tabKey], inFlight: null, lastLoadedAt: Date.now() };
+        })
+        .catch((err) => {
+          tabLoadState[tabKey] = { ...tabLoadState[tabKey], inFlight: null };
+          throw err;
+        });
+
+      tabLoadState[tabKey] = { ...state, inFlight };
+      return inFlight;
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       // Load critical data FIRST (dashboard stats & upcoming classes)
       await Promise.all([
@@ -3582,12 +3639,34 @@ I'm passionate about helping children develop confidence in communication!"></te
       // Load only lightweight secondary data in background (non-blocking)
       // Keep initial load fast; heavy tabs load on click.
       setTimeout(async () => {
+        safePreload(() => loadPastSessions(false), 'past sessions');
         safePreload(() => loadStudents(), 'students');
         safePreload(() => loadGroups(), 'groups');
         safePreload(() => loadEmailLogs(), 'email logs');
         safePreload(() => loadCalendar(), 'calendar');
         safePreload(() => checkOrphanedCount(), 'orphaned count');
       }, 2000);
+
+      // Warm remaining tab data in staged batches for instant tab switching
+      setTimeout(() => {
+        safePreload(() => loadTabCached('homework', () => loadHomeworkSubmissions()), 'homework');
+        safePreload(() => loadTabCached('events', () => loadEvents()), 'events');
+      }, 3500);
+
+      setTimeout(() => {
+        safePreload(() => loadTabCached('classRatings', () => loadClassRatings()), 'class ratings');
+        safePreload(() => loadTabCached('demoStudents', () => loadDemoLeads()), 'demo leads');
+      }, 5000);
+
+      setTimeout(() => {
+        safePreload(() => loadTabCached('leaderboard', () => loadLeaderboard()), 'leaderboard');
+        safePreload(() => loadTabCached('challenges', () => loadChallenges()), 'challenges');
+      }, 6500);
+
+      setTimeout(() => {
+        safePreload(() => loadTabCached('financials', () => loadFinancialReports()), 'financial reports');
+        safePreload(() => loadTabCached('monthlyAssessment', () => loadDueAssessments()), 'monthly assessment');
+      }, 8000);
     });
 
     function toggleMobileSidebar() {
@@ -3639,17 +3718,20 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
 
       // Load tab data on demand for responsiveness and reliability
-      if (tabName === 'emails') { loadEmailLogs(); checkOrphanedCount(); }
-      if (tabName === 'past') loadPastSessions();
-      if (tabName === 'events') loadEvents();
-      if (tabName === 'scheduleManager') loadScheduleManager();
-      if (tabName === 'homework') loadHomeworkSubmissions();
-      if (tabName === 'classRatings') loadClassRatings();
-      if (tabName === 'demoStudents') loadDemoLeads();
-      if (tabName === 'leaderboard') loadLeaderboard();
-      if (tabName === 'challenges') loadChallenges();
-      if (tabName === 'financials') loadFinancialReports();
-      if (tabName === 'monthlyAssessment') loadDueAssessments();
+      if (tabName === 'emails') {
+        loadTabCached('emails', () => loadEmailLogs());
+        loadTabCached('orphanedCount', () => checkOrphanedCount());
+      }
+      if (tabName === 'past') loadTabCached('past', () => loadPastSessions());
+      if (tabName === 'events') loadTabCached('events', () => loadEvents());
+      if (tabName === 'scheduleManager') loadTabCached('scheduleManager', () => loadScheduleManager());
+      if (tabName === 'homework') loadTabCached('homework', () => loadHomeworkSubmissions());
+      if (tabName === 'classRatings') loadTabCached('classRatings', () => loadClassRatings());
+      if (tabName === 'demoStudents') loadTabCached('demoStudents', () => loadDemoLeads());
+      if (tabName === 'leaderboard') loadTabCached('leaderboard', () => loadLeaderboard());
+      if (tabName === 'challenges') loadTabCached('challenges', () => loadChallenges());
+      if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
+      if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => loadDueAssessments());
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
@@ -3762,8 +3844,9 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
-    async function loadUpcomingClasses() {
+    async function loadUpcomingClasses(showLoadingOverlay = true) {
       try {
+        if (showLoadingOverlay) setDbLoading(true, 'Loading upcoming classes...');
         console.log('🔄 Loading upcoming classes...');
         const res = await fetchWithTimeout('/api/dashboard/upcoming-classes', 30000);
         if (!res.ok) {
@@ -3834,6 +3917,8 @@ I'm passionate about helping children develop confidence in communication!"></te
       } catch (err) {
         console.warn('⏳ Upcoming classes slow to load:', err.message);
         document.getElementById('upcomingClassesGrid').innerHTML = '<p style="color:#a0aec0; padding:20px; text-align:center;">Loading upcoming classes... (Database warming up) 🔄</p>';
+      } finally {
+        if (showLoadingOverlay) setDbLoading(false);
       }
     }
 
@@ -4285,12 +4370,13 @@ if (dueEl) {
     let allPastSessions = []; // Store all past sessions for filtering
     let pastSessionsLoadedAt = 0;
 
-    async function loadPastSessions() {
+    async function loadPastSessions(showLoadingOverlay = true) {
       if (allPastSessions.length > 0 && (Date.now() - pastSessionsLoadedAt) < 60000) {
         filterPastSessions();
         return;
       }
       try {
+        if (showLoadingOverlay) setDbLoading(true, 'Loading past classes...');
         const tbody = document.getElementById('pastSessionsBody');
         if (tbody) {
           tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#718096; padding:20px;">Loading past sessions...</td></tr>';
@@ -4310,6 +4396,8 @@ if (dueEl) {
         if (tbody) {
           tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#e53e3e; padding:20px;">Failed to load past sessions: ${err.message}</td></tr>`;
         }
+      } finally {
+        if (showLoadingOverlay) setDbLoading(false);
       }
     }
 
@@ -8481,8 +8569,8 @@ async function saveEditedPayment() {
                 <div style="font-size: 2.5rem; margin-bottom: 10px;">${medals[actualRank]}</div>
                 <div class="${shadowClasses[actualRank]}" style="background: white; padding: 15px 20px; border-radius: 12px; text-align: center; margin-bottom: 10px; min-width: 120px;">
                   <div style="font-weight: bold; color: #2d3748; font-size: 1rem;">${student.name}</div>
-                  <div style="color: #667eea; font-size: 1.5rem; font-weight: bold;">${student.total_badges}</div>
-                  <div style="color: #718096; font-size: 0.75rem;">badges</div>
+                  <div style="color: #667eea; font-size: 1.5rem; font-weight: bold;">${student.total_score}</div>
+                  <div style="color: #718096; font-size: 0.75rem;">points</div>
                 </div>
                 <div class="${podiumClasses[actualRank]} ${heightClasses[actualRank]}" style="width: 100px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 15px;">
                   <span style="color: white; font-weight: bold; font-size: 1.5rem;">#${actualRank}</span>
@@ -8517,13 +8605,11 @@ async function saveEditedPayment() {
                 <br><small style="color: #718096;">${student.program_name || 'N/A'}</small>
               </td>
               <td style="padding: 15px; text-align: center;">
-                <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 1.1rem;">${student.total_badges}</span>
+                <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 1.1rem;">${student.total_score || 0}</span>
               </td>
-              <td style="padding: 15px; text-align: center; color: #f093fb; font-weight: 600;">${student.manual_badges || 0}</td>
-              <td style="padding: 15px; text-align: center; color: #38a169; font-weight: 600;">${student.auto_badges || 0}</td>
-              <td style="padding: 15px; text-align: center;">
-                ${student.latest_badge ? `<span style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 5px 10px; border-radius: 12px; font-size: 0.8rem;">${student.latest_badge}</span>` : '<span style="color: #a0aec0;">-</span>'}
-              </td>
+              <td style="padding: 15px; text-align: center; color: #3182ce; font-weight: 600;">${student.homework_points || 0}</td>
+              <td style="padding: 15px; text-align: center; color: #9f7aea; font-weight: 600;">${student.challenge_points || 0}</td>
+              <td style="padding: 15px; text-align: center; color: #38a169; font-weight: 600;">${student.badge_points || 0}</td>
             </tr>
           `;
         }).join('');

@@ -116,7 +116,7 @@ const pool = new Pool({
   // Pool configuration optimized for free-tier hosting (Supabase)
   max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
   min: 1,                          // Keep one warm connection when service is awake
-  idleTimeoutMillis: 30000,        // Keep connections longer to reduce reconnect churn
+  idleTimeoutMillis: 900000,       // Close idle connections after 15 minutes of inactivity
   connectionTimeoutMillis: DB_CONNECT_TIMEOUT_MS,
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
   statement_timeout: DB_STATEMENT_TIMEOUT_MS,
@@ -1588,6 +1588,19 @@ async function runMigrations() {
       console.log('✅ Migration 37: Added parent_timezone to event_registrations');
     } catch (err) {
       console.log('Migration 37 note:', err.message);
+    }
+
+    // Migration 38: Add composite indexes for upcoming/past classes and parent portal session speed
+    try {
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_type_status_date_time ON sessions(session_type, status, session_date, session_time)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_student_type_date_time ON sessions(student_id, session_type, session_date, session_time)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_group_type_date_time ON sessions(group_id, session_type, session_date, session_time)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_session_attendance_student_session ON session_attendance(student_id, session_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_events_status_date_time ON events(status, event_date, event_time)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_demo_leads_status_date_time ON demo_leads(status, demo_date, demo_time)`);
+      console.log('✅ Migration 38: Added composite performance indexes for class loading');
+    } catch (err) {
+      console.log('Migration 38 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -4154,6 +4167,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       JOIN students st ON s.student_id = st.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Private'
         AND st.is_active = true
+        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
       ORDER BY s.session_date ASC, s.session_time ASC
     `, [DEFAULT_CLASS]);
 
@@ -4166,6 +4180,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       WHERE s.status IN ('Pending', 'Scheduled') AND s.session_type = 'Group'
+        AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
       ORDER BY s.session_date ASC, s.session_time ASC
     `, [DEFAULT_CLASS]);
 
@@ -4183,6 +4198,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     COALESCE(e.class_link, '') as class_link
   FROM events e
   WHERE status = 'Active'
+    AND event_date >= CURRENT_DATE - INTERVAL '1 day'
   ORDER BY event_date ASC, event_time ASC
 `);
 
@@ -4200,6 +4216,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
         $1 as class_link
       FROM demo_leads
       WHERE status = 'Scheduled' AND demo_date IS NOT NULL
+        AND demo_date >= CURRENT_DATE - INTERVAL '1 day'
       ORDER BY demo_date ASC, demo_time ASC
     `, [DEFAULT_CLASS]);
 
@@ -5441,23 +5458,38 @@ app.post('/api/groups/:groupId/convert-private-sessions', async (req, res) => {
 // Get all sessions for a student (including group sessions)
 app.get('/api/sessions/:studentId', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
+  const lightMode = String(req.query.light || '') === '1';
   if(req.adminStudentId && req.adminStudentId != req.params.studentId) {
     return res.status(403).json({ error: 'Access denied' });
   }
 
   try {
-    // Get private sessions with homework info and feedback status - using retry-enabled query
-    const privateSessions = await executeQuery(`
-      SELECT s.*, 'Private' as source_type,
-        m.file_path as homework_submission_path,
-        m.feedback_grade as homework_grade,
-        m.feedback_comments as homework_feedback,
-        CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
-      FROM sessions s
-      LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
-      LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
-      WHERE s.student_id = $1 AND s.session_type = 'Private'
-    `, [id]);
+    let privateSessions;
+    if (lightMode) {
+      privateSessions = await executeQuery(`
+        SELECT s.*, 'Private' as source_type,
+          NULL::text as homework_submission_path,
+          NULL::text as homework_grade,
+          NULL::text as homework_feedback,
+          false as has_feedback,
+          COALESCE(s.class_link, $2) as class_link
+        FROM sessions s
+        WHERE s.student_id = $1 AND s.session_type = 'Private'
+      `, [id, DEFAULT_CLASS]);
+    } else {
+      // Get private sessions with homework info and feedback status - using retry-enabled query
+      privateSessions = await executeQuery(`
+        SELECT s.*, 'Private' as source_type,
+          m.file_path as homework_submission_path,
+          m.feedback_grade as homework_grade,
+          m.feedback_comments as homework_feedback,
+          CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
+        FROM sessions s
+        LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
+        LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
+        WHERE s.student_id = $1 AND s.session_type = 'Private'
+      `, [id]);
+    }
 
     // Get group sessions for this student (only sessions they're enrolled in via session_attendance)
     const student = await executeQuery('SELECT group_id, created_at FROM students WHERE id = $1', [id]);
@@ -5466,19 +5498,32 @@ app.get('/api/sessions/:studentId', async (req, res) => {
     if (student.rows[0] && student.rows[0].group_id) {
       const groupId = student.rows[0].group_id;
 
-      const groupSessionsResult = await executeQuery(`
-        SELECT s.*, 'Group' as source_type,
-          m.file_path as homework_submission_path,
-          m.feedback_grade as homework_grade,
-          m.feedback_comments as homework_feedback,
-          CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
-          COALESCE(sa.attendance, 'Pending') as student_attendance
-        FROM sessions s
-        INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
-        LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
-        LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
-        WHERE s.group_id = $2 AND s.session_type = 'Group'
-      `, [id, groupId]);
+      const groupSessionsResult = lightMode
+        ? await executeQuery(`
+            SELECT s.*, 'Group' as source_type,
+              NULL::text as homework_submission_path,
+              NULL::text as homework_grade,
+              NULL::text as homework_feedback,
+              false as has_feedback,
+              COALESCE(sa.attendance, 'Pending') as student_attendance,
+              COALESCE(s.class_link, $3) as class_link
+            FROM sessions s
+            INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
+            WHERE s.group_id = $2 AND s.session_type = 'Group'
+          `, [id, groupId, DEFAULT_CLASS])
+        : await executeQuery(`
+            SELECT s.*, 'Group' as source_type,
+              m.file_path as homework_submission_path,
+              m.feedback_grade as homework_grade,
+              m.feedback_comments as homework_feedback,
+              CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
+              COALESCE(sa.attendance, 'Pending') as student_attendance
+            FROM sessions s
+            INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
+            LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
+            LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
+            WHERE s.group_id = $2 AND s.session_type = 'Group'
+          `, [id, groupId]);
       groupSessions = groupSessionsResult.rows;
     }
 
@@ -5519,7 +5564,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       return session;
     });
 
-    res.json(fixedSessions);
+    res.json(lightMode ? allSessions : fixedSessions);
   } catch (err) {
     console.error('Error fetching sessions:', err);
     res.status(500).json({ error: err.message });
@@ -8436,10 +8481,48 @@ app.post('/api/students/:id/badges/assign', async (req, res) => {
 
 // ==================== STUDENT OF THE WEEK/MONTH/YEAR ====================
 
+const HOMEWORK_POINT_VALUE = 10;
+const CHALLENGE_POINT_VALUE = 10;
+const BADGE_POINT_VALUE = 2;
+
+function getAwardCertificateTitle(periodType) {
+  if (periodType === 'week') return 'Student of the Week';
+  if (periodType === 'month') return 'Student of the Month';
+  return 'Student of the Year';
+}
+
+function getPodiumEmail(studentName, rank, periodLabel, totalScore, breakdown) {
+  const rankLabel = rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
+  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <div style="max-width:600px;margin:20px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:35px 28px;text-align:center;color:white;">
+      <div style="font-size:46px;">${medal}</div>
+      <h1 style="margin:8px 0 0;font-size:24px;">Podium Achievement</h1>
+      <p style="margin:8px 0 0;opacity:0.95;">${periodLabel}</p>
+    </div>
+    <div style="padding:28px;">
+      <p style="font-size:16px;color:#2d3748;line-height:1.6;">Congratulations! <strong>${studentName}</strong> secured <strong>${rankLabel} place</strong> on the Fluent Feathers podium.</p>
+      <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:18px 0;">
+        <p style="margin:0 0 8px;color:#4a5568;">Homework: <strong>${breakdown.homework} pts</strong></p>
+        <p style="margin:0 0 8px;color:#4a5568;">Challenges: <strong>${breakdown.challenges} pts</strong></p>
+        <p style="margin:0;color:#4a5568;">Badges: <strong>${breakdown.badges} pts</strong></p>
+        <p style="margin:10px 0 0;font-size:18px;color:#553c9a;font-weight:700;">Total: ${totalScore} points</p>
+      </div>
+      <p style="font-size:14px;color:#718096;line-height:1.6;">Thank you for supporting your child’s learning journey!</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 async function calculateStudentScores(startDate, endDate) {
   const result = await pool.query(`
     WITH homework_pts AS (
-      SELECT student_id, COUNT(*) * 10 as pts
+      SELECT student_id, COUNT(*) * ${HOMEWORK_POINT_VALUE} as pts
       FROM materials
       WHERE file_type = 'Homework'
         AND uploaded_by IN ('Parent', 'Admin')
@@ -8448,14 +8531,14 @@ async function calculateStudentScores(startDate, endDate) {
       GROUP BY student_id
     ),
     challenge_pts AS (
-      SELECT student_id, COUNT(*) * 10 as pts
+      SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts
       FROM student_challenges
       WHERE status = 'Completed'
         AND completed_at >= $1 AND completed_at <= $2 + INTERVAL '1 day'
       GROUP BY student_id
     ),
     badge_pts AS (
-      SELECT student_id, COUNT(*) * 3 as pts
+      SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
       FROM student_badges
       WHERE earned_date >= $1 AND earned_date <= $2 + INTERVAL '1 day'
       GROUP BY student_id
@@ -8475,7 +8558,7 @@ async function calculateStudentScores(startDate, endDate) {
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
       AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, s.name ASC
+    ORDER BY total_score DESC, homework_score DESC, challenge_score DESC, badge_score DESC, s.name ASC
   `, [startDate, endDate]);
   return result.rows;
 }
@@ -8562,6 +8645,7 @@ async function awardStudentOfPeriod(periodType) {
     }
 
     const winner = scores[0];
+    const topThree = scores.slice(0, 3);
     const description = `Top scorer for ${periodLabel} with ${winner.total_score} points!`;
 
     await pool.query(
@@ -8570,37 +8654,122 @@ async function awardStudentOfPeriod(periodType) {
     );
     console.log(`🏆 ${awardTitle} awarded to ${winner.name} for ${periodLabel} (${winner.total_score} pts)`);
 
+    let certificateUrl = '';
+    try {
+      const certificateTitle = getAwardCertificateTitle(periodType);
+      const certificateSummary = `${awardTitle} (${periodLabel}) with ${winner.total_score} points.`;
+      const certInsert = await pool.query(`
+        INSERT INTO monthly_assessments
+          (assessment_type, student_id, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
+        VALUES
+          ('demo', $1, $2, $3, $4, $5, $6)
+        RETURNING id
+      `, [
+        winner.student_id,
+        JSON.stringify(['Homework Consistency', 'Challenge Participation', 'Badge Achievement']),
+        certificateTitle,
+        certificateSummary,
+        'Keep up consistent participation and complete challenges regularly.',
+        'Outstanding progress and dedication shown this period.'
+      ]);
+
+      if (certInsert.rows[0]?.id) {
+        const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
+        certificateUrl = `${appUrl}/demo-certificate.html?id=${certInsert.rows[0].id}`;
+      }
+    } catch (certErr) {
+      console.error(`Award certificate generation error (${periodType}):`, certErr.message);
+    }
+
     if (winner.parent_email) {
       const emailHTML = getStudentAwardEmail(winner.name, awardTitle, periodLabel, winner.total_score, {
   homework: winner.homework_score,
   challenges: winner.challenge_score,
   badges: winner.badge_score
 });
-      await sendEmail(winner.parent_email, `${awardTitle} - ${winner.name} | Fluent Feathers Academy`, emailHTML, winner.parent_name, 'Student Award');
+      const winnerEmailHTML = certificateUrl
+        ? emailHTML.replace(
+            '</div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">',
+            `<div style="margin-top:20px;text-align:center;">\n        <a href="${certificateUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#38b2ac 0%,#319795 100%);color:white;text-decoration:none;padding:12px 22px;border-radius:24px;font-weight:600;">📥 Download Award Certificate</a>\n      </div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">`
+          )
+        : emailHTML;
+      await sendEmail(winner.parent_email, `${awardTitle} - ${winner.name} | Fluent Feathers Academy`, winnerEmailHTML, winner.parent_name, 'Student Award');
+    }
+
+    for (let index = 1; index < topThree.length; index++) {
+      const podiumStudent = topThree[index];
+      if (!podiumStudent?.parent_email) continue;
+      const rank = index + 1;
+      const podiumEmail = getPodiumEmail(
+        podiumStudent.name,
+        rank,
+        periodLabel,
+        podiumStudent.total_score,
+        {
+          homework: podiumStudent.homework_score,
+          challenges: podiumStudent.challenge_score,
+          badges: podiumStudent.badge_score
+        }
+      );
+      await sendEmail(
+        podiumStudent.parent_email,
+        `🏆 Podium Achievement (${rank === 2 ? '2nd' : '3rd'} Place) - ${podiumStudent.name}`,
+        podiumEmail,
+        podiumStudent.parent_name,
+        'Podium Achievement'
+      );
     }
   } catch (err) {
     console.error(`Error awarding student of ${periodType}:`, err);
   }
 }
 
-// Leaderboard - Get all students ranked by badges
+// Leaderboard - Get all students ranked by same points logic used in awards
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const result = await pool.query(`
+      WITH homework_pts AS (
+        SELECT student_id, COUNT(*) * ${HOMEWORK_POINT_VALUE} as pts
+        FROM materials
+        WHERE file_type = 'Homework'
+          AND uploaded_by IN ('Parent', 'Admin')
+          AND student_id IS NOT NULL
+        GROUP BY student_id
+      ),
+      challenge_pts AS (
+        SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts
+        FROM student_challenges
+        WHERE status = 'Completed'
+        GROUP BY student_id
+      ),
+      badge_pts AS (
+        SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
+        FROM student_badges
+        GROUP BY student_id
+      ),
+      badge_counts AS (
+        SELECT student_id, COUNT(*) as badge_count
+        FROM student_badges
+        GROUP BY student_id
+      )
       SELECT
         s.id,
         s.name,
         s.program_name,
-        COUNT(b.id) as total_badges,
-        COUNT(CASE WHEN b.badge_type NOT IN ('first_class', '5_classes', '10_classes', '25_classes', '50_classes', 'hw_submit', '5_homework', '10_homework', '25_homework') THEN 1 END) as manual_badges,
-        COUNT(CASE WHEN b.badge_type IN ('first_class', '5_classes', '10_classes', '25_classes', '50_classes', 'hw_submit', '5_homework', '10_homework', '25_homework') THEN 1 END) as auto_badges,
+        COALESCE(h.pts, 0) as homework_points,
+        COALESCE(c.pts, 0) as challenge_points,
+        COALESCE(b.pts, 0) as badge_points,
+        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score,
+        COALESCE(bc.badge_count, 0) as total_badges,
         (SELECT badge_name FROM student_badges WHERE student_id = s.id ORDER BY earned_date DESC LIMIT 1) as latest_badge
       FROM students s
-      LEFT JOIN student_badges b ON s.id = b.student_id
+      LEFT JOIN homework_pts h ON s.id = h.student_id
+      LEFT JOIN challenge_pts c ON s.id = c.student_id
+      LEFT JOIN badge_pts b ON s.id = b.student_id
+      LEFT JOIN badge_counts bc ON s.id = bc.student_id
       WHERE s.is_active = true
-      GROUP BY s.id, s.name, s.program_name
-      HAVING COUNT(b.id) > 0
-      ORDER BY total_badges DESC, manual_badges DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, badge_points DESC, s.name ASC
     `);
     res.json({ leaderboard: result.rows });
   } catch (err) {
@@ -8645,7 +8814,7 @@ app.get('/api/awards/current', async (req, res) => {
       GROUP BY student_id
     ),
     badge_pts AS (
-      SELECT student_id, COUNT(*) * 3 as pts FROM student_badges
+      SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
       WHERE earned_date >= $1 AND earned_date <= $2
       GROUP BY student_id
     )
@@ -9631,10 +9800,11 @@ app.get('/api/demo-assessment/:id', async (req, res) => {
     const result = await pool.query(`
       SELECT a.id, a.assessment_type, a.skills, a.certificate_title,
              a.performance_summary, a.areas_of_improvement, a.teacher_comments, a.created_at,
-             d.child_name as demo_child_name,
-             d.demo_date as demo_date
+             COALESCE(d.child_name, s.name) as demo_child_name,
+             COALESCE(d.demo_date, a.created_at::date) as demo_date
       FROM monthly_assessments a
       LEFT JOIN demo_leads d ON a.demo_lead_id = d.id
+      LEFT JOIN students s ON a.student_id = s.id
       WHERE a.id = $1 AND a.assessment_type = 'demo'
     `, [req.params.id]);
 
