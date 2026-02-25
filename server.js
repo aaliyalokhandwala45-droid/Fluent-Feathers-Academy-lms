@@ -10334,8 +10334,7 @@ app.post('/api/admin/sync-parent-timezones', async (req, res) => {
       UPDATE students s
       SET parent_timezone = pc.timezone
       FROM parent_credentials pc
-      WHERE s.is_active = true
-        AND s.parent_email IS NOT NULL
+      WHERE s.parent_email IS NOT NULL
         AND LOWER(s.parent_email) = LOWER(pc.parent_email)
         AND pc.timezone IS NOT NULL
         AND pc.timezone <> ''
@@ -10346,29 +10345,83 @@ app.post('/api/admin/sync-parent-timezones', async (req, res) => {
     const autoStudents = await client.query(`
       UPDATE students
       SET parent_timezone = COALESCE(NULLIF(timezone, ''), parent_timezone, 'Asia/Kolkata')
-      WHERE is_active = true
+      WHERE parent_email IS NOT NULL
         AND COALESCE(NULLIF(parent_timezone, ''), 'Asia/Kolkata') = 'Asia/Kolkata'
         AND COALESCE(NULLIF(timezone, ''), 'Asia/Kolkata') <> 'Asia/Kolkata'
     `);
     studentsAutoUpdated = (autoStudentsFromCredentials.rowCount || 0) + (autoStudents.rowCount || 0);
 
-    // 2) Ensure no active student has empty/null parent timezone
+    // 2) Legacy backfill: derive best timezone per parent email from all historical tables
+    const legacyBackfill = await client.query(`
+      WITH tz_candidates AS (
+        SELECT LOWER(parent_email) AS email_key, timezone AS tz, 1 AS priority
+        FROM parent_credentials
+        WHERE parent_email IS NOT NULL AND timezone IS NOT NULL AND timezone <> ''
+
+        UNION ALL
+
+        SELECT LOWER(parent_email) AS email_key, parent_timezone AS tz, 2 AS priority
+        FROM students
+        WHERE parent_email IS NOT NULL AND parent_timezone IS NOT NULL AND parent_timezone <> ''
+
+        UNION ALL
+
+        SELECT LOWER(parent_email) AS email_key, timezone AS tz, 3 AS priority
+        FROM students
+        WHERE parent_email IS NOT NULL AND timezone IS NOT NULL AND timezone <> ''
+
+        UNION ALL
+
+        SELECT LOWER(parent_email) AS email_key, parent_timezone AS tz, 4 AS priority
+        FROM demo_leads
+        WHERE parent_email IS NOT NULL AND parent_timezone IS NOT NULL AND parent_timezone <> ''
+
+        UNION ALL
+
+        SELECT LOWER(parent_email) AS email_key, student_timezone AS tz, 5 AS priority
+        FROM demo_leads
+        WHERE parent_email IS NOT NULL AND student_timezone IS NOT NULL AND student_timezone <> ''
+
+        UNION ALL
+
+        SELECT LOWER(email) AS email_key, parent_timezone AS tz, 6 AS priority
+        FROM event_registrations
+        WHERE email IS NOT NULL AND parent_timezone IS NOT NULL AND parent_timezone <> ''
+      ),
+      best AS (
+        SELECT DISTINCT ON (email_key)
+          email_key,
+          tz
+        FROM tz_candidates
+        ORDER BY email_key,
+          CASE WHEN tz IN ('Asia/Kolkata', 'IST') THEN 1 ELSE 0 END,
+          priority
+      )
+      UPDATE students s
+      SET parent_timezone = b.tz
+      FROM best b
+      WHERE s.parent_email IS NOT NULL
+        AND LOWER(s.parent_email) = b.email_key
+        AND COALESCE(NULLIF(s.parent_timezone, ''), 'Asia/Kolkata') <> b.tz
+    `);
+    studentsAutoUpdated += (legacyBackfill.rowCount || 0);
+
+    // 3) Ensure no student has empty/null parent timezone
     await client.query(`
       UPDATE students
       SET parent_timezone = COALESCE(NULLIF(parent_timezone, ''), NULLIF(timezone, ''), 'Asia/Kolkata')
-      WHERE is_active = true
+      WHERE parent_email IS NOT NULL
         AND (parent_timezone IS NULL OR parent_timezone = '')
     `);
 
-    // 3) Propagate parent timezone to demo leads by parent email
+    // 4) Propagate parent timezone to demo leads by parent email
     const demoSync = await client.query(`
       UPDATE demo_leads d
       SET parent_timezone = s.parent_timezone
       FROM (
         SELECT DISTINCT ON (LOWER(parent_email)) LOWER(parent_email) AS email_key, parent_timezone
         FROM students
-        WHERE is_active = true
-          AND parent_email IS NOT NULL
+        WHERE parent_email IS NOT NULL
           AND parent_timezone IS NOT NULL
           AND parent_timezone <> ''
           ORDER BY LOWER(parent_email), created_at DESC
@@ -10379,15 +10432,14 @@ app.post('/api/admin/sync-parent-timezones', async (req, res) => {
     `);
     demoLeadsAutoUpdated = demoSync.rowCount || 0;
 
-    // 4) Propagate parent timezone to event registrations by email
+    // 5) Propagate parent timezone to event registrations by email
     const eventSync = await client.query(`
       UPDATE event_registrations er
       SET parent_timezone = s.parent_timezone
       FROM (
         SELECT DISTINCT ON (LOWER(parent_email)) LOWER(parent_email) AS email_key, parent_timezone
         FROM students
-        WHERE is_active = true
-          AND parent_email IS NOT NULL
+        WHERE parent_email IS NOT NULL
           AND parent_timezone IS NOT NULL
           AND parent_timezone <> ''
           ORDER BY LOWER(parent_email), created_at DESC
@@ -10398,7 +10450,7 @@ app.post('/api/admin/sync-parent-timezones', async (req, res) => {
     `);
     eventsAutoUpdated = eventSync.rowCount || 0;
 
-    // 5) Optional explicit overrides (highest priority)
+    // 6) Optional explicit overrides (highest priority)
     for (const entry of overrides) {
       const email = (entry?.email || '').toString().trim().toLowerCase();
       const timezone = normalizeTimezone(entry?.timezone);
