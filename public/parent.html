@@ -1177,9 +1177,16 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       return adminToken ? { 'x-admin-token': adminToken } : {};
     }
 
+    function getBrowserTimezone() {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
     function getPortalTimezone() {
-      if (!currentStudent) return 'Asia/Kolkata';
-      return currentStudent.parent_timezone || currentStudent.timezone || 'Asia/Kolkata';
+      return getBrowserTimezone() || (currentStudent && (currentStudent.parent_timezone || currentStudent.timezone)) || 'Asia/Kolkata';
     }
 
     function toLocalTime(dateStr, timeStr, tz) {
@@ -1255,7 +1262,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           fetch('/api/parent/check-email', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: session.email })
+            body: JSON.stringify({ email: session.email, timezone: getBrowserTimezone() })
           })
           .then(res => res.json())
           .then(data => {
@@ -1290,7 +1297,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         e.preventDefault();
         const email = document.getElementById('parentEmail').value.trim();
         try {
-          const res = await fetch('/api/parent/check-email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+          const res = await fetch('/api/parent/check-email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, timezone: getBrowserTimezone() }) });
           const data = await res.json();
           if (!res.ok) {
             alert(data.error || 'Email not found. Please contact your teacher.');
@@ -1313,7 +1320,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         const email = document.getElementById('parentEmail').value.trim();
         const pwd = document.getElementById('loginPassword').value;
         try {
-          const res = await fetch('/api/parent/login-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd }) });
+          const res = await fetch('/api/parent/login-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd, timezone: getBrowserTimezone() }) });
           const data = await res.json();
           if (res.ok) handleMultipleStudents(data.students);
           else alert(data.error || 'Invalid password');
@@ -1352,7 +1359,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         const email = document.getElementById('parentEmail').value.trim();
         const otp = document.getElementById('otpCode').value;
         try {
-          const res = await fetch('/api/parent/verify-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, otp }) });
+          const res = await fetch('/api/parent/verify-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, otp, timezone: getBrowserTimezone() }) });
           const data = await res.json();
           if (res.ok) handleMultipleStudents(data.students);
           else alert(data.error || 'Invalid OTP');
@@ -1539,7 +1546,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     async function sendOTP() {
       const email = document.getElementById('parentEmail').value.trim();
       try {
-        const res = await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+        const res = await fetch('/api/parent/send-otp', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, timezone: getBrowserTimezone() }) });
         const data = await res.json();
         if (res.ok) {
           document.getElementById('otpSendSection').style.display = 'none';

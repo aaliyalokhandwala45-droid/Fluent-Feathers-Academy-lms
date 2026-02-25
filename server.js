@@ -1792,6 +1792,48 @@ function getTimezoneLabel(timezone) {
   return tzLabels[timezone] || 'Your Local Time';
 }
 
+function normalizeTimezone(timezone) {
+  try {
+    const tz = (timezone || '').toString().trim();
+    if (!tz) return null;
+    Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
+    return tz;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function syncParentTimezoneByEmail(email, timezone) {
+  try {
+    const normalizedTimezone = normalizeTimezone(timezone);
+    const normalizedEmail = (email || '').toString().trim().toLowerCase();
+    if (!normalizedTimezone || !normalizedEmail) return;
+
+    await pool.query(
+      `UPDATE students
+       SET parent_timezone = $2
+       WHERE LOWER(parent_email) = $1 AND is_active = true`,
+      [normalizedEmail, normalizedTimezone]
+    );
+
+    await pool.query(
+      `UPDATE demo_leads
+       SET parent_timezone = $2
+       WHERE LOWER(parent_email) = $1`,
+      [normalizedEmail, normalizedTimezone]
+    );
+
+    await pool.query(
+      `UPDATE event_registrations
+       SET parent_timezone = $2
+       WHERE LOWER(email) = $1`,
+      [normalizedEmail, normalizedTimezone]
+    );
+  } catch (err) {
+    console.warn('Timezone sync warning:', err.message);
+  }
+}
+
 async function sendEmail(to, subject, html, recipientName, emailType) {
   try {
     const apiKey = process.env.BREVO_API_KEY;
@@ -7301,9 +7343,11 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 
 app.post('/api/parent/check-email', async (req, res) => {
   try {
-    const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
+    const parentEmail = (req.body.email || '').toString().trim();
+    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
+    const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [parentEmail])).rows;
     if(s.length===0) return res.status(404).json({ error: 'No student found.' });
-    const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
+    const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
     // Include students list for session restoration (persistent login)
     res.json({ hasPassword: c && c.password ? true : false, students: s });
   } catch(e) {
@@ -7324,7 +7368,9 @@ app.post('/api/parent/setup-password', async (req, res) => {
 
 app.post('/api/parent/login-password', async (req, res) => {
   try {
-    const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
+    const parentEmail = (req.body.email || '').toString().trim();
+    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
+    const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
     if(!c || !(await bcrypt.compare(req.body.password, c.password))) {
       return res.status(401).json({ error: 'Incorrect password' });
     }
@@ -7333,7 +7379,7 @@ app.post('/api/parent/login-password', async (req, res) => {
         GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
       WHERE s.parent_email = $1 AND s.is_active = true
-    `, [req.body.email])).rows;
+    `, [parentEmail])).rows;
     res.json({ students: s });
   } catch(e) {
     res.status(500).json({error:e.message});
@@ -7382,7 +7428,9 @@ app.post('/api/parent/send-otp', async (req, res) => {
 
 app.post('/api/parent/verify-otp', async (req, res) => {
   try {
-    const c = (await pool.query('SELECT otp, otp_expiry, otp_attempts FROM parent_credentials WHERE parent_email = $1', [req.body.email])).rows[0];
+    const parentEmail = (req.body.email || '').toString().trim();
+    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
+    const c = (await pool.query('SELECT otp, otp_expiry, otp_attempts FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
     if (!c) return res.status(401).json({ error: 'Invalid or Expired OTP' });
 
     // Block after 5 failed attempts
@@ -7392,7 +7440,7 @@ app.post('/api/parent/verify-otp', async (req, res) => {
 
     if (c.otp !== req.body.otp || new Date() > new Date(c.otp_expiry)) {
       // Increment failed attempts
-      await pool.query('UPDATE parent_credentials SET otp_attempts = COALESCE(otp_attempts, 0) + 1 WHERE parent_email = $1', [req.body.email]);
+      await pool.query('UPDATE parent_credentials SET otp_attempts = COALESCE(otp_attempts, 0) + 1 WHERE parent_email = $1', [parentEmail]);
       return res.status(401).json({ error: 'Invalid or Expired OTP' });
     }
     const s = (await pool.query(`
@@ -7400,8 +7448,8 @@ app.post('/api/parent/verify-otp', async (req, res) => {
         GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
       WHERE s.parent_email = $1 AND s.is_active = true
-    `, [req.body.email])).rows;
-    await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE parent_email = $1', [req.body.email]);
+    `, [parentEmail])).rows;
+    await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE parent_email = $1', [parentEmail]);
     res.json({ students: s });
   } catch(e) {
     res.status(500).json({error:e.message});
@@ -10177,6 +10225,122 @@ app.post('/api/admin/trigger-reminders', async (req, res) => {
   } catch (err) {
     console.error('Error in manual reminder trigger:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk sync parent timezones for existing records
+// Usage:
+// POST /api/admin/sync-parent-timezones
+// Body (optional): { overrides: [{ email: "parent@example.com", timezone: "Asia/Muscat" }] }
+app.post('/api/admin/sync-parent-timezones', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const overrides = Array.isArray(req.body?.overrides) ? req.body.overrides : [];
+
+    await client.query('BEGIN');
+
+    let studentsAutoUpdated = 0;
+    let demoLeadsAutoUpdated = 0;
+    let eventsAutoUpdated = 0;
+    let overrideUpdates = 0;
+
+    // 1) Auto-fix student parent timezone from student timezone where parent tz is missing/IST
+    const autoStudents = await client.query(`
+      UPDATE students
+      SET parent_timezone = COALESCE(NULLIF(timezone, ''), parent_timezone, 'Asia/Kolkata')
+      WHERE is_active = true
+        AND COALESCE(NULLIF(parent_timezone, ''), 'Asia/Kolkata') = 'Asia/Kolkata'
+        AND COALESCE(NULLIF(timezone, ''), 'Asia/Kolkata') <> 'Asia/Kolkata'
+    `);
+    studentsAutoUpdated = autoStudents.rowCount || 0;
+
+    // 2) Ensure no active student has empty/null parent timezone
+    await client.query(`
+      UPDATE students
+      SET parent_timezone = COALESCE(NULLIF(parent_timezone, ''), NULLIF(timezone, ''), 'Asia/Kolkata')
+      WHERE is_active = true
+        AND (parent_timezone IS NULL OR parent_timezone = '')
+    `);
+
+    // 3) Propagate parent timezone to demo leads by parent email
+    const demoSync = await client.query(`
+      UPDATE demo_leads d
+      SET parent_timezone = s.parent_timezone
+      FROM (
+        SELECT DISTINCT ON (LOWER(parent_email)) LOWER(parent_email) AS email_key, parent_timezone
+        FROM students
+        WHERE is_active = true
+          AND parent_email IS NOT NULL
+          AND parent_timezone IS NOT NULL
+          AND parent_timezone <> ''
+          ORDER BY LOWER(parent_email), created_at DESC
+      ) s
+      WHERE d.parent_email IS NOT NULL
+        AND LOWER(d.parent_email) = s.email_key
+        AND COALESCE(d.parent_timezone, '') <> COALESCE(s.parent_timezone, '')
+    `);
+    demoLeadsAutoUpdated = demoSync.rowCount || 0;
+
+    // 4) Propagate parent timezone to event registrations by email
+    const eventSync = await client.query(`
+      UPDATE event_registrations er
+      SET parent_timezone = s.parent_timezone
+      FROM (
+        SELECT DISTINCT ON (LOWER(parent_email)) LOWER(parent_email) AS email_key, parent_timezone
+        FROM students
+        WHERE is_active = true
+          AND parent_email IS NOT NULL
+          AND parent_timezone IS NOT NULL
+          AND parent_timezone <> ''
+          ORDER BY LOWER(parent_email), created_at DESC
+      ) s
+      WHERE er.email IS NOT NULL
+        AND LOWER(er.email) = s.email_key
+        AND COALESCE(er.parent_timezone, '') <> COALESCE(s.parent_timezone, '')
+    `);
+    eventsAutoUpdated = eventSync.rowCount || 0;
+
+    // 5) Optional explicit overrides (highest priority)
+    for (const entry of overrides) {
+      const email = (entry?.email || '').toString().trim().toLowerCase();
+      const timezone = normalizeTimezone(entry?.timezone);
+      if (!email || !timezone) continue;
+
+      const s1 = await client.query(
+        `UPDATE students SET parent_timezone = $2 WHERE LOWER(parent_email) = $1`,
+        [email, timezone]
+      );
+      const s2 = await client.query(
+        `UPDATE demo_leads SET parent_timezone = $2 WHERE LOWER(parent_email) = $1`,
+        [email, timezone]
+      );
+      const s3 = await client.query(
+        `UPDATE event_registrations SET parent_timezone = $2 WHERE LOWER(email) = $1`,
+        [email, timezone]
+      );
+      overrideUpdates += (s1.rowCount || 0) + (s2.rowCount || 0) + (s3.rowCount || 0);
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Parent timezone sync completed',
+      summary: {
+        studentsAutoUpdated,
+        demoLeadsAutoUpdated,
+        eventsAutoUpdated,
+        overrideUpdates,
+        totalTouched: studentsAutoUpdated + demoLeadsAutoUpdated + eventsAutoUpdated + overrideUpdates,
+        overridesReceived: overrides.length
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Bulk timezone sync error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 });
 
