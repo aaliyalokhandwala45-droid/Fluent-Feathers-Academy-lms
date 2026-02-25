@@ -1265,6 +1265,13 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       renderUpcomingTimezoneLabel();
     }
 
+    function syncPortalTimezoneFromStudent() {
+      const studentTz = normalizeTimezoneClient(currentStudent && (currentStudent.parent_timezone || currentStudent.timezone));
+      if (studentTz && portalTimezone !== studentTz) {
+        setPortalTimezone(studentTz);
+      }
+    }
+
     function getBrowserTimezone() {
       try {
         const browserTz = normalizeTimezoneClient(Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -1275,18 +1282,18 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     function getPortalTimezone() {
+      const studentTz = normalizeTimezoneClient(currentStudent && (currentStudent.parent_timezone || currentStudent.timezone));
+      if (studentTz) {
+        if (portalTimezone !== studentTz) setPortalTimezone(studentTz);
+        return studentTz;
+      }
+
       if (portalTimezone) return portalTimezone;
 
       const browserTz = getBrowserTimezone();
       if (browserTz) {
         setPortalTimezone(browserTz);
         return browserTz;
-      }
-
-      const studentTz = normalizeTimezoneClient(currentStudent && (currentStudent.parent_timezone || currentStudent.timezone));
-      if (studentTz) {
-        setPortalTimezone(studentTz);
-        return studentTz;
       }
 
       return 'Asia/Kolkata';
@@ -1350,6 +1357,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         })
         .then(data => {
           currentStudent = data.student;
+          syncPortalTimezoneFromStudent();
           document.getElementById('loginSection').style.display = 'none';
           document.getElementById('dashboardSection').style.display = 'block';
           showDashboard();
@@ -1608,6 +1616,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         // Single child - hide switch button
         document.getElementById('switchChildBtn').style.display = 'none';
         currentStudent = students[0];
+        syncPortalTimezoneFromStudent();
         showDashboard();
       }
     }
@@ -1646,6 +1655,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       const student = allMyStudents.find(s => s.id === studentId);
       if (student) {
         currentStudent = student;
+        syncPortalTimezoneFromStudent();
         document.getElementById('studentSelector').style.display = 'none';
         showDashboard();
       }
@@ -1685,6 +1695,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     function showDashboard() {
+      syncPortalTimezoneFromStudent();
       resetSessionsCache();
       document.getElementById('displayName').textContent = currentStudent.name;
       document.getElementById('displayGrade').textContent = getAgeDisplay(currentStudent);
