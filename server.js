@@ -8802,20 +8802,20 @@ app.get('/api/awards/current', async (req, res) => {
    const getTopStudent = async (startDate, endDate) => {
   const result = await pool.query(`
     WITH homework_pts AS (
-      SELECT student_id, COUNT(*) * 10 as pts FROM materials
+      SELECT student_id, COUNT(*) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
-        AND uploaded_at >= $1 AND uploaded_at <= $2
+        AND uploaded_at >= $1 AND uploaded_at <= $2 + INTERVAL '1 day'
       GROUP BY student_id
     ),
     challenge_pts AS (
-      SELECT student_id, COUNT(*) * 10 as pts FROM student_challenges
+      SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts FROM student_challenges
       WHERE status = 'Completed'
-        AND completed_at >= $1 AND completed_at <= $2
+        AND completed_at >= $1 AND completed_at <= $2 + INTERVAL '1 day'
       GROUP BY student_id
     ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
-      WHERE earned_date >= $1 AND earned_date <= $2
+      WHERE earned_date >= $1 AND earned_date <= $2 + INTERVAL '1 day'
       GROUP BY student_id
     )
     SELECT s.id, s.name,
