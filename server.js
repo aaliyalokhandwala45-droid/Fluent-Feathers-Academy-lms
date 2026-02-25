@@ -1603,6 +1603,32 @@ async function runMigrations() {
       console.log('Migration 38 note:', err.message);
     }
 
+    // Migration 39: Add timezone to parent_credentials and backfill from students
+    try {
+      await client.query(`ALTER TABLE parent_credentials ADD COLUMN IF NOT EXISTS timezone TEXT`);
+      await client.query(`
+        UPDATE parent_credentials pc
+        SET timezone = s.parent_timezone
+        FROM (
+          SELECT DISTINCT ON (LOWER(parent_email)) LOWER(parent_email) AS email_key, parent_timezone
+          FROM students
+          WHERE parent_email IS NOT NULL
+            AND parent_timezone IS NOT NULL
+            AND parent_timezone <> ''
+          ORDER BY LOWER(parent_email), created_at DESC
+        ) s
+        WHERE LOWER(pc.parent_email) = s.email_key
+          AND (
+            pc.timezone IS NULL
+            OR pc.timezone = ''
+            OR pc.timezone = 'Asia/Kolkata'
+          )
+      `);
+      console.log('✅ Migration 39: Added parent_credentials.timezone and backfilled values');
+    } catch (err) {
+      console.log('Migration 39 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -1803,18 +1829,35 @@ function normalizeTimezone(timezone) {
   }
 }
 
+function pickPreferredTimezone(...timezones) {
+  const normalized = timezones
+    .map(tz => normalizeTimezone(tz))
+    .filter(Boolean);
+
+  const nonIst = normalized.find(tz => tz !== 'Asia/Kolkata' && tz !== 'IST');
+  return nonIst || normalized[0] || 'Asia/Kolkata';
+}
+
 async function syncParentTimezoneByEmail(email, timezone) {
   try {
     const normalizedTimezone = normalizeTimezone(timezone);
-    const normalizedEmail = (email || '').toString().trim();
+    const normalizedEmail = (email || '').toString().trim().toLowerCase();
     if (!normalizedTimezone || !normalizedEmail) return;
 
     await pool.query(
       `UPDATE students
        SET parent_timezone = $2
-       WHERE parent_email = $1
+       WHERE LOWER(parent_email) = $1
          AND is_active = true
          AND COALESCE(parent_timezone, '') <> $2`,
+      [normalizedEmail, normalizedTimezone]
+    );
+
+    await pool.query(
+      `UPDATE parent_credentials
+       SET timezone = $2
+       WHERE LOWER(parent_email) = $1
+         AND COALESCE(timezone, '') <> $2`,
       [normalizedEmail, normalizedTimezone]
     );
   } catch (err) {
@@ -3480,9 +3523,11 @@ async function checkAndSendReminders() {
     // Use session_date >= CURRENT_DATE - 1 to catch sessions that might span across midnight UTC
     const privateSessions = await pool.query(`
       SELECT s.*, st.name as student_name, st.parent_email, st.parent_name, st.timezone, st.parent_timezone,
+             pc.timezone as credential_timezone,
              CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
       FROM sessions s
       JOIN students st ON s.student_id = st.id
+      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(st.parent_email)
       WHERE s.status IN ('Pending', 'Scheduled')
         AND s.session_type = 'Private'
         AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
@@ -3500,11 +3545,13 @@ async function checkAndSendReminders() {
         const groupSessions = await pool.query(`
           SELECT s.*, g.group_name, g.timezone as group_timezone,
             st.name as student_name, st.parent_email, st.parent_name, st.timezone, st.parent_timezone,
+             pc.timezone as credential_timezone,
              CONCAT(s.session_date, 'T', s.session_time, 'Z') as full_datetime
       FROM sessions s
       JOIN groups g ON s.group_id = g.id
       JOIN session_attendance sa ON sa.session_id = s.id
       JOIN students st ON st.id = sa.student_id
+      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(st.parent_email)
       WHERE s.status IN ('Pending', 'Scheduled')
         AND s.session_type = 'Group'
         AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
@@ -3565,7 +3612,12 @@ async function checkAndSendReminders() {
 
           if (sentCheck.rows.length === 0) {
             // Use parent timezone for parent-facing emails, fallback to student/group timezone
-            const parentTimezone = session.parent_timezone || session.timezone || session.group_timezone || 'Asia/Kolkata';
+            const parentTimezone = pickPreferredTimezone(
+              session.parent_timezone,
+              session.credential_timezone,
+              session.timezone,
+              session.group_timezone
+            );
             console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
             const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
@@ -3610,7 +3662,12 @@ async function checkAndSendReminders() {
 
           if (sentCheck.rows.length === 0) {
             // Use parent timezone for parent-facing emails, fallback to student/group timezone
-            const parentTimezone = session.parent_timezone || session.timezone || session.group_timezone || 'Asia/Kolkata';
+            const parentTimezone = pickPreferredTimezone(
+              session.parent_timezone,
+              session.credential_timezone,
+              session.timezone,
+              session.group_timezone
+            );
             console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
             const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
@@ -3680,10 +3737,14 @@ async function checkAndSendEventReminders() {
             SELECT er.*,
                    COALESCE(s.name, er.child_name) as display_child_name,
                    COALESCE(s.parent_email, er.email) as display_email,
-                       COALESCE(s.parent_name, er.parent_name) as display_parent_name,
-                       COALESCE(s.parent_timezone, s.timezone, er.parent_timezone, 'Asia/Kolkata') as display_timezone
+                   COALESCE(s.parent_name, er.parent_name) as display_parent_name,
+                   s.parent_timezone as student_parent_timezone,
+                   s.timezone as student_timezone,
+                   er.parent_timezone as registration_timezone,
+                   pc.timezone as credential_timezone
             FROM event_registrations er
             LEFT JOIN students s ON er.student_id = s.id
+            LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(COALESCE(s.parent_email, er.email))
             WHERE er.event_id = $1
           `, [event.id]);
 
@@ -3702,7 +3763,12 @@ async function checkAndSendEventReminders() {
 
             if (sentCheck.rows.length > 0) continue;
 
-            const participantTimezone = reg.display_timezone || 'Asia/Kolkata';
+            const participantTimezone = pickPreferredTimezone(
+              reg.student_parent_timezone,
+              reg.credential_timezone,
+              reg.student_timezone,
+              reg.registration_timezone
+            );
             const localEvent = formatUTCToLocal(event.event_date, event.event_time, participantTimezone);
             const eventDate = `${localEvent.day}, ${localEvent.date}`;
             const formattedTime = `${localEvent.time} (${getTimezoneLabel(participantTimezone)})`;
@@ -7332,11 +7398,20 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 app.post('/api/parent/check-email', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [parentEmail])).rows;
+    const s = (await pool.query(`
+      SELECT s.*, pc.timezone as credential_timezone
+      FROM students s
+      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
+      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
+    `, [parentEmail])).rows;
     if(s.length===0) return res.status(404).json({ error: 'No student found.' });
-    const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
+    const students = s.map(st => ({
+      ...st,
+      parent_timezone: pickPreferredTimezone(st.parent_timezone, st.credential_timezone, st.timezone)
+    }));
+    const c = (await pool.query('SELECT password FROM parent_credentials WHERE LOWER(parent_email) = LOWER($1)', [parentEmail])).rows[0];
     // Include students list for session restoration (persistent login)
-    res.json({ hasPassword: c && c.password ? true : false, students: s });
+    res.json({ hasPassword: c && c.password ? true : false, students });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
@@ -7344,10 +7419,21 @@ app.post('/api/parent/check-email', async (req, res) => {
 
 app.post('/api/parent/setup-password', async (req, res) => {
   try {
-    const s = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
+    const parentEmail = (req.body.email || '').toString().trim();
+    const s = (await pool.query(`
+      SELECT s.*, pc.timezone as credential_timezone
+      FROM students s
+      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
+      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
+    `, [parentEmail])).rows;
     const h = await bcrypt.hash(req.body.password, 10);
-    await pool.query(`INSERT INTO parent_credentials (parent_email, password) VALUES ($1, $2) ON CONFLICT(parent_email) DO UPDATE SET password = $2`, [req.body.email, h]);
-    res.json({ students: s });
+    await pool.query(`INSERT INTO parent_credentials (parent_email, password) VALUES ($1, $2) ON CONFLICT(parent_email) DO UPDATE SET password = $2`, [parentEmail, h]);
+    syncParentTimezoneByEmail(parentEmail, req.body.timezone);
+    const students = s.map(st => ({
+      ...st,
+      parent_timezone: pickPreferredTimezone(req.body.timezone, st.parent_timezone, st.credential_timezone, st.timezone)
+    }));
+    res.json({ students });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
@@ -7356,18 +7442,24 @@ app.post('/api/parent/setup-password', async (req, res) => {
 app.post('/api/parent/login-password', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    const c = (await pool.query('SELECT password FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
+    const c = (await pool.query('SELECT password FROM parent_credentials WHERE LOWER(parent_email) = LOWER($1)', [parentEmail])).rows[0];
     if(!c || !(await bcrypt.compare(req.body.password, c.password))) {
       return res.status(401).json({ error: 'Incorrect password' });
     }
     const s = (await pool.query(`
       SELECT s.*,
+        pc.timezone as credential_timezone,
         GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
-      WHERE s.parent_email = $1 AND s.is_active = true
+      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
+      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
     `, [parentEmail])).rows;
     syncParentTimezoneByEmail(parentEmail, req.body.timezone);
-    res.json({ students: s });
+    const students = s.map(st => ({
+      ...st,
+      parent_timezone: pickPreferredTimezone(req.body.timezone, st.parent_timezone, st.credential_timezone, st.timezone)
+    }));
+    res.json({ students });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
@@ -7386,7 +7478,7 @@ app.post('/api/parent/send-otp', async (req, res) => {
       return res.status(429).json({ error: 'Too many OTP requests. Please wait 10 minutes and try again.' });
     }
 
-    const students = (await pool.query('SELECT * FROM students WHERE parent_email = $1 AND is_active = true', [req.body.email])).rows;
+    const students = (await pool.query('SELECT * FROM students WHERE LOWER(parent_email) = LOWER($1) AND is_active = true', [req.body.email])).rows;
     if (students.length === 0) return res.status(404).json({ error: 'No student found' });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const exp = new Date(Date.now() + 10 * 60 * 1000);
@@ -7416,7 +7508,7 @@ app.post('/api/parent/send-otp', async (req, res) => {
 app.post('/api/parent/verify-otp', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    const c = (await pool.query('SELECT otp, otp_expiry, otp_attempts FROM parent_credentials WHERE parent_email = $1', [parentEmail])).rows[0];
+    const c = (await pool.query('SELECT otp, otp_expiry, otp_attempts FROM parent_credentials WHERE LOWER(parent_email) = LOWER($1)', [parentEmail])).rows[0];
     if (!c) return res.status(401).json({ error: 'Invalid or Expired OTP' });
 
     // Block after 5 failed attempts
@@ -7431,13 +7523,19 @@ app.post('/api/parent/verify-otp', async (req, res) => {
     }
     const s = (await pool.query(`
       SELECT s.*,
+        pc.timezone as credential_timezone,
         GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
-      WHERE s.parent_email = $1 AND s.is_active = true
+      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
+      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
     `, [parentEmail])).rows;
-    await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE parent_email = $1', [parentEmail]);
+    await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE LOWER(parent_email) = LOWER($1)', [parentEmail]);
     syncParentTimezoneByEmail(parentEmail, req.body.timezone);
-    res.json({ students: s });
+    const students = s.map(st => ({
+      ...st,
+      parent_timezone: pickPreferredTimezone(req.body.timezone, st.parent_timezone, st.credential_timezone, st.timezone)
+    }));
+    res.json({ students });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
@@ -10231,7 +10329,20 @@ app.post('/api/admin/sync-parent-timezones', async (req, res) => {
     let eventsAutoUpdated = 0;
     let overrideUpdates = 0;
 
-    // 1) Auto-fix student parent timezone from student timezone where parent tz is missing/IST
+    // 1) Auto-fix student parent timezone from parent_credentials.timezone first, then student timezone
+    const autoStudentsFromCredentials = await client.query(`
+      UPDATE students s
+      SET parent_timezone = pc.timezone
+      FROM parent_credentials pc
+      WHERE s.is_active = true
+        AND s.parent_email IS NOT NULL
+        AND LOWER(s.parent_email) = LOWER(pc.parent_email)
+        AND pc.timezone IS NOT NULL
+        AND pc.timezone <> ''
+        AND COALESCE(NULLIF(s.parent_timezone, ''), 'Asia/Kolkata') = 'Asia/Kolkata'
+    `);
+
+    // 1b) Fallback auto-fix from student timezone where parent tz is missing/IST
     const autoStudents = await client.query(`
       UPDATE students
       SET parent_timezone = COALESCE(NULLIF(timezone, ''), parent_timezone, 'Asia/Kolkata')
@@ -10239,7 +10350,7 @@ app.post('/api/admin/sync-parent-timezones', async (req, res) => {
         AND COALESCE(NULLIF(parent_timezone, ''), 'Asia/Kolkata') = 'Asia/Kolkata'
         AND COALESCE(NULLIF(timezone, ''), 'Asia/Kolkata') <> 'Asia/Kolkata'
     `);
-    studentsAutoUpdated = autoStudents.rowCount || 0;
+    studentsAutoUpdated = (autoStudentsFromCredentials.rowCount || 0) + (autoStudents.rowCount || 0);
 
     // 2) Ensure no active student has empty/null parent timezone
     await client.query(`

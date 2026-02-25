@@ -1343,7 +1343,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         }
 
         try {
-          const res = await fetch('/api/parent/setup-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd }) });
+          const res = await fetch('/api/parent/setup-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pwd, timezone: getBrowserTimezone() }) });
           const data = await res.json();
           if (res.ok) {
             alert('Password created successfully! Welcome to Fluent Feathers Academy!');
