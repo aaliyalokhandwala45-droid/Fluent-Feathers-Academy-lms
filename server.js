@@ -300,6 +300,16 @@ initializeDatabaseConnection();
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json({ limit: '20mb' }));
+app.use((req, res, next) => {
+  const pathName = req.path || '';
+  if (pathName === '/' || pathName.endsWith('.html')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -7398,6 +7408,8 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 app.post('/api/parent/check-email', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
+    const requestedTimezone = normalizeTimezone(req.body.timezone);
+    await syncParentTimezoneByEmail(parentEmail, requestedTimezone);
     const s = (await pool.query(`
       SELECT s.*, pc.timezone as credential_timezone
       FROM students s
@@ -7407,7 +7419,7 @@ app.post('/api/parent/check-email', async (req, res) => {
     if(s.length===0) return res.status(404).json({ error: 'No student found.' });
     const students = s.map(st => ({
       ...st,
-      parent_timezone: pickPreferredTimezone(st.parent_timezone, st.credential_timezone, st.timezone)
+      parent_timezone: pickPreferredTimezone(requestedTimezone, st.parent_timezone, st.credential_timezone, st.timezone)
     }));
     const c = (await pool.query('SELECT password FROM parent_credentials WHERE LOWER(parent_email) = LOWER($1)', [parentEmail])).rows[0];
     // Include students list for session restoration (persistent login)
@@ -7428,7 +7440,7 @@ app.post('/api/parent/setup-password', async (req, res) => {
     `, [parentEmail])).rows;
     const h = await bcrypt.hash(req.body.password, 10);
     await pool.query(`INSERT INTO parent_credentials (parent_email, password) VALUES ($1, $2) ON CONFLICT(parent_email) DO UPDATE SET password = $2`, [parentEmail, h]);
-    syncParentTimezoneByEmail(parentEmail, req.body.timezone);
+    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     const students = s.map(st => ({
       ...st,
       parent_timezone: pickPreferredTimezone(req.body.timezone, st.parent_timezone, st.credential_timezone, st.timezone)
@@ -7454,7 +7466,7 @@ app.post('/api/parent/login-password', async (req, res) => {
       LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
       WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
     `, [parentEmail])).rows;
-    syncParentTimezoneByEmail(parentEmail, req.body.timezone);
+    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     const students = s.map(st => ({
       ...st,
       parent_timezone: pickPreferredTimezone(req.body.timezone, st.parent_timezone, st.credential_timezone, st.timezone)
@@ -7480,6 +7492,7 @@ app.post('/api/parent/send-otp', async (req, res) => {
 
     const students = (await pool.query('SELECT * FROM students WHERE LOWER(parent_email) = LOWER($1) AND is_active = true', [req.body.email])).rows;
     if (students.length === 0) return res.status(404).json({ error: 'No student found' });
+    await syncParentTimezoneByEmail(req.body.email, req.body.timezone);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const exp = new Date(Date.now() + 10 * 60 * 1000);
     await pool.query(`INSERT INTO parent_credentials (parent_email, otp, otp_expiry, otp_attempts) VALUES ($1, $2, $3, 0) ON CONFLICT(parent_email) DO UPDATE SET otp = $2, otp_expiry = $3, otp_attempts = 0`, [req.body.email, otp, exp]);
@@ -7530,7 +7543,7 @@ app.post('/api/parent/verify-otp', async (req, res) => {
       WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
     `, [parentEmail])).rows;
     await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE LOWER(parent_email) = LOWER($1)', [parentEmail]);
-    syncParentTimezoneByEmail(parentEmail, req.body.timezone);
+    await syncParentTimezoneByEmail(parentEmail, req.body.timezone);
     const students = s.map(st => ({
       ...st,
       parent_timezone: pickPreferredTimezone(req.body.timezone, st.parent_timezone, st.credential_timezone, st.timezone)
