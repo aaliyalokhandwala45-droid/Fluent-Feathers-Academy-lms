@@ -299,7 +299,12 @@ async function initializeDatabaseConnection() {
 initializeDatabaseConnection();
 
 // ==================== MIDDLEWARE ====================
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({
+  limit: '20mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString('utf8');
+  }
+}));
 app.use((req, res, next) => {
   const pathName = req.path || '';
   if (pathName === '/' || pathName.endsWith('.html')) {
@@ -321,7 +326,8 @@ app.use((req, res, next) => {
     req.path === '/api/config' ||
     req.path === '/api/health' ||
     req.path === '/api/health/light' ||
-    req.path === '/api/admin/reconnect-db';
+    req.path === '/api/admin/reconnect-db' ||
+    req.path === '/api/zoom/webhook';
 
   if (alwaysAvailable) return next();
 
@@ -459,6 +465,43 @@ app.get('/api/config', (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load config' });
+  }
+});
+
+// ==================== ZOOM WEBHOOK API ====================
+app.post('/api/zoom/webhook', async (req, res) => {
+  try {
+    if (!verifyZoomWebhookSignature(req)) {
+      return res.status(401).json({ error: 'Invalid Zoom webhook signature' });
+    }
+
+    const event = req.body && req.body.event;
+
+    if (event === 'endpoint.url_validation') {
+      const plainToken = req.body && req.body.payload && req.body.payload.plainToken;
+      if (!plainToken) return res.status(400).json({ error: 'Missing plainToken' });
+
+      const secret = getZoomWebhookSecret();
+      if (!secret) {
+        return res.status(500).json({ error: 'ZOOM_WEBHOOK_SECRET_TOKEN is not configured' });
+      }
+
+      const encryptedToken = crypto.createHmac('sha256', secret).update(plainToken).digest('hex');
+      return res.json({ plainToken, encryptedToken });
+    }
+
+    if (event === 'recording.completed') {
+      res.json({ received: true });
+      processZoomRecordingCompleted(req.body).catch(err => {
+        console.error('❌ Zoom recording processing error:', err.message);
+      });
+      return;
+    }
+
+    return res.json({ received: true, ignored: true, event: event || null });
+  } catch (err) {
+    console.error('Zoom webhook error:', err.message);
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -1873,6 +1916,231 @@ async function syncParentTimezoneByEmail(email, timezone) {
   } catch (err) {
     console.warn('Timezone sync warning:', err.message);
   }
+}
+
+const zoomTokenCache = {
+  token: null,
+  expiresAt: 0
+};
+
+function getZoomWebhookSecret() {
+  return process.env.ZOOM_WEBHOOK_SECRET_TOKEN || process.env.ZOOM_WEBHOOK_SECRET || '';
+}
+
+function verifyZoomWebhookSignature(req) {
+  const secret = getZoomWebhookSecret();
+  if (!secret) return true;
+
+  const signature = req.headers['x-zm-signature'];
+  const timestamp = req.headers['x-zm-request-timestamp'];
+  if (!signature || !timestamp || !req.rawBody) return true;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const tsNum = Number(timestamp);
+  if (!Number.isFinite(tsNum) || Math.abs(nowSec - tsNum) > 5 * 60) return false;
+
+  const message = `v0:${timestamp}:${req.rawBody}`;
+  const expected = `v0=${crypto.createHmac('sha256', secret).update(message).digest('hex')}`;
+  return expected === signature;
+}
+
+async function getZoomAccessToken() {
+  const accountId = process.env.ZOOM_ACCOUNT_ID;
+  const clientId = process.env.ZOOM_CLIENT_ID;
+  const clientSecret = process.env.ZOOM_CLIENT_SECRET;
+
+  if (!accountId || !clientId || !clientSecret) {
+    throw new Error('Missing Zoom OAuth env vars (ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET)');
+  }
+
+  const now = Date.now();
+  if (zoomTokenCache.token && zoomTokenCache.expiresAt > now + 60 * 1000) {
+    return zoomTokenCache.token;
+  }
+
+  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const response = await axios.post(
+    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(accountId)}`,
+    null,
+    {
+      headers: {
+        Authorization: `Basic ${basic}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      timeout: 30000
+    }
+  );
+
+  const token = response.data && response.data.access_token;
+  const expiresIn = Number(response.data && response.data.expires_in) || 3600;
+  if (!token) throw new Error('Zoom token response did not include access_token');
+
+  zoomTokenCache.token = token;
+  zoomTokenCache.expiresAt = now + (expiresIn * 1000);
+  return token;
+}
+
+function extractZoomMeetingIdFromClassLink(classLink) {
+  if (!classLink) return null;
+  const str = String(classLink);
+  const match = str.match(/\/(?:j|w)\/(\d{8,})/i);
+  return match ? match[1] : null;
+}
+
+async function uploadZoomRecordingToCloudinary(downloadUrl, filenameBase, zoomToken) {
+  if (!useCloudinary) {
+    return downloadUrl;
+  }
+
+  const safePublicId = `${filenameBase}-${Date.now()}`.replace(/[^a-zA-Z0-9-_]/g, '_');
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axios.get(downloadUrl, {
+        responseType: 'stream',
+        headers: { Authorization: `Bearer ${zoomToken}` },
+        params: { access_token: zoomToken },
+        timeout: 10 * 60 * 1000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      });
+
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'video',
+          folder: 'fluentfeathers/materials',
+          public_id: safePublicId,
+          overwrite: true
+        },
+        (err, result) => {
+          if (err) return reject(err);
+          if (!result || !result.secure_url) return reject(new Error('Cloudinary upload failed without URL'));
+          resolve(result.secure_url);
+        }
+      );
+
+      response.data.on('error', reject);
+      uploadStream.on('error', reject);
+      response.data.pipe(uploadStream);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+async function findBestSessionByZoomMeetingId(meetingId, referenceIsoTime) {
+  const likeJ = `%/j/${meetingId}%`;
+  const likeW = `%/w/${meetingId}%`;
+
+  const candidates = (await pool.query(
+    `SELECT id, student_id, group_id, session_date, session_time, class_link
+     FROM sessions
+     WHERE class_link ILIKE $1 OR class_link ILIKE $2
+     ORDER BY session_date DESC, session_time DESC
+     LIMIT 100`,
+    [likeJ, likeW]
+  )).rows;
+
+  if (!candidates.length) return null;
+
+  if (!referenceIsoTime) return candidates[0];
+  const referenceDate = new Date(referenceIsoTime);
+  if (isNaN(referenceDate.getTime())) return candidates[0];
+
+  let best = candidates[0];
+  let bestDiff = Number.MAX_SAFE_INTEGER;
+
+  for (const candidate of candidates) {
+    const dateStr = String(candidate.session_date).includes('T')
+      ? String(candidate.session_date).split('T')[0]
+      : String(candidate.session_date);
+    const timeStr = String(candidate.session_time || '00:00:00').substring(0, 8);
+    const sessionDate = new Date(`${dateStr}T${timeStr}Z`);
+    if (isNaN(sessionDate.getTime())) continue;
+
+    const diff = Math.abs(sessionDate.getTime() - referenceDate.getTime());
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+async function attachRecordingToSession(session, recordingUrl, recordingFileName) {
+  await pool.query('UPDATE sessions SET recording_file_path = $1 WHERE id = $2', [recordingUrl, session.id]);
+
+  const existingSessionMaterial = await pool.query(
+    `SELECT id FROM session_materials WHERE session_id = $1 AND material_type = 'recording' AND file_path = $2 LIMIT 1`,
+    [session.id, recordingUrl]
+  );
+
+  if (existingSessionMaterial.rows.length === 0) {
+    await pool.query(
+      `INSERT INTO session_materials (session_id, material_type, file_name, file_path)
+       VALUES ($1, 'recording', $2, $3)`,
+      [session.id, recordingFileName, recordingUrl]
+    );
+  }
+
+  let studentIds = [];
+  if (session.student_id) {
+    studentIds = [session.student_id];
+  } else if (session.group_id) {
+    const students = await pool.query('SELECT id FROM students WHERE group_id = $1 AND is_active = true', [session.group_id]);
+    studentIds = students.rows.map(row => row.id);
+  }
+
+  for (const studentId of studentIds) {
+    const existingMaterial = await pool.query(
+      `SELECT id
+       FROM materials
+       WHERE session_id = $1 AND student_id = $2 AND file_type = 'Recording' AND file_path = $3
+       LIMIT 1`,
+      [session.id, studentId, recordingUrl]
+    );
+
+    if (existingMaterial.rows.length > 0) continue;
+
+    await pool.query(
+      `INSERT INTO materials (student_id, group_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
+       VALUES ($1, $2, $3, $4, 'Recording', $5, $6, 'Zoom')`,
+      [studentId, session.group_id || null, session.id, session.session_date, recordingFileName, recordingUrl]
+    );
+  }
+}
+
+async function processZoomRecordingCompleted(webhookBody) {
+  const object = webhookBody && webhookBody.payload && webhookBody.payload.object;
+  if (!object) throw new Error('Zoom webhook payload missing object');
+
+  const meetingId = String(object.id || '').replace(/\D/g, '');
+  if (!meetingId) throw new Error('Zoom meeting id missing in payload');
+
+  const recordingFiles = Array.isArray(object.recording_files) ? object.recording_files : [];
+  const completedFiles = recordingFiles.filter(file => String(file.status || '').toLowerCase() === 'completed' && file.download_url);
+  if (!completedFiles.length) {
+    console.log(`ℹ️ Zoom webhook had no completed downloadable files for meeting ${meetingId}`);
+    return;
+  }
+
+  const preferred = completedFiles.find(file => String(file.file_type || '').toUpperCase() === 'MP4') || completedFiles[0];
+  const recordingStart = preferred.recording_start || object.start_time || null;
+
+  const session = await findBestSessionByZoomMeetingId(meetingId, recordingStart);
+  if (!session) {
+    console.warn(`⚠️ No LMS session matched Zoom meeting ${meetingId}. Recording skipped.`);
+    return;
+  }
+
+  const zoomToken = await getZoomAccessToken();
+  const topicSlug = (object.topic || `zoom-${meetingId}`).toString().substring(0, 50).replace(/[^a-zA-Z0-9-_]/g, '_') || `zoom-${meetingId}`;
+  const finalUrl = await uploadZoomRecordingToCloudinary(preferred.download_url, topicSlug, zoomToken);
+  const fileName = `${object.topic || 'Class Recording'} (${meetingId}).mp4`;
+
+  await attachRecordingToSession(session, finalUrl, fileName);
+  console.log(`✅ Zoom recording auto-attached to session #${session.id} for meeting ${meetingId}`);
 }
 
 async function sendEmail(to, subject, html, recipientName, emailType) {
