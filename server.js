@@ -2002,7 +2002,7 @@ function verifyZoomWebhookSignature(req) {
 
   const signature = req.headers['x-zm-signature'];
   const timestamp = req.headers['x-zm-request-timestamp'];
-  if (!signature || !timestamp || !req.rawBody) return true;
+  if (!signature || !timestamp || !req.rawBody) return false;
 
   const nowSec = Math.floor(Date.now() / 1000);
   const tsNum = Number(timestamp);
