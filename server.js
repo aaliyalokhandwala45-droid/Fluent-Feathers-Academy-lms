@@ -8214,12 +8214,12 @@ app.get('/api/financial-reports', async (req, res) => {
     let params = [];
 
     if (startDate && endDate) {
-  dateFilter = 'WHERE payment_date >= $1 AND payment_date < ($2::date + INTERVAL \'1 day\')';
+  dateFilter = 'WHERE payment_date >= $1::date AND payment_date < ($2::date + INTERVAL \'1 day\')';
   params = [startDate, endDate];
 }  else if (year) {
   const fyStart = `${year}-04-01`;
   const fyEnd = `${parseInt(year) + 1}-03-31`;
-  dateFilter = 'WHERE payment_date >= $1 AND payment_date < ($2::date + INTERVAL \'1 day\')';
+  dateFilter = 'WHERE payment_date >= $1::date AND payment_date < ($2::date + INTERVAL \'1 day\')';
   params = [fyStart, fyEnd];
 }
 
@@ -9010,20 +9010,20 @@ async function calculateStudentScores(startDate, endDate) {
       WHERE file_type = 'Homework'
         AND uploaded_by IN ('Parent', 'Admin')
         AND student_id IS NOT NULL
-        AND uploaded_at >= $1 AND uploaded_at <= $2 + INTERVAL '1 day'
+        AND uploaded_at >= $1::date AND uploaded_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
     challenge_pts AS (
       SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts
       FROM student_challenges
       WHERE status = 'Completed'
-        AND completed_at >= $1 AND completed_at <= $2 + INTERVAL '1 day'
+        AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
       FROM student_badges
-      WHERE earned_date >= $1 AND earned_date <= $2 + INTERVAL '1 day'
+      WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     )
     SELECT
@@ -9283,22 +9283,22 @@ app.get('/api/awards/current', async (req, res) => {
 
     // Query to get student scores for a date range
    const getTopStudent = async (startDate, endDate) => {
-  const result = await pool.query(`
+    const result = await executeQuery(`
     WITH homework_pts AS (
       SELECT student_id, COUNT(*) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
-        AND uploaded_at >= $1 AND uploaded_at <= $2 + INTERVAL '1 day'
+        AND uploaded_at >= $1::date AND uploaded_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
     challenge_pts AS (
       SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts FROM student_challenges
       WHERE status = 'Completed'
-        AND completed_at >= $1 AND completed_at <= $2 + INTERVAL '1 day'
+        AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
-      WHERE earned_date >= $1 AND earned_date <= $2 + INTERVAL '1 day'
+      WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     )
     SELECT s.id, s.name,
@@ -9354,6 +9354,32 @@ app.get('/api/awards/current', async (req, res) => {
     res.json(awards);
   } catch (err) {
     console.error('Error calculating awards:', err);
+    const isDbWakeupError =
+      err.code === 'ECONNRESET' ||
+      err.code === 'ENOTFOUND' ||
+      err.code === 'ETIMEDOUT' ||
+      err.code === 'ECONNREFUSED' ||
+      err.code === '57P01' ||
+      err.code === '57P02' ||
+      err.code === '57P03' ||
+      err.code === '08006' ||
+      err.code === '08001' ||
+      err.code === '08004' ||
+      (err.message && err.message.includes('Connection terminated')) ||
+      (err.message && err.message.includes('connection timeout')) ||
+      (err.message && err.message.includes('timeout expired')) ||
+      (err.message && err.message.includes('Client has encountered a connection error')) ||
+      (err.message && err.message.includes('timeout exceeded when trying to connect')) ||
+      (err.message && err.message.includes('Connection terminated due to connection timeout'));
+
+    if (isDbWakeupError) {
+      initializeDatabaseConnection();
+      return res.status(503).json({
+        error: 'Database is waking up. Please retry in 5-10 seconds.',
+        code: 'DB_WAKING_UP'
+      });
+    }
+
     res.status(500).json({ error: err.message });
   }
 });
