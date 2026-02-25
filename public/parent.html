@@ -1150,7 +1150,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     let selectedRating = 0;
     let checkedFeedbackSessions = new Set();
     let appConfig = { logoUrl: '/logo.png' };
-    const PORTAL_AUTO_REFRESH_MS = 10 * 60 * 1000;
+    const PORTAL_AUTO_REFRESH_MS = 5 * 60 * 1000;
     let portalAutoRefreshTimerId = null;
 
     function startPortalAutoRefresh() {
