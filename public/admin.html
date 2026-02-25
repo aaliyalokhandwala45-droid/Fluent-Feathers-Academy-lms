@@ -364,6 +364,7 @@
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
           <span id="storageStatus" style="padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 600; cursor: help;" title="File storage status">⏳ Checking...</span>
+          <button id="bulkTimezoneSyncHeaderBtn" onclick="runBulkTimezoneSync('bulkTimezoneSyncHeaderBtn')" class="btn btn-sm" style="background: #d69e2e; color: white; font-size: 12px;" title="Sync parent timezone data across existing records">🌍 Timezone Sync</button>
           <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">👁️ Learner View</button>
           <button onclick="location.href='index.html'" class="btn btn-sm" style="background: #718096; color: white; font-size: 12px;">Logout</button>
         </div>
@@ -2430,16 +2431,6 @@ I'm passionate about helping children develop confidence in communication!"></te
             <button type="submit" class="btn btn-primary" style="padding: 12px 40px; font-size: 1rem;">💾 Save Profile</button>
           </div>
 
-          <div style="margin-top: 20px; background: #fffaf0; border: 1px solid #f6e05e; border-radius: 12px; padding: 16px;">
-            <h4 style="margin: 0 0 8px; color: #744210;">🌍 Parent Timezone Bulk Fix</h4>
-            <p style="margin: 0 0 12px; color: #744210; font-size: 0.9rem;">
-              One-click fix for existing parent records. It updates old IST timezone data so parent emails and portal timings use each parent's local timezone.
-            </p>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-              <button type="button" id="bulkTimezoneSyncBtn" class="btn" onclick="runBulkTimezoneSync()" style="background: #d69e2e; color: white;">🔄 Run Bulk Timezone Sync</button>
-              <span id="bulkTimezoneSyncStatus" style="color: #744210; font-size: 0.85rem;"></span>
-            </div>
-          </div>
         </form>
       </div>
     </div>
@@ -9586,18 +9577,22 @@ async function saveEditedPayment() {
       }
     });
 
-    async function runBulkTimezoneSync() {
+    async function runBulkTimezoneSync(triggerButtonId) {
       const confirmRun = confirm('Run bulk parent timezone sync now?\n\nThis updates existing records (students, demo leads, event registrations) so parent-facing times are localized.');
       if (!confirmRun) return;
 
-      const btn = document.getElementById('bulkTimezoneSyncBtn');
+      const btn = triggerButtonId
+        ? document.getElementById(triggerButtonId)
+        : document.getElementById('bulkTimezoneSyncBtn');
       const status = document.getElementById('bulkTimezoneSyncStatus');
-      if (!btn || !status) return;
+      if (!btn) return;
+
+      const defaultText = btn.textContent;
 
       try {
         btn.disabled = true;
         btn.textContent = 'Syncing...';
-        status.textContent = 'Running...';
+        if (status) status.textContent = 'Running...';
 
         const res = await fetch('/api/admin/sync-parent-timezones', {
           method: 'POST',
@@ -9612,14 +9607,14 @@ async function saveEditedPayment() {
 
         const summary = data.summary || {};
         const totalTouched = Number(summary.totalTouched || 0);
-        status.textContent = `Done. Updated ${totalTouched} record(s).`;
+        if (status) status.textContent = `Done. Updated ${totalTouched} record(s).`;
         alert(`✅ Parent timezone sync complete!\n\nStudents: ${summary.studentsAutoUpdated || 0}\nDemo Leads: ${summary.demoLeadsAutoUpdated || 0}\nEvent Registrations: ${summary.eventsAutoUpdated || 0}\nOverrides: ${summary.overrideUpdates || 0}\nTotal: ${totalTouched}`);
       } catch (err) {
-        status.textContent = 'Failed.';
+        if (status) status.textContent = 'Failed.';
         alert('❌ ' + err.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = '🔄 Run Bulk Timezone Sync';
+        btn.textContent = defaultText;
       }
     }
 
