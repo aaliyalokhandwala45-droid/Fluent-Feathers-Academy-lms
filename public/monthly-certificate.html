@@ -91,7 +91,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>Monthly Progress Certificate</h1>
+      <h1 id="pageTitle">Monthly Progress Certificate</h1>
       <p>Fluent Feathers Academy By Aaliya</p>
     </div>
 
@@ -147,6 +147,11 @@
           name: studentName,
           date: certDate
         };
+
+        const cleanCertificateTitle = (data.certificate_title || '').toString().replace(/^[^A-Za-z0-9]+/, '').trim();
+        const displayPageTitle = cleanCertificateTitle || 'Monthly Progress Certificate';
+        document.getElementById('pageTitle').textContent = displayPageTitle;
+        document.title = `${displayPageTitle} - Fluent Feathers Academy`;
 
         document.getElementById('content').innerHTML = `
           <div class="certificate-wrapper">
