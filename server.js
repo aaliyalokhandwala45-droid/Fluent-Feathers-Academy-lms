@@ -7087,24 +7087,40 @@ app.get('/api/email-logs', async (req, res) => {
 
 app.get('/api/sessions/past/all', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
     const requestedLimit = Math.min(Math.max(parseInt(req.query.limit) || 50, 10), 300);
     
-    // Simplified query with LEFT JOINs - get all past sessions with names
+    // Compute chronological session numbering per student/group (oldest -> newest)
     const r = await executeQuery(`
-      SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
-             s.ppt_file_path, s.recording_file_path, s.homework_file_path,
-             s.teacher_notes, s.student_id, s.group_id,
-             COALESCE(st.name, g.group_name, 'Unknown') as student_name,
-             COALESCE(st.timezone, g.timezone, 'Asia/Kolkata') as timezone,
-             g.group_name
-      FROM sessions s
-      LEFT JOIN students st ON s.student_id = st.id AND s.session_type = 'Private'
-      LEFT JOIN groups g ON s.group_id = g.id AND s.session_type = 'Group'
-      WHERE s.session_date <= $1
+      WITH numbered_sessions AS (
+        SELECT s.id, s.session_date, s.session_time, s.session_number, s.status, s.session_type,
+               s.ppt_file_path, s.recording_file_path, s.homework_file_path,
+               s.teacher_notes, s.student_id, s.group_id,
+               COALESCE(st.name, g.group_name, 'Unknown') as student_name,
+               COALESCE(st.timezone, g.timezone, 'Asia/Kolkata') as timezone,
+               g.group_name,
+               ROW_NUMBER() OVER (
+                 PARTITION BY s.session_type,
+                   COALESCE(CASE WHEN s.session_type = 'Private' THEN s.student_id ELSE s.group_id END, -1)
+                 ORDER BY s.session_date ASC, COALESCE(s.session_time, '00:00:00'::time) ASC, s.id ASC
+               )::INT AS chronological_session_number
+        FROM sessions s
+        LEFT JOIN students st ON s.student_id = st.id AND s.session_type = 'Private'
+        LEFT JOIN groups g ON s.group_id = g.id AND s.session_type = 'Group'
+        WHERE COALESCE(s.status, 'Pending') <> 'Cancelled'
+      )
+      SELECT *
+      FROM numbered_sessions s
+      WHERE (
+        s.session_date < (timezone('Asia/Kolkata', NOW()))::date
+        OR (
+          s.session_date = (timezone('Asia/Kolkata', NOW()))::date
+          AND COALESCE(s.session_time, '00:00:00'::time) <= (timezone('Asia/Kolkata', NOW()))::time
+        )
+      )
+      AND COALESCE(s.status, 'Pending') NOT IN ('Pending', 'Scheduled')
       ORDER BY s.session_date DESC, s.session_time DESC
-      LIMIT $2
-    `, [today, requestedLimit]);
+      LIMIT $1
+    `, [requestedLimit]);
 
     // Fix file paths for backwards compatibility (skip Cloudinary URLs)
     const fixed = r.rows.map(session => {

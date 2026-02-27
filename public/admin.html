@@ -4462,11 +4462,12 @@ if (dueEl) {
           `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Excused' ? 'attendance-excused' : s.status === 'Absent' || s.status === 'Unexcused' || s.status === 'Missed' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
         const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
         const typeClass = s.session_type === 'Private' ? 'type-badge-private' : 'type-badge-group';
+        const sessionDisplayNumber = s.chronological_session_number || s.session_number || '-';
         return `<tr>
           <td>${formatSessionTime(s)}</td>
           <td><strong>${s.student_name}</strong></td>
           <td><span class="type-badge ${typeClass}">${s.session_type}</span></td>
-          <td>#${s.session_number}</td>
+          <td>#${sessionDisplayNumber}</td>
           <td>${attendanceBtn}</td>
           <td>${materials || '-'}</td>
           <td><button onclick="viewFeedback(${s.id})" class="btn btn-sm" style="background:#fbbf24; color:white;">⭐</button></td>
