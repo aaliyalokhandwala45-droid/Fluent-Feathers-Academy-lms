@@ -1769,6 +1769,38 @@ function formatUTCToLocal(utcDateStr, utcTimeStr, timezone) {
   }
 }
 
+async function renumberPrivateSessionsForStudent(studentId, dbClient = pool) {
+  const ordered = await dbClient.query(`
+    SELECT id
+    FROM sessions
+    WHERE student_id = $1 AND session_type = 'Private'
+    ORDER BY session_date ASC, session_time ASC, id ASC
+  `, [studentId]);
+
+  for (let i = 0; i < ordered.rows.length; i++) {
+    await dbClient.query(
+      'UPDATE sessions SET session_number = $1 WHERE id = $2',
+      [i + 1, ordered.rows[i].id]
+    );
+  }
+}
+
+async function renumberGroupSessionsForGroup(groupId, dbClient = pool) {
+  const ordered = await dbClient.query(`
+    SELECT id
+    FROM sessions
+    WHERE group_id = $1 AND session_type = 'Group'
+    ORDER BY session_date ASC, session_time ASC, id ASC
+  `, [groupId]);
+
+  for (let i = 0; i < ordered.rows.length; i++) {
+    await dbClient.query(
+      'UPDATE sessions SET session_number = $1 WHERE id = $2',
+      [i + 1, ordered.rows[i].id]
+    );
+  }
+}
+
 // Get friendly timezone label from IANA timezone
 function getTimezoneLabel(timezone) {
   const tzLabels = {
@@ -5722,13 +5754,34 @@ app.get('/api/sessions/search-by-name', async (req, res) => {
 
 // Delete a session
 app.delete('/api/sessions/:sessionId', async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
+    const sessionRes = await client.query('SELECT id, session_type, student_id, group_id FROM sessions WHERE id = $1', [req.params.sessionId]);
+    if (sessionRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    const session = sessionRes.rows[0];
+
     // Also delete related session_materials
-    await pool.query('DELETE FROM session_materials WHERE session_id = $1', [req.params.sessionId]);
-    await pool.query('DELETE FROM sessions WHERE id = $1', [req.params.sessionId]);
+    await client.query('DELETE FROM session_materials WHERE session_id = $1', [req.params.sessionId]);
+    await client.query('DELETE FROM sessions WHERE id = $1', [req.params.sessionId]);
+
+    if (session.session_type === 'Group' && session.group_id) {
+      await renumberGroupSessionsForGroup(session.group_id, client);
+    } else if (session.student_id) {
+      await renumberPrivateSessionsForStudent(session.student_id, client);
+    }
+
+    await client.query('COMMIT');
     res.json({ success: true, message: 'Session deleted successfully' });
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -5753,6 +5806,15 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
 
     const utc = istToUTC(date, time);
     await pool.query('UPDATE sessions SET session_date = $1::date, session_time = $2::time WHERE id = $3', [utc.date, utc.time, req.params.sessionId]);
+
+    if (session.session_type === 'Group' && session.group_id) {
+      await renumberGroupSessionsForGroup(session.group_id, pool);
+    } else if (session.student_id) {
+      await renumberPrivateSessionsForStudent(session.student_id, pool);
+    }
+
+    const renumberedSessionRes = await pool.query('SELECT session_number FROM sessions WHERE id = $1', [req.params.sessionId]);
+    const updatedSessionNumber = renumberedSessionRes.rows[0]?.session_number || session.session_number;
 
     // Clear old reminder email logs for this session so new reminders can be sent
     await pool.query(
@@ -5782,7 +5844,7 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
           getRescheduleEmailTemplate({
             parent_name: student.parent_name,
             student_name: student.name,
-            session_number: session.session_number,
+            session_number: updatedSessionNumber,
             old_date: oldDate,
             old_time: oldTime,
             new_date: utc.date,
@@ -6190,7 +6252,16 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     original_date = COALESCE(original_date, $3),
     original_time = COALESCE(original_time, $4)
   WHERE id = $5
-`, [utc.date, utc.time, oldDate, oldTime, sessionId]);
+`, [converted.date, converted.time, oldDate, oldTime, sessionId]);
+
+    if (session.session_type === 'Group' && session.group_id) {
+      await renumberGroupSessionsForGroup(session.group_id, client);
+    } else if (session.student_id) {
+      await renumberPrivateSessionsForStudent(session.student_id, client);
+    }
+
+    const renumberedSession = await client.query('SELECT session_number FROM sessions WHERE id = $1', [sessionId]);
+    const updatedSessionNumber = renumberedSession.rows[0]?.session_number || session.session_number;
   
 
     // Clear old reminder email logs for this session so new reminders can be sent
@@ -6223,7 +6294,7 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
           getRescheduleEmailTemplate({
             parent_name: student.parent_name,
             student_name: student.name,
-            session_number: session.session_number,
+            session_number: updatedSessionNumber,
             old_date: oldDate,
             old_time: oldTime,
             new_date: converted.date,
@@ -7369,6 +7440,10 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       WHERE id = $4
     `, [newSessionId, session_date, session_time, creditId]);
 
+    await renumberPrivateSessionsForStudent(student_id, client);
+    const renumbered = await client.query('SELECT session_number FROM sessions WHERE id = $1', [newSessionId]);
+    const finalSessionNumber = renumbered.rows[0]?.session_number || sessionNumber;
+
     await client.query('COMMIT');
 
     // Send email notification to parent
@@ -7414,7 +7489,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       success: true,
       message: 'Makeup class scheduled successfully!',
       session_id: newSessionId,
-      session_number: sessionNumber
+      session_number: finalSessionNumber
     });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -7634,6 +7709,8 @@ app.post('/api/students/:id/renewal', async (req, res) => {
         last_reminder_remaining = NULL
       WHERE id = $3
     `, [sessionsNum, amount, req.params.id]);
+    await renumberPrivateSessionsForStudent(studentId, client);
+
     await client.query('COMMIT');
 
     // Send renewal confirmation email if requested (outside transaction)
@@ -10824,11 +10901,18 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
     await client.query('BEGIN');
     
     const rescheduled = [];
+    const affectedStudents = new Set();
+    const affectedGroups = new Set();
     for (const s of sessions) {
       // Get old session
       const old = await client.query('SELECT * FROM sessions WHERE id = $1', [s.session_id]);
       if (old.rows.length === 0) continue;
       const session = old.rows[0];
+      if (session.session_type === 'Group' && session.group_id) {
+        affectedGroups.add(String(session.group_id));
+      } else if (session.student_id) {
+        affectedStudents.add(String(session.student_id));
+      }
       
       // Convert to UTC
       const utc = istToUTC(s.new_date, s.new_time);
@@ -10850,6 +10934,13 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
       );
 
       rescheduled.push(session);
+    }
+
+    for (const studentId of affectedStudents) {
+      await renumberPrivateSessionsForStudent(studentId, client);
+    }
+    for (const groupId of affectedGroups) {
+      await renumberGroupSessionsForGroup(groupId, client);
     }
 
     await client.query('COMMIT');
@@ -10906,7 +10997,13 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    const affectedGroups = new Set();
     for (const s of sessions) {
+      const old = await client.query('SELECT group_id FROM sessions WHERE id = $1', [s.session_id]);
+      if (old.rows[0]?.group_id) {
+        affectedGroups.add(String(old.rows[0].group_id));
+      }
+
       const utc = istToUTC(s.new_date, s.new_time);
       await client.query(`
         UPDATE sessions SET
@@ -10922,6 +11019,10 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
         `DELETE FROM email_log WHERE subject LIKE $1`,
         [`%[SID:${s.session_id}]%`]
       );
+    }
+
+    for (const groupId of affectedGroups) {
+      await renumberGroupSessionsForGroup(groupId, client);
     }
 
     await client.query('COMMIT');
