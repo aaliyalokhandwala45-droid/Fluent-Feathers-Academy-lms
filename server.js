@@ -7087,6 +7087,7 @@ app.get('/api/email-logs', async (req, res) => {
 
 app.get('/api/sessions/past/all', async (req, res) => {
   try {
+    const today = new Date().toISOString().split('T')[0];
     const requestedLimit = Math.min(Math.max(parseInt(req.query.limit) || 50, 10), 300);
     
     // Compute chronological session numbering per student/group (oldest -> newest)
@@ -7110,17 +7111,10 @@ app.get('/api/sessions/past/all', async (req, res) => {
       )
       SELECT *
       FROM numbered_sessions s
-      WHERE (
-        s.session_date < (timezone('Asia/Kolkata', NOW()))::date
-        OR (
-          s.session_date = (timezone('Asia/Kolkata', NOW()))::date
-          AND COALESCE(s.session_time, '00:00:00'::time) <= (timezone('Asia/Kolkata', NOW()))::time
-        )
-      )
-      AND COALESCE(s.status, 'Pending') NOT IN ('Pending', 'Scheduled')
+      WHERE s.session_date <= $1
       ORDER BY s.session_date DESC, s.session_time DESC
-      LIMIT $1
-    `, [requestedLimit]);
+      LIMIT $2
+    `, [today, requestedLimit]);
 
     // Fix file paths for backwards compatibility (skip Cloudinary URLs)
     const fixed = r.rows.map(session => {
