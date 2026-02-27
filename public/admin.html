@@ -6472,10 +6472,15 @@ async function saveEditedPayment() {
           const uploadIndex = pathParts.indexOf('upload');
 
           if (uploadIndex !== -1) {
-            // Get file extension from URL
+            // Prefer extension from original filename, fallback to URL extension
+            const rawFilename = filename || 'download';
+            const nameParts = rawFilename.split('.');
+            const filenameExt = nameParts.length > 1 ? '.' + nameParts.pop().toLowerCase() : '';
             const lastPart = pathParts[pathParts.length - 1];
-            const ext = lastPart.includes('.') ? '.' + lastPart.split('.').pop() : '.pdf';
-            const safeFilename = (filename || 'download').replace(/[^a-zA-Z0-9]/g, '_') + ext;
+            const urlExt = lastPart.includes('.') ? '.' + lastPart.split('.').pop().toLowerCase() : '';
+            const ext = filenameExt || urlExt;
+            const baseName = rawFilename.replace(/\.[^.]+$/, '');
+            const safeFilename = baseName.replace(/[^a-zA-Z0-9]/g, '_') + ext;
 
             // Insert fl_attachment after 'upload' for forced download
             pathParts.splice(uploadIndex + 1, 0, 'fl_attachment:' + safeFilename);
@@ -8763,11 +8768,13 @@ async function saveEditedPayment() {
                           fileUrl = '/uploads/homework/' + fileUrl;
                         }
 
+                        const downloadUrl = getDownloadUrl(fileUrl, fname);
+
                         submissionCol = '<div style="display:flex; flex-direction:column; gap:4px; align-items:center;">' +
                           '<span style="font-size:0.8rem; color:#4a5568;">' + fileIcon + ' ' + (fname.length > 20 ? fname.substring(0,20) + '...' : fname) + '</span>' +
                           '<div style="display:flex; gap:4px;">' +
                             '<button onclick="previewFile(\'' + fileUrl + '\', \'' + fileType + '\', decodeURIComponent(\'' + encodeURIComponent(fname) + '\'))" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px;">View</button>' +
-                            '<a href="' + fileUrl + '" target="_blank" download="' + fname + '" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px; text-decoration:none;">⬇️</a>' +
+                            '<a href="' + downloadUrl + '" target="_blank" download="' + fname + '" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px; text-decoration:none;">⬇️</a>' +
                           '</div>' +
                         '</div>';
                       }
