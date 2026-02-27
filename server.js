@@ -1938,7 +1938,7 @@ function getWelcomeEmail(data) {
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>💡 Pro Tip:</strong> Save the Google Class link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
+          <strong>💡 Pro Tip:</strong> Save the Class link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
         </p>
       </div>
 
@@ -1962,6 +1962,7 @@ function getWelcomeEmail(data) {
 }
 
 function getScheduleEmail(data) {
+  const timezoneLabel = data.timezone_label || 'Your Local Time';
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -1982,7 +1983,7 @@ function getScheduleEmail(data) {
           <tr style="background: #667eea; color: white;">
             <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">#</th>
             <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">Date</th>
-            <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">Time</th>
+            <th style="padding: 15px; text-align: left; border-bottom: 2px solid #5568d3;">Time (${timezoneLabel})</th>
           </tr>
         </thead>
         <tbody>
@@ -1993,7 +1994,7 @@ function getScheduleEmail(data) {
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Your Classes</h3>
 <p style="color: #234e52; margin: 0; font-size: 14px; line-height: 1.8;">
-  All classes will use the same Google Class link. We recommend joining 5 minutes early to ensure a smooth start.
+  All classes will use the same Class link. We recommend joining 5 minutes early to ensure a smooth start.
           The link will also be available in your parent portal next to each class.
         </p>
       </div>
@@ -2176,6 +2177,7 @@ function getRescheduleEmailTemplate(data) {
   const newDateFormatted = formatDate(data.new_date);
   const oldTimeFormatted = formatTime(data.old_time, data.timezone);
   const newTimeFormatted = formatTime(data.new_time, data.timezone);
+  const timezoneLabel = data.timezoneLabel || getTimezoneLabel(data.timezone || 'Asia/Kolkata');
   const sessionType = data.is_group ? `Group Class (${data.group_name})` : 'Private Class';
 
   return `<!DOCTYPE html>
@@ -2199,7 +2201,7 @@ function getRescheduleEmailTemplate(data) {
         <h3 style="margin: 0 0 15px; color: #c53030; font-size: 16px;">❌ Previous Schedule</h3>
         <p style="margin: 0; color: #742a2a; text-decoration: line-through;">
           📆 ${oldDateFormatted}<br>
-          ⏰ ${oldTimeFormatted}
+          ⏰ ${oldTimeFormatted} (${timezoneLabel})
         </p>
       </div>
 
@@ -2208,7 +2210,7 @@ function getRescheduleEmailTemplate(data) {
         <h3 style="margin: 0 0 15px; color: #276749; font-size: 16px;">✅ New Schedule</h3>
         <p style="margin: 0; color: #22543d; font-weight: 600; font-size: 18px;">
           📆 ${newDateFormatted}<br>
-          ⏰ ${newTimeFormatted}
+          ⏰ ${newTimeFormatted} (${timezoneLabel})
         </p>
       </div>
 
@@ -2241,6 +2243,7 @@ function getRescheduleEmailTemplate(data) {
 }
 
 function getEventEmail(data) {
+  const eventTimezoneLabel = data.event_timezone_label || 'Your Local Time';
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -2274,7 +2277,7 @@ function getEventEmail(data) {
         <div style="display: flex; align-items: center; margin-bottom: 15px;">
           <span style="font-size: 24px; margin-right: 15px;">🕐</span>
           <div>
-            <div style="font-weight: bold; margin-bottom: 5px;">Time</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Time (${eventTimezoneLabel})</div>
             <div style="opacity: 0.9;">${data.event_time}</div>
           </div>
         </div>
@@ -2299,7 +2302,7 @@ function getEventEmail(data) {
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
         <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Information</h3>
         <p style="color: rgba(255,255,255,0.9); margin: 0 0 15px 0; font-size: 14px;">
-  After registering, you'll receive the Google Class link to join the event. We recommend joining 5 minutes early!
+  After registering, you'll receive the Class link to join the event. We recommend joining 5 minutes early!
 </p>
 <a href="${data.class_link}" style="display: inline-block; background: #38b2ac; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
   🔗 Event Class Link
@@ -5271,7 +5274,8 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       const scheduleHTML = getScheduleEmail({
         parent_name: student.parent_name,
         student_name: student.name,
-        schedule_rows: scheduledSessions.join('')
+        schedule_rows: scheduledSessions.join(''),
+        timezone_label: getTimezoneLabel(student.parent_timezone || student.timezone || 'Asia/Kolkata')
       });
 
       emailSent = await sendEmail(
@@ -5429,7 +5433,8 @@ app.post('/api/schedule/group-classes', async (req, res) => {
         const scheduleHTML = getScheduleEmail({
           parent_name: student.parent_name,
           student_name: student.name,
-          schedule_rows: rows.join('')
+          schedule_rows: rows.join(''),
+          timezone_label: getTimezoneLabel(student.parent_timezone || student.timezone || group.timezone || 'Asia/Kolkata')
         });
 
         const sent = await sendEmail(
@@ -6491,6 +6496,7 @@ app.post('/api/events', async (req, res) => {
           event_description: event_description || '',
           event_date: display.date,
           event_time: display.time,
+          event_timezone_label: getTimezoneLabel(student.parent_timezone || student.timezone || 'Asia/Kolkata'),
           event_duration,
           class_link: class_link || DEFAULT_CLASS,
           registration_link: registrationLink
@@ -7368,6 +7374,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
     // Send email notification to parent
     const studentData = student.rows[0];
     const localTime = formatUTCToLocal(utc.date, utc.time, studentData.parent_timezone || studentData.timezone || 'Asia/Kolkata');
+    const timezoneLabel = getTimezoneLabel(studentData.parent_timezone || studentData.timezone || 'Asia/Kolkata');
 
     if (studentData.parent_email) {
       const emailHTML = `<!DOCTYPE html>
@@ -7385,7 +7392,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       <div style="background: #f7fafc; border-left: 4px solid #f093fb; padding: 20px; margin: 20px 0; border-radius: 8px;">
         <h3 style="color: #f093fb; margin-top: 0;">📅 Class Details</h3>
         <p style="margin: 5px 0;"><strong>Date:</strong> ${localTime.day}, ${localTime.date}</p>
-        <p style="margin: 5px 0;"><strong>Time:</strong> ${localTime.time}</p>
+        <p style="margin: 5px 0;"><strong>Time:</strong> ${localTime.time} (${timezoneLabel})</p>
         <p style="margin: 5px 0;"><strong>Type:</strong> Makeup Class</p>
       </div>
 
@@ -7855,7 +7862,8 @@ app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
       const scheduleHTML = getScheduleEmail({
         parent_name: student.parent_name,
         student_name: student.name,
-        schedule_rows: scheduledSessions.join('')
+        schedule_rows: scheduledSessions.join(''),
+        timezone_label: getTimezoneLabel(student.parent_timezone || student.timezone || 'Asia/Kolkata')
       });
       emailSent = await sendEmail(
         student.parent_email,
@@ -10936,13 +10944,14 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
           const local = formatUTCToLocal(
             istToUTC(s.new_date, s.new_time).date,
             istToUTC(s.new_date, s.new_time).time,
-            student.timezone || 'Asia/Kolkata'
+            student.parent_timezone || student.timezone || 'Asia/Kolkata'
           );
+          const timezoneLabel = getTimezoneLabel(student.parent_timezone || student.timezone || 'Asia/Kolkata');
           return `<tr>
             <td style="padding:10px;">Session #${s.session_number}</td>
             <td style="padding:10px; color:#718096;">${s.old_date}</td>
             <td style="padding:10px; color:#38a169;"><strong>${local.date}</strong></td>
-            <td style="padding:10px;"><strong style="color:#667eea;">${local.time}</strong></td>
+            <td style="padding:10px;"><strong style="color:#667eea;">${local.time} (${timezoneLabel})</strong></td>
           </tr>`;
         }).join('');
 
