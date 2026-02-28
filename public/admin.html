@@ -634,14 +634,7 @@
               <div class="form-group"><label>Demo Time (IST) *</label><input type="time" id="demoTime" required></div>
             </div>
             <div class="form-row">
-              <div class="form-group"><label>Student Timezone *</label><select id="demoStudentTimezone" required></select></div>
-              <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top: 28px;">
-                <input type="checkbox" id="demoSameTimezone" checked style="width:auto; margin:0;">
-                <label for="demoSameTimezone" style="margin:0; cursor:pointer;">Parent same as student</label>
-              </div>
-            </div>
-            <div class="form-row" id="demoParentTimezoneGroup" style="display:none;">
-              <div class="form-group"><label>Parent Timezone *</label><select id="demoParentTimezone"></select></div>
+              <div class="form-group"><label>Timezone *</label><select id="demoTimezone" required></select></div>
               <div class="form-group"></div>
             </div>
             <div class="form-row">
@@ -2944,14 +2937,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           <div class="form-group"><label>Demo Time (IST) *</label><input type="time" id="editDemoTime" required></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Student Timezone *</label><select id="editDemoStudentTimezone" required></select></div>
-          <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top: 28px;">
-            <input type="checkbox" id="editDemoSameTimezone" checked style="width:auto; margin:0;">
-            <label for="editDemoSameTimezone" style="margin:0; cursor:pointer;">Parent same as student</label>
-          </div>
-        </div>
-        <div class="form-row" id="editDemoParentTimezoneGroup" style="display:none;">
-          <div class="form-group"><label>Parent Timezone *</label><select id="editDemoParentTimezone"></select></div>
+          <div class="form-group"><label>Timezone *</label><select id="editDemoTimezone" required></select></div>
           <div class="form-group"></div>
         </div>
         <div class="form-row">
@@ -3118,13 +3104,6 @@ I'm passionate about helping children develop confidence in communication!"></te
           </div>
           <div class="form-group"><label>Timezone *</label>
             <select id="convertTimezone" required></select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Parent Timezone *</label><select id="convertParentTimezone" required></select></div>
-          <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top: 28px;">
-            <input type="checkbox" id="convertSameTimezone" checked style="width:auto; margin:0;">
-            <label for="convertSameTimezone" style="margin:0; cursor:pointer;">Parent same as student</label>
           </div>
         </div>
         <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
@@ -4036,7 +4015,7 @@ if (dueEl) {
         document.getElementById('editParentName').value = student.parent_name;
         document.getElementById('editParentEmail').value = student.parent_email;
         document.getElementById('editPrimaryContact').value = student.primary_contact;
-        document.getElementById('editTimezone').value = student.timezone;
+        document.getElementById('editTimezone').value = student.timezone || student.parent_timezone || 'Asia/Kolkata';
         document.getElementById('editProgramName').value = student.program_name;
         document.getElementById('editDuration').value = student.duration;
         document.getElementById('editDateOfBirth').value = student.date_of_birth ? student.date_of_birth.split('T')[0] : '';
@@ -7803,62 +7782,14 @@ async function saveEditedPayment() {
     }
 
     function populateDemoTimezoneSelects() {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
-      const defaultStudent = browserTimezone;
-      const defaultParent = browserTimezone;
-
-      const selectConfig = [
-        ['demoStudentTimezone', defaultStudent],
-        ['demoParentTimezone', defaultParent],
-        ['editDemoStudentTimezone', defaultStudent],
-        ['editDemoParentTimezone', defaultParent],
-        ['convertTimezone', defaultStudent],
-        ['convertParentTimezone', defaultParent]
-      ];
-
-      selectConfig.forEach(([id, selected]) => {
+      const defaultTz = 'Asia/Kolkata';
+      ['demoTimezone', 'editDemoTimezone', 'convertTimezone'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.innerHTML = buildTimezoneOptions(selected);
-      });
-    }
-
-    function attachDemoTimezoneSyncHandlers() {
-      const pairs = [
-        ['demoStudentTimezone', 'demoParentTimezone', 'demoSameTimezone', 'demoParentTimezoneGroup'],
-        ['editDemoStudentTimezone', 'editDemoParentTimezone', 'editDemoSameTimezone', 'editDemoParentTimezoneGroup'],
-        ['convertTimezone', 'convertParentTimezone', 'convertSameTimezone']
-      ];
-
-      pairs.forEach(([studentId, parentId, sameId, groupId]) => {
-        const studentEl = document.getElementById(studentId);
-        const parentEl = document.getElementById(parentId);
-        const sameEl = document.getElementById(sameId);
-        const groupEl = groupId ? document.getElementById(groupId) : null;
-        if (!studentEl || !parentEl || !sameEl) return;
-
-        const syncVisibility = () => {
-          const same = sameEl.checked;
-          if (groupEl) groupEl.style.display = same ? 'none' : '';
-          parentEl.required = !same;
-          if (same) {
-            parentEl.value = studentEl.value;
-            delete parentEl.dataset.touchedByUser;
-          }
-        };
-
-        studentEl.addEventListener('change', () => {
-          if (sameEl.checked || !parentEl.dataset.touchedByUser) parentEl.value = studentEl.value;
-        });
-        parentEl.addEventListener('change', () => {
-          parentEl.dataset.touchedByUser = 'true';
-        });
-        sameEl.addEventListener('change', syncVisibility);
-        syncVisibility();
+        if (el) el.innerHTML = buildTimezoneOptions(defaultTz);
       });
     }
 
     populateDemoTimezoneSelects();
-    attachDemoTimezoneSyncHandlers();
 
     async function loadDemoLeads() {
       try {
@@ -8001,10 +7932,8 @@ async function saveEditedPayment() {
         program_interest: document.getElementById('demoProgramInterest').value,
         demo_date: document.getElementById('demoDate').value,
         demo_time: document.getElementById('demoTime').value,
-        student_timezone: document.getElementById('demoStudentTimezone').value,
-        parent_timezone: document.getElementById('demoSameTimezone').checked
-          ? document.getElementById('demoStudentTimezone').value
-          : document.getElementById('demoParentTimezone').value,
+        student_timezone: document.getElementById('demoTimezone').value,
+        parent_timezone: document.getElementById('demoTimezone').value,
         source: document.getElementById('demoSource').value,
         notes: document.getElementById('demoNotes').value,
         send_email: document.getElementById('sendDemoEmail').checked
@@ -8021,13 +7950,7 @@ async function saveEditedPayment() {
           alert('✅ ' + (result.message || 'Demo lead added successfully!'));
           e.target.reset();
           document.getElementById('sendDemoEmail').checked = true; // Reset checkbox to checked
-          const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
-          document.getElementById('demoStudentTimezone').value = browserTimezone;
-          document.getElementById('demoParentTimezone').value = browserTimezone;
-          document.getElementById('demoSameTimezone').checked = true;
-          delete document.getElementById('demoParentTimezone').dataset.touchedByUser;
-          document.getElementById('demoParentTimezoneGroup').style.display = 'none';
-          document.getElementById('demoParentTimezone').required = false;
+          document.getElementById('demoTimezone').value = 'Asia/Kolkata';
           loadDemoLeads();
         } else {
           alert('❌ Error: ' + result.error);
@@ -8067,13 +7990,7 @@ async function saveEditedPayment() {
       document.getElementById('editDemoStatus').value = lead.status || 'Scheduled';
       document.getElementById('editDemoNotes').value = lead.notes || '';
       document.getElementById('editDemoSendEmail').checked = false;
-      document.getElementById('editDemoStudentTimezone').value = lead.student_timezone || 'Asia/Kolkata';
-      document.getElementById('editDemoParentTimezone').value = lead.parent_timezone || lead.student_timezone || 'Asia/Kolkata';
-      const sameTz = (lead.parent_timezone || lead.student_timezone || 'Asia/Kolkata') === (lead.student_timezone || 'Asia/Kolkata');
-      document.getElementById('editDemoSameTimezone').checked = sameTz;
-      document.getElementById('editDemoParentTimezoneGroup').style.display = sameTz ? 'none' : '';
-      document.getElementById('editDemoParentTimezone').required = !sameTz;
-      delete document.getElementById('editDemoParentTimezone').dataset.touchedByUser;
+      document.getElementById('editDemoTimezone').value = lead.parent_timezone || lead.student_timezone || 'Asia/Kolkata';
 
       // Handle date - extract date part from ISO string
       if (lead.demo_date) {
@@ -8106,10 +8023,8 @@ async function saveEditedPayment() {
         program_interest: document.getElementById('editDemoProgramInterest').value,
         demo_date: document.getElementById('editDemoDate').value,
         demo_time: document.getElementById('editDemoTime').value,
-        student_timezone: document.getElementById('editDemoStudentTimezone').value,
-        parent_timezone: document.getElementById('editDemoSameTimezone').checked
-          ? document.getElementById('editDemoStudentTimezone').value
-          : document.getElementById('editDemoParentTimezone').value,
+        student_timezone: document.getElementById('editDemoTimezone').value,
+        parent_timezone: document.getElementById('editDemoTimezone').value,
         source: document.getElementById('editDemoSource').value,
         status: document.getElementById('editDemoStatus').value,
         notes: document.getElementById('editDemoNotes').value,
@@ -8179,12 +8094,7 @@ async function saveEditedPayment() {
       document.getElementById('convertDemoName').textContent = lead.child_name + ' (' + lead.parent_name + ')';
       document.getElementById('convertProgram').value = lead.program_interest || '';
       document.getElementById('convertClassType').value = 'Private';
-      document.getElementById('convertTimezone').value = lead.student_timezone || 'Asia/Kolkata';
-      document.getElementById('convertParentTimezone').value = lead.parent_timezone || lead.student_timezone || 'Asia/Kolkata';
-      const convertSame = (lead.parent_timezone || lead.student_timezone || 'Asia/Kolkata') === (lead.student_timezone || 'Asia/Kolkata');
-      document.getElementById('convertSameTimezone').checked = convertSame;
-      document.getElementById('convertParentTimezone').required = !convertSame;
-      delete document.getElementById('convertParentTimezone').dataset.touchedByUser;
+      document.getElementById('convertTimezone').value = lead.parent_timezone || lead.student_timezone || 'Asia/Kolkata';
       toggleConvertGroupSelect();
       document.getElementById('convertDemoModal').classList.add('active');
     }
@@ -8209,9 +8119,7 @@ async function saveEditedPayment() {
         amount_paid: parseFloat(document.getElementById('convertAmountPaid').value),
         payment_method: document.getElementById('convertPaymentMethod').value,
         timezone: document.getElementById('convertTimezone').value,
-        parent_timezone: document.getElementById('convertSameTimezone').checked
-          ? document.getElementById('convertTimezone').value
-          : document.getElementById('convertParentTimezone').value,
+        parent_timezone: document.getElementById('convertTimezone').value,
         send_welcome_email: document.getElementById('convertSendEmail').checked,
         class_type: classType,
         group_id: groupId
