@@ -1930,30 +1930,8 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
       return false;
     }
 
-    // Append parent portal footer to all non-demo emails
-    // Reminder emails (including demo reminders) always get the portal footer
-    const isReminderType = emailType && emailType.toLowerCase().includes('reminder');
-    const isDemo = !isReminderType && emailType && emailType.toLowerCase().includes('demo');
+    // Parent portal link is now embedded directly in each email template.
     let finalHtml = html;
-    if (!isDemo) {
-      const portalUrl = `${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html`;
-      const portalFooter = `
-      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${portalUrl}" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-          🔗 Open Parent Portal
-        </a>
-        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${portalUrl}</p>
-      </div>`;
-
-      // Insert footer before closing </body> tag, or append to end
-      if (finalHtml.includes('</body>')) {
-        finalHtml = finalHtml.replace('</body>', `${portalFooter}\n</body>`);
-      } else {
-        finalHtml = finalHtml + portalFooter;
-      }
-    }
 
     await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: finalHtml }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
     await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Sent', $5)`, [recipientName || '', to, emailType, subject, html]);
@@ -2075,6 +2053,13 @@ function getScheduleEmail(data) {
         Best regards,<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2124,6 +2109,13 @@ function getAnnouncementEmail(data) {
         Best regards,<br>
         <strong style="color: #B05D9E;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2321,6 +2313,13 @@ function getRescheduleEmailTemplate(data) {
         <strong style="color: #B05D9E;">Teacher Aaliya</strong><br>
         <span style="color: #718096; font-size: 14px;">Fluent Feathers Academy</span>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2375,6 +2374,16 @@ function getBulkPrivateRescheduleEmailTemplate(data) {
         Best regards,<br>
         <strong style="color:#B05D9E;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -2464,6 +2473,13 @@ function getEventEmail(data) {
         See you soon!<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2512,6 +2528,13 @@ function getPaymentConfirmationEmail(data) {
         If you have any questions about this payment, please feel free to reach out to us.<br><br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2628,6 +2651,13 @@ function getClassReminderEmail(data) {
         We're excited to see you in class!<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2699,6 +2729,13 @@ function getEventReminderEmail(data) {
         We're excited to see you there!<br>
         <strong style="color: #f5576c;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2776,6 +2813,13 @@ function getHomeworkFeedbackEmail(data) {
         Keep up the excellent work!<br>
         <strong style="color: #38a169;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2897,6 +2941,13 @@ function getRenewalReminderEmail(data) {
         Warm regards,<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -2971,6 +3022,13 @@ function getSlotsReleasingEmail(data) {
         Warm regards,<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -3028,6 +3086,13 @@ function getClassCancelledEmail(data) {
         If you have any questions, please don't hesitate to reach out to us.<br><br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -3083,6 +3148,13 @@ function getMakeupCreditAddedEmail(data) {
         If you have any questions, please don't hesitate to reach out to us.<br><br>
         <strong style="color: #38b2ac;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -3138,6 +3210,13 @@ function getCertificateEmail(data) {
         Congratulations on your outstanding achievement!<br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
@@ -3262,6 +3341,13 @@ function getMonthlyReportCardEmail(data) {
         With love and encouragement,<br>
         <strong style="color: #667eea; font-size: 16px;">Team Fluent Feathers Academy</strong>
       </p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
 
     <!-- Footer -->
@@ -3721,6 +3807,7 @@ async function checkAndSendReminders() {
         AND s.session_date >= CURRENT_DATE - INTERVAL '1 day'
         AND st.is_active = true
         AND st.parent_email IS NOT NULL
+        AND (sa.attendance IS NULL OR sa.attendance NOT IN ('Excused', 'Unexcused'))
     `);
 
     // Find all upcoming DEMO sessions
