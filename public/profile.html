@@ -204,6 +204,25 @@
       margin-bottom: 20px;
       display: none;
     }
+    .save-feedback {
+      margin-top: 15px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: none;
+      text-align: center;
+    }
+    .save-feedback.success {
+      background: #c6f6d5;
+      color: #276749;
+      border: 1.5px solid #9ae6b4;
+    }
+    .save-feedback.error {
+      background: #fed7d7;
+      color: #c53030;
+      border: 1.5px solid #feb2b2;
+    }
   </style>
 </head>
 <body>
@@ -268,7 +287,8 @@ I'm passionate about helping children develop confidence in communication!"></te
         </div>
 
         <div class="btn-container">
-          <button type="submit" class="btn-primary">💾 Save Profile</button>
+          <button type="submit" id="saveProfileBtn" class="btn-primary">💾 Save Profile</button>
+          <div id="saveFeedback" class="save-feedback"></div>
         </div>
       </form>
     </div>
@@ -312,11 +332,18 @@ I'm passionate about helping children develop confidence in communication!"></te
     document.getElementById('profileForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
+      const btn = document.getElementById('saveProfileBtn');
+      const feedback = document.getElementById('saveFeedback');
+
       const data = {
         admin_name: document.getElementById('adminName').value,
         admin_title: document.getElementById('adminTitle').value,
         admin_bio: document.getElementById('adminBio').value
       };
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Saving...';
+      feedback.style.display = 'none';
 
       try {
         const res = await fetch('/api/admin/settings', {
@@ -326,16 +353,23 @@ I'm passionate about helping children develop confidence in communication!"></te
         });
 
         if (res.ok) {
-          const successMsg = document.getElementById('successMsg');
-          successMsg.style.display = 'block';
-          setTimeout(() => {
-            successMsg.style.display = 'none';
-          }, 3000);
+          feedback.textContent = '✅ Profile saved successfully!';
+          feedback.className = 'save-feedback success';
+          feedback.style.display = 'block';
+          setTimeout(() => { feedback.style.display = 'none'; }, 4000);
         } else {
-          alert('Error saving profile');
+          const errData = await res.json().catch(() => ({}));
+          feedback.textContent = '❌ Failed to save: ' + (errData.error || res.statusText);
+          feedback.className = 'save-feedback error';
+          feedback.style.display = 'block';
         }
       } catch (err) {
-        alert('Error: ' + err.message);
+        feedback.textContent = '❌ Error: ' + err.message;
+        feedback.className = 'save-feedback error';
+        feedback.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Save Profile';
       }
     });
 

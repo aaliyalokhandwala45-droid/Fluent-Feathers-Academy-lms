@@ -2466,7 +2466,8 @@ I'm passionate about helping children develop confidence in communication!"></te
           </div>
 
           <div style="text-align: center;">
-            <button type="submit" class="btn btn-primary" style="padding: 12px 40px; font-size: 1rem;">💾 Save Profile</button>
+            <button type="submit" id="adminSaveProfileBtn" class="btn btn-primary" style="padding: 12px 40px; font-size: 1rem;">💾 Save Profile</button>
+            <div id="adminSaveFeedback" style="margin-top: 15px; padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; display: none;"></div>
           </div>
 
         </form>
@@ -9749,11 +9750,13 @@ async function saveEditedPayment() {
         admin_bio: document.getElementById('adminBio').value
       };
 
-      try {
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
+      const btn = document.getElementById('adminSaveProfileBtn');
+      const feedback = document.getElementById('adminSaveFeedback');
+      btn.disabled = true;
+      btn.textContent = '⏳ Saving...';
+      feedback.style.display = 'none';
 
+      try {
         const res = await fetch('/api/admin/settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -9761,15 +9764,20 @@ async function saveEditedPayment() {
         });
 
         if (res.ok) {
-          alert('✅ Profile saved successfully! Your bio will be sent to demo parents.');
+          feedback.textContent = '✅ Profile saved successfully! Your bio will be sent to demo parents.';
+          feedback.style.cssText = 'margin-top:15px;padding:12px 20px;border-radius:8px;font-weight:600;font-size:0.95rem;display:block;background:#c6f6d5;color:#276749;border:1.5px solid #9ae6b4;';
+          setTimeout(() => { feedback.style.display = 'none'; }, 4000);
         } else {
-          alert('❌ Failed to save profile');
+          const errData = await res.json().catch(() => ({}));
+          feedback.textContent = '❌ Failed to save: ' + (errData.error || res.statusText);
+          feedback.style.cssText = 'margin-top:15px;padding:12px 20px;border-radius:8px;font-weight:600;font-size:0.95rem;display:block;background:#fed7d7;color:#c53030;border:1.5px solid #feb2b2;';
         }
-
+      } catch (err) {
+        feedback.textContent = '❌ Error: ' + err.message;
+        feedback.style.cssText = 'margin-top:15px;padding:12px 20px;border-radius:8px;font-weight:600;font-size:0.95rem;display:block;background:#fed7d7;color:#c53030;border:1.5px solid #feb2b2;';
+      } finally {
         btn.disabled = false;
         btn.textContent = '💾 Save Profile';
-      } catch (err) {
-        alert('❌ Error: ' + err.message);
       }
     });
 

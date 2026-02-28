@@ -2490,7 +2490,11 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         const today = new Date().toISOString().split('T')[0];
         const upcoming = sessions.filter(s => {
           if (!s.session_date) return false;
-          return s.session_date >= today && !['Cancelled', 'Completed', 'Missed'].includes(s.status);
+          if (s.session_date < today) return false;
+          if (['Cancelled', 'Completed', 'Missed'].includes(s.status)) return false;
+          // For group sessions: hide if this student was individually cancelled (Excused/Unexcused)
+          if (['Excused', 'Unexcused'].includes(s.student_attendance)) return false;
+          return true;
         }).sort((a, b) => {
           const dA = getDateStr(a.session_date);
           const dB = getDateStr(b.session_date);
