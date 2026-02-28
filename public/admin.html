@@ -1231,6 +1231,38 @@
         <h2>🏆 Badge Leaderboard</h2>
         <p style="color: #718096; margin-bottom: 25px;">See which students are leading in badge collection! This motivates kids to earn more badges.</p>
 
+        <!-- Upcoming Awards Section -->
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #2d3748; margin-bottom: 6px;">🚀 Upcoming Awards — Current Period Leaders</h3>
+          <p style="color: #718096; font-size: 0.85rem; margin-bottom: 15px;">These students are currently in the lead and may win the award at the end of the period. Use this to motivate others!</p>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+            <!-- Week -->
+            <div id="upcomingCard_week" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 14px; padding: 20px; text-align: center; color: white; box-shadow: 0 4px 18px rgba(102,126,234,0.35); position: relative; overflow: hidden;">
+              <div style="position:absolute;top:-18px;right:-18px;font-size:70px;opacity:0.08;">🌟</div>
+              <div style="font-size: 2rem; margin-bottom: 4px;">🌟</div>
+              <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; margin-bottom: 10px; font-weight: 600;">Student of the Week</div>
+              <select id="upcomingCard_week_select" onchange="loadUpcomingCardBySelect('upcomingCard_week_body', this.value)" style="width:100%;border:none;border-radius:20px;padding:5px 8px;font-size:11px;background:rgba(255,255,255,0.25);color:white;cursor:pointer;margin-bottom:8px;outline:none;"></select>
+              <div id="upcomingCard_week_body"><div style="opacity:0.6;font-size:12px;">Loading...</div></div>
+            </div>
+            <!-- Month -->
+            <div id="upcomingCard_month" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 14px; padding: 20px; text-align: center; color: white; box-shadow: 0 4px 18px rgba(245,87,108,0.35); position: relative; overflow: hidden;">
+              <div style="position:absolute;top:-18px;right:-18px;font-size:70px;opacity:0.08;">🏅</div>
+              <div style="font-size: 2rem; margin-bottom: 4px;">🏅</div>
+              <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; margin-bottom: 10px; font-weight: 600;">Student of the Month</div>
+              <select id="upcomingCard_month_select" onchange="loadUpcomingCardBySelect('upcomingCard_month_body', this.value)" style="width:100%;border:none;border-radius:20px;padding:5px 8px;font-size:11px;background:rgba(255,255,255,0.25);color:white;cursor:pointer;margin-bottom:8px;outline:none;"></select>
+              <div id="upcomingCard_month_body"><div style="opacity:0.6;font-size:12px;">Loading...</div></div>
+            </div>
+            <!-- Year -->
+            <div id="upcomingCard_year" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 14px; padding: 20px; text-align: center; color: white; box-shadow: 0 4px 18px rgba(245,158,11,0.35); position: relative; overflow: hidden;">
+              <div style="position:absolute;top:-18px;right:-18px;font-size:70px;opacity:0.08;">🏆</div>
+              <div style="font-size: 2rem; margin-bottom: 4px;">🏆</div>
+              <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; margin-bottom: 10px; font-weight: 600;">Student of the Year</div>
+              <select id="upcomingCard_year_select" onchange="loadUpcomingCardBySelect('upcomingCard_year_body', this.value)" style="width:100%;border:none;border-radius:20px;padding:5px 8px;font-size:11px;background:rgba(255,255,255,0.25);color:white;cursor:pointer;margin-bottom:8px;outline:none;"></select>
+              <div id="upcomingCard_year_body"><div style="opacity:0.6;font-size:12px;">Loading...</div></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Award Showcase -->
         <div id="awardsShowcase" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;"></div>
 
@@ -8597,6 +8629,77 @@ async function saveEditedPayment() {
     // ── Period-picker helpers ──────────────────────────────────────────────────
     function _isoDate(d) { return d.toISOString().split('T')[0]; }
 
+    async function loadUpcomingAwards() {
+      const weekOpts  = genCurrentAndPastWeeks(17);
+      const monthOpts = genCurrentAndPastMonths(25);
+      const yearOpts  = genCurrentAndPastYears(6);
+      const makeSelOpts = (opts) => opts.map((o,i)=>`<option value="${o.start}|${o.end}"${i===0?' selected':''}>${o.label}</option>`).join('');
+
+      const wSel = document.getElementById('upcomingCard_week_select');
+      const mSel = document.getElementById('upcomingCard_month_select');
+      const ySel = document.getElementById('upcomingCard_year_select');
+      if (wSel) wSel.innerHTML = makeSelOpts(weekOpts);
+      if (mSel) mSel.innerHTML = makeSelOpts(monthOpts);
+      if (ySel) ySel.innerHTML = makeSelOpts(yearOpts);
+
+      await Promise.all([
+        loadUpcomingCardBySelect('upcomingCard_week_body',  weekOpts[0].start  + '|' + weekOpts[0].end),
+        loadUpcomingCardBySelect('upcomingCard_month_body', monthOpts[0].start + '|' + monthOpts[0].end),
+        loadUpcomingCardBySelect('upcomingCard_year_body',  yearOpts[0].start  + '|' + yearOpts[0].end)
+      ]);
+    }
+
+    function genCurrentAndPastWeeks(count=17) {
+      const opts=[]; const now=new Date();
+      const day=now.getDay(); const diffToMon = day===0?-6:1-day;
+      const thisMon=new Date(now); thisMon.setDate(now.getDate()+diffToMon); thisMon.setHours(0,0,0,0);
+      // index 0 = current week
+      for(let i=0;i<count;i++){
+        const ws=new Date(thisMon); ws.setDate(thisMon.getDate()-i*7);
+        const we=new Date(ws); we.setDate(ws.getDate()+6);
+        const label = (i===0?'Current Week: ':'')+ws.toLocaleDateString('en-IN',{month:'short',day:'numeric'})+' – '+we.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'});
+        opts.push({ label, start:_isoDate(ws), end:_isoDate(we) });
+      }
+      return opts;
+    }
+    function genCurrentAndPastMonths(count=25) {
+      const opts=[]; const now=new Date();
+      const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      for(let i=0;i<count;i++){
+        const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+        const end=new Date(d.getFullYear(),d.getMonth()+1,0);
+        const label=(i===0?'Current Month: ':'')+mn[d.getMonth()]+' '+d.getFullYear();
+        opts.push({ label, start:_isoDate(d), end:_isoDate(end) });
+      }
+      return opts;
+    }
+    function genCurrentAndPastYears(count=6) {
+      const opts=[]; const y=new Date().getFullYear();
+      for(let i=0;i<count;i++) opts.push({ label:(i===0?'Current Year: ':'')+String(y-i), start:`${y-i}-01-01`, end:`${y-i}-12-31` });
+      return opts;
+    }
+
+    async function loadUpcomingCardBySelect(bodyId, value) {
+      const parts = value.split('|');
+      const start = parts[0]; const end = parts[1];
+      const body = document.getElementById(bodyId);
+      if (!body) return;
+      body.innerHTML = '<div style="opacity:0.6;font-size:12px;">Loading...</div>';
+      try {
+        const r = await fetch(`/api/awards/by-period?start=${start}&end=${end}`);
+        const d = await r.json();
+        const w = d.winner;
+        body.innerHTML = w
+          ? `<div style="font-size:1.2rem;font-weight:bold;margin:4px 0;">${w.name}</div>
+             <div style="font-size:11px;opacity:0.85;">📝 ${w.homework||0} HW &nbsp;·&nbsp; 🎯 ${w.challenges||0} challenges &nbsp;·&nbsp; 🏅 ${w.badges||0} badges</div>
+             <div style="font-size:10px;opacity:0.7;margin-top:3px;">Score: ${w.total_score||0}</div>
+             <div style="margin-top:8px;background:rgba(255,255,255,0.2);border-radius:8px;padding:4px 8px;font-size:10px;">🔥 Currently leading!</div>`
+          : '<div style="font-size:13px;opacity:0.65;margin-top:6px;">No activity this period</div>';
+      } catch(e) {
+        body.innerHTML = '<div style="font-size:12px;opacity:0.6;">Failed to load</div>';
+      }
+    }
+
     function genPastWeeks(count=16) {
       const opts=[]; const now=new Date();
       const day=now.getDay(); const diffToMon = day===0?-6:1-day;
@@ -8644,6 +8747,8 @@ async function saveEditedPayment() {
     // ──────────────────────────────────────────────────────────────────────────
 
     async function loadLeaderboard() {
+      // Load upcoming award cards (with dropdowns)
+      loadUpcomingAwards();
       try {
         const [res, awardsRes] = await Promise.all([fetch('/api/leaderboard'), fetch('/api/awards/current')]);
         const data = await res.json();
@@ -8657,9 +8762,9 @@ async function saveEditedPayment() {
         const yearOpts  = genPastYears(5);
         const makeSelOpts = (opts) => opts.map((o,i)=>`<option value="${o.start}|${o.end}"${i===0?' selected':''}>${o.label}</option>`).join('');
         const awardCards = [
-          { id:'awardCard_week',  icon:'🌟', title:"Week's Star",     gradient:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', opts:weekOpts  },
-          { id:'awardCard_month', icon:'🏅', title:"Month's Champion", gradient:'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', opts:monthOpts },
-          { id:'awardCard_year',  icon:'🏆', title:"Year's Legend",    gradient:'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', opts:yearOpts  }
+          { id:'awardCard_week',  icon:'🌟', title:"Student of the Week",  gradient:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', opts:weekOpts  },
+          { id:'awardCard_month', icon:'🏅', title:"Student of the Month", gradient:'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', opts:monthOpts },
+          { id:'awardCard_year',  icon:'🏆', title:"Student of the Year",  gradient:'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', opts:yearOpts  }
         ];
         showcase.innerHTML = awardCards.map(ac=>`
           <div id="${ac.id}" style="background:${ac.gradient};border-radius:12px;padding:18px;text-align:center;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
