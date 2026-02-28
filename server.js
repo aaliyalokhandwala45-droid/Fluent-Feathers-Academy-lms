@@ -10012,6 +10012,72 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
         INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
         VALUES ($1, $2, $3, $4)
       `, [req.params.studentId, 'challenge_' + req.params.challengeId, badgeName, 'Completed: ' + challenge.rows[0].title]);
+
+      // Send congratulations email to parent
+      try {
+        const studentRes = await pool.query(
+          'SELECT name, parent_email, parent_name FROM students WHERE id = $1',
+          [req.params.studentId]
+        );
+        if (studentRes.rows.length > 0) {
+          const student = studentRes.rows[0];
+          const ch = challenge.rows[0];
+          const typeEmojis = { 'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️', 'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐' };
+          const emoji = typeEmojis[ch.challenge_type] || '🎯';
+          const completedDate = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+          const emailHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f0f4f8;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#f6d365 0%,#fda085 100%);padding:40px 30px;text-align:center;">
+      <div style="font-size:4rem;">🎉</div>
+      <h1 style="color:white;margin:10px 0 5px;font-size:1.8rem;">Congratulations!</h1>
+      <p style="color:rgba(255,255,255,0.9);margin:0;font-size:1rem;">${student.name} has completed a challenge!</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="color:#4a5568;font-size:1rem;">Dear <strong>${student.parent_name || 'Parent'}</strong>,</p>
+      <p style="color:#4a5568;font-size:1rem;">We are thrilled to share that <strong>${student.name}</strong> has successfully completed the weekly challenge and earned a badge! 🏅</p>
+
+      <div style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);border:2px solid #f59e0b;border-radius:12px;padding:22px;margin:20px 0;text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">${emoji}</div>
+        <h2 style="color:#92400e;margin:0 0 6px;font-size:1.3rem;">${ch.title}</h2>
+        ${ch.description ? `<p style="color:#78350f;margin:0 0 12px;font-size:0.9rem;">${ch.description}</p>` : ''}
+        <div style="display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:white;padding:10px 24px;border-radius:25px;font-weight:bold;font-size:1rem;margin-top:8px;">
+          🏅 ${badgeName}
+        </div>
+      </div>
+
+      <div style="background:#f0fff4;border-left:4px solid #38a169;border-radius:8px;padding:16px;margin:20px 0;">
+        <p style="color:#276749;margin:0;font-size:0.95rem;">✅ <strong>Completed on:</strong> ${completedDate}</p>
+      </div>
+
+      <p style="color:#4a5568;">This achievement reflects <strong>${student.name}</strong>'s dedication and hard work. Please celebrate this moment with them — it means a lot! 🌟</p>
+      <p style="color:#4a5568;">Keep encouraging them to take on more challenges and continue growing every week.</p>
+
+      <div style="text-align:center;margin:25px 0;">
+        <a href="${process.env.APP_URL || '#'}" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🏆 View Achievements</a>
+      </div>
+    </div>
+    <div style="background:linear-gradient(135deg,#f6d365 0%,#fda085 100%);padding:15px;text-align:center;">
+      <p style="color:white;margin:0;font-size:0.85rem;">With pride &amp; joy 💛 — Fluent Feathers Academy</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+          await sendEmail(
+            student.parent_email,
+            `🎉 ${student.name} completed the challenge & earned ${badgeName}!`,
+            emailHtml,
+            student.parent_name,
+            'Challenge Completion'
+          );
+        }
+      } catch (emailErr) {
+        console.error('Challenge completion email error:', emailErr.message);
+      }
     }
 
     res.json({ success: true, message: 'Challenge completed!' });
