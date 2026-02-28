@@ -6030,6 +6030,64 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
   }
 });
 
+// Manually resend a cancellation email to a parent (admin only)
+app.post('/api/admin/resend-cancel-email', async (req, res) => {
+  const { pass, student_id, session_id } = req.body;
+  if (pass !== (process.env.ADMIN_PASSWORD || 'admin123')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [student_id]);
+    const student = studentResult.rows[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student.parent_email) return res.status(400).json({ error: 'Student has no parent email' });
+
+    const sessionResult = await pool.query('SELECT * FROM sessions WHERE id = $1', [session_id]);
+    const session = sessionResult.rows[0];
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const parentTimezone = student.parent_timezone || student.timezone || 'Asia/Kolkata';
+    const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
+    const timezoneLabel = getTimezoneLabel(parentTimezone);
+
+    const fallbackDate = session.session_date instanceof Date
+      ? session.session_date.toISOString().split('T')[0]
+      : (typeof session.session_date === 'string' && session.session_date.includes('T')
+        ? session.session_date.split('T')[0]
+        : String(session.session_date || 'N/A'));
+    const fallbackTime = (session.session_time || 'N/A').toString().substring(0, 8);
+
+    const safeSessionDate = localTime && localTime.date && localTime.date !== 'Invalid Date'
+      ? `${localTime.day ? `${localTime.day}, ` : ''}${localTime.date}`
+      : fallbackDate;
+    const safeSessionTime = localTime && localTime.time && localTime.time !== 'Invalid Time'
+      ? `${localTime.time} (${timezoneLabel})`
+      : `${fallbackTime} (${timezoneLabel})`;
+
+    const emailHTML = getClassCancelledEmail({
+      parentName: student.parent_name || 'Parent',
+      studentName: student.name,
+      sessionDate: safeSessionDate,
+      sessionTime: safeSessionTime,
+      cancelledBy: 'Teacher',
+      reason: req.body.reason || 'Parent Requested',
+      hasMakeupCredit: req.body.has_makeup_credit !== false
+    });
+
+    await sendEmail(
+      student.parent_email,
+      `📅 Class Cancelled - ${student.name}`,
+      emailHTML,
+      student.parent_name,
+      'Class-Cancelled'
+    );
+
+    res.json({ success: true, message: `Cancellation email sent to ${student.parent_email}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/admin/parent-view-token', async (req, res) => {
   try {
     const { student_id } = req.body;
