@@ -11731,6 +11731,13 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
       </table>
       <p style="color:#718096; font-size:14px;">Please update your calendar accordingly.</p>
       <p>Best regards,<br><strong style="color:#B05D9E;">Team Fluent Feathers Academy</strong></p>
+
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html</p>
+      </div>
     </div>
   </div>
 </body>
