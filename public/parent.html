@@ -1902,41 +1902,88 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       }
     }
 
+    // ── Period-picker helpers for Hall of Fame ────────────────────────────────
+    function _hofIsoDate(d) { return d.toISOString().split('T')[0]; }
+    function hofPastWeeks(count=16) {
+      const opts=[]; const now=new Date();
+      const day=now.getDay(); const diffToMon=day===0?-6:1-day;
+      const thisMon=new Date(now); thisMon.setDate(now.getDate()+diffToMon); thisMon.setHours(0,0,0,0);
+      for(let i=1;i<=count;i++){
+        const ws=new Date(thisMon); ws.setDate(thisMon.getDate()-i*7);
+        const we=new Date(ws); we.setDate(ws.getDate()+6);
+        opts.push({ label:ws.toLocaleDateString('en-IN',{month:'short',day:'numeric'})+' – '+we.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'}), start:_hofIsoDate(ws), end:_hofIsoDate(we) });
+      }
+      return opts;
+    }
+    function hofPastMonths(count=24) {
+      const opts=[]; const now=new Date();
+      const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      for(let i=1;i<=count;i++){
+        const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+        const end=new Date(d.getFullYear(),d.getMonth()+1,0);
+        opts.push({ label:mn[d.getMonth()]+' '+d.getFullYear(), start:_hofIsoDate(d), end:_hofIsoDate(end) });
+      }
+      return opts;
+    }
+    function hofPastYears(count=5) {
+      const opts=[]; const y=new Date().getFullYear();
+      for(let i=1;i<=count;i++) opts.push({ label:String(y-i), start:`${y-i}-01-01`, end:`${y-i}-12-31` });
+      return opts;
+    }
+    async function hofLoadWinner(start, end, cardId) {
+      const card=document.getElementById(cardId);
+      if(!card) return;
+      const body=card.querySelector('.hof-card-body');
+      if(body) body.innerHTML='<div style="font-size:0.75rem;color:#718096;margin-top:6px;">Loading...</div>';
+      try {
+        const r=await fetch(`/api/awards/by-period?start=${start}&end=${end}`,{headers:authHeaders()});
+        const d=await r.json();
+        const w=d.winner;
+        const isMyChild = w && currentStudent && w.name===currentStudent.name;
+        if(body) body.innerHTML = w
+          ? `<div style="font-size:1rem;font-weight:bold;color:#2d3748;margin:5px 0 2px;">${w.name}</div>
+             <div style="font-size:0.65rem;color:#4a5568;">📝 ${w.homework||0} HW · 🎯 ${w.challenges||0} challenges · 🏅 ${w.badges||0} badges</div>
+             <div style="font-size:0.6rem;color:#718096;margin-top:2px;">Score: ${w.total_score||0}</div>
+             ${isMyChild?'<div style="font-size:0.7rem;color:#e53e3e;font-weight:bold;margin-top:4px;">That\'s you! 🎉</div>':''}`
+          : '<div style="font-size:0.8rem;color:#718096;margin-top:6px;">No activity this period</div>';
+        if(isMyChild && card.parentElement) card.style.boxShadow='0 0 12px rgba(245,158,11,0.5)';
+      } catch(e) {
+        if(body) body.innerHTML='<div style="font-size:0.75rem;color:#718096;margin-top:6px;">Failed to load</div>';
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     async function loadHallOfFame() {
       try {
-        const res = await fetch('/api/awards/current', { headers: authHeaders() });
-        const awards = await res.json();
         const section = document.getElementById('hallOfFameSection');
         const container = document.getElementById('hallOfFameCards');
 
+        const weekOpts  = hofPastWeeks(16);
+        const monthOpts = hofPastMonths(24);
+        const yearOpts  = hofPastYears(5);
+        const makeOpts = (opts) => opts.map((o,i)=>`<option value="${o.start}|${o.end}"${i===0?' selected':''}>${o.label}</option>`).join('');
+
         const entries = [
-          { key: 'studentOfYear', label: 'Student of the Year', icon: '👑', gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border: '#f59e0b' },
-          { key: 'studentOfMonth', label: 'Student of the Month', icon: '🌟', gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border: '#667eea' },
-          { key: 'studentOfWeek', label: 'Student of the Week', icon: '⭐', gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border: '#ed8936' }
+          { id:'hof_year',  icon:'👑', label:"Year's Legend",    gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  },
+          { id:'hof_month', icon:'🌟', label:"Month's Champion", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
+          { id:'hof_week',  icon:'⭐', label:"Week's Star",       gradient:'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border:'#ed8936', opts:weekOpts  }
         ];
 
-        const cards = entries.filter(e => awards[e.key]).map(e => {
-          const award = awards[e.key];
-          const isMyChild = currentStudent && award.name === currentStudent.name;
-          const sparkle = isMyChild ? '<div style="font-size:0.7rem;color:#e53e3e;font-weight:bold;margin-top:4px;">That\'s you! 🎉</div>' : '';
-          return `
-            <div style="background:${e.gradient};border:2px solid ${e.border};border-radius:14px;padding:16px 12px;text-align:center;${isMyChild ? 'box-shadow:0 0 12px rgba(245,158,11,0.5);transform:scale(1.03);' : ''}">
-              <div style="font-size:2.2rem;margin-bottom:4px;">${e.icon}</div>
-              <div style="font-size:0.7rem;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${e.label}</div>
-              ${award.period ? '<div style="font-size:0.6rem;color:#a0aec0;margin-top:2px;">' + award.period + '</div>' : ''}
-              <div style="font-size:1.1rem;font-weight:bold;color:#2d3748;margin:6px 0 2px;">${award.name}</div>
-              <div style="font-size:0.65rem;color:#4a5568;">📝 ${award.homework || 0} HW · 🎯 ${award.challenges || 0} challenges · 🏅 ${award.badges || 0} badges</div>
-              ${sparkle}
-            </div>
-          `;
-        });
+        container.innerHTML = entries.map(e=>`
+          <div id="${e.id}" style="background:${e.gradient};border:2px solid ${e.border};border-radius:14px;padding:14px 10px;text-align:center;">
+            <div style="font-size:2rem;margin-bottom:3px;">${e.icon}</div>
+            <div style="font-size:0.68rem;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">${e.label}</div>
+            <select onchange="(function(v){const p=v.split('|');hofLoadWinner(p[0],p[1],'${e.id}');})(this.value)"
+              style="width:100%;border:1px solid rgba(0,0,0,0.15);border-radius:20px;padding:4px 6px;font-size:0.68rem;background:rgba(255,255,255,0.7);color:#2d3748;cursor:pointer;outline:none;margin-bottom:4px;">
+              ${makeOpts(e.opts)}
+            </select>
+            <div class="hof-card-body"></div>
+          </div>
+        `).join('');
 
-        if (cards.length > 0) {
-          container.innerHTML = cards.join('');
-          section.style.display = 'block';
-        } else {
-          section.style.display = 'none';
-        }
+        section.style.display = 'block';
+        // Load winners for the default (most recent) period of each card
+        entries.forEach(e => hofLoadWinner(e.opts[0].start, e.opts[0].end, e.id));
       } catch(e) {
         console.error('Error loading hall of fame:', e);
       }
@@ -2115,10 +2162,16 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           return;
         }
 
-        // Find active (non-completed) challenge, or show latest
-        const active = challenges.find(c => c.status !== 'Completed') || challenges[0];
+        // Prefer actionable challenge; otherwise show latest (including Finished)
+        const active = challenges.find(c => c.status !== 'Completed' && c.status !== 'Finished') || challenges[0];
         const dueDate = new Date(active.week_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const statusLabel = active.status === 'Completed' ? 'Completed!' : active.status === 'Submitted' ? 'Awaiting Review' : `Due ${dueDate}`;
+        const statusLabel = active.status === 'Completed'
+          ? 'Completed!'
+          : active.status === 'Submitted'
+            ? 'Awaiting Review'
+            : active.status === 'Finished'
+              ? 'Finished'
+              : `Due ${dueDate}`;
 
         titleEl.textContent = active.title;
         detailEl.textContent = `${statusLabel} • ${active.badge_reward || 'Earn a badge!'}`;
@@ -2142,6 +2195,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         container.innerHTML = challenges.map(c => {
           const isCompleted = c.status === 'Completed';
           const isSubmitted = c.status === 'Submitted';
+          const isFinished = c.status === 'Finished';
           const dueDate = new Date(c.week_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const badgeReward = c.badge_reward || '🎯 Challenge Champion';
           const badgeEmoji = badgeReward.split(' ')[0];
@@ -2153,6 +2207,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             statusBadge = `<div style="background: #38b2ac; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">COMPLETED! 🎉</div>`;
           } else if (isSubmitted) {
             statusBadge = `<div style="background: #9f7aea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">⏳ Awaiting Approval</div>`;
+          } else if (isFinished) {
+            statusBadge = `<div style="background: #718096; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">FINISHED</div>`;
           } else {
             statusBadge = `<div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">IN PROGRESS</div>`;
             actionButton = `
@@ -2164,12 +2220,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           }
 
           return `
-            <div style="background: ${isCompleted ? 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' : isSubmitted ? 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)' : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'};
-                        padding: 15px; border-radius: 12px; border-left: 4px solid ${isCompleted ? '#38b2ac' : isSubmitted ? '#9f7aea' : '#f5576c'};">
+            <div style="background: ${isCompleted ? 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' : isSubmitted ? 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)' : isFinished ? 'linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%)' : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'};
+                        padding: 15px; border-radius: 12px; border-left: 4px solid ${isCompleted ? '#38b2ac' : isSubmitted ? '#9f7aea' : isFinished ? '#718096' : '#f5576c'};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div style="flex: 1; min-width: 200px;">
                   <h3 style="margin: 0 0 8px 0; color: #2d3748; font-size: 1rem;">
-                    ${isCompleted ? '✅' : isSubmitted ? '⏳' : '🎯'} ${c.title}
+                    ${isCompleted ? '✅' : isSubmitted ? '⏳' : isFinished ? '🏁' : '🎯'} ${c.title}
                   </h3>
                   <p style="margin: 0 0 8px 0; color: #4a5568; font-size: 0.9rem;">${c.description || ''}</p>
                   <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #718096; flex-wrap: wrap;">

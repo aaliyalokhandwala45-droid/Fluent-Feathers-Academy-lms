@@ -2188,20 +2188,49 @@ function getRescheduleEmailTemplate(data) {
   // Format dates for display
   const formatDate = (dateStr) => {
     try {
-      const d = new Date(dateStr + 'T00:00:00');
-      return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      if (!dateStr) return 'N/A';
+
+      let parsedDate = null;
+      if (dateStr instanceof Date) {
+        parsedDate = dateStr;
+      } else {
+        const raw = String(dateStr).trim();
+        const dateOnly = raw.includes('T') ? raw.split('T')[0] : raw;
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+          parsedDate = new Date(`${dateOnly}T00:00:00`);
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateOnly)) {
+          const [day, month, year] = dateOnly.split('/');
+          parsedDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
+        } else {
+          parsedDate = new Date(raw);
+        }
+      }
+
+      if (!parsedDate || isNaN(parsedDate.getTime())) return String(dateStr);
+      return parsedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     } catch (e) {
-      return dateStr;
+      return String(dateStr);
     }
   };
 
   const formatTime = (timeStr, timezone) => {
     try {
+      if (!timeStr) return 'N/A';
+
+      let normalizedTime = String(timeStr).trim();
+      if (normalizedTime.length === 5) normalizedTime += ':00';
+      if (normalizedTime.length > 8) normalizedTime = normalizedTime.substring(0, 8);
+
+      if (!/^\d{2}:\d{2}(:\d{2})?$/.test(normalizedTime)) return String(timeStr);
+
       const today = new Date().toISOString().split('T')[0];
-      const d = new Date(today + 'T' + timeStr + 'Z');
+      const d = new Date(`${today}T${normalizedTime}Z`);
+      if (isNaN(d.getTime())) return String(timeStr);
+
       return d.toLocaleTimeString('en-US', { timeZone: timezone || 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true });
     } catch (e) {
-      return timeStr;
+      return String(timeStr);
     }
   };
 
@@ -2267,6 +2296,55 @@ function getRescheduleEmailTemplate(data) {
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
         Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getBulkPrivateRescheduleEmailTemplate(data) {
+  const parentName = escapeHtml(data.parent_name || 'Parent');
+  const studentName = escapeHtml(data.student_name || 'Student');
+  const timezoneLabel = escapeHtml(data.timezoneLabel || getTimezoneLabel(data.timezone || 'Asia/Kolkata'));
+  const sessionRowsHtml = data.sessionRowsHtml || '<tr><td colspan="3" style="padding:10px; color:#718096;">No sessions found</td></tr>';
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color:#f0f4f8;">
+  <div style="max-width:600px; margin:20px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding:35px 30px; text-align:center;">
+      <h1 style="color:white; margin:0; font-size:28px;">📅 Classes Rescheduled</h1>
+      <p style="color:rgba(255,255,255,0.9); margin:8px 0 0; font-size:14px;">Fluent Feathers Academy By Aaliya</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="font-size:16px; color:#2d3748; margin:0 0 15px;">Dear <strong>${parentName}</strong>,</p>
+      <p style="font-size:15px; color:#4a5568; line-height:1.7; margin:0 0 20px;">
+        We wanted to inform you that multiple upcoming classes for <strong>${studentName}</strong> have been rescheduled.
+      </p>
+
+      <div style="background:#f7fafc; padding:20px; border-radius:10px; margin:20px 0; border-left:4px solid #667eea;">
+        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+          <thead>
+            <tr style="background:#edf2f7;">
+              <th style="padding:10px; text-align:left; color:#2d3748;">Session</th>
+              <th style="padding:10px; text-align:left; color:#2d3748;">New Date</th>
+              <th style="padding:10px; text-align:left; color:#2d3748;">New Time (${timezoneLabel})</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sessionRowsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <p style="font-size:15px; color:#4a5568; line-height:1.7; margin:20px 0 0;">
+        Please update your calendar accordingly. If you need any further adjustments, feel free to contact us.
+      </p>
+      <p style="font-size:15px; color:#2d3748; margin:20px 0 0;">
+        Best regards,<br>
+        <strong style="color:#B05D9E;">Team Fluent Feathers Academy</strong>
       </p>
     </div>
   </div>
@@ -5907,11 +5985,25 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
         const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
         const timezoneLabel = getTimezoneLabel(parentTimezone);
 
+        const fallbackDate = session.session_date instanceof Date
+          ? session.session_date.toISOString().split('T')[0]
+          : (typeof session.session_date === 'string' && session.session_date.includes('T')
+            ? session.session_date.split('T')[0]
+            : String(session.session_date || 'N/A'));
+        const fallbackTime = (session.session_time || 'N/A').toString().substring(0, 8);
+
+        const safeSessionDate = localTime && localTime.date && localTime.date !== 'Invalid Date'
+          ? `${localTime.day ? `${localTime.day}, ` : ''}${localTime.date}`
+          : fallbackDate;
+        const safeSessionTime = localTime && localTime.time && localTime.time !== 'Invalid Time'
+          ? `${localTime.time} (${timezoneLabel})`
+          : `${fallbackTime} (${timezoneLabel})`;
+
         const emailHTML = getClassCancelledEmail({
           parentName: student.parent_name || 'Parent',
           studentName: student.name,
-          sessionDate: `${localTime.day}, ${localTime.date}`,
-          sessionTime: `${localTime.time} (${timezoneLabel})`,
+          sessionDate: safeSessionDate,
+          sessionTime: safeSessionTime,
           cancelledBy: 'Teacher',
           reason: reason,
           hasMakeupCredit: grant_makeup_credit
@@ -8775,7 +8867,7 @@ function getPodiumEmail(studentName, rank, periodLabel, totalScore, breakdown) {
 async function calculateStudentScores(startDate, endDate) {
   const result = await pool.query(`
     WITH homework_pts AS (
-      SELECT student_id, COUNT(*) * ${HOMEWORK_POINT_VALUE} as pts
+      SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts
       FROM materials
       WHERE file_type = 'Homework'
         AND uploaded_by IN ('Parent', 'Admin')
@@ -8982,7 +9074,7 @@ app.get('/api/leaderboard', async (req, res) => {
   try {
     const result = await pool.query(`
       WITH homework_pts AS (
-        SELECT student_id, COUNT(*) * ${HOMEWORK_POINT_VALUE} as pts
+        SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts
         FROM materials
         WHERE file_type = 'Homework'
           AND uploaded_by IN ('Parent', 'Admin')
@@ -9055,7 +9147,7 @@ app.get('/api/awards/current', async (req, res) => {
    const getTopStudent = async (startDate, endDate) => {
     const result = await executeQuery(`
     WITH homework_pts AS (
-      SELECT student_id, COUNT(*) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
+      SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
         AND uploaded_at >= $1::date AND uploaded_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
@@ -9151,6 +9243,51 @@ app.get('/api/awards/current', async (req, res) => {
     }
 
     res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/awards/by-period?start=YYYY-MM-DD&end=YYYY-MM-DD
+// Returns the top student for any arbitrary date range (used by period-picker dropdowns)
+app.get('/api/awards/by-period', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    if (!start || !end) return res.status(400).json({ error: 'start and end dates required' });
+    const result = await pool.query(`
+      WITH homework_pts AS (
+        SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
+        WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
+          AND uploaded_at >= $1::date AND uploaded_at < ($2::date + INTERVAL '1 day')
+        GROUP BY student_id
+      ),
+      challenge_pts AS (
+        SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts FROM student_challenges
+        WHERE status = 'Completed'
+          AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
+        GROUP BY student_id
+      ),
+      badge_pts AS (
+        SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
+        WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
+        GROUP BY student_id
+      )
+      SELECT s.id, s.name,
+        COALESCE(h.pts, 0) as homework,
+        COALESCE(c.pts, 0) as challenges,
+        COALESCE(b.pts, 0) as badges,
+        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+      FROM students s
+      LEFT JOIN homework_pts h ON s.id = h.student_id
+      LEFT JOIN challenge_pts c ON s.id = c.student_id
+      LEFT JOIN badge_pts b ON s.id = b.student_id
+      WHERE s.is_active = true
+        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
+      LIMIT 1
+    `, [start, end]);
+    res.json({ winner: result.rows[0] || null });
+  } catch (err) {
+    console.error('Error in /api/awards/by-period:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -9604,9 +9741,17 @@ app.post('/api/challenges/:id/assign', async (req, res) => {
 app.get('/api/challenges/:id/students', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT sc.*, s.name as student_name, s.program_name
+      SELECT sc.*, s.name as student_name, s.program_name,
+        c.week_end,
+        CASE
+          WHEN sc.status = 'Completed' THEN 'Completed'
+          WHEN sc.status = 'Submitted' THEN 'Submitted'
+          WHEN c.week_end < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date THEN 'Finished'
+          ELSE 'In Progress'
+        END as effective_status
       FROM student_challenges sc
       JOIN students s ON sc.student_id = s.id
+      JOIN weekly_challenges c ON c.id = sc.challenge_id
       WHERE sc.challenge_id = $1
       ORDER BY sc.status DESC, s.name
     `, [req.params.id]);
@@ -9718,7 +9863,15 @@ app.get('/api/students/:id/challenges', async (req, res) => {
   try {
     // Show ALL active challenges to all students, with their submission status if they have one
     const result = await pool.query(`
-      SELECT c.*, sc.status, sc.completed_at, sc.notes as completion_notes
+      SELECT c.*,
+        CASE
+          WHEN sc.status IN ('Completed', 'Submitted') THEN sc.status
+          WHEN c.week_end < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date THEN 'Finished'
+          ELSE 'In Progress'
+        END as status,
+        sc.status as student_status,
+        sc.completed_at,
+        sc.notes as completion_notes
       FROM weekly_challenges c
       LEFT JOIN student_challenges sc ON c.id = sc.challenge_id AND sc.student_id = $1
       WHERE c.is_active = true
@@ -10640,6 +10793,91 @@ app.post('/api/admin/sync-parent-timezones', async (req, res) => {
   }
 });
 
+// Audit parents that may still be using fallback timezone values
+// Usage: GET /api/admin/timezone-fallback-audit?limit=200
+app.get('/api/admin/timezone-fallback-audit', async (req, res) => {
+  try {
+    const parsedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 1000) : 200;
+
+    const summaryResult = await pool.query(`
+      WITH latest_per_parent AS (
+        SELECT DISTINCT ON (LOWER(parent_email))
+          LOWER(parent_email) AS email_key,
+          parent_email,
+          parent_name,
+          parent_timezone,
+          timezone,
+          name,
+          created_at
+        FROM students
+        WHERE parent_email IS NOT NULL
+          AND parent_email <> ''
+        ORDER BY LOWER(parent_email), created_at DESC
+      )
+      SELECT
+        COUNT(*) AS total_parents,
+        COUNT(*) FILTER (WHERE parent_timezone IS NULL OR parent_timezone = '') AS missing_parent_timezone,
+        COUNT(*) FILTER (WHERE COALESCE(NULLIF(parent_timezone, ''), 'Asia/Kolkata') IN ('Asia/Kolkata', 'IST')) AS default_ist_parent_timezone,
+        COUNT(*) FILTER (
+          WHERE (parent_timezone IS NULL OR parent_timezone = '')
+             OR COALESCE(NULLIF(parent_timezone, ''), 'Asia/Kolkata') IN ('Asia/Kolkata', 'IST')
+        ) AS likely_fallback_count
+      FROM latest_per_parent
+    `);
+
+    const rowsResult = await pool.query(`
+      WITH latest_per_parent AS (
+        SELECT DISTINCT ON (LOWER(parent_email))
+          LOWER(parent_email) AS email_key,
+          parent_email,
+          parent_name,
+          name AS student_name,
+          parent_timezone,
+          timezone AS student_timezone,
+          created_at
+        FROM students
+        WHERE parent_email IS NOT NULL
+          AND parent_email <> ''
+        ORDER BY LOWER(parent_email), created_at DESC
+      )
+      SELECT
+        parent_email,
+        parent_name,
+        student_name,
+        COALESCE(NULLIF(parent_timezone, ''), 'Asia/Kolkata') AS effective_parent_timezone,
+        COALESCE(NULLIF(student_timezone, ''), 'Asia/Kolkata') AS student_timezone,
+        CASE
+          WHEN parent_timezone IS NULL OR parent_timezone = '' THEN 'missing_parent_timezone'
+          WHEN parent_timezone IN ('Asia/Kolkata', 'IST') THEN 'default_ist_parent_timezone'
+          ELSE 'ok'
+        END AS issue_type,
+        created_at
+      FROM latest_per_parent
+      WHERE (parent_timezone IS NULL OR parent_timezone = '')
+         OR parent_timezone IN ('Asia/Kolkata', 'IST')
+      ORDER BY created_at DESC
+      LIMIT $1
+    `, [limit]);
+
+    const summary = summaryResult.rows[0] || {};
+    res.json({
+      success: true,
+      summary: {
+        total_parents: parseInt(summary.total_parents || 0, 10),
+        missing_parent_timezone: parseInt(summary.missing_parent_timezone || 0, 10),
+        default_ist_parent_timezone: parseInt(summary.default_ist_parent_timezone || 0, 10),
+        likely_fallback_count: parseInt(summary.likely_fallback_count || 0, 10),
+        sample_limit: limit
+      },
+      rows: rowsResult.rows
+    });
+  } catch (err) {
+    console.error('Timezone fallback audit error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Endpoint to manually reconnect database (useful after cold starts)
 app.post('/api/admin/reconnect-db', async (req, res) => {
   try {
@@ -10943,7 +11181,11 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
         [`%[SID:${s.session_id}]%`]
       );
 
-      rescheduled.push(session);
+      rescheduled.push({
+        ...session,
+        session_date: utc.date,
+        session_time: utc.time
+      });
     }
 
     for (const studentId of affectedStudents) {
@@ -10970,7 +11212,13 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
         if (!student.rows[0]?.parent_email) continue;
         
         const s = student.rows[0];
-        const sessionRows = sessions.map(sess => {
+        const sortedSessions = [...sessions].sort((a, b) => {
+          const aDateTime = new Date(`${a.session_date}T${(a.session_time || '00:00:00').toString().substring(0, 8)}Z`);
+          const bDateTime = new Date(`${b.session_date}T${(b.session_time || '00:00:00').toString().substring(0, 8)}Z`);
+          return aDateTime - bDateTime;
+        });
+
+        const sessionRows = sortedSessions.map(sess => {
           const local = formatUTCToLocal(sess.session_date, sess.session_time, s.parent_timezone || s.timezone || 'Asia/Kolkata');
           return `<tr>
             <td style="padding:10px;">Session #${sess.session_number}</td>
@@ -10982,10 +11230,11 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
         await sendEmail(
           s.parent_email,
           `📅 Classes Rescheduled - ${s.name}`,
-          getRescheduleEmailTemplate({
-            parentName: s.parent_name,
-            studentName: s.name,
-            sessionRows
+          getBulkPrivateRescheduleEmailTemplate({
+            parent_name: s.parent_name,
+            student_name: s.name,
+            sessionRowsHtml: sessionRows,
+            timezone: s.parent_timezone || s.timezone || 'Asia/Kolkata'
           }),
           s.parent_name,
           'Reschedule'
@@ -11005,6 +11254,33 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
   const { sessions, send_email } = req.body;
   const client = await pool.connect();
   try {
+    const formatEmailDate = (rawDate) => {
+      try {
+        if (!rawDate) return 'N/A';
+        if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+          return rawDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        const input = String(rawDate).trim();
+        const dateOnly = input.includes('T') ? input.split('T')[0] : input;
+
+        let parsed = null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+          parsed = new Date(`${dateOnly}T00:00:00`);
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateOnly)) {
+          const [day, month, year] = dateOnly.split('/');
+          parsed = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
+        } else {
+          parsed = new Date(input);
+        }
+
+        if (!parsed || isNaN(parsed.getTime())) return input;
+        return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch {
+        return String(rawDate);
+      }
+    };
+
     await client.query('BEGIN');
 
     const affectedGroups = new Set();
@@ -11058,9 +11334,10 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
             student.parent_timezone || student.timezone || 'Asia/Kolkata'
           );
           const timezoneLabel = getTimezoneLabel(student.parent_timezone || student.timezone || 'Asia/Kolkata');
+          const oldDateDisplay = formatEmailDate(s.old_date);
           return `<tr>
             <td style="padding:10px;">Session #${s.session_number}</td>
-            <td style="padding:10px; color:#718096;">${s.old_date}</td>
+            <td style="padding:10px; color:#718096;">${oldDateDisplay}</td>
             <td style="padding:10px; color:#38a169;"><strong>${local.date}</strong></td>
             <td style="padding:10px;"><strong style="color:#667eea;">${local.time} (${timezoneLabel})</strong></td>
           </tr>`;

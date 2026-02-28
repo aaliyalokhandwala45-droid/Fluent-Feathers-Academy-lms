@@ -886,9 +886,18 @@
           <div class="form-group"><label>Select Group *</label><select id="scheduleGroup" required><option value="">Select group...</option></select></div>
 
           <!-- Per-Student Session Counts -->
-          <div id="groupStudentSessionCounts" style="display: none; background: #f0fff4; padding: 15px; border-radius: 10px; margin: 10px 0; border: 2px solid #48bb78;">
-            <h4 style="margin-bottom: 10px; color: #2f855a;">👥 Per-Student Session Counts</h4>
-            <p style="font-size: 0.85rem; color: #718096; margin-bottom: 10px;">Set how many sessions each student should be enrolled in. The bulk scheduler will use the highest count.</p>
+          <div id="groupStudentSessionCounts" style="display: none; background: #f7fafc; padding: 18px; border-radius: 12px; margin: 12px 0; border: 2px solid #667eea;">
+            <h4 style="margin-bottom: 6px; color: #4a5568;">👥 Step 1 — Set sessions per student</h4>
+
+            <!-- Workflow guide -->
+            <div style="background:#fff;border-radius:8px;padding:12px 14px;margin-bottom:14px;border-left:4px solid #667eea;font-size:0.82rem;color:#4a5568;line-height:1.7;">
+              <strong style="color:#2d3748;">How group renewal works:</strong><br>
+              • <span style="background:#c6f6d5;padding:1px 6px;border-radius:10px;color:#276749;font-weight:600;">📗 Paid</span> — student has remaining sessions → enter how many sessions to book now<br>
+              • <span style="background:#feebc8;padding:1px 6px;border-radius:10px;color:#7b341e;font-weight:600;">🎫 Makeup only</span> — no paid sessions left but has makeup credits → set <strong>Sessions = 0</strong>, enter makeup credits to use<br>
+              • <span style="background:#fed7d7;padding:1px 6px;border-radius:10px;color:#742a2a;font-weight:600;">⏸ No sessions</span> — not paid yet → keep <strong>Sessions = 0</strong> and use <strong>"+ Add to Existing"</strong> after they pay<br>
+              Each student can have a <em>different</em> session count — the bulk scheduler generates slots up to the highest count.
+            </div>
+
             <div id="studentSessionInputs"></div>
             <button type="button" id="convertPrivateBtn" onclick="convertPrivateToGroup()" class="btn" style="background: #ed8936; color: white; margin-top: 10px; display: none;">Convert Existing Private Sessions to Group</button>
           </div>
@@ -5443,27 +5452,66 @@ if (dueEl) {
     }
 
     async function addStudentToExistingSessions(groupId, studentId, studentName, remaining, makeupCredits) {
-      // Ask if they want to include past sessions for content access (recordings/HW)
-      const includePast = confirm(`Add ${studentName} to group sessions.\n\nDo you also want to include PAST sessions this student missed?\n(So they can view recordings & homework)\n\nClick OK = Yes, include past sessions\nClick Cancel = No, only upcoming sessions`);
+      // Show a proper modal instead of browser prompts
+      const existingModal = document.getElementById('addToExistingModal');
+      if (existingModal) existingModal.remove();
 
-      const numSessions = prompt(`How many UPCOMING sessions to add for ${studentName}?\n\nRemaining sessions: ${remaining}${makeupCredits > 0 ? `\nMakeup credits: ${makeupCredits}` : ''}\n\nEnter number or leave blank for ALL upcoming`);
-      if (numSessions === null) return;
+      const modal = document.createElement('div');
+      modal.id = 'addToExistingModal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+      modal.innerHTML = `
+        <div style="background:white;border-radius:14px;max-width:460px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 4px;color:#2d3748;">➕ Add ${studentName} to existing sessions</h3>
+          <p style="color:#718096;font-size:0.85rem;margin:0 0 18px;">This student paid later — enroll them in upcoming (and optionally past) group sessions.</p>
 
-      const num = numSessions.trim() === '' ? 0 : parseInt(numSessions);
-      if (numSessions.trim() !== '' && (isNaN(num) || num < 1)) {
-        return alert('Please enter a valid number of sessions.');
-      }
+          <div style="background:#ebf8ff;border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.82rem;color:#2c5282;">
+            <strong>📊 Account status:</strong><br>
+            Paid sessions remaining: <strong>${remaining}</strong><br>
+            ${makeupCredits > 0 ? `Makeup credits available: <strong style="color:#6b46c1;">${makeupCredits}</strong>` : 'No makeup credits'}
+          </div>
 
-      let makeupUse = 0;
-      if (makeupCredits > 0) {
-        const makeupInput = prompt(`${studentName} has ${makeupCredits} makeup credits.\n\nHow many makeup credits to use? (Enter 0 or leave blank for none)`);
-        if (makeupInput === null) return;
-        makeupUse = parseInt(makeupInput) || 0;
-        if (makeupUse > makeupCredits) {
-          return alert(`Only ${makeupCredits} makeup credits available.`);
-        }
-      }
+          <div style="margin-bottom:14px;">
+            <label style="font-weight:600;color:#4a5568;display:block;margin-bottom:5px;">Upcoming sessions to book <span style="font-weight:400;color:#718096;">(leave 0 = all upcoming)</span></label>
+            <input id="ateNumSessions" type="number" min="0" max="200" value="${remaining > 0 ? remaining : 0}"
+              style="width:80px;padding:7px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.95rem;text-align:center;">
+          </div>
 
+          ${makeupCredits > 0 ? `
+          <div style="margin-bottom:14px;">
+            <label style="font-weight:600;color:#6b46c1;display:block;margin-bottom:5px;">🎫 Makeup credits to use <span style="font-weight:400;color:#718096;">(max ${makeupCredits})</span></label>
+            <input id="ateMakeupCount" type="number" min="0" max="${makeupCredits}" value="${remaining === 0 ? makeupCredits : 0}"
+              style="width:80px;padding:7px 10px;border:1px solid #9f7aea;border-radius:6px;font-size:0.95rem;text-align:center;color:#6b46c1;">
+          </div>` : ''}
+
+          <div style="margin-bottom:20px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:#4a5568;">
+              <input type="checkbox" id="ateIncludePast" style="width:16px;height:16px;">
+              Also include past sessions <span style="color:#718096;">(so student can view recordings & homework)</span>
+            </label>
+          </div>
+
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="document.getElementById('addToExistingModal').remove()"
+              style="background:#e2e8f0;color:#4a5568;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-weight:600;">Cancel</button>
+            <button id="ateConfirmBtn" onclick="confirmAddToExisting(${groupId}, ${studentId})"
+              style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;padding:9px 20px;border-radius:8px;cursor:pointer;font-weight:600;">✅ Add to Sessions</button>
+          </div>
+        </div>
+      `;
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+      document.body.appendChild(modal);
+    }
+
+    async function confirmAddToExisting(groupId, studentId) {
+      const numInput = document.getElementById('ateNumSessions');
+      const makeupInput = document.getElementById('ateMakeupCount');
+      const includePast = document.getElementById('ateIncludePast').checked;
+      const btn = document.getElementById('ateConfirmBtn');
+
+      const num = parseInt(numInput?.value) || 0;
+      const makeupUse = parseInt(makeupInput?.value) || 0;
+
+      btn.disabled = true; btn.textContent = 'Adding...';
       try {
         const body = { student_id: studentId, makeup_count: makeupUse, include_past: includePast };
         if (num > 0) body.num_sessions = num;
@@ -5474,6 +5522,7 @@ if (dueEl) {
           body: JSON.stringify(body)
         });
         const result = await res.json();
+        document.getElementById('addToExistingModal')?.remove();
         if (res.ok) {
           alert('✅ ' + result.message);
           loadUpcomingClasses();
@@ -5483,6 +5532,7 @@ if (dueEl) {
           alert('❌ ' + result.error);
         }
       } catch (err) {
+        btn.disabled = false; btn.textContent = '✅ Add to Sessions';
         alert('❌ Error: ' + err.message);
       }
     }
@@ -5719,26 +5769,45 @@ async function saveEditedPayment() {
 
         inputsDiv.innerHTML = students.map(s => {
           const makeupCount = parseInt(s.makeup_credits) || 0;
+          const remaining   = s.remaining_sessions || 0;
+
+          // Status badge & row style based on payment state
+          let statusBadge, defaultSessions, rowBg, rowBorder;
+          if (remaining > 0) {
+            statusBadge     = '<span style="background:#c6f6d5;color:#276749;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px;">📗 Paid</span>';
+            defaultSessions = remaining;
+            rowBg = '#f0fff4'; rowBorder = '#48bb78';
+          } else if (makeupCount > 0) {
+            statusBadge     = '<span style="background:#feebc8;color:#7b341e;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px;">🎫 Makeup only</span>';
+            defaultSessions = 0;
+            rowBg = '#fffaf0'; rowBorder = '#ed8936';
+          } else {
+            statusBadge     = '<span style="background:#fed7d7;color:#742a2a;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px;">⏸ Not paid</span>';
+            defaultSessions = 0;
+            rowBg = '#fff5f5'; rowBorder = '#fc8181';
+          }
+
           return `
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e2e8f0; flex-wrap: wrap;">
-            <span style="flex: 1; font-weight: 500; min-width: 120px;">👤 ${s.name}</span>
-            <span style="color: #718096; font-size: 0.85rem;">Remaining: ${s.remaining_sessions || 0}</span>
-            <label style="font-size: 0.8rem; color: #4a5568;">Sessions:</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:10px 14px;background:${rowBg};border-radius:8px;border:1px solid ${rowBorder};flex-wrap:wrap;">
+            <span style="flex:1;font-weight:600;min-width:130px;">👤 ${s.name}</span>
+            ${statusBadge}
+            <span style="color:#718096;font-size:0.82rem;">Remaining: <strong>${remaining}</strong></span>
+            <label style="font-size:0.82rem;color:#4a5568;white-space:nowrap;">Sessions to book:</label>
             <input type="number" class="student-session-count" data-student-id="${s.id}"
-              value="${(s.remaining_sessions || 0) > 0 ? s.remaining_sessions : 0}" min="0" max="100"
-              style="width: 60px; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center;"
+              value="${defaultSessions}" min="0" max="100"
+              style="width:62px;padding:4px 8px;border:1px solid #cbd5e0;border-radius:4px;text-align:center;"
               onchange="updateGroupMaxSessions()">
             ${makeupCount > 0 ? `
-            <span style="color: #6b46c1; font-size: 0.8rem; font-weight: 600;">🎫 Makeup: ${makeupCount}</span>
-            <label style="font-size: 0.8rem; color: #6b46c1;">Use:</label>
+            <span style="color:#6b46c1;font-size:0.82rem;font-weight:600;">🎫 ${makeupCount} makeup available</span>
+            <label style="font-size:0.82rem;color:#6b46c1;white-space:nowrap;">Use:</label>
             <input type="number" class="student-makeup-count" data-student-id="${s.id}"
-              value="${(s.remaining_sessions || 0) === 0 && makeupCount > 0 ? makeupCount : 0}" min="0" max="${makeupCount}"
-              style="width: 50px; padding: 4px 8px; border: 1px solid #9f7aea; border-radius: 4px; text-align: center; color: #6b46c1;"
+              value="${remaining === 0 ? makeupCount : 0}" min="0" max="${makeupCount}"
+              style="width:52px;padding:4px 8px;border:1px solid #9f7aea;border-radius:4px;text-align:center;color:#6b46c1;"
               onchange="updateGroupMaxSessions()">
             ` : ''}
-            <button type="button" onclick="addStudentToExistingSessions(${groupId}, ${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.remaining_sessions || 0}, ${makeupCount})"
-              class="btn-sm" style="background: #3182ce; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; white-space: nowrap;"
-              title="Add this student to already scheduled group sessions">+ Add to Existing</button>
+            <button type="button" onclick="addStudentToExistingSessions(${groupId}, ${s.id}, '${s.name.replace(/'/g, "\\'")}', ${remaining}, ${makeupCount})"
+              class="btn-sm" style="background:#3182ce;color:white;border:none;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:0.75rem;white-space:nowrap;"
+              title="Student paid later? Add them to already scheduled upcoming sessions">+ Add to Existing</button>
           </div>`;
         }).join('');
         container.style.display = 'block';
@@ -8525,6 +8594,55 @@ async function saveEditedPayment() {
     }
 
     // ==================== LEADERBOARD ====================
+    // ── Period-picker helpers ──────────────────────────────────────────────────
+    function _isoDate(d) { return d.toISOString().split('T')[0]; }
+
+    function genPastWeeks(count=16) {
+      const opts=[]; const now=new Date();
+      const day=now.getDay(); const diffToMon = day===0?-6:1-day;
+      const thisMon=new Date(now); thisMon.setDate(now.getDate()+diffToMon); thisMon.setHours(0,0,0,0);
+      for(let i=1;i<=count;i++){
+        const ws=new Date(thisMon); ws.setDate(thisMon.getDate()-i*7);
+        const we=new Date(ws); we.setDate(ws.getDate()+6);
+        opts.push({ label: ws.toLocaleDateString('en-IN',{month:'short',day:'numeric'})+' – '+we.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'}), start:_isoDate(ws), end:_isoDate(we) });
+      }
+      return opts;
+    }
+    function genPastMonths(count=24) {
+      const opts=[]; const now=new Date();
+      const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      for(let i=1;i<=count;i++){
+        const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+        const end=new Date(d.getFullYear(),d.getMonth()+1,0);
+        opts.push({ label:mn[d.getMonth()]+' '+d.getFullYear(), start:_isoDate(d), end:_isoDate(end) });
+      }
+      return opts;
+    }
+    function genPastYears(count=5) {
+      const opts=[]; const y=new Date().getFullYear();
+      for(let i=1;i<=count;i++) opts.push({ label:String(y-i), start:`${y-i}-01-01`, end:`${y-i}-12-31` });
+      return opts;
+    }
+    async function loadPeriodWinner(start, end, cardId) {
+      const card=document.getElementById(cardId);
+      if(!card) return;
+      const body=card.querySelector('.award-card-body');
+      if(body) body.innerHTML='<div style="opacity:0.6;font-size:12px;margin-top:6px;">Loading...</div>';
+      try {
+        const r=await fetch(`/api/awards/by-period?start=${start}&end=${end}`);
+        const d=await r.json();
+        const w=d.winner;
+        if(body) body.innerHTML = w
+          ? `<div style="font-size:18px;font-weight:bold;margin:6px 0 4px;">${w.name}</div>
+             <div style="font-size:11px;opacity:0.85;">📝 ${w.homework||0} HW &nbsp;·&nbsp; 🎯 ${w.challenges||0} challenges &nbsp;·&nbsp; 🏅 ${w.badges||0} badges</div>
+             <div style="font-size:10px;opacity:0.7;margin-top:3px;">Score: ${w.total_score||0}</div>`
+          : '<div style="font-size:13px;opacity:0.65;margin-top:8px;">No activity this period</div>';
+      } catch(e) {
+        if(body) body.innerHTML='<div style="font-size:12px;opacity:0.6;margin-top:6px;">Failed to load</div>';
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     async function loadLeaderboard() {
       try {
         const [res, awardsRes] = await Promise.all([fetch('/api/leaderboard'), fetch('/api/awards/current')]);
@@ -8532,27 +8650,32 @@ async function saveEditedPayment() {
         const awards = await awardsRes.json();
         const students = data.leaderboard || [];
 
-        // Award showcase cards
+        // Award showcase cards with period-picker dropdowns
         const showcase = document.getElementById('awardsShowcase');
-        const awardTypes = [
-          { key: 'studentOfWeek', icon: '🌟', title: 'Student of the Week', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-          { key: 'studentOfMonth', icon: '🏅', title: 'Student of the Month', gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-          { key: 'studentOfYear', icon: '🏆', title: 'Student of the Year', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }
+        const weekOpts  = genPastWeeks(16);
+        const monthOpts = genPastMonths(24);
+        const yearOpts  = genPastYears(5);
+        const makeSelOpts = (opts) => opts.map((o,i)=>`<option value="${o.start}|${o.end}"${i===0?' selected':''}>${o.label}</option>`).join('');
+        const awardCards = [
+          { id:'awardCard_week',  icon:'🌟', title:"Week's Star",     gradient:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', opts:weekOpts  },
+          { id:'awardCard_month', icon:'🏅', title:"Month's Champion", gradient:'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', opts:monthOpts },
+          { id:'awardCard_year',  icon:'🏆', title:"Year's Legend",    gradient:'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', opts:yearOpts  }
         ];
-        showcase.innerHTML = awardTypes.map(at => {
-          const a = awards[at.key];
-          return `<div style="background:${at.gradient};border-radius:12px;padding:20px;text-align:center;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
-            <div style="font-size:36px;margin-bottom:5px;">${at.icon}</div>
-            <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;">${at.title}</div>
-            ${a ? `${a.period ? '<div style="font-size:10px;opacity:0.75;margin-top:4px;">' + a.period + '</div>' : ''}
-              <div style="font-size:20px;font-weight:bold;margin:8px 0;">${a.name}</div>
-              <div style="font-size:11px;opacity:0.85;">📝 ${a.homework || 0} HW · 🎯 ${a.challenges || 0} challenges · 🏅 ${a.badges || 0} badges</div>
-              <div style="font-size:10px;opacity:0.7;margin-top:4px;">Score: ${a.total_score || 0}</div>` :
-              `<div style="font-size:14px;margin:8px 0;opacity:0.7;">No winner yet</div>`}
-          </div>`;
-        }).join('');
+        showcase.innerHTML = awardCards.map(ac=>`
+          <div id="${ac.id}" style="background:${ac.gradient};border-radius:12px;padding:18px;text-align:center;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
+            <div style="font-size:30px;margin-bottom:3px;">${ac.icon}</div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;margin-bottom:7px;">${ac.title}</div>
+            <select onchange="(function(v){const p=v.split('|');loadPeriodWinner(p[0],p[1],'${ac.id}');})(this.value)"
+              style="width:100%;border:none;border-radius:20px;padding:5px 8px;font-size:11px;background:rgba(255,255,255,0.25);color:white;cursor:pointer;margin-bottom:4px;outline:none;">
+              ${makeSelOpts(ac.opts)}
+            </select>
+            <div class="award-card-body"></div>
+          </div>
+        `).join('');
+        // Load winners for the default (first = most recent) selection
+        awardCards.forEach(ac => loadPeriodWinner(ac.opts[0].start, ac.opts[0].end, ac.id));
 
-        // Store award holder IDs for leaderboard table icons
+        // Store award holder IDs for leaderboard table icons (using current defaults)
         const awardHolders = {};
         if (awards.studentOfWeek) awardHolders[awards.studentOfWeek.studentId] = (awardHolders[awards.studentOfWeek.studentId] || '') + '🌟';
         if (awards.studentOfMonth) awardHolders[awards.studentOfMonth.studentId] = (awardHolders[awards.studentOfMonth.studentId] || '') + '🏅';
@@ -8736,8 +8859,25 @@ async function saveEditedPayment() {
             <div style="padding: 20px;">
               <p style="color: #718096; margin-bottom: 15px;">Badge Reward: <strong style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 5px 12px; border-radius: 15px;">${badgeReward}</strong></p>
 
-              ${students.length === 0 ? '<p style="color: #718096; text-align: center; padding: 30px;">No students assigned to this challenge yet.</p>' : `
-                <table style="width: 100%; border-collapse: collapse;">
+              ${students.length === 0 ? '<p style="color: #718096; text-align: center; padding: 30px;">No students assigned to this challenge yet.</p>' : (() => {
+                // Count per status for filter button badges
+                const statusCounts = { All: students.length, Submitted: 0, Finished: 0, Completed: 0, 'In Progress': 0 };
+                students.forEach(s => {
+                  const st = s.effective_status || s.status || 'In Progress';
+                  if (statusCounts[st] !== undefined) statusCounts[st]++; else statusCounts['In Progress']++;
+                });
+                const filterBtnStyle = (active, color) =>
+                  `cursor:pointer; border:none; border-radius:20px; padding:5px 14px; font-size:0.78rem; font-weight:600; margin:0 3px; background:${active ? color : '#e2e8f0'}; color:${active ? 'white' : '#4a5568'}; transition:all 0.15s;`;
+                return `
+                <div id="csf-bar" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:14px; align-items:center;">
+                  <span style="font-size:0.8rem; color:#718096; margin-right:4px;">Filter:</span>
+                  <button id="csf-All" style="${filterBtnStyle(true,'#667eea')}" onclick="filterChallengeStudents('All')">All <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.All}</span></button>
+                  ${statusCounts.Submitted > 0 ? `<button id="csf-Submitted" style="${filterBtnStyle(false,'#ed8936')}" onclick="filterChallengeStudents('Submitted')">📩 Submitted <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Submitted}</span></button>` : ''}
+                  ${statusCounts.Finished > 0 ? `<button id="csf-Finished" style="${filterBtnStyle(false,'#718096')}" onclick="filterChallengeStudents('Finished')">🏁 Finished <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Finished}</span></button>` : ''}
+                  ${statusCounts.Completed > 0 ? `<button id="csf-Completed" style="${filterBtnStyle(false,'#38a169')}" onclick="filterChallengeStudents('Completed')">✅ Completed <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Completed}</span></button>` : ''}
+                  ${statusCounts['In Progress'] > 0 ? `<button id="csf-In Progress" style="${filterBtnStyle(false,'#3182ce')}" onclick="filterChallengeStudents('In Progress')">⏳ Not Started <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts['In Progress']}</span></button>` : ''}
+                </div>
+                <table id="csf-table" style="width: 100%; border-collapse: collapse;">
                   <thead>
                     <tr style="background: #f7fafc;">
                       <th style="padding: 12px; text-align: left;">Student</th>
@@ -8748,6 +8888,7 @@ async function saveEditedPayment() {
                   </thead>
                   <tbody>
                     ${students.map(s => {
+                      const effectiveStatus = s.effective_status || s.status || 'In Progress';
                       let statusBadge = '';
                       let actionBtn = '';
                       let submissionCol = '<span style="color:#718096;">-</span>';
@@ -8780,23 +8921,26 @@ async function saveEditedPayment() {
                         '</div>';
                       }
 
-                      if (s.status === 'Completed') {
+                      if (effectiveStatus === 'Completed') {
                         statusBadge = '<span class="challenge-badge challenge-badge-completed">✅ Completed</span>' +
                                        '<br><small style="color: #718096;">' + (s.completed_at ? new Date(s.completed_at).toLocaleDateString() : '') + '</small>';
                         actionBtn = '<span class="status-active">🏅 Badge Awarded</span>';
-                      } else if (s.status === 'Submitted') {
+                      } else if (effectiveStatus === 'Submitted') {
                         statusBadge = '<span class="challenge-badge challenge-badge-submitted">📩 Submitted!</span>';
                         actionBtn = '<button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: white; font-weight: bold;">✅ Approve & Award Badge</button>';
                         rowClass = 'challenge-row-submitted';
+                      } else if (effectiveStatus === 'Finished') {
+                        statusBadge = '<span class="challenge-badge" style="background:#718096;">🏁 Finished</span>';
+                        actionBtn = '<button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: #718096; color: white;">✅ Mark Complete</button>';
                       } else {
                         statusBadge = '<span class="challenge-badge challenge-badge-pending">⏳ Not Started</span>';
                         actionBtn = '<button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: #718096; color: white;">✅ Mark Complete</button>';
                       }
 
-                      return '<tr class="' + rowClass + '">' +
+                      return '<tr class="' + rowClass + '" data-status="' + effectiveStatus + '">' +
                         '<td style="padding: 12px;">' +
                           '<strong>' + s.student_name + '</strong>' +
-                          (s.status === 'Submitted' ? ' <span class="needs-review-badge">NEEDS REVIEW</span>' : '') +
+                          (effectiveStatus === 'Submitted' ? ' <span class="needs-review-badge">NEEDS REVIEW</span>' : '') +
                           '<br><small style="color: #718096;">' + (s.program_name || '') + '</small>' +
                         '</td>' +
                         '<td style="padding: 12px; text-align: center;">' + statusBadge + '</td>' +
@@ -8806,7 +8950,8 @@ async function saveEditedPayment() {
                     }).join('')}
                   </tbody>
                 </table>
-              `}
+                `; })()
+              }
             </div>
           </div>
         `;
@@ -8819,6 +8964,32 @@ async function saveEditedPayment() {
       } catch (err) {
         alert('❌ Error loading students: ' + err.message);
       }
+    }
+
+    // Filter challenge students by status
+    function filterChallengeStudents(status) {
+      // Update button styles
+      const colorMap = { 'All': '#667eea', 'Submitted': '#ed8936', 'Finished': '#718096', 'Completed': '#38a169', 'In Progress': '#3182ce' };
+      const bar = document.getElementById('csf-bar');
+      if (bar) {
+        bar.querySelectorAll('button').forEach(btn => {
+          const btnStatus = btn.id.replace('csf-', '');
+          const color = colorMap[btnStatus] || '#718096';
+          const isActive = btnStatus === status;
+          btn.style.background = isActive ? color : '#e2e8f0';
+          btn.style.color = isActive ? 'white' : '#4a5568';
+        });
+      }
+      // Show/hide rows
+      const table = document.getElementById('csf-table');
+      if (!table) return;
+      table.querySelectorAll('tbody tr').forEach(row => {
+        if (status === 'All') {
+          row.style.display = '';
+        } else {
+          row.style.display = row.dataset.status === status ? '' : 'none';
+        }
+      });
     }
 
     // Mark challenge as complete for a student
