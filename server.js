@@ -1926,7 +1926,31 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
       console.warn('⚠️ BREVO_API_KEY missing. Email not sent.');
       return false;
     }
-    await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: html }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
+
+    // Append parent portal footer to all non-demo emails
+    const isDemo = emailType && emailType.toLowerCase().includes('demo');
+    let finalHtml = html;
+    if (!isDemo) {
+      const portalUrl = `${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html`;
+      const portalFooter = `
+      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
+        <a href="${portalUrl}" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+          🔗 Open Parent Portal
+        </a>
+        <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.7); font-size: 12px;">${portalUrl}</p>
+      </div>`;
+
+      // Insert footer before closing </body> tag, or append to end
+      if (finalHtml.includes('</body>')) {
+        finalHtml = finalHtml.replace('</body>', `${portalFooter}\n</body>`);
+      } else {
+        finalHtml = finalHtml + portalFooter;
+      }
+    }
+
+    await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: finalHtml }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
     await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Sent', $5)`, [recipientName || '', to, emailType, subject, html]);
     return true;
   } catch (e) {
