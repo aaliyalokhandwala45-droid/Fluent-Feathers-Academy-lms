@@ -9800,7 +9800,7 @@ app.get('/api/challenges', async (req, res) => {
 
 // Create new challenge
 app.post('/api/challenges', async (req, res) => {
-  const { title, description, challenge_type, badge_reward, week_start, week_end, assign_to_all } = req.body;
+  const { title, description, challenge_type, badge_reward, week_start, week_end, assign_to_all, send_email } = req.body;
   try {
     const result = await pool.query(`
       INSERT INTO weekly_challenges (title, description, challenge_type, badge_reward, week_start, week_end)
@@ -9809,11 +9809,13 @@ app.post('/api/challenges', async (req, res) => {
     `, [title, description, challenge_type || 'General', badge_reward || '🎯 Challenge Champion', week_start, week_end]);
 
     const challenge = result.rows[0];
+    let assignedStudents = [];
 
     // If assign_to_all, create student_challenges for all active students
     if (assign_to_all) {
       const students = await pool.query('SELECT id FROM students WHERE is_active = true');
-      for (const student of students.rows) {
+      assignedStudents = students.rows;
+      for (const student of assignedStudents) {
         await pool.query(`
           INSERT INTO student_challenges (student_id, challenge_id, status)
           VALUES ($1, $2, 'Assigned')
@@ -9821,7 +9823,60 @@ app.post('/api/challenges', async (req, res) => {
       }
     }
 
-    res.json({ success: true, challenge });
+    // Send email notifications to parents if requested
+    let emailsSent = 0;
+    if (send_email === true || send_email === 'true') {
+      const dueDate = new Date(week_end).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const startDate = new Date(week_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+      const typeEmojis = { 'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️', 'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐' };
+      const emoji = typeEmojis[challenge_type] || '🎯';
+
+      const parents = await pool.query(`
+        SELECT DISTINCT s.parent_email, s.parent_name, s.name as student_name
+        FROM students s
+        WHERE s.is_active = true AND s.parent_email IS NOT NULL
+      `);
+
+      for (const p of parents.rows) {
+        const emailHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f0f4f8;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:35px 30px;text-align:center;">
+      <div style="font-size:3rem;">${emoji}</div>
+      <h1 style="color:white;margin:10px 0 5px;font-size:1.6rem;">New Challenge Assigned!</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:0;">Fluent Feathers Academy</p>
+    </div>
+    <div style="padding:30px;">
+      <p style="color:#4a5568;font-size:1rem;">Dear <strong>${p.parent_name || 'Parent'}</strong>,</p>
+      <p style="color:#4a5568;">A new weekly challenge has been assigned to <strong>${p.student_name}</strong>. Encourage them to complete it before the due date to earn a badge!</p>
+      <div style="background:linear-gradient(135deg,#f0f4ff 0%,#faf5ff 100%);border-left:4px solid #667eea;border-radius:8px;padding:20px;margin:20px 0;">
+        <h2 style="color:#2d3748;margin:0 0 12px;font-size:1.2rem;">${emoji} ${title}</h2>
+        ${description ? `<p style="color:#4a5568;margin:0 0 12px;">${description}</p>` : ''}
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">📅 Start Date</td><td style="padding:6px 0;color:#2d3748;font-weight:600;">${startDate}</td></tr>
+          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">⏰ Due Date</td><td style="padding:6px 0;color:#e53e3e;font-weight:600;">${dueDate}</td></tr>
+          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">🏅 Badge Reward</td><td style="padding:6px 0;color:#2d3748;font-weight:600;">${badge_reward || '🎯 Challenge Champion'}</td></tr>
+        </table>
+      </div>
+      <p style="color:#4a5568;">Once completed, please submit the challenge through the <strong>Parent Portal</strong> so it can be reviewed.</p>
+      <div style="text-align:center;margin:25px 0;">
+        <a href="${process.env.APP_URL || '#'}" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🎯 View in Parent Portal</a>
+      </div>
+    </div>
+    <div style="background:#f7fafc;padding:15px;text-align:center;color:#718096;font-size:0.8rem;">
+      Fluent Feathers Academy &nbsp;|&nbsp; This is an automated notification
+    </div>
+  </div>
+</body>
+</html>`;
+        const sent = await sendEmail(p.parent_email, `🎯 New Challenge: ${title} — Due ${dueDate}`, emailHtml, p.parent_name, 'Challenge Notification');
+        if (sent) emailsSent++;
+      }
+    }
+
+    res.json({ success: true, challenge, emailsSent });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

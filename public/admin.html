@@ -1351,6 +1351,10 @@
               <input type="checkbox" id="assignToAll" checked style="width: auto; margin: 0;">
               <label for="assignToAll" style="margin: 0; cursor: pointer; color: white;">Assign to all active students</label>
             </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="challengeSendEmail" checked style="width: auto; margin: 0;">
+              <label for="challengeSendEmail" style="margin: 0; cursor: pointer; color: white;">📧 Send Email Notification to Parents</label>
+            </div>
             <button type="submit" class="btn" style="background: white; color: #667eea; font-weight: bold;">Create Challenge</button>
           </form>
         </div>
@@ -8895,7 +8899,8 @@ async function saveEditedPayment() {
         badge_reward: document.getElementById('challengeBadgeReward').value,
         week_start: document.getElementById('challengeWeekStart').value,
         week_end: document.getElementById('challengeWeekEnd').value,
-        assign_to_all: document.getElementById('assignToAll').checked
+        assign_to_all: document.getElementById('assignToAll').checked,
+        send_email: document.getElementById('challengeSendEmail').checked
       };
 
       try {
@@ -8906,9 +8911,10 @@ async function saveEditedPayment() {
         });
         const result = await res.json();
         if (res.ok) {
-          alert('🎯 Challenge created successfully!');
+          alert(`🎯 Challenge created! ${result.emailsSent > 0 ? result.emailsSent + ' email(s) sent to parents.' : ''}`);
           e.target.reset();
           document.getElementById('assignToAll').checked = true;
+          document.getElementById('challengeSendEmail').checked = true;
           loadChallenges();
         } else {
           alert('❌ Error: ' + result.error);
