@@ -1931,7 +1931,9 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
     }
 
     // Append parent portal footer to all non-demo emails
-    const isDemo = emailType && emailType.toLowerCase().includes('demo');
+    // Reminder emails (including demo reminders) always get the portal footer
+    const isReminderType = emailType && emailType.toLowerCase().includes('reminder');
+    const isDemo = !isReminderType && emailType && emailType.toLowerCase().includes('demo');
     let finalHtml = html;
     if (!isDemo) {
       const portalUrl = `${process.env.APP_URL || 'https://fluentfeathersacademy.com'}/parent.html`;
