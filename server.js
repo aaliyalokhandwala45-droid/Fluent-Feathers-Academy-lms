@@ -9990,6 +9990,22 @@ app.get('/api/students/:id/challenges', async (req, res) => {
   }
 });
 
+// Update challenge end date
+app.patch('/api/challenges/:id/extend', async (req, res) => {
+  try {
+    const { week_end } = req.body;
+    if (!week_end) return res.status(400).json({ error: 'week_end is required' });
+    const result = await pool.query(
+      'UPDATE weekly_challenges SET week_end = $1 WHERE id = $2 RETURNING *',
+      [week_end, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Challenge not found' });
+    res.json({ success: true, challenge: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete challenge
 app.delete('/api/challenges/:id', async (req, res) => {
   try {

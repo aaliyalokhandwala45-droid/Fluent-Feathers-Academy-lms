@@ -8868,7 +8868,8 @@ async function saveEditedPayment() {
         }
 
         container.innerHTML = challenges.map(c => {
-          const isActive = new Date(c.week_end + 'T23:59:59') >= new Date();
+          // Use IST (UTC+5:30) end-of-day so challenge isn't marked Ended prematurely
+          const isActive = new Date(c.week_end + 'T23:59:59+05:30') >= new Date();
           const typeEmojis = {
             'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️',
             'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐'
@@ -8896,6 +8897,7 @@ async function saveEditedPayment() {
                 <div style="display: flex; gap: 8px; flex-direction: column; align-items: flex-end;">
                   ${c.submitted_count > 0 ? `<span style="background: #e53e3e; color: white; padding: 4px 8px; border-radius: 50%; font-size: 0.75rem; font-weight: bold;">${c.submitted_count}</span>` : ''}
                   <button onclick="viewChallengeStudents(${c.id}, decodeURIComponent('${encodeURIComponent(c.title)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm ${c.submitted_count > 0 ? 'btn-challenge-review' : 'btn-challenge-track'}">${c.submitted_count > 0 ? '🔔 Review Submissions' : '👥 Track Progress'}</button>
+                  <button onclick="extendChallenge(${c.id}, '${c.week_end}')" class="btn btn-sm" style="background: #667eea; color: white;">📅 Edit End</button>
                   <button onclick="deleteChallenge(${c.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️</button>
                 </div>
               </div>
@@ -9115,6 +9117,27 @@ async function saveEditedPayment() {
           const modalTitle = currentChallengeTitle;
           document.getElementById('challengeStudentsModal')?.remove();
           viewChallengeStudents(challengeId, modalTitle, badgeReward);
+          loadChallenges();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function extendChallenge(challengeId, currentEnd) {
+      const newEnd = prompt('Enter new end date (YYYY-MM-DD):', currentEnd);
+      if (!newEnd) return;
+      try {
+        const res = await fetch(`/api/challenges/${challengeId}/extend`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ week_end: newEnd })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ End date updated to ' + newEnd);
           loadChallenges();
         } else {
           alert('❌ Error: ' + result.error);

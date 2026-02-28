@@ -1964,9 +1964,9 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         const makeOpts = (opts) => opts.map((o,i)=>`<option value="${o.start}|${o.end}"${i===0?' selected':''}>${o.label}</option>`).join('');
 
         const entries = [
-          { id:'hof_year',  icon:'👑', label:"Year's Legend",    gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  },
-          { id:'hof_month', icon:'🌟', label:"Month's Champion", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
-          { id:'hof_week',  icon:'⭐', label:"Week's Star",       gradient:'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border:'#ed8936', opts:weekOpts  }
+          { id:'hof_week',  icon:'⭐', label:"Student of the Week",  gradient:'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border:'#ed8936', opts:weekOpts  },
+          { id:'hof_month', icon:'🌟', label:"Student of the Month", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
+          { id:'hof_year',  icon:'👑', label:"Student of the Year",  gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  }
         ];
 
         container.innerHTML = entries.map(e=>`
