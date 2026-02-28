@@ -625,7 +625,7 @@
       </div>
 
       <!-- Challenge Summary Strip -->
-      <div id="challengeSummaryStrip" class="challenge-summary-strip" onclick="showTab('achievements')">
+      <div id="challengeSummaryStrip" class="challenge-summary-strip" onclick="showTab('challenges')">
         <div class="challenge-summary-inner">
           <div class="challenge-summary-left">
             <div class="challenge-summary-icon">🎯</div>
@@ -634,7 +634,7 @@
               <span class="challenge-summary-detail" id="challengeSummaryDetail">Loading...</span>
             </div>
           </div>
-          <button onclick="event.stopPropagation(); showTab('achievements')" class="challenge-summary-btn">View Challenge →</button>
+          <button onclick="event.stopPropagation(); showTab('challenges')" class="challenge-summary-btn">View Challenge →</button>
         </div>
       </div>
 
@@ -645,6 +645,7 @@
         <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">💳 Payments<span class="red-dot" id="dotPayments"></span></button>
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
         <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">🏆 Achievements<span class="red-dot" id="dotAchievements"></span></button>
+        <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">🎯 Challenges<span class="red-dot" id="dotChallenges"></span></button>
         <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">📢 News<span class="red-dot" id="dotAnnouncements"></span></button>
         <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">🎉 Events<span class="red-dot" id="dotEvents"></span></button>
         <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">📚 Resources<span class="red-dot" id="dotResources"></span></button>
@@ -820,7 +821,10 @@
           </div>
         </div>
 
-        <!-- Weekly Challenges Section -->
+      </div>
+
+      <!-- Challenges Tab -->
+      <div id="challengesTab" class="tab-content">
         <div class="section" id="challengesSection">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h2 style="color: #B05D9E; margin: 0;">🎯 Weekly Challenges</h2>
@@ -1692,6 +1696,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       clearRedDot(name);
       if (name === 'upcoming') loadUpcoming(true);
       if (name === 'past') loadPast(true);
+      if (name === 'challenges') loadStudentChallenges();
     }
 
     function showDashboard() {
@@ -1965,8 +1970,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
         const entries = [
           { id:'hof_week',  icon:'⭐', label:"Student of the Week",  gradient:'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border:'#ed8936', opts:weekOpts  },
-          { id:'hof_month', icon:'🌟', label:"Student of the Month", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
-          { id:'hof_year',  icon:'👑', label:"Student of the Year",  gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  }
+          { id:'hof_month', icon:'�', label:"Student of the Month", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
+          { id:'hof_year',  icon:'🏆', label:"Student of the Year",  gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  }
         ];
 
         container.innerHTML = entries.map(e=>`
@@ -2042,6 +2047,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       // Find current student's rank
       const myRank = leaderboardData.findIndex(s => s.id === currentStudent.id) + 1;
       const myBadges = allBadges.length;
+      const myScore = leaderboardData.find(s => s.id === currentStudent.id)?.total_score || 0;
 
       const modal = document.createElement('div');
       modal.id = 'leaderboardModal';
@@ -2069,6 +2075,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
                 <div style="font-weight: bold; color: #2d3748; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${student.name}</div>
                 <div style="color: #667eea; font-size: 1.2rem; font-weight: bold;">${student.total_badges}</div>
                 <div style="color: #718096; font-size: 0.65rem;">badges</div>
+                <div style="color: #e67e22; font-size: 0.75rem; font-weight: 600; margin-top: 3px;">⭐ ${student.total_score || 0} pts</div>
               </div>
               <div class="${podiumClasses[actualRank]} ${heightClasses[actualRank]}" style="width: 80px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 10px;">
                 <span style="color: white; font-weight: bold; font-size: 1.2rem;">#${actualRank}</span>
@@ -2090,7 +2097,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             <p style="color: #333; margin: 0 0 5px 0; font-size: 0.9rem;">Your Rank</p>
             <div style="font-size: 3rem; font-weight: bold; color: #333;">${myRank > 0 ? '#' + myRank : '—'}</div>
             <p style="color: #333; margin: 10px 0 0 0; font-size: 1.1rem;"><strong>${currentStudent.name}</strong></p>
-            <p style="color: #555; margin: 5px 0 0 0;">🏆 <strong>${myBadges}</strong> badges collected</p>
+            <p style="color: #555; margin: 5px 0 0 0;">🏆 <strong>${myBadges}</strong> badges &nbsp;·&nbsp; ⭐ <strong>${myScore}</strong> total score</p>
           </div>
 
           <!-- Podium Top 3 -->
@@ -2112,10 +2119,10 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
                 <div style="font-size: 1.5rem; margin-right: 12px;">${medals[idx]}</div>
                 <div style="flex: 1;">
                   <div style="font-weight: 600; color: #2d3748;">${student.name} ${student.id === currentStudent.id ? '(You!)' : ''}</div>
-                  <div style="font-size: 0.75rem; color: #718096;">Total Badges: ${student.total_badges}</div>
+                  <div style="font-size: 0.75rem; color: #718096;">Badges: ${student.total_badges} &nbsp;·&nbsp; ⭐ Score: ${student.total_score || 0}</div>
                 </div>
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
-                  ${student.total_badges}
+                  ${student.total_score || 0}
                 </div>
               </div>
             `).join('') : '<div style="padding: 20px; text-align: center; color: #718096;">No students on leaderboard yet!</div>'}
@@ -2126,10 +2133,10 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
                 <div style="font-size: 1.2rem; margin-right: 12px; font-weight: bold; color: #667eea;">#${myRank}</div>
                 <div style="flex: 1;">
                   <div style="font-weight: 600; color: #2d3748;">${currentStudent.name} <span style="color: #667eea;">(You!)</span></div>
-                  <div style="font-size: 0.75rem; color: #718096;">Total Badges: ${myBadges}</div>
+                  <div style="font-size: 0.75rem; color: #718096;">Badges: ${myBadges} &nbsp;·&nbsp; ⭐ Score: ${myScore}</div>
                 </div>
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
-                  ${myBadges}
+                  ${myScore}
                 </div>
               </div>
             ` : ''}

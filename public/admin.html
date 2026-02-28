@@ -1264,7 +1264,7 @@
         </div>
 
         <!-- Award Showcase -->
-        <div id="awardsShowcase" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;"></div>
+        <!-- removed - merged into Upcoming Awards cards above -->
 
         <!-- Top 3 Podium -->
         <div id="leaderboardPodium" style="display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin-bottom: 30px; min-height: 200px;">
@@ -8754,31 +8754,6 @@ async function saveEditedPayment() {
         const data = await res.json();
         const awards = await awardsRes.json();
         const students = data.leaderboard || [];
-
-        // Award showcase cards with period-picker dropdowns
-        const showcase = document.getElementById('awardsShowcase');
-        const weekOpts  = genPastWeeks(16);
-        const monthOpts = genPastMonths(24);
-        const yearOpts  = genPastYears(5);
-        const makeSelOpts = (opts) => opts.map((o,i)=>`<option value="${o.start}|${o.end}"${i===0?' selected':''}>${o.label}</option>`).join('');
-        const awardCards = [
-          { id:'awardCard_week',  icon:'🌟', title:"Student of the Week",  gradient:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', opts:weekOpts  },
-          { id:'awardCard_month', icon:'🏅', title:"Student of the Month", gradient:'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', opts:monthOpts },
-          { id:'awardCard_year',  icon:'🏆', title:"Student of the Year",  gradient:'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', opts:yearOpts  }
-        ];
-        showcase.innerHTML = awardCards.map(ac=>`
-          <div id="${ac.id}" style="background:${ac.gradient};border-radius:12px;padding:18px;text-align:center;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
-            <div style="font-size:30px;margin-bottom:3px;">${ac.icon}</div>
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;margin-bottom:7px;">${ac.title}</div>
-            <select onchange="(function(v){const p=v.split('|');loadPeriodWinner(p[0],p[1],'${ac.id}');})(this.value)"
-              style="width:100%;border:none;border-radius:20px;padding:5px 8px;font-size:11px;background:rgba(255,255,255,0.25);color:white;cursor:pointer;margin-bottom:4px;outline:none;">
-              ${makeSelOpts(ac.opts)}
-            </select>
-            <div class="award-card-body"></div>
-          </div>
-        `).join('');
-        // Load winners for the default (first = most recent) selection
-        awardCards.forEach(ac => loadPeriodWinner(ac.opts[0].start, ac.opts[0].end, ac.id));
 
         // Store award holder IDs for leaderboard table icons (using current defaults)
         const awardHolders = {};
