@@ -7316,6 +7316,55 @@ app.post('/api/sessions/:sessionId/group-cancel-student', async (req, res) => {
     }
 
     await client.query('COMMIT');
+
+    // Send cancellation email to parent
+    try {
+      const sessionResult = await client.query('SELECT * FROM sessions WHERE id = $1', [sessionId]);
+      const session = sessionResult.rows[0];
+      const studentResult = await client.query('SELECT * FROM students WHERE id = $1', [student_id]);
+      const student = studentResult.rows[0];
+
+      if (student && student.parent_email && session) {
+        const parentTimezone = student.parent_timezone || student.timezone || 'Asia/Kolkata';
+        const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
+        const timezoneLabel = getTimezoneLabel(parentTimezone);
+
+        const fallbackDate = session.session_date instanceof Date
+          ? session.session_date.toISOString().split('T')[0]
+          : (typeof session.session_date === 'string' && session.session_date.includes('T')
+            ? session.session_date.split('T')[0]
+            : String(session.session_date || 'N/A'));
+        const fallbackTime = (session.session_time || 'N/A').toString().substring(0, 8);
+
+        const safeSessionDate = localTime && localTime.date && localTime.date !== 'Invalid Date'
+          ? `${localTime.day ? `${localTime.day}, ` : ''}${localTime.date}`
+          : fallbackDate;
+        const safeSessionTime = localTime && localTime.time && localTime.time !== 'Invalid Time'
+          ? `${localTime.time} (${timezoneLabel})`
+          : `${fallbackTime} (${timezoneLabel})`;
+
+        const emailHTML = getClassCancelledEmail({
+          parentName: student.parent_name || 'Parent',
+          studentName: student.name,
+          sessionDate: safeSessionDate,
+          sessionTime: safeSessionTime,
+          cancelledBy: 'Teacher',
+          reason: reason || 'Class cancelled',
+          hasMakeupCredit: attendance === 'Excused'
+        });
+
+        await sendEmail(
+          student.parent_email,
+          `📅 Class Cancelled - ${student.name}`,
+          emailHTML,
+          student.parent_name,
+          'Class-Cancelled'
+        );
+      }
+    } catch (emailErr) {
+      console.error('Failed to send cancellation email (group):', emailErr);
+    }
+
     res.json({ success: true, message: attendance === 'Excused' ? 'Student marked Excused and makeup credit added' : 'Student marked Unexcused (no makeup credit)' });
   } catch (err) {
     await client.query('ROLLBACK');
