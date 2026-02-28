@@ -8868,7 +8868,7 @@ async function saveEditedPayment() {
         }
 
         container.innerHTML = challenges.map(c => {
-          const isActive = new Date(c.week_end) >= new Date();
+          const isActive = new Date(c.week_end + 'T23:59:59') >= new Date();
           const typeEmojis = {
             'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️',
             'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐'
