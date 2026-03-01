@@ -10116,7 +10116,7 @@ app.post('/api/challenges', async (req, res) => {
       </div>
       <p style="color:#4a5568;">Once completed, please submit the challenge through the <strong>Parent Portal</strong> so it can be reviewed.</p>
       <div style="text-align:center;margin:25px 0;">
-        <a href="${process.env.APP_URL || '#'}" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🎯 View in Parent Portal</a>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🎯 View in Parent Portal</a>
       </div>
     </div>
     <div style="background:#f7fafc;padding:15px;text-align:center;color:#718096;font-size:0.8rem;">
@@ -10311,7 +10311,7 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
       <p style="color:#4a5568;">Keep encouraging them to take on more challenges and continue growing every week.</p>
 
       <div style="text-align:center;margin:25px 0;">
-        <a href="${process.env.APP_URL || '#'}" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🏆 View Achievements</a>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🏆 View Achievements</a>
       </div>
     </div>
     <div style="background:linear-gradient(135deg,#f6d365 0%,#fda085 100%);padding:15px;text-align:center;">
