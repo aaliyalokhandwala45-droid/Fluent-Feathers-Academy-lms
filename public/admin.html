@@ -240,6 +240,9 @@
     .row-completed { background: #f0fff4; }
     /* Leaderboard styling */
     .leaderboard-top3 { background: linear-gradient(90deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.05) 100%); }
+    .lb-period-pill { background: #edf2f7; color: #4a5568; border: 1.5px solid #e2e8f0; border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
+    .lb-period-pill:hover { background: #e9d8fd; border-color: #9f7aea; color: #553c9a; }
+    .lb-period-active { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%) !important; color: white !important; border-color: transparent !important; }
     .rank-top3 { font-size: 1.5rem; }
     .rank-normal { font-size: 1rem; color: #718096; }
     /* Challenge status styling */
@@ -1259,7 +1262,46 @@
         <!-- Award Showcase -->
         <!-- removed - merged into Upcoming Awards cards above -->
 
+        <!-- Resend Award Certificate Email -->
+        <div style="background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%); border: 1.5px solid #68d391; border-radius: 14px; padding: 22px 24px; margin-bottom: 28px;">
+          <h3 style="margin: 0 0 6px; color: #276749; font-size: 1rem;">📧 Resend Award Certificate Email</h3>
+          <p style="margin: 0 0 16px; color: #4a5568; font-size: 0.85rem;">If a student didn't receive their award certificate email, use this to resend it instantly.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+            <div style="flex: 1; min-width: 180px;">
+              <label style="font-size: 12px; font-weight: 600; color: #4a5568; display: block; margin-bottom: 5px;">Student</label>
+              <select id="resendAwardStudent" style="width: 100%; padding: 9px 12px; border: 1.5px solid #68d391; border-radius: 8px; font-size: 14px; background: white; color: #2d3748;">
+                <option value="">Select student...</option>
+              </select>
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+              <label style="font-size: 12px; font-weight: 600; color: #4a5568; display: block; margin-bottom: 5px;">Award Type</label>
+              <select id="resendAwardType" style="width: 100%; padding: 9px 12px; border: 1.5px solid #68d391; border-radius: 8px; font-size: 14px; background: white; color: #2d3748;">
+                <option value="week">🌟 Student of the Week</option>
+                <option value="month">🏅 Student of the Month</option>
+                <option value="year">🏆 Student of the Year</option>
+              </select>
+            </div>
+            <div>
+              <button onclick="resendAwardEmail()" style="background: linear-gradient(135deg, #38b2ac 0%, #276749 100%); color: white; border: none; padding: 10px 22px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;">📨 Resend Certificate Email</button>
+            </div>
+          </div>
+          <div id="resendAwardStatus" style="margin-top: 12px; font-size: 13px;"></div>
+        </div>
+
         <!-- Top 3 Podium -->
+        <!-- Period filter pills -->
+        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 18px;">
+          <span style="font-size: 13px; font-weight: 600; color: #4a5568; margin-right: 4px;">📅 Period:</span>
+          <div id="lbPeriodPills" style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <button onclick="setLeaderboardPeriod('all', this)"     class="lb-period-pill lb-period-active">All Time</button>
+            <button onclick="setLeaderboardPeriod('thisweek', this)" class="lb-period-pill">This Week</button>
+            <button onclick="setLeaderboardPeriod('lastweek', this)" class="lb-period-pill">Last Week</button>
+            <button onclick="setLeaderboardPeriod('thismonth', this)" class="lb-period-pill">This Month</button>
+            <button onclick="setLeaderboardPeriod('lastmonth', this)" class="lb-period-pill">Last Month</button>
+            <button onclick="setLeaderboardPeriod('thisyear', this)"  class="lb-period-pill">This Year</button>
+          </div>
+          <span id="lbPeriodLabel" style="font-size: 12px; color: #718096; margin-left: 4px;"></span>
+        </div>
         <div id="leaderboardPodium" style="display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin-bottom: 30px; min-height: 200px;">
           <p style="color: #718096; text-align: center;">Loading leaderboard...</p>
         </div>
@@ -3949,6 +3991,36 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    // Populate leaderboard resend student dropdown whenever allStudents is loaded
+    function populateResendAwardDropdown() {
+      const sel = document.getElementById('resendAwardStudent');
+      if (!sel || !allStudents?.length) return;
+      sel.innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+
+    async function resendAwardEmail() {
+      const studentId = document.getElementById('resendAwardStudent').value;
+      const periodType = document.getElementById('resendAwardType').value;
+      const statusDiv = document.getElementById('resendAwardStatus');
+      if (!studentId) { statusDiv.innerHTML = '<span style="color:#e53e3e;">⚠️ Please select a student.</span>'; return; }
+      statusDiv.innerHTML = '<span style="color:#718096;">⏳ Sending...</span>';
+      try {
+        const res = await fetch('/api/admin/resend-award-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_id: studentId, period_type: periodType })
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusDiv.innerHTML = `<span style="color:#276749;">✅ ${data.message}</span>${data.certificateUrl ? ` — <a href="${data.certificateUrl}" target="_blank" style="color:#38b2ac;">View Certificate</a>` : ''}`;
+        } else {
+          statusDiv.innerHTML = `<span style="color:#e53e3e;">❌ ${data.error || data.message}</span>`;
+        }
+      } catch (e) {
+        statusDiv.innerHTML = `<span style="color:#e53e3e;">❌ Request failed: ${e.message}</span>`;
+      }
+    }
+
     async function loadStudents() {
       try {
         const res = await fetch('/api/students');
@@ -3956,6 +4028,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         filterStudents(); // Render with search filter
         document.getElementById('scheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
         document.getElementById('manageScheduleStudent').innerHTML = '<option value="">Select student...</option>' + allStudents.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        populateResendAwardDropdown();
 
         // Update due assessments count
        const dueCount = allStudents.filter(s => s.assessment_due).length;
@@ -8540,7 +8613,13 @@ async function saveEditedPayment() {
 
     // ==================== LEADERBOARD ====================
     // ── Period-picker helpers ──────────────────────────────────────────────────
-    function _isoDate(d) { return d.toISOString().split('T')[0]; }
+    // Use LOCAL date components — avoids UTC offset shifting the date for IST users
+    function _isoDate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
 
     async function loadUpcomingAwards() {
       const weekOpts  = genCurrentAndPastWeeks(17);
@@ -8563,12 +8642,12 @@ async function saveEditedPayment() {
     }
 
     function genCurrentAndPastWeeks(count=17) {
+      // Use Sun–Sat weeks to match the award system (awardStudentOfPeriod 'week' runs Sun–Sat)
       const opts=[]; const now=new Date();
-      const day=now.getDay(); const diffToMon = day===0?-6:1-day;
-      const thisMon=new Date(now); thisMon.setDate(now.getDate()+diffToMon); thisMon.setHours(0,0,0,0);
-      // index 0 = current week
+      const day=now.getDay(); // 0=Sun
+      const thisSun=new Date(now); thisSun.setDate(now.getDate()-day); thisSun.setHours(0,0,0,0);
       for(let i=0;i<count;i++){
-        const ws=new Date(thisMon); ws.setDate(thisMon.getDate()-i*7);
+        const ws=new Date(thisSun); ws.setDate(thisSun.getDate()-i*7);
         const we=new Date(ws); we.setDate(ws.getDate()+6);
         const label = (i===0?'Current Week: ':'')+ws.toLocaleDateString('en-IN',{month:'short',day:'numeric'})+' – '+we.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'});
         opts.push({ label, start:_isoDate(ws), end:_isoDate(we) });
@@ -8606,10 +8685,10 @@ async function saveEditedPayment() {
           ? `<div style="font-size:1.2rem;font-weight:bold;margin:4px 0;">${w.name}</div>
              <div style="font-size:11px;opacity:0.85;">📝 ${w.homework||0} HW &nbsp;·&nbsp; 🎯 ${w.challenges||0} challenges &nbsp;·&nbsp; 🏅 ${w.badges||0} badges</div>
              <div style="font-size:10px;opacity:0.7;margin-top:3px;">Score: ${w.total_score||0}</div>
-             <div style="margin-top:8px;background:rgba(255,255,255,0.2);border-radius:8px;padding:4px 8px;font-size:10px;">🔥 Currently leading!</div>`
-          : '<div style="font-size:13px;opacity:0.65;margin-top:6px;">No activity this period</div>';
+             <div style="margin-top:8px;background:rgba(255,255,255,0.2);border-radius:8px;padding:4px 8px;font-size:10px;">🔥 Leading!</div>`
+          : '<div style="margin-top:8px;background:rgba(0,0,0,0.18);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">😴 No activity this period</div>';
       } catch(e) {
-        body.innerHTML = '<div style="font-size:12px;opacity:0.6;">Failed to load</div>';
+        body.innerHTML = '<div style="margin-top:8px;background:rgba(0,0,0,0.18);border-radius:8px;padding:6px 10px;font-size:12px;">⚠️ Failed to load</div>';
       }
     }
 
@@ -8659,11 +8738,53 @@ async function saveEditedPayment() {
     }
     // ──────────────────────────────────────────────────────────────────────────
 
-    async function loadLeaderboard() {
+    // Compute ISO date strings for leaderboard period filter
+    function getLeaderboardDateRange(period) {
+      const now = new Date();
+      const fmt = d => d.toISOString().split('T')[0];
+      const dayOfWeek = now.getDay(); // 0=Sun
+      if (period === 'thisweek') {
+        // Mon–today
+        const mon = new Date(now); mon.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); mon.setHours(0,0,0,0);
+        return { start: fmt(mon), end: fmt(now), label: `${mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – Today` };
+      }
+      if (period === 'lastweek') {
+        const mon = new Date(now); mon.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) - 7); mon.setHours(0,0,0,0);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        return { start: fmt(mon), end: fmt(sun), label: `${mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${sun.toLocaleDateString('en-US',{month:'short',day:'numeric'})}` };
+      }
+      if (period === 'thismonth') {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { start: fmt(start), end: fmt(now), label: `${start.toLocaleDateString('en-US',{month:'long',year:'numeric'})}` };
+      }
+      if (period === 'lastmonth') {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end   = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { start: fmt(start), end: fmt(end), label: start.toLocaleDateString('en-US',{month:'long',year:'numeric'}) };
+      }
+      if (period === 'thisyear') {
+        return { start: `${now.getFullYear()}-01-01`, end: fmt(now), label: `${now.getFullYear()}` };
+      }
+      return { start: null, end: null, label: 'All Time' };
+    }
+
+    let _lbCurrentPeriod = 'all';
+    function setLeaderboardPeriod(period, btn) {
+      _lbCurrentPeriod = period;
+      document.querySelectorAll('.lb-period-pill').forEach(b => b.classList.remove('lb-period-active'));
+      btn.classList.add('lb-period-active');
+      loadLeaderboard(true); // skip re-loading upcoming awards
+    }
+
+    async function loadLeaderboard(skipUpcoming) {
       // Load upcoming award cards (with dropdowns)
-      loadUpcomingAwards();
+      if (!skipUpcoming) loadUpcomingAwards();
+      const { start, end, label } = getLeaderboardDateRange(_lbCurrentPeriod);
+      const lbUrl = (start && end) ? `/api/leaderboard?start=${start}&end=${end}` : '/api/leaderboard';
+      const periodLabelEl = document.getElementById('lbPeriodLabel');
+      if (periodLabelEl) periodLabelEl.textContent = (start && end) ? `(${label})` : '';
       try {
-        const [res, awardsRes] = await Promise.all([fetch('/api/leaderboard'), fetch('/api/awards/current')]);
+        const [res, awardsRes] = await Promise.all([fetch(lbUrl), fetch('/api/awards/current')]);
         const data = await res.json();
         const awards = await awardsRes.json();
         const students = data.leaderboard || [];

@@ -9279,8 +9279,17 @@ async function awardStudentOfPeriod(periodType) {
 }
 
 // Leaderboard - Get all students ranked by same points logic used in awards
+// Optional query params: ?start=YYYY-MM-DD&end=YYYY-MM-DD for period filtering
 app.get('/api/leaderboard', async (req, res) => {
   try {
+    const { start, end } = req.query;
+    const useDateFilter = !!(start && end);
+    const params = useDateFilter ? [start, end] : [];
+    const hwFilter    = useDateFilter ? `AND uploaded_at >= $1::date AND uploaded_at < ($2::date + INTERVAL '1 day')` : '';
+    const chFilter    = useDateFilter ? `AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')` : '';
+    const bdgFilter   = useDateFilter ? `AND earned_date  >= $1::date AND earned_date  < ($2::date + INTERVAL '1 day')` : '';
+    const bdgLatestFilter = useDateFilter ? `AND earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')` : '';
+
     const result = await pool.query(`
       WITH homework_pts AS (
         SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts
@@ -9288,22 +9297,26 @@ app.get('/api/leaderboard', async (req, res) => {
         WHERE file_type = 'Homework'
           AND uploaded_by IN ('Parent', 'Admin')
           AND student_id IS NOT NULL
+          ${hwFilter}
         GROUP BY student_id
       ),
       challenge_pts AS (
         SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts
         FROM student_challenges
         WHERE status = 'Completed'
+          ${chFilter}
         GROUP BY student_id
       ),
       badge_pts AS (
         SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
         FROM student_badges
+        WHERE 1=1 ${bdgFilter}
         GROUP BY student_id
       ),
       badge_counts AS (
         SELECT student_id, COUNT(*) as badge_count
         FROM student_badges
+        WHERE 1=1 ${bdgFilter}
         GROUP BY student_id
       )
       SELECT
@@ -9315,7 +9328,7 @@ app.get('/api/leaderboard', async (req, res) => {
         COALESCE(b.pts, 0) as badge_points,
         COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score,
         COALESCE(bc.badge_count, 0) as total_badges,
-        (SELECT badge_name FROM student_badges WHERE student_id = s.id ORDER BY earned_date DESC LIMIT 1) as latest_badge
+        (SELECT badge_name FROM student_badges WHERE student_id = s.id ${bdgLatestFilter} ORDER BY earned_date DESC LIMIT 1) as latest_badge
       FROM students s
       LEFT JOIN homework_pts h ON s.id = h.student_id
       LEFT JOIN challenge_pts c ON s.id = c.student_id
@@ -9324,7 +9337,7 @@ app.get('/api/leaderboard', async (req, res) => {
       WHERE s.is_active = true
         AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
       ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, badge_points DESC, s.name ASC
-    `);
+    `, params);
     res.json({ leaderboard: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -9497,6 +9510,141 @@ app.get('/api/awards/by-period', async (req, res) => {
   } catch (err) {
     console.error('Error in /api/awards/by-period:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ==================== RESEND AWARD CERTIFICATE EMAIL ====================
+// POST /api/admin/resend-award-email
+// Body: { student_id, period_type: 'week' | 'month' | 'year' }
+// Re-sends the Student of the Week/Month/Year award email (with certificate link) to the parent.
+app.post('/api/admin/resend-award-email', async (req, res) => {
+  try {
+    const { student_id, period_type } = req.body;
+    if (!student_id || !period_type) {
+      return res.status(400).json({ error: 'student_id and period_type are required' });
+    }
+
+    // Load student record
+    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [student_id]);
+    if (!studentResult.rows.length) return res.status(404).json({ error: 'Student not found' });
+    const student = studentResult.rows[0];
+    if (!student.parent_email) return res.status(400).json({ error: 'No parent email on file for this student' });
+
+    // Find the most recent award badge of this period type
+    const badgeResult = await pool.query(
+      `SELECT * FROM student_badges WHERE student_id = $1 AND badge_type LIKE $2 ORDER BY earned_date DESC LIMIT 1`,
+      [student_id, `student_of_${period_type}_%`]
+    );
+    if (!badgeResult.rows.length) {
+      return res.status(404).json({ error: `No "${period_type}" award badge found for ${student.name}. Make sure the award has been given first.` });
+    }
+
+    const badge = badgeResult.rows[0];
+    const awardTitle = badge.badge_name;
+
+    // Extract period label and reported score from badge description
+    // Description format: "Top scorer for PERIOD_LABEL with N points!"
+    const descMatch = badge.badge_description?.match(/^Top scorer for (.+?) with (\d+) points!/);
+    const periodLabel = descMatch ? descMatch[1] : 'Recent Period';
+    let totalScore = descMatch ? parseInt(descMatch[2]) : 0;
+    let breakdown = { homework: 0, challenges: 0, badges: 0 };
+
+    // Reconstruct date range from badge_type to re-fetch accurate score breakdown
+    // badge_type format: student_of_week_YEAR_WNN  |  student_of_month_YEAR_MM  |  student_of_year_YEAR
+    const parts = badge.badge_type.split('_'); // ['student','of','week','2026','W09']
+    const yearStr = parts[3];
+    const periodKey = parts[4]; // 'W09', '02', or undefined for year
+    let startDate = null, endDate = null;
+
+    if (period_type === 'week' && periodKey?.startsWith('W')) {
+      const weekNum = parseInt(periodKey.slice(1));
+      const jan1 = new Date(parseInt(yearStr), 0, 1);
+      // ISO week: find Sunday of that week
+      const sunday = new Date(jan1);
+      sunday.setDate(jan1.getDate() + (weekNum - 1) * 7 - jan1.getDay());
+      const saturday = new Date(sunday);
+      saturday.setDate(sunday.getDate() + 6);
+      startDate = sunday.toISOString().split('T')[0];
+      endDate = saturday.toISOString().split('T')[0];
+    } else if (period_type === 'month' && periodKey) {
+      const mn = parseInt(periodKey, 10);
+      const lastDay = new Date(parseInt(yearStr), mn, 0);
+      startDate = `${yearStr}-${periodKey}-01`;
+      endDate = `${yearStr}-${periodKey}-${String(lastDay.getDate()).padStart(2, '0')}`;
+    } else if (period_type === 'year' && yearStr) {
+      startDate = `${yearStr}-01-01`;
+      endDate = `${yearStr}-12-31`;
+    }
+
+    if (startDate && endDate) {
+      const scores = await calculateStudentScores(startDate, endDate);
+      const studentScore = scores.find(s => String(s.student_id) === String(student_id));
+      if (studentScore) {
+        totalScore = studentScore.total_score;
+        breakdown = {
+          homework: studentScore.homework_score,
+          challenges: studentScore.challenge_score,
+          badges: studentScore.badge_score
+        };
+      }
+    }
+
+    // Find existing certificate record or create a new one
+    let certificateUrl = '';
+    const certTitle = getAwardCertificateTitle(period_type);
+    const certResult = await pool.query(
+      `SELECT id FROM monthly_assessments WHERE assessment_type = 'demo' AND student_id = $1 AND certificate_title = $2 ORDER BY created_at DESC LIMIT 1`,
+      [student_id, certTitle]
+    );
+    if (certResult.rows[0]?.id) {
+      const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
+      certificateUrl = `${appUrl}/demo-certificate.html?id=${certResult.rows[0].id}`;
+    } else {
+      const certInsert = await pool.query(`
+        INSERT INTO monthly_assessments (assessment_type, student_id, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
+        VALUES ('demo', $1, $2, $3, $4, $5, $6) RETURNING id
+      `, [
+        student_id,
+        JSON.stringify(['Homework Consistency', 'Challenge Participation', 'Badge Achievement']),
+        certTitle,
+        badge.badge_description || `${awardTitle} (${periodLabel}) with ${totalScore} points.`,
+        'Keep up consistent participation and complete challenges regularly.',
+        'Outstanding progress and dedication shown this period.'
+      ]);
+      if (certInsert.rows[0]?.id) {
+        const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
+        certificateUrl = `${appUrl}/demo-certificate.html?id=${certInsert.rows[0].id}`;
+      }
+    }
+
+    // Build the award email (same as auto-award logic)
+    const emailHTML = getStudentAwardEmail(student.name, awardTitle, periodLabel, totalScore, breakdown);
+    const finalEmailHTML = certificateUrl
+      ? emailHTML.replace(
+          '</div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">',
+          `<div style="margin-top:20px;text-align:center;">\n        <a href="${certificateUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#38b2ac 0%,#319795 100%);color:white;text-decoration:none;padding:12px 22px;border-radius:24px;font-weight:600;">📥 Download Award Certificate</a>\n      </div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">`
+        )
+      : emailHTML;
+
+    const sent = await sendEmail(
+      student.parent_email,
+      `${awardTitle} - ${student.name} | Fluent Feathers Academy`,
+      finalEmailHTML,
+      student.parent_name,
+      'Student Award Resend'
+    );
+
+    console.log(`📧 Award email resend for ${student.name} (${period_type}): ${sent ? 'SUCCESS' : 'FAILED'} → ${student.parent_email}`);
+    res.json({
+      success: sent,
+      message: sent
+        ? `Award email successfully resent to ${student.parent_email}`
+        : 'Email service failed. Check BREVO_API_KEY and server logs.',
+      certificateUrl: certificateUrl || null
+    });
+  } catch (err) {
+    console.error('Error resending award email:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

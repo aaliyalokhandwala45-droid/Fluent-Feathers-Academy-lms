@@ -2029,130 +2029,175 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       document.body.appendChild(modal);
     }
 
+    // ── Leaderboard modal helpers ──────────────────────────────────────────
+    function _plbIsoDate(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    function _plbDateRange(period) {
+      const now = new Date();
+      const day = now.getDay();
+      if (period === 'thisweek') {
+        const sun = new Date(now); sun.setDate(now.getDate() - day); sun.setHours(0,0,0,0);
+        return { start: _plbIsoDate(sun), end: _plbIsoDate(now), label: 'This Week' };
+      }
+      if (period === 'lastweek') {
+        const sun = new Date(now); sun.setDate(now.getDate() - day - 7); sun.setHours(0,0,0,0);
+        const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+        return { start: _plbIsoDate(sun), end: _plbIsoDate(sat), label: sun.toLocaleDateString('en-IN',{month:'short',day:'numeric'}) + ' – ' + sat.toLocaleDateString('en-IN',{month:'short',day:'numeric'}) };
+      }
+      if (period === 'thismonth') {
+        const s = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { start: _plbIsoDate(s), end: _plbIsoDate(now), label: s.toLocaleDateString('en-IN',{month:'long',year:'numeric'}) };
+      }
+      if (period === 'lastmonth') {
+        const s = new Date(now.getFullYear(), now.getMonth()-1, 1);
+        const e = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { start: _plbIsoDate(s), end: _plbIsoDate(e), label: s.toLocaleDateString('en-IN',{month:'long',year:'numeric'}) };
+      }
+      if (period === 'thisyear') {
+        return { start: `${now.getFullYear()}-01-01`, end: _plbIsoDate(now), label: String(now.getFullYear()) };
+      }
+      return { start: null, end: null, label: 'All Time' };
+    }
+
+    function _plbBuildPodium(leaderboardData) {
+      const top3 = leaderboardData.slice(0, 3);
+      if (!top3.length) return '';
+      const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
+      return podiumOrder.map(student => {
+        const r = leaderboardData.indexOf(student) + 1;
+        const medals    = { 1:'🥇', 2:'🥈', 3:'🥉' };
+        const classes   = { 1:'parent-podium-gold', 2:'parent-podium-silver', 3:'parent-podium-bronze' };
+        const heights   = { 1:'parent-podium-height-1', 2:'parent-podium-height-2', 3:'parent-podium-height-3' };
+        const shadows   = { 1:'parent-podium-shadow-gold', 2:'parent-podium-shadow-silver', 3:'parent-podium-shadow-bronze' };
+        return `
+          <div style="display:flex;flex-direction:column;align-items:center;transition:transform 0.3s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+            <div style="font-size:1.8rem;margin-bottom:6px;">${medals[r]}</div>
+            <div class="${shadows[r]}" style="background:white;padding:8px 12px;border-radius:10px;text-align:center;margin-bottom:6px;min-width:90px;">
+              <div style="font-weight:bold;color:#2d3748;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;">${student.name}</div>
+              <div style="color:#667eea;font-size:1.2rem;font-weight:bold;">${student.total_badges||0}</div>
+              <div style="color:#718096;font-size:0.65rem;">badges</div>
+              <div style="color:#e67e22;font-size:0.75rem;font-weight:600;margin-top:3px;">⭐ ${student.total_score||0} pts</div>
+            </div>
+            <div class="${classes[r]} ${heights[r]}" style="width:80px;border-radius:8px 8px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:10px;">
+              <span style="color:white;font-weight:bold;font-size:1.2rem;">#${r}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function _plbLoad(period, btn) {
+      // Highlight active pill
+      document.querySelectorAll('.plb-pill').forEach(b => {
+        b.style.background = 'rgba(255,255,255,0.18)';
+        b.style.fontWeight = '500';
+        b.style.border = '1.5px solid rgba(255,255,255,0.3)';
+      });
+      if (btn) { btn.style.background = 'white'; btn.style.color = '#667eea'; btn.style.fontWeight = '700'; btn.style.border = '1.5px solid white'; }
+
+      const contentDiv = document.getElementById('lbModalContent');
+      if (!contentDiv) return;
+      contentDiv.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.7);padding:30px;">⏳ Loading...</div>';
+
+      const { start, end, label } = _plbDateRange(period);
+      const url = (start && end) ? `/api/leaderboard?start=${start}&end=${end}` : '/api/leaderboard';
+      let leaderboardData = [];
+      try {
+        const res = await fetch(url, { headers: authHeaders() });
+        const data = await res.json();
+        leaderboardData = data.leaderboard || [];
+      } catch (err) { console.error('Leaderboard fetch error:', err); }
+
+      const myScore = leaderboardData.find(s => s.id === currentStudent.id)?.total_score || 0;
+      const myRank  = leaderboardData.findIndex(s => s.id === currentStudent.id) + 1;
+      const myBadges = allBadges.length;
+      const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+      const top5 = leaderboardData.slice(0, 5);
+      const podiumHTML = _plbBuildPodium(leaderboardData);
+
+      contentDiv.innerHTML = `
+        <!-- My Rank Card -->
+        <div style="background:linear-gradient(135deg,#ffd700 0%,#ffb347 100%);padding:16px 20px;border-radius:16px;text-align:center;margin-bottom:16px;box-shadow:0 4px 15px rgba(0,0,0,0.2);">
+          <p style="color:#333;margin:0 0 4px;font-size:0.85rem;">Your Rank ${label !== 'All Time' ? `<span style="font-size:0.75rem;opacity:0.75;">(${label})</span>` : ''}</p>
+          <div style="font-size:2.6rem;font-weight:bold;color:#333;">${myRank > 0 ? '#'+myRank : '—'}</div>
+          <p style="color:#333;margin:8px 0 0;font-size:1rem;"><strong>${currentStudent.name}</strong></p>
+          <p style="color:#555;margin:4px 0 0;font-size:0.85rem;">🏆 <strong>${myBadges}</strong> badges &nbsp;·&nbsp; ⭐ <strong>${myScore}</strong> pts</p>
+        </div>
+
+        <!-- Podium Top 3 -->
+        ${podiumHTML ? `
+        <div style="background:rgba(255,255,255,0.1);border-radius:16px;padding:15px 10px;margin-bottom:16px;">
+          <div class="parent-podium-container" style="display:flex;justify-content:center;align-items:flex-end;gap:12px;min-height:180px;">
+            ${podiumHTML}
+          </div>
+        </div>` : ''}
+
+        <!-- Top 5 List -->
+        <div style="background:white;border-radius:12px;overflow:hidden;">
+          <div style="background:linear-gradient(90deg,#f6d365 0%,#fda085 100%);padding:12px 15px;text-align:center;">
+            <strong style="color:#333;">🌟 Top Scorers ${label !== 'All Time' ? '— '+label : '(All Time)'} 🌟</strong>
+          </div>
+          ${top5.length > 0 ? top5.map((student, idx) => `
+            <div style="display:flex;align-items:center;padding:12px 15px;border-bottom:1px solid #f0f0f0;${student.id===currentStudent.id?'background:rgba(102,126,234,0.1);':''}">
+              <div style="font-size:1.4rem;margin-right:12px;">${medals[idx]}</div>
+              <div style="flex:1;">
+                <div style="font-weight:600;color:#2d3748;">${student.name}${student.id===currentStudent.id?' <span style="color:#667eea;">(You!)</span>':''}</div>
+                <div style="font-size:0.75rem;color:#718096;">Badges: ${student.total_badges||0} &nbsp;·&nbsp; ⭐ ${student.total_score||0} pts</div>
+              </div>
+              <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:5px 11px;border-radius:20px;font-weight:bold;font-size:0.9rem;">${student.total_score||0}</div>
+            </div>`).join('')
+          : '<div style="padding:20px;text-align:center;color:#718096;">No activity this period yet!</div>'}
+          ${myRank > 5 ? `
+            <div style="padding:7px 15px;background:#f0f0f0;text-align:center;color:#718096;font-size:0.8rem;">• • •</div>
+            <div style="display:flex;align-items:center;padding:12px 15px;background:linear-gradient(90deg,rgba(102,126,234,0.15) 0%,rgba(118,75,162,0.15) 100%);border-top:2px solid #667eea;">
+              <div style="font-size:1.1rem;margin-right:12px;font-weight:bold;color:#667eea;">#${myRank}</div>
+              <div style="flex:1;">
+                <div style="font-weight:600;color:#2d3748;">${currentStudent.name} <span style="color:#667eea;">(You!)</span></div>
+                <div style="font-size:0.75rem;color:#718096;">⭐ ${myScore} pts</div>
+              </div>
+              <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:5px 11px;border-radius:20px;font-weight:bold;font-size:0.9rem;">${myScore}</div>
+            </div>` : ''}
+        </div>
+        <p style="color:rgba(255,255,255,0.75);text-align:center;margin-top:14px;font-size:0.82rem;">
+          ${myRank > 5 ? `Keep going! Earn more to climb higher 💪` : 'Keep earning to stay on top! 🚀'}
+        </p>`;
+    }
+
     async function openLeaderboardModal() {
-      // Remove existing modal if any
       const existing = document.getElementById('leaderboardModal');
       if (existing) existing.remove();
 
-      // Fetch leaderboard data
-      let leaderboardData = [];
-      try {
-        const res = await fetch('/api/leaderboard', { headers: authHeaders() });
-        const data = await res.json();
-        leaderboardData = data.leaderboard || [];
-      } catch (err) {
-        console.error('Error fetching leaderboard:', err);
-      }
-
-      // Find current student's rank
-      const myRank = leaderboardData.findIndex(s => s.id === currentStudent.id) + 1;
-      const myBadges = allBadges.length;
-      const myScore = leaderboardData.find(s => s.id === currentStudent.id)?.total_score || 0;
-
       const modal = document.createElement('div');
       modal.id = 'leaderboardModal';
-      modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
 
-      const top5 = leaderboardData.slice(0, 5);
-      const top3 = leaderboardData.slice(0, 3);
-      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
-
-      // Build podium HTML for top 3
-      let podiumHTML = '';
-      if (top3.length >= 1) {
-        const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
-        podiumOrder.forEach((student) => {
-          const actualRank = leaderboardData.indexOf(student) + 1;
-          const podiumMedals = { 1: '🥇', 2: '🥈', 3: '🥉' };
-          const podiumClasses = { 1: 'parent-podium-gold', 2: 'parent-podium-silver', 3: 'parent-podium-bronze' };
-          const heightClasses = { 1: 'parent-podium-height-1', 2: 'parent-podium-height-2', 3: 'parent-podium-height-3' };
-          const shadowClasses = { 1: 'parent-podium-shadow-gold', 2: 'parent-podium-shadow-silver', 3: 'parent-podium-shadow-bronze' };
-
-          podiumHTML += `
-            <div style="display: flex; flex-direction: column; align-items: center; transition: transform 0.3s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
-              <div style="font-size: 1.8rem; margin-bottom: 6px;">${podiumMedals[actualRank]}</div>
-              <div class="${shadowClasses[actualRank]}" style="background: white; padding: 8px 12px; border-radius: 10px; text-align: center; margin-bottom: 6px; min-width: 90px;">
-                <div style="font-weight: bold; color: #2d3748; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${student.name}</div>
-                <div style="color: #667eea; font-size: 1.2rem; font-weight: bold;">${student.total_badges}</div>
-                <div style="color: #718096; font-size: 0.65rem;">badges</div>
-                <div style="color: #e67e22; font-size: 0.75rem; font-weight: 600; margin-top: 3px;">⭐ ${student.total_score || 0} pts</div>
-              </div>
-              <div class="${podiumClasses[actualRank]} ${heightClasses[actualRank]}" style="width: 80px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 10px;">
-                <span style="color: white; font-weight: bold; font-size: 1.2rem;">#${actualRank}</span>
-              </div>
-            </div>
-          `;
-        });
-      }
+      const pillStyle = 'class="plb-pill" style="background:rgba(255,255,255,0.18);color:white;border:1.5px solid rgba(255,255,255,0.3);border-radius:20px;padding:5px 13px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;"';
 
       modal.innerHTML = `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; max-width: 500px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 25px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="color: white; margin: 0;">🏅 Badge Leaderboard</h2>
-            <button onclick="document.getElementById('leaderboardModal').remove()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 1rem;">✕</button>
+        <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:20px;max-width:500px;width:100%;max-height:88vh;overflow-y:auto;padding:22px 22px 18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h2 style="color:white;margin:0;font-size:1.2rem;">🏅 Leaderboard</h2>
+            <button onclick="document.getElementById('leaderboardModal').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:7px 13px;border-radius:8px;cursor:pointer;font-size:1rem;">✕</button>
           </div>
-
-          <!-- My Rank Card -->
-          <div style="background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%); padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-            <p style="color: #333; margin: 0 0 5px 0; font-size: 0.9rem;">Your Rank</p>
-            <div style="font-size: 3rem; font-weight: bold; color: #333;">${myRank > 0 ? '#' + myRank : '—'}</div>
-            <p style="color: #333; margin: 10px 0 0 0; font-size: 1.1rem;"><strong>${currentStudent.name}</strong></p>
-            <p style="color: #555; margin: 5px 0 0 0;">🏆 <strong>${myBadges}</strong> badges &nbsp;·&nbsp; ⭐ <strong>${myScore}</strong> total score</p>
+          <!-- Period pills -->
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+            <button ${pillStyle} onclick="_plbLoad('all',this)" id="plb_all">All Time</button>
+            <button ${pillStyle} onclick="_plbLoad('thisweek',this)">This Week</button>
+            <button ${pillStyle} onclick="_plbLoad('lastweek',this)">Last Week</button>
+            <button ${pillStyle} onclick="_plbLoad('thismonth',this)">This Month</button>
+            <button ${pillStyle} onclick="_plbLoad('lastmonth',this)">Last Month</button>
+            <button ${pillStyle} onclick="_plbLoad('thisyear',this)">This Year</button>
           </div>
+          <!-- Dynamic content -->
+          <div id="lbModalContent"><div style="text-align:center;color:rgba(255,255,255,0.7);padding:30px;">⏳ Loading...</div></div>
+        </div>`;
 
-          <!-- Podium Top 3 -->
-          ${top3.length >= 1 ? `
-          <div style="background: rgba(255,255,255,0.1); border-radius: 16px; padding: 15px 10px; margin-bottom: 20px;">
-            <div class="parent-podium-container" style="display: flex; justify-content: center; align-items: flex-end; gap: 12px; min-height: 200px;">
-              ${podiumHTML}
-            </div>
-          </div>
-          ` : ''}
-
-          <!-- Top 5 Leaderboard -->
-          <div style="background: white; border-radius: 12px; overflow: hidden;">
-            <div style="background: linear-gradient(90deg, #f6d365 0%, #fda085 100%); padding: 12px 15px; text-align: center;">
-              <strong style="color: #333;">🌟 Top Badge Collectors 🌟</strong>
-            </div>
-            ${top5.length > 0 ? top5.map((student, idx) => `
-              <div style="display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #f0f0f0; ${student.id === currentStudent.id ? 'background: rgba(102,126,234,0.1);' : ''}">
-                <div style="font-size: 1.5rem; margin-right: 12px;">${medals[idx]}</div>
-                <div style="flex: 1;">
-                  <div style="font-weight: 600; color: #2d3748;">${student.name} ${student.id === currentStudent.id ? '(You!)' : ''}</div>
-                  <div style="font-size: 0.75rem; color: #718096;">Badges: ${student.total_badges} &nbsp;·&nbsp; ⭐ Score: ${student.total_score || 0}</div>
-                </div>
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
-                  ${student.total_score || 0}
-                </div>
-              </div>
-            `).join('') : '<div style="padding: 20px; text-align: center; color: #718096;">No students on leaderboard yet!</div>'}
-
-            ${myRank > 5 ? `
-              <div style="padding: 8px 15px; background: #f0f0f0; text-align: center; color: #718096; font-size: 0.8rem;">• • •</div>
-              <div style="display: flex; align-items: center; padding: 12px 15px; background: linear-gradient(90deg, rgba(102,126,234,0.15) 0%, rgba(118,75,162,0.15) 100%); border-top: 2px solid #667eea;">
-                <div style="font-size: 1.2rem; margin-right: 12px; font-weight: bold; color: #667eea;">#${myRank}</div>
-                <div style="flex: 1;">
-                  <div style="font-weight: 600; color: #2d3748;">${currentStudent.name} <span style="color: #667eea;">(You!)</span></div>
-                  <div style="font-size: 0.75rem; color: #718096;">Badges: ${myBadges} &nbsp;·&nbsp; ⭐ Score: ${myScore}</div>
-                </div>
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
-                  ${myScore}
-                </div>
-              </div>
-            ` : ''}
-          </div>
-
-          <p style="color: rgba(255,255,255,0.8); text-align: center; margin-top: 15px; font-size: 0.85rem;">
-            ${myRank > 5 ? `You need ${(leaderboardData[4]?.total_badges || 1) - myBadges + 1} more badges to reach Top 5! 💪` : 'Keep earning badges to climb the leaderboard! 🚀'}
-          </p>
-        </div>
-      `;
-
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.remove();
-      });
-
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
       document.body.appendChild(modal);
+
+      // Load default (all time) and highlight its pill
+      const allBtn = modal.querySelector('#plb_all');
+      await _plbLoad('all', allBtn);
     }
 
     // Load weekly challenges for student
