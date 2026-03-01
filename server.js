@@ -6078,6 +6078,14 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
       `, [session.student_id, session.id, reason || 'Teacher cancelled', notes || '']);
     }
 
+    // Decrement remaining_sessions for the student (private sessions only)
+    if (session.student_id && session.session_type !== 'Group') {
+      await pool.query(
+        `UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`,
+        [session.student_id]
+      );
+    }
+
     // Send cancellation email to parent
     if (student && student.parent_email) {
       try {
@@ -7573,8 +7581,12 @@ app.post('/api/parent/cancel-class', async (req, res) => {
         ['Excused', session.id, id]
       );
     } else {
-      // For private sessions: cancel the entire session
+      // For private sessions: cancel the entire session and decrement remaining count
       await pool.query('UPDATE sessions SET status = $1, cancelled_by = $2 WHERE id = $3', ['Cancelled by Parent', 'Parent', session.id]);
+      await pool.query(
+        `UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`,
+        [id]
+      );
     }
 
     // Give makeup credit in both cases
