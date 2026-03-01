@@ -9116,7 +9116,7 @@ async function calculateStudentScores(startDate, endDate) {
   `, [startDate, endDate]);
   return result.rows;
 }
-function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, breakdown) {
+function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, breakdown, certificateUrl = '') {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -9135,12 +9135,16 @@ function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, 
       </div>
       <div style="background:#f7fafc;border-radius:10px;padding:20px;margin:20px 0;text-align:left;">
         <p style="margin:0 0 10px;font-weight:600;color:#2d3748;">Score Breakdown:</p>
-        <p style="margin:4px 0;color:#4a5568;"> Homework Submitted: <strong>${breakdown.homework} pts</strong></p>
-<p style="margin:4px 0;color:#4a5568;">🎯 Challenges Completed: <strong>${breakdown.challenges} pts</strong></p>
-<p style="margin:4px 0;color:#4a5568;">🏅 Badges Earned: <strong>${breakdown.badges} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">📝 Homework Submitted: <strong>${breakdown.homework} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">🎯 Challenges Completed: <strong>${breakdown.challenges} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">🏅 Badges Earned: <strong>${breakdown.badges} pts</strong></p>
         <p style="margin:10px 0 0;font-size:18px;font-weight:700;color:#B05D9E;">Total: ${totalScore} points</p>
       </div>
       <p style="font-size:15px;color:#4a5568;line-height:1.6;">Keep up the amazing work! We're so proud of ${studentName}'s dedication and progress at Fluent Feathers Academy. 💜</p>
+      ${certificateUrl ? `
+      <div style="margin-top:22px;">
+        <a href="${certificateUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#38b2ac 0%,#319795 100%);color:white;text-decoration:none;padding:14px 28px;border-radius:30px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(56,178,172,0.4);">📥 Download Award Certificate</a>
+      </div>` : ''}
     </div>
     <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">
       <p style="margin:0;color:#a0aec0;font-size:12px;">Fluent Feathers Academy By Aaliya</p>
@@ -9236,17 +9240,11 @@ async function awardStudentOfPeriod(periodType) {
     }
 
     if (winner.parent_email) {
-      const emailHTML = getStudentAwardEmail(winner.name, awardTitle, periodLabel, winner.total_score, {
-  homework: winner.homework_score,
-  challenges: winner.challenge_score,
-  badges: winner.badge_score
-});
-      const winnerEmailHTML = certificateUrl
-        ? emailHTML.replace(
-            '</div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">',
-            `<div style="margin-top:20px;text-align:center;">\n        <a href="${certificateUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#38b2ac 0%,#319795 100%);color:white;text-decoration:none;padding:12px 22px;border-radius:24px;font-weight:600;">📥 Download Award Certificate</a>\n      </div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">`
-          )
-        : emailHTML;
+      const winnerEmailHTML = getStudentAwardEmail(winner.name, awardTitle, periodLabel, winner.total_score, {
+        homework: winner.homework_score,
+        challenges: winner.challenge_score,
+        badges: winner.badge_score
+      }, certificateUrl);
       await sendEmail(winner.parent_email, `${awardTitle} - ${winner.name} | Fluent Feathers Academy`, winnerEmailHTML, winner.parent_name, 'Student Award');
     }
 
@@ -9617,14 +9615,8 @@ app.post('/api/admin/resend-award-email', async (req, res) => {
       }
     }
 
-    // Build the award email (same as auto-award logic)
-    const emailHTML = getStudentAwardEmail(student.name, awardTitle, periodLabel, totalScore, breakdown);
-    const finalEmailHTML = certificateUrl
-      ? emailHTML.replace(
-          '</div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">',
-          `<div style="margin-top:20px;text-align:center;">\n        <a href="${certificateUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#38b2ac 0%,#319795 100%);color:white;text-decoration:none;padding:12px 22px;border-radius:24px;font-weight:600;">📥 Download Award Certificate</a>\n      </div>\n    </div>\n    <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">`
-        )
-      : emailHTML;
+    // Build the award email with certificate button baked directly in
+    const finalEmailHTML = getStudentAwardEmail(student.name, awardTitle, periodLabel, totalScore, breakdown, certificateUrl);
 
     const sent = await sendEmail(
       student.parent_email,
