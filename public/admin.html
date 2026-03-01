@@ -8878,7 +8878,7 @@ async function saveEditedPayment() {
 
         container.innerHTML = challenges.map(c => {
           // Use IST (UTC+5:30) end-of-day so challenge isn't marked Ended prematurely
-          const isActive = new Date(c.week_end + 'T23:59:59+05:30') >= new Date();
+          const isActive = new Date(c.week_end.substring(0, 10) + 'T23:59:59+05:30') >= new Date();
           const typeEmojis = {
             'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️',
             'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐'
