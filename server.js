@@ -4448,6 +4448,7 @@ app.get('/api/calendar/sessions', async (req, res) => {
       WHERE s.student_id IS NOT NULL
         AND s.group_id IS NULL
         AND s.session_date >= $1 AND s.session_date <= $2
+        AND COALESCE(s.status, 'Scheduled') NOT IN ('Cancelled', 'Cancelled by Parent')
       ORDER BY s.session_date, s.session_time
     `, [start, end]);
 
@@ -4460,6 +4461,7 @@ app.get('/api/calendar/sessions', async (req, res) => {
       JOIN groups g ON s.group_id = g.id
       WHERE s.group_id IS NOT NULL
         AND s.session_date >= $1 AND s.session_date <= $2
+        AND COALESCE(s.status, 'Scheduled') NOT IN ('Cancelled', 'Cancelled by Parent')
       ORDER BY s.session_date, s.session_time
     `, [start, end]);
 
