@@ -8027,7 +8027,7 @@ app.post('/api/students/:id/renewal', async (req, res) => {
         last_reminder_remaining = NULL
       WHERE id = $3
     `, [sessionsNum, amount, req.params.id]);
-    await renumberPrivateSessionsForStudent(studentId, client);
+    await renumberPrivateSessionsForStudent(req.params.id, client);
 
     await client.query('COMMIT');
 
