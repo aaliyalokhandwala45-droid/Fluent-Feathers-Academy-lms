@@ -1908,7 +1908,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     // ── Period-picker helpers for Hall of Fame ────────────────────────────────
-    function _hofIsoDate(d) { return d.toISOString().split('T')[0]; }
+    function _hofIsoDate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
     function hofPastWeeks(count=16) {
       const opts=[]; const now=new Date();
       const day=now.getDay(); const diffToMon=day===0?-6:1-day;
