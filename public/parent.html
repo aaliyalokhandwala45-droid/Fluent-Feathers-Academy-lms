@@ -1,4 +1,4 @@
-
+﻿
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1975,14 +1975,15 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
         const entries = [
           { id:'hof_week',  icon:'⭐', label:"Student of the Week",  gradient:'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border:'#ed8936', opts:weekOpts  },
-          { id:'hof_month', icon:'�', label:"Student of the Month", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
+          { id:'hof_month', icon:'🏅', label:"Student of the Month", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
           { id:'hof_year',  icon:'🏆', label:"Student of the Year",  gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  }
         ];
 
         container.innerHTML = entries.map(e=>`
-          <div id="${e.id}" style="background:${e.gradient};border:2px solid ${e.border};border-radius:14px;padding:14px 10px;text-align:center;">
+          <div id="${e.id}" style="background:${e.gradient};border:2px solid ${e.border};border-radius:14px;padding:14px 10px;text-align:center;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-18px;right:-18px;font-size:70px;opacity:0.08;">${e.icon}</div>
             <div style="font-size:2rem;margin-bottom:3px;">${e.icon}</div>
-            <div style="font-size:0.68rem;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">${e.label}</div>
+            <div style="font-size:0.68rem;color:#4a5568;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">${e.label}</div>
             <select onchange="(function(v){const p=v.split('|');hofLoadWinner(p[0],p[1],'${e.id}');})(this.value)"
               style="width:100%;border:1px solid rgba(0,0,0,0.15);border-radius:20px;padding:4px 6px;font-size:0.68rem;background:rgba(255,255,255,0.7);color:#2d3748;cursor:pointer;outline:none;margin-bottom:4px;">
               ${makeOpts(e.opts)}
