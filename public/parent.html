@@ -2758,14 +2758,37 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           }
           if (!materials) materials = '-';
 
+          // Helper: format a UTC timestamp in the parent's portal timezone
+          const fmtTz = (ts) => {
+            if (!ts) return null;
+            try {
+              return new Date(ts).toLocaleString('en-IN', {
+                timeZone: getPortalTimezone(),
+                day: 'numeric', month: 'short', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true
+              });
+            } catch(e) { return new Date(ts).toLocaleDateString(); }
+          };
+
           let hwStatus = '-';
           if (s.homework_submission_path) {
+            const submittedOn = fmtTz(s.homework_submitted_at);
             hwStatus = `<span style="color: #38a169; font-weight: 600;">✅ Submitted</span>`;
+            if (submittedOn) {
+              hwStatus += `<br><small style="color:#718096;">📅 ${submittedOn}</small>`;
+            }
             if (s.homework_grade) {
               hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${s.homework_grade}</span>`;
             }
             if (s.homework_feedback) {
               hwStatus += `<br><small style="color:#4a5568; font-style:italic;">💬 ${s.homework_feedback}</small>`;
+            }
+            if (s.homework_checked_at) {
+              const checkedOn = fmtTz(s.homework_checked_at);
+              if (checkedOn) hwStatus += `<br><small style="color:#718096;">✔️ Checked: ${checkedOn}</small>`;
+            }
+            if (s.homework_corrected_path) {
+              hwStatus += `<br><button onclick="previewFile('${s.homework_corrected_path}', 'image', 'Teacher Corrections')" style="margin-top:4px; background:#e53e3e; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.78rem;">📝 View Corrections</button>`;
             }
           } else if (s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance !== 'Pending')) {
             hwStatus = `<span style="color:#ed8936; font-size:0.8rem;">⏳ Pending</span>`;

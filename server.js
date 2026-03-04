@@ -5827,6 +5827,9 @@ app.get('/api/sessions/:studentId', async (req, res) => {
           m.file_path as homework_submission_path,
           m.feedback_grade as homework_grade,
           m.feedback_comments as homework_feedback,
+          m.corrected_file_path as homework_corrected_path,
+          m.uploaded_at as homework_submitted_at,
+          m.feedback_date as homework_checked_at,
           CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
         FROM sessions s
         LEFT JOIN materials m ON m.session_id = s.id AND m.student_id = $1 AND m.file_type = 'Homework' AND m.uploaded_by = 'Parent'
@@ -5860,6 +5863,9 @@ app.get('/api/sessions/:studentId', async (req, res) => {
               m.file_path as homework_submission_path,
               m.feedback_grade as homework_grade,
               m.feedback_comments as homework_feedback,
+              m.corrected_file_path as homework_corrected_path,
+              m.uploaded_at as homework_submitted_at,
+              m.feedback_date as homework_checked_at,
               CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
               COALESCE(sa.attendance, 'Pending') as student_attendance
             FROM sessions s
@@ -5904,6 +5910,10 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       // Fix homework submission path (parent uploaded)
       if (needsPrefix(session.homework_submission_path)) {
         session.homework_submission_path = '/uploads/homework/' + session.homework_submission_path;
+      }
+      // Fix homework corrected path (teacher annotation)
+      if (needsPrefix(session.homework_corrected_path)) {
+        session.homework_corrected_path = '/uploads/homework/' + session.homework_corrected_path;
       }
       return session;
     });
