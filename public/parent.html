@@ -3838,6 +3838,28 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     // Helper to create proper download URL for Cloudinary files
+    function getViewUrl(url) {
+      if (!url) return url;
+      // For Cloudinary URLs, add fl_inline to force inline/viewable display (not download)
+      if (url.includes('cloudinary.com')) {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split('/');
+          const uploadIndex = pathParts.indexOf('upload');
+          if (uploadIndex !== -1) {
+            // Remove any existing fl_attachment or fl_inline flags first
+            const filtered = pathParts.filter(p => !p.startsWith('fl_attachment') && !p.startsWith('fl_inline'));
+            filtered.splice(uploadIndex + 1, 0, 'fl_inline');
+            urlObj.pathname = filtered.join('/');
+            return urlObj.toString();
+          }
+        } catch (e) {
+          console.error('Error creating view URL:', e);
+        }
+      }
+      return url;
+    }
+
     function getDownloadUrl(url, filename) {
       if (!url) return url;
 
@@ -3915,8 +3937,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     function openResource(resourceId, url) {
       // Track view count
       fetch('/api/resources/' + resourceId + '/view', { method: 'POST', headers: authHeaders() }).catch(function() {});
-      // Open resource in new tab
-      window.open(url, '_blank');
+      // Open resource in new tab for viewing (not downloading)
+      window.open(getViewUrl(url), '_blank');
     }
 
     // Position certificate text elements using JS (more reliable than CSS %)

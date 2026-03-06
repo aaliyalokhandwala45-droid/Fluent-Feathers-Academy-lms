@@ -6669,7 +6669,7 @@ async function saveEditedPayment() {
                 '<span style="color: #718096; font-size: 0.75rem;">👁 ' + (r.view_count || 0) + ' views</span>' +
               '</div>' +
               '<div style="display: flex; gap: 8px; flex-wrap: wrap;">' +
-                '<a href="' + resourceUrl + '" target="_blank" class="btn btn-sm" style="background: #38a169; color: white; text-decoration: none;">👁 View</a>' +
+                '<a href="' + getViewUrl(resourceUrl) + '" target="_blank" class="btn btn-sm" style="background: #38a169; color: white; text-decoration: none;">👁 View</a>' +
                 (isFile ? '<a href="' + downloadUrl + '" download class="btn btn-sm" style="background: #3182ce; color: white; text-decoration: none;">⬇️ Download</a>' : '') +
                 '<button onclick="toggleResourceStatus(' + r.id + ', ' + !r.is_active + ')" class="btn btn-sm" style="background: ' + (r.is_active ? '#e53e3e' : '#38a169') + '; color: white;">' + (r.is_active ? '🙈 Hide' : '👁 Show') + '</button>' +
                 '<button onclick="deleteResource(' + r.id + ')" class="btn btn-sm" style="background: #718096; color: white;">🗑️</button>' +
@@ -6694,6 +6694,28 @@ async function saveEditedPayment() {
         'Other': '📦'
       };
       return icons[category] || '📚';
+    }
+
+    // Helper to create proper view URL for Cloudinary files (forces inline display, not download)
+    function getViewUrl(url) {
+      if (!url) return url;
+      if (url.includes('cloudinary.com')) {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split('/');
+          const uploadIndex = pathParts.indexOf('upload');
+          if (uploadIndex !== -1) {
+            // Remove any existing fl_attachment or fl_inline flags first
+            const filtered = pathParts.filter(p => !p.startsWith('fl_attachment') && !p.startsWith('fl_inline'));
+            filtered.splice(uploadIndex + 1, 0, 'fl_inline');
+            urlObj.pathname = filtered.join('/');
+            return urlObj.toString();
+          }
+        } catch (e) {
+          console.error('Error creating view URL:', e);
+        }
+      }
+      return url;
     }
 
     // Helper to create proper download URL for Cloudinary files
