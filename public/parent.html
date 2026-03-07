@@ -2553,8 +2553,15 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     function getDateStr(d) { return (d || '').includes('T') ? d.split('T')[0] : (d || ''); }
     function buildSerialNumbers(sessions) {
       sessionSerialMap = {};
+      // Deduplicate by session id (guard against multiple-HW-submission duplicates)
+      const seen = new Set();
       const validSessions = sessions
-        .filter(s => !['Cancelled', 'Cancelled by Parent'].includes(s.status))
+        .filter(s => {
+          if (['Cancelled', 'Cancelled by Parent'].includes(s.status)) return false;
+          if (seen.has(s.id)) return false;
+          seen.add(s.id);
+          return true;
+        })
         .sort((a, b) => {
           const dA = getDateStr(a.session_date);
           const dB = getDateStr(b.session_date);
@@ -2731,7 +2738,14 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     async function loadPast(showLoadingOverlay = false) {
       try {
         if (showLoadingOverlay) setPortalDbLoading(true, 'Loading past classes...');
-        const sessions = await getStudentSessions({ light: false });
+        const rawSessions = await getStudentSessions({ light: false });
+
+        // Deduplicate by session id (latest entry wins, keeps most recent HW submission data)
+        const seenIds = new Map();
+        for (const s of rawSessions) {
+          if (!seenIds.has(s.id)) seenIds.set(s.id, s);
+        }
+        const sessions = Array.from(seenIds.values());
 
         // Build serial numbers from ALL sessions (sorted ascending by date from API)
         buildSerialNumbers(sessions);
