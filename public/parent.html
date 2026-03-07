@@ -2890,9 +2890,9 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           materials += getMaterialLink(s.homework_file_path, '📝', 'HW', false);  // HW - downloadable
           // Add Submit HW / Resubmit button next to HW download
           const canSubmitHw = s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance !== 'Pending') || s.status === 'Missed';
+          const hwSubs = Array.isArray(s.hw_submissions) ? s.hw_submissions : [];
           if (canSubmitHw) {
-            const alreadySubmitted = !!s.homework_submission_path;
-            if (alreadySubmitted) {
+            if (hwSubs.length > 0) {
               materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">🔄 Resubmit HW</button>`;
             } else {
               materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Submit HW</button>`;
@@ -2913,32 +2913,26 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           };
 
           let hwStatus = '-';
-          if (s.homework_submission_path) {
-            const submittedOn = fmtTz(s.homework_submitted_at);
-            const hwCount = parseInt(s.hw_submission_count) || 1;
-            hwStatus = `<span style="color: #38a169; font-weight: 600;">✅ Submitted</span>`;
-            if (hwCount > 1) {
-              hwStatus += `<br><span style="background:#9f7aea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;">🔄 Resubmission #${hwCount}</span>`;
-            }
-            if (s.session_topic) {
-              hwStatus += `<br><small style="color:#5a67d8; font-weight:600;">📌 ${s.session_topic}</small>`;
-            }
-            if (submittedOn) {
-              hwStatus += `<br><small style="color:#718096;">📅 ${submittedOn}</small>`;
-            }
-            if (s.homework_grade) {
-              hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${s.homework_grade}</span>`;
-            }
-            if (s.homework_feedback) {
-              hwStatus += `<br><small style="color:#4a5568; font-style:italic;">💬 ${s.homework_feedback}</small>`;
-            }
-            if (s.homework_checked_at) {
-              const checkedOn = fmtTz(s.homework_checked_at);
+          if (hwSubs.length > 0) {
+            hwStatus = '';
+            hwSubs.forEach((sub, idx) => {
+              const submittedOn = fmtTz(sub.uploaded_at);
+              const checkedOn = fmtTz(sub.feedback_date);
+              const isLatest = idx === hwSubs.length - 1;
+              const subNum = hwSubs.length > 1 ? `<span style="background:${isLatest ? '#9f7aea' : '#a0aec0'}; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem; margin-right:4px;">Submission #${idx + 1}${isLatest ? ' (latest)' : ''}</span>` : '';
+              // divider between multiple submissions
+              if (idx > 0) hwStatus += `<hr style="border:none;border-top:1px dashed #e2e8f0;margin:6px 0;">`;
+              hwStatus += `${subNum}<span style="color:#38a169; font-weight:600;">✅ Submitted</span>`;
+              if (s.session_topic && idx === 0) hwStatus += `<br><small style="color:#5a67d8; font-weight:600;">📌 ${s.session_topic}</small>`;
+              if (submittedOn) hwStatus += `<br><small style="color:#718096;">📅 ${submittedOn}</small>`;
+              if (sub.feedback_grade) hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${sub.feedback_grade}</span>`;
+              if (sub.feedback_comments) hwStatus += `<br><small style="color:#4a5568; font-style:italic;">💬 ${sub.feedback_comments}</small>`;
               if (checkedOn) hwStatus += `<br><small style="color:#718096;">✔️ Checked: ${checkedOn}</small>`;
-            }
-            if (s.homework_corrected_path) {
-              hwStatus += `<br><button onclick="previewFile('${s.homework_corrected_path}', 'image', 'Teacher Corrections')" style="margin-top:4px; background:#e53e3e; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.78rem;">📝 View Corrections</button>`;
-            }
+              if (sub.corrected_file_path) {
+                const corrPath = sub.corrected_file_path.replace(/'/g, "\\'");
+                hwStatus += `<br><button onclick="previewFile('${corrPath}', 'image', 'Teacher Corrections')" style="margin-top:4px; background:#e53e3e; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.78rem;">📝 View Corrections</button>`;
+              }
+            });
           } else if (s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance !== 'Pending')) {
             hwStatus = `<span style="color:#ed8936; font-size:0.8rem;">⏳ Pending</span>`;
           }

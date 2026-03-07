@@ -5974,27 +5974,23 @@ app.get('/api/sessions/:studentId', async (req, res) => {
         `, [id, DEFAULT_CLASS])
       : executeQuery(`
           SELECT s.*, 'Private' as source_type,
-            m.file_path as homework_submission_path,
-            m.feedback_grade as homework_grade,
-            m.feedback_comments as homework_feedback,
-            m.corrected_file_path as homework_corrected_path,
-            m.uploaded_at as homework_submitted_at,
-            m.feedback_date as homework_checked_at,
-            COALESCE(mc.hw_count, 0) as hw_submission_count,
+            COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
             CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
           FROM sessions s
           LEFT JOIN LATERAL (
-            SELECT file_path, feedback_grade, feedback_comments, corrected_file_path, uploaded_at, feedback_date
+            SELECT json_agg(
+              json_build_object(
+                'file_path', file_path,
+                'feedback_grade', feedback_grade,
+                'feedback_comments', feedback_comments,
+                'corrected_file_path', corrected_file_path,
+                'uploaded_at', uploaded_at,
+                'feedback_date', feedback_date
+              ) ORDER BY uploaded_at ASC NULLS LAST
+            ) as hw_submissions
             FROM materials
             WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by = 'Parent'
-            ORDER BY uploaded_at DESC NULLS LAST
-            LIMIT 1
-          ) m ON true
-          LEFT JOIN LATERAL (
-            SELECT COUNT(*) as hw_count
-            FROM materials
-            WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by = 'Parent'
-          ) mc ON true
+          ) ma ON true
           LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
           WHERE s.student_id = $1 AND s.session_type = 'Private'
         `, [id]);
@@ -6024,29 +6020,25 @@ app.get('/api/sessions/:studentId', async (req, res) => {
           `, [id, groupId, DEFAULT_CLASS])
         : await executeQuery(`
             SELECT s.*, 'Group' as source_type,
-              m.file_path as homework_submission_path,
-              m.feedback_grade as homework_grade,
-              m.feedback_comments as homework_feedback,
-              m.corrected_file_path as homework_corrected_path,
-              m.uploaded_at as homework_submitted_at,
-              m.feedback_date as homework_checked_at,
-              COALESCE(mc.hw_count, 0) as hw_submission_count,
+              COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
               CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
               COALESCE(sa.attendance, 'Pending') as student_attendance
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
             LEFT JOIN LATERAL (
-              SELECT file_path, feedback_grade, feedback_comments, corrected_file_path, uploaded_at, feedback_date
+              SELECT json_agg(
+                json_build_object(
+                  'file_path', file_path,
+                  'feedback_grade', feedback_grade,
+                  'feedback_comments', feedback_comments,
+                  'corrected_file_path', corrected_file_path,
+                  'uploaded_at', uploaded_at,
+                  'feedback_date', feedback_date
+                ) ORDER BY uploaded_at ASC NULLS LAST
+              ) as hw_submissions
               FROM materials
               WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by = 'Parent'
-              ORDER BY uploaded_at DESC NULLS LAST
-              LIMIT 1
-            ) m ON true
-            LEFT JOIN LATERAL (
-              SELECT COUNT(*) as hw_count
-              FROM materials
-              WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by = 'Parent'
-            ) mc ON true
+            ) ma ON true
             LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
             WHERE s.group_id = $2 AND s.session_type = 'Group'
           `, [id, groupId]);
@@ -6083,13 +6075,13 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       if (needsPrefix(session.homework_file_path)) {
         session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
       }
-      // Fix homework submission path (parent uploaded)
-      if (needsPrefix(session.homework_submission_path)) {
-        session.homework_submission_path = '/uploads/homework/' + session.homework_submission_path;
-      }
-      // Fix homework corrected path (teacher annotation)
-      if (needsPrefix(session.homework_corrected_path)) {
-        session.homework_corrected_path = '/uploads/homework/' + session.homework_corrected_path;
+      // Fix file paths inside hw_submissions array (parent uploads + corrections)
+      if (Array.isArray(session.hw_submissions)) {
+        session.hw_submissions = session.hw_submissions.map(sub => {
+          if (needsPrefix(sub.file_path)) sub.file_path = '/uploads/homework/' + sub.file_path;
+          if (needsPrefix(sub.corrected_file_path)) sub.corrected_file_path = '/uploads/homework/' + sub.corrected_file_path;
+          return sub;
+        });
       }
       return session;
     });
