@@ -359,7 +359,7 @@
         <button class="nav-btn" onclick="showTab('financials', event)">💰 <span>Financial Reports</span></button>
         <button class="nav-btn" onclick="window.location.href='profile.html'">👤 <span>My Profile</span></button>
         <button class="nav-btn" onclick="window.location.href='whiteboard.html'">🖊️ <span>Whiteboard</span></button>
-        <button class="nav-btn" onclick="showTab('birthday', event)">🎂 <span>Birthday Cards</span></button>
+        <button class="nav-btn" onclick="window.location.href='birthday-admin.html'">🎂 <span>Birthday Cards</span></button>
       </nav>
     </aside>
     <div class="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
@@ -11401,53 +11401,7 @@ async function submitBulkReschedule() {
   }
 }
 
-  /* ============================================================
-     BIRTHDAY CARD CREATOR
-  ============================================================ */
-  function generateBirthdayCard() {
-    const name = document.getElementById('bdayName').value.trim();
-    const age  = parseInt(document.getElementById('bdayAge').value);
-    const wish = document.getElementById('bdayWish').value.trim();
 
-    if (!name)                    { alert('Please enter the student name!'); return; }
-    if (!age || age < 1 || age > 100) { alert('Please enter a valid age between 1 and 100!'); return; }
-    if (!wish)                    { alert('Please write a birthday wish message!'); return; }
-
-    const p = new URLSearchParams({ n: name, a: age, w: wish });
-    const url = `${window.location.origin}/birthday-card.html?${p.toString()}`;
-
-    document.getElementById('bdayLink').value = url;
-    document.getElementById('bdayPreview').href = url;
-
-    const waMsg = `🎂 A special Birthday Card for ${name}!\n\nYou have ${age} candles to blow out! 🕯️\nBlow into your microphone or headphone to reveal a secret birthday message! 🎤\n\n${url}`;
-    document.getElementById('bdayWhatsapp').href = `https://wa.me/?text=${encodeURIComponent(waMsg)}`;
-
-    const res = document.getElementById('bdayResult');
-    res.style.display = 'block';
-    res.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
-  function copyBdayLink(btn) {
-    const link = document.getElementById('bdayLink').value;
-    const orig = btn ? btn.textContent : '';
-    navigator.clipboard.writeText(link).then(() => {
-      if (btn) { btn.textContent = '✅ Copied!'; btn.style.background = '#276749'; }
-      setTimeout(() => { if (btn) { btn.textContent = orig; btn.style.background = '#38a169'; } }, 2200);
-    }).catch(() => {
-      const inp = document.getElementById('bdayLink');
-      inp.select(); document.execCommand('copy');
-      alert('✅ Link copied!');
-    });
-  }
-
-  /* wish character counter */
-  document.addEventListener('DOMContentLoaded', () => {
-    const ta = document.getElementById('bdayWish');
-    const ct = document.getElementById('bdayWishCount');
-    if (ta && ct) {
-      ta.addEventListener('input', () => { ct.textContent = ta.value.length; });
-    }
-  });
 
   </script>
 <div id="bulkRescheduleModal" class="modal">
@@ -11503,70 +11457,6 @@ async function submitBulkReschedule() {
     </div>
   </div>
 </div>
-    <!-- Birthday Cards Tab -->
-    <div id="birthdayTab" class="tab-content">
-      <div class="section">
-        <h2>🎂 Birthday Card Creator</h2>
-        <p style="color:#718096; margin-bottom:25px;">Create a personalised birthday card with animated candles (one per year of age). The student blows into their microphone to extinguish the candles and reveal your secret message!</p>
-
-        <!-- Form -->
-        <div style="max-width:540px; background:linear-gradient(135deg,#fff9ff,#fce8f7); border-radius:16px; padding:28px; border:2px solid #f0c4e8; margin-bottom:25px;">
-          <div style="margin-bottom:18px;">
-            <label style="display:block;font-weight:600;color:#553366;margin-bottom:7px;font-size:14px;">👤 Student Name</label>
-            <input type="text" id="bdayName" placeholder="e.g. Zara" maxlength="60"
-              style="width:100%;padding:11px 14px;border:1.5px solid #d8a0c8;border-radius:10px;font-size:15px;outline:none;font-family:inherit;">
-          </div>
-
-          <div style="margin-bottom:18px;">
-            <label style="display:block;font-weight:600;color:#553366;margin-bottom:7px;font-size:14px;">🕯️ Age <small style="font-weight:400;color:#888;">(sets number of candles on the cake)</small></label>
-            <input type="number" id="bdayAge" placeholder="e.g. 9" min="1" max="100"
-              style="width:100%;padding:11px 14px;border:1.5px solid #d8a0c8;border-radius:10px;font-size:15px;outline:none;font-family:inherit;">
-          </div>
-
-          <div style="margin-bottom:24px;">
-            <label style="display:block;font-weight:600;color:#553366;margin-bottom:7px;font-size:14px;">💌 Birthday Wish Message</label>
-            <textarea id="bdayWish" placeholder="Happy Birthday Zara! 🎉 May all your dreams come true! Keep shining bright! 🌟"
-              maxlength="500"
-              style="width:100%;padding:11px 14px;border:1.5px solid #d8a0c8;border-radius:10px;font-size:14px;outline:none;min-height:95px;resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
-            <div style="text-align:right;font-size:11px;color:#aaa;margin-top:3px;"><span id="bdayWishCount">0</span>/500</div>
-          </div>
-
-          <button onclick="generateBirthdayCard()"
-            style="width:100%;padding:14px;background:linear-gradient(135deg,#B05D9E,#764ba2);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:0.4px;box-shadow:0 4px 16px rgba(176,93,158,0.4);transition:transform 0.15s;">
-            🎂 Create Birthday Card Link
-          </button>
-        </div>
-
-        <!-- Result -->
-        <div id="bdayResult" style="display:none;background:#f0fff4;border:2px solid #9ae6b4;border-radius:16px;padding:24px;max-width:540px;">
-          <h3 style="color:#276749;margin-bottom:16px;font-size:1.1rem;">🎉 Birthday Card Ready!</h3>
-
-          <div style="margin-bottom:16px;">
-            <label style="display:block;font-weight:600;color:#4a5568;margin-bottom:6px;font-size:13px;">🔗 Card Link</label>
-            <div style="display:flex;gap:8px;">
-              <input type="text" id="bdayLink" readonly
-                style="flex:1;padding:10px 14px;border:1.5px solid #9ae6b4;border-radius:10px;font-size:12px;background:white;font-family:monospace;color:#2d3748;min-width:0;">
-              <button onclick="copyBdayLink(this)"
-                style="padding:10px 16px;background:#38a169;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:13px;transition:background 0.2s;">📋 Copy</button>
-            </div>
-          </div>
-
-          <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            <a id="bdayWhatsapp" href="#" target="_blank" rel="noopener"
-              style="flex:1;min-width:180px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(37,211,102,0.3);">
-              📲 Share on WhatsApp
-            </a>
-            <a id="bdayPreview" href="#" target="_blank" rel="noopener"
-              style="flex:1;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(102,126,234,0.3);">
-              👁️ Preview Card
-            </a>
-          </div>
-
-          <p style="margin-top:14px;color:#718096;font-size:12px;text-align:center;">💡 The student opens the link and blows into their microphone (or headphone) to extinguish the candles and reveal your message!</p>
-        </div>
-      </div>
-    </div>
-
       <!-- Footer -->
       <footer style="background: white; padding: 20px; text-align: center; margin: 30px 0 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); clear: both; width: 100%; box-sizing: border-box;">
         <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with ❤️ By Aaliya</p>
