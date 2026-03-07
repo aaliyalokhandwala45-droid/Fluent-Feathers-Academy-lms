@@ -9320,11 +9320,12 @@ function getPodiumEmail(studentName, rank, periodLabel, totalScore, breakdown) {
 async function calculateStudentScores(startDate, endDate) {
   const result = await pool.query(`
     WITH homework_pts AS (
-      SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts
+      SELECT student_id, COUNT(DISTINCT session_id) * ${HOMEWORK_POINT_VALUE} as pts
       FROM materials
       WHERE file_type = 'Homework'
         AND uploaded_by IN ('Parent', 'Admin')
         AND student_id IS NOT NULL
+        AND session_id IS NOT NULL
         AND uploaded_at >= $1::date AND uploaded_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
@@ -9534,11 +9535,12 @@ app.get('/api/leaderboard', async (req, res) => {
 
     const result = await pool.query(`
       WITH homework_pts AS (
-        SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts
+        SELECT student_id, COUNT(DISTINCT session_id) * ${HOMEWORK_POINT_VALUE} as pts
         FROM materials
         WHERE file_type = 'Homework'
           AND uploaded_by IN ('Parent', 'Admin')
           AND student_id IS NOT NULL
+          AND session_id IS NOT NULL
           ${hwFilter}
         GROUP BY student_id
       ),
