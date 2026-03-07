@@ -116,8 +116,8 @@ const pool = new Pool({
   keepAliveInitialDelayMillis: 10000,
   // Pool configuration optimized for free-tier hosting (Supabase)
   max: 2,                          // Reduce to 2 connections (Supabase pooler limit)
-  min: 1,                          // Keep one warm connection when service is awake
-  idleTimeoutMillis: 1200000,      // Close idle connections after 20 minutes of inactivity
+  min: 0,                          // Let pool fully drain when idle (avoids stale connections)
+  idleTimeoutMillis: 240000,       // Close idle connections after 4 mins (before PgBouncer's ~5 min drop)
   connectionTimeoutMillis: DB_CONNECT_TIMEOUT_MS,
   allowExitOnIdle: true,           // Allow process to exit when pool is empty
   statement_timeout: DB_STATEMENT_TIMEOUT_MS,
