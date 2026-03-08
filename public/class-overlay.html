@@ -6,18 +6,54 @@
 <title>&#x2B50; Class Points</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f3eeff; color: #2d1245; font-size: 13px; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; color: #2d1245; font-size: 13px; background: transparent; }
 
+/* ── Drawer shell ── */
+#drawer {
+  position: fixed;
+  top: 0; right: 0;
+  width: 290px; height: 100vh;
+  background: #f3eeff;
+  transform: translateX(100%);
+  transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+  z-index: 100;
+  display: flex; flex-direction: column;
+  box-shadow: -4px 0 24px rgba(176,93,158,0.22);
+}
+#drawer.open { transform: translateX(0); }
+
+/* ── Arrow tab ── */
+#drawer-tab {
+  position: absolute;
+  left: -32px; top: 50%;
+  transform: translateY(-50%);
+  width: 32px; height: 64px;
+  background: linear-gradient(160deg, #B05D9E 0%, #764ba2 100%);
+  border-radius: 12px 0 0 12px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: -4px 0 14px rgba(176,93,158,0.45);
+  transition: background 0.18s, width 0.18s;
+  user-select: none;
+}
+#drawer-tab:hover { background: linear-gradient(160deg, #c46eb0 0%, #8a57bb 100%); width: 36px; }
+#drawer-tab svg {
+  transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+}
+#drawer.open #drawer-tab svg { transform: rotate(180deg); }
+
+/* ── Header ── */
 .hdr {
   background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%);
   padding: 11px 14px;
   display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; z-index: 50;
+  flex-shrink: 0;
   box-shadow: 0 2px 10px rgba(176,93,158,0.35);
 }
 .hdr-title { font-size: 15px; font-weight: 800; color: #fff; }
 
-.body { padding: 12px; }
+/* ── Scrollable body ── */
+.body { padding: 12px; overflow-y: auto; flex: 1; }
 
 .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
 .tab {
@@ -111,11 +147,19 @@ select option { background: #ede0ff; color: #2d1245; }
 </head>
 <body>
 
-<div class="hdr">
-  <div class="hdr-title">&#x2B50; Class Points</div>
-</div>
+<div id="drawer">
+  <!-- Arrow tab -->
+  <div id="drawer-tab" onclick="toggleDrawer()" title="Toggle Class Points">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </svg>
+  </div>
 
-<div class="body">
+  <div class="hdr">
+    <div class="hdr-title">&#x2B50; Class Points</div>
+  </div>
+
+  <div class="body">
   <div class="tabs">
     <div class="tab on" id="tab-s" onclick="switchTab('student')">&#x1F464; Student</div>
     <div class="tab"    id="tab-g" onclick="switchTab('group')">&#x1F465; Group</div>
@@ -138,7 +182,9 @@ select option { background: #ede0ff; color: #2d1245; }
   <div id="s-list" class="s-list">
     <div class="empty">Select a student or group above</div>
   </div>
-</div>
+
+  </div><!-- /.body -->
+</div><!-- /#drawer -->
 
 <div id="toast"></div>
 
@@ -148,32 +194,63 @@ function ac() {
   if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
   return _ctx;
 }
+
 function playSound(positive) {
   try {
     var ctx = ac();
     function go() {
       if (positive) {
-        // Twinkling sparkle sound – like a correct-answer chime
-        var freqs = [1318, 1568, 2093, 1760, 2637];
-        var delays = [0, 0.06, 0.12, 0.18, 0.24];
-        freqs.forEach(function(f, i) {
-          var o = ctx.createOscillator(), g = ctx.createGain();
+        // ✅ "Correct answer" sound: punchy ding-ding (E5 → G5) with a bright bell tail
+        var now = ctx.currentTime;
+
+        // First ding — E5 (659 Hz)
+        (function() {
+          var o = ctx.createOscillator();
+          var g = ctx.createGain();
           o.connect(g); g.connect(ctx.destination);
-          o.type = 'sine'; o.frequency.value = f;
-          var t = ctx.currentTime + delays[i];
-          g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(0.18, t + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-          o.start(t); o.stop(t + 0.2);
-        });
+          o.type = 'sine';
+          o.frequency.setValueAtTime(659, now);
+          g.gain.setValueAtTime(0, now);
+          g.gain.linearRampToValueAtTime(0.45, now + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          o.start(now); o.stop(now + 0.3);
+        })();
+
+        // Second ding — B5 (988 Hz) — slightly delayed and brighter
+        (function() {
+          var o = ctx.createOscillator();
+          var g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.type = 'sine';
+          o.frequency.setValueAtTime(988, now + 0.13);
+          g.gain.setValueAtTime(0, now + 0.13);
+          g.gain.linearRampToValueAtTime(0.5, now + 0.138);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+          o.start(now + 0.13); o.stop(now + 0.5);
+        })();
+
+        // Shimmer overtone on the second ding for richness
+        (function() {
+          var o = ctx.createOscillator();
+          var g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.type = 'sine';
+          o.frequency.setValueAtTime(1976, now + 0.13); // 2x B5
+          g.gain.setValueAtTime(0, now + 0.13);
+          g.gain.linearRampToValueAtTime(0.12, now + 0.138);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+          o.start(now + 0.13); o.stop(now + 0.4);
+        })();
+
       } else {
+        // ❌ Deduct sound: low thud drop
         var o = ctx.createOscillator(), g = ctx.createGain();
         o.connect(g); g.connect(ctx.destination);
         o.type = 'triangle';
         o.frequency.setValueAtTime(220, ctx.currentTime);
-        o.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.2);
-        g.gain.setValueAtTime(0.25, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        o.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.22);
+        g.gain.setValueAtTime(0.28, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
         o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.3);
       }
     }
@@ -261,6 +338,10 @@ async function assignBadge(studentId, badgeName, badgeDesc, optEl) {
     var badge = CLASS_BADGES.find(function(b){ return b.name === badgeName; });
     setTimeout(function(){ toast((badge ? badge.emoji + ' ' : '') + badgeName + ' badge awarded!'); }, 350);
   }
+}
+
+function toggleDrawer() {
+  document.getElementById('drawer').classList.toggle('open');
 }
 
 window.addEventListener('load', function() { loadDropdowns(); });
