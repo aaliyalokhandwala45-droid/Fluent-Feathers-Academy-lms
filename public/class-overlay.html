@@ -107,12 +107,39 @@ select option { background: #ede0ff; color: #2d1245; }
 }
 .badge-opt:hover { background: #ede0ff; }
 .badge-opt .bo-emoji { font-size: 14px; }
+
+/* Float button */
+#btn-float {
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.45);
+  border-radius: 7px;
+  padding: 5px 10px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#btn-float:hover { background: rgba(255,255,255,0.32); }
+
+/* Float / compact popup mode */
+body.float-mode .tabs { display: none; }
+body.float-mode #pane-student,
+body.float-mode #pane-group { display: none !important; }
+body.float-mode .body { padding: 8px 10px; }
+body.float-mode .s-card { padding: 8px 10px; }
+body.float-mode .av { width: 28px; height: 28px; font-size: 13px; }
+body.float-mode .s-pts { font-size: 18px; }
+body.float-mode .pb { padding: 5px 7px; font-size: 10px; }
 </style>
 </head>
 <body>
 
 <div class="hdr">
   <div class="hdr-title">&#x2B50; Class Points</div>
+  <button id="btn-float" onclick="openFloat()" title="Pop out as floating window — position it on screen while you share Canva">&#x1F4CC; Float</button>
 </div>
 
 <div class="body">
@@ -441,6 +468,62 @@ function toast(msg) {
   clearTimeout(_tt);
   _tt = setTimeout(function(){ el.classList.remove('show'); }, 2800);
 }
+
+// ── Float / pop-out support ──
+var _urlQ   = new URLSearchParams(location.search);
+var _isFloat = _urlQ.get('float') === '1';
+
+function openFloat() {
+  var tab   = document.getElementById('tab-s').classList.contains('on') ? 'student' : 'group';
+  var selId = tab === 'student'
+    ? document.getElementById('sel-student').value
+    : document.getElementById('sel-group').value;
+  var url = location.pathname + '?float=1&tab=' + encodeURIComponent(tab) +
+    (selId ? '&id=' + encodeURIComponent(selId) : '');
+  var sw = screen.availWidth, sh = screen.availHeight;
+  var pop = window.open(
+    url, 'classpoints_float',
+    'width=300,height=460' +
+    ',top='  + Math.max(0, Math.round(sh * 0.05)) +
+    ',left=' + Math.max(0, sw - 318) +
+    ',toolbar=no,location=no,menubar=no,scrollbars=yes,resizable=yes'
+  );
+  if (!pop) toast('Allow pop-ups for this site to use Float mode');
+}
+
+function refreshPts() {
+  students.forEach(function(s) {
+    var el = document.getElementById('pts-' + s.id);
+    if (el) el.textContent = s.points;
+  });
+}
+
+window.addEventListener('load', function() {
+  if (_isFloat) {
+    document.body.classList.add('float-mode');
+    var btn = document.getElementById('btn-float');
+    if (btn) btn.style.display = 'none';
+    document.title = '\uD83D\uDCCC Class Points';
+    var tab = _urlQ.get('tab') || 'student';
+    var id  = _urlQ.get('id');
+    loadDropdowns().then(function() {
+      if (id) {
+        if (tab === 'group') {
+          switchTab('group');
+          document.getElementById('sel-group').value = id;
+          onGroupChange();
+        } else {
+          document.getElementById('sel-student').value = id;
+          onStudentChange();
+        }
+      }
+    });
+    // Auto-refresh points every 10 s so the popup stays current
+    setInterval(function() { loadTotals().then(function() { refreshPts(); }); }, 10000);
+  } else {
+    loadDropdowns();
+  }
+});
 </script>
 </body>
 </html>
