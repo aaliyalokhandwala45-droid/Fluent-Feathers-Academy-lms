@@ -245,6 +245,46 @@
 <div id="toast"></div>
 
 <script>
+// ── Sound ─────────────────────────────────────────────────────
+var audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playPointSound(positive) {
+  try {
+    var ctx = getAudioCtx();
+    if (positive) {
+      // cheerful ascending two-tone ding
+      var freqs = [523, 784]; // C5 → G5
+      freqs.forEach(function(freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.12);
+        gain.gain.linearRampToValueAtTime(0.28, ctx.currentTime + i * 0.12 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.28);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.3);
+      });
+    } else {
+      // low dull thud for -1
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch(e) {}
+}
+
 var mode      = 'today';
 var classType = 'private';
 var sessionId = null;
@@ -438,6 +478,8 @@ async function give(studentId, pts, reason) {
     var data = await res.json();
     if (!res.ok) { toast('⚠️ ' + (data.error || 'Error')); return; }
 
+    playPointSound(pts > 0);
+
     var s = students.find(function(x){ return x.id === studentId; });
     if (s) s.points = data.total_points;
 
@@ -456,6 +498,26 @@ async function give(studentId, pts, reason) {
       card.appendChild(pop);
       setTimeout(function(){ pop.remove(); }, 950);
     }
+    if (data.badge_awarded) {
+      // fanfare for milestone badge
+      try {
+        var ctx = getAudioCtx();
+        [523,659,784,1047].forEach(function(freq, i) {
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.13);
+          gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + i * 0.13 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.13 + 0.35);
+          osc.start(ctx.currentTime + i * 0.13);
+          osc.stop(ctx.currentTime + i * 0.13 + 0.4);
+        });
+      } catch(e) {}
+      setTimeout(function(){ toast('🏅 Badge unlocked: ' + data.badge_awarded + '!'); }, 400);
+    }
+
     updateSummary();
   } catch(e) { toast('Network error — try again'); }
 }
