@@ -400,6 +400,23 @@
         <div class="stat-card" onclick="showTab('monthlyAssessment', event)" style="cursor: pointer; border-left-color: #f59e0b;"><h3>📊 Due for Assessment</h3><div class="value" id="dueAssessments" style="color: #f59e0b;">0</div></div>
         <div class="stat-card" onclick="showTab('homework', event)" style="cursor: pointer; border-left-color: #e53e3e;"><h3>📝 Pending Homework</h3><div class="value" id="pendingHomework" style="color: #e53e3e;">0</div></div>
         <div class="stat-card" onclick="showTab('challenges', event)" style="cursor: pointer; border-left-color: #805ad5;"><h3>🎯 Pending Challenges</h3><div class="value" id="pendingChallenges" style="color: #805ad5;">0</div></div>
+        <div class="stat-card" onclick="openClassPointsModal()" style="cursor: pointer; border-left-color: #f59e0b;"><h3>⭐ Class Points Today</h3><div class="value" id="classPointsToday" style="color: #d97706;">0</div><div style="font-size:0.65rem;color:#92400e;margin-top:2px;">click for leaderboard</div></div>
+      </div>
+
+      <!-- Class Points Leaderboard Modal -->
+      <div id="classPointsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:480px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="color:#d97706;margin:0;">⭐ Class Points Leaderboard</h2>
+            <button onclick="document.getElementById('classPointsModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#718096;">✕</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <button onclick="loadCPLeaderboard('today')" id="cpBtn-today" style="flex:1;padding:6px;border-radius:8px;border:1.5px solid #f59e0b;background:#fef3c7;color:#92400e;font-weight:700;cursor:pointer;font-size:11px;">Today</button>
+            <button onclick="loadCPLeaderboard('week')"  id="cpBtn-week"  style="flex:1;padding:6px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f7f8fa;color:#4a5568;font-weight:700;cursor:pointer;font-size:11px;">This Week</button>
+            <button onclick="loadCPLeaderboard('all')"   id="cpBtn-all"   style="flex:1;padding:6px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f7f8fa;color:#4a5568;font-weight:700;cursor:pointer;font-size:11px;">All Time</button>
+          </div>
+          <div id="cpLeaderboardList"><p style="color:#718096;text-align:center;padding:20px;">Loading…</p></div>
+        </div>
       </div>
 
       <!-- Old tabs - HIDDEN (using sidebar navigation instead) -->
@@ -3933,6 +3950,59 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    // ── Class Points helpers ─────────────────────────────────────────────────
+    async function loadClassPointsToday() {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+        const res = await fetch('/api/live-points/day-total?date=' + today);
+        if (!res.ok) return;
+        const data = await res.json();
+        const el = document.getElementById('classPointsToday');
+        if (el) el.textContent = data.total || 0;
+      } catch(e) {}
+    }
+
+    var cpCurrentRange = 'today';
+    function openClassPointsModal() {
+      document.getElementById('classPointsModal').style.display = 'flex';
+      loadCPLeaderboard('today');
+    }
+    async function loadCPLeaderboard(range) {
+      cpCurrentRange = range;
+      ['today','week','all'].forEach(function(r) {
+        var btn = document.getElementById('cpBtn-' + r);
+        if (!btn) return;
+        if (r === range) {
+          btn.style.background = '#fef3c7'; btn.style.borderColor = '#f59e0b'; btn.style.color = '#92400e';
+        } else {
+          btn.style.background = '#f7f8fa'; btn.style.borderColor = '#e2e8f0'; btn.style.color = '#4a5568';
+        }
+      });
+      var list = document.getElementById('cpLeaderboardList');
+      list.innerHTML = '<p style="color:#718096;text-align:center;padding:20px;">Loading…</p>';
+      try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        var params = '?range=' + range + '&tz=' + encodeURIComponent(tz);
+        var res = await fetch('/api/live-points/leaderboard' + params);
+        var rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) {
+          list.innerHTML = '<p style="color:#718096;text-align:center;padding:20px;">No points awarded yet for this period.</p>';
+          return;
+        }
+        var medals = ['🥇','🥈','🥉'];
+        list.innerHTML = rows.map(function(r, i) {
+          return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0;">' +
+            '<div style="font-size:22px;width:32px;text-align:center;">' + (medals[i] || '#' + (i+1)) + '</div>' +
+            '<div style="flex:1;font-weight:700;color:#2d3748;">' + r.student_name + '</div>' +
+            '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1.5px solid #fbbf24;border-radius:20px;padding:4px 14px;font-weight:800;color:#d97706;font-size:15px;">' + r.total_points + ' ⭐</div>' +
+          '</div>';
+        }).join('');
+      } catch(e) {
+        list.innerHTML = '<p style="color:#e53e3e;text-align:center;">Error loading leaderboard</p>';
+      }
+    }
+
     async function loadDashboardStats() {
       try {
         const res = await fetchWithTimeout('/api/dashboard/stats', 15000);
@@ -3964,6 +4034,8 @@ I'm passionate about helping children develop confidence in communication!"></te
         document.getElementById('pendingHomework').textContent = stats.pendingHomework || 0;
         document.getElementById('pendingChallenges').textContent = stats.pendingChallenges || 0;
         document.getElementById('dueAssessments').textContent = stats.pendingAssessments || 0;
+        // Load today's class points total
+        loadClassPointsToday();
 
         // Remove any previously injected monthly display below the revenue card
         const revenueEl = document.getElementById('totalRevenue');

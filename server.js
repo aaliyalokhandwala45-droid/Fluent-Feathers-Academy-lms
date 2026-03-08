@@ -12267,7 +12267,26 @@ app.post('/api/live-points/award', async (req, res) => {
       `SELECT COALESCE(SUM(points), 0) AS total_points FROM class_points WHERE student_id = $1`,
       [student_id]
     );
-    res.json({ entry: result.rows[0], total_points: parseInt(totalResult.rows[0].total_points) });
+    const totalPoints = parseInt(totalResult.rows[0].total_points);
+    const prevTotal = totalPoints - safePoints;
+
+    // Auto-award milestone badges for class points
+    const pointsMilestones = [
+      { threshold: 10,  type: 'class_points_10',  name: '⭐ Class Star',      desc: 'Earned 10 class points in live classes!' },
+      { threshold: 20,  type: 'class_points_20',  name: '🌟 Double Star',     desc: 'Earned 20 class points in live classes!' },
+      { threshold: 30,  type: 'class_points_30',  name: '🔥 On Fire',         desc: 'Earned 30 class points in live classes!' },
+      { threshold: 50,  type: 'class_points_50',  name: '🏆 Points Champion', desc: 'Earned 50 class points in live classes!' },
+      { threshold: 100, type: 'class_points_100', name: '💎 Points Legend',   desc: 'Earned 100 class points in live classes!' },
+    ];
+    let badgeAwarded = null;
+    for (const m of pointsMilestones) {
+      if (prevTotal < m.threshold && totalPoints >= m.threshold) {
+        const awarded = await awardBadge(student_id, m.type, m.name, m.desc);
+        if (awarded) badgeAwarded = m.name;
+      }
+    }
+
+    res.json({ entry: result.rows[0], total_points: totalPoints, badge_awarded: badgeAwarded });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -12291,6 +12310,49 @@ app.get('/api/live-points/student/:id/history', async (req, res) => {
       [id]
     );
     res.json({ history: history.rows, total_points: parseInt(total.rows[0].total_points) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET total points awarded on a specific date (admin dashboard stat card)
+app.get('/api/live-points/day-total', async (req, res) => {
+  try {
+    const date = req.query.date; // YYYY-MM-DD
+    if (!date) return res.status(400).json({ error: 'date param required' });
+    const result = await executeQuery(
+      `SELECT COALESCE(SUM(points), 0) AS total FROM class_points WHERE awarded_at::date = $1`,
+      [date]
+    );
+    res.json({ total: parseInt(result.rows[0].total) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET class points leaderboard (today / this week / all time)
+app.get('/api/live-points/leaderboard', async (req, res) => {
+  try {
+    const range = req.query.range || 'all'; // today | week | all
+    const tz = req.query.tz || 'Asia/Kolkata';
+    let whereClause = '';
+    if (range === 'today') {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+      whereClause = `WHERE cp.awarded_at AT TIME ZONE '${tz}' >= '${today}'::date AND cp.awarded_at AT TIME ZONE '${tz}' < ('${today}'::date + interval '1 day')`;
+    } else if (range === 'week') {
+      whereClause = `WHERE cp.awarded_at >= date_trunc('week', NOW() AT TIME ZONE '${tz}')`;
+    }
+    const result = await executeQuery(
+      `SELECT s.id AS student_id, s.name AS student_name, COALESCE(SUM(cp.points), 0) AS total_points
+       FROM students s
+       JOIN class_points cp ON cp.student_id = s.id
+       ${whereClause}
+       GROUP BY s.id, s.name
+       HAVING COALESCE(SUM(cp.points), 0) > 0
+       ORDER BY total_points DESC
+       LIMIT 20`
+    );
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

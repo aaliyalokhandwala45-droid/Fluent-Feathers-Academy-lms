@@ -624,6 +624,18 @@
         </div>
       </div>
 
+      <!-- Class Points Strip -->
+      <div id="classPointsStrip" style="background:linear-gradient(135deg,#fef9c3,#fde68a);border:1.5px solid #fbbf24;border-radius:12px;padding:11px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 2px 8px rgba(245,200,66,0.25);" onclick="showTab('achievements')">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:24px;">⭐</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#92400e;"><span id="classPointsTotal">0</span> Class Points</div>
+            <div style="font-size:11px;color:#b45309;" id="classPointsNext">Earn points in live classes!</div>
+          </div>
+        </div>
+        <button onclick="event.stopPropagation();showTab('achievements')" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">View →</button>
+      </div>
+
       <!-- Challenge Summary Strip -->
       <div id="challengeSummaryStrip" class="challenge-summary-strip" onclick="showTab('challenges')">
         <div class="challenge-summary-inner">
@@ -805,6 +817,31 @@
 
       <!-- Achievements Tab (Badges + Hall of Fame + Challenges) -->
       <div id="achievementsTab" class="tab-content">
+
+        <!-- Class Points Card -->
+        <div class="section" style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1.5px solid #fbbf24;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2 style="color:#d97706;margin:0 0 4px;">⭐ Class Points</h2>
+              <p style="color:#92400e;margin:0;font-size:0.85rem;">Points awarded during your live classes</p>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:36px;font-weight:900;color:#d97706;line-height:1;" id="classPointsTotalTab">0</div>
+              <div style="font-size:11px;color:#92400e;">total points</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#b45309;margin-bottom:4px;">
+              <span id="classPointsNextTab">Next badge at 10 pts</span>
+              <span id="classPointsPct">0%</span>
+            </div>
+            <div style="background:#fde68a;border-radius:20px;height:10px;overflow:hidden;">
+              <div id="classPointsBar" style="height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:20px;width:0%;transition:width 0.5s;"></div>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:#92400e;">🎯 Every 10 points unlocks a new badge on this page!</div>
+          </div>
+        </div>
+
         <!-- Badges Section -->
         <div class="section">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
@@ -1743,6 +1780,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       // Load critical data immediately
       loadMakeupCredits();
       loadBadges(); // Also updates badge summary strip
+      loadClassPoints();
       loadChallengeSummary(); // Updates challenge strip on front page
       loadUpcoming();
       checkForFeedback();
@@ -1866,6 +1904,44 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     let allBadges = []; // Store all badges for the modal
+
+    async function loadClassPoints() {
+      try {
+        if (!currentStudent) return;
+        const res = await fetch('/api/live-points/totals?ids=' + currentStudent.id);
+        const rows = await res.json();
+        const total = Array.isArray(rows) && rows.length > 0 ? parseInt(rows[0].total_points) || 0 : 0;
+
+        // Update all total elements
+        ['classPointsTotal', 'classPointsTotalTab'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = total;
+        });
+
+        // Compute next milestone
+        var milestones = [10, 20, 30, 50, 100];
+        var next = null;
+        for (var i = 0; i < milestones.length; i++) {
+          if (total < milestones[i]) { next = milestones[i]; break; }
+        }
+        var prevMilestone = next ? (milestones[milestones.indexOf(next) - 1] || 0) : milestones[milestones.length - 1];
+        var nextText = next
+          ? 'Next badge at ' + next + ' pts (' + (next - total) + ' to go!)'
+          : '🏆 All milestones reached!';
+        var pct = next
+          ? Math.min(100, Math.round((total - prevMilestone) / (next - prevMilestone) * 100))
+          : 100;
+
+        ['classPointsNext', 'classPointsNextTab'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = nextText;
+        });
+        var pctEl = document.getElementById('classPointsPct');
+        if (pctEl) pctEl.textContent = pct + '%';
+        var bar = document.getElementById('classPointsBar');
+        if (bar) bar.style.width = pct + '%';
+      } catch(e) { console.error('loadClassPoints error', e); }
+    }
 
     async function loadBadges() {
       try {
