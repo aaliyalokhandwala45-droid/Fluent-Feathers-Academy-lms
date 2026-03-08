@@ -1792,6 +1792,26 @@ async function runMigrations() {
       console.log('Migration 40 note:', err.message);
     }
 
+    // Migration 41: Create class_points table for live in-class point tracking
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS class_points (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL,
+          session_id INTEGER,
+          points INTEGER NOT NULL DEFAULT 1,
+          reason TEXT DEFAULT 'Good work!',
+          awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_class_points_student ON class_points(student_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_class_points_session ON class_points(session_id)`);
+      console.log('✅ Migration 41: Created class_points table for live class point tracking');
+    } catch (err) {
+      console.log('Migration 41 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -12153,6 +12173,129 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
     client.release();
   }
 });
+
+// ==================== LIVE CLASS POINTS OVERLAY API ====================
+
+// GET today's sessions (private + group) for the overlay picker
+app.get('/api/live-points/today-sessions', async (req, res) => {
+  try {
+    const tz = req.query.tz || 'Asia/Kolkata';
+    const todayUtc = new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD in teacher's TZ
+    const result = await executeQuery(`
+      SELECT
+        s.id AS session_id,
+        s.session_type,
+        s.session_date,
+        s.session_time,
+        s.status,
+        COALESCE(st.name, g.group_name) AS label,
+        st.id AS student_id,
+        st.name AS student_name,
+        g.id AS group_id,
+        g.group_name
+      FROM sessions s
+      LEFT JOIN students st ON s.student_id = st.id
+      LEFT JOIN groups g ON s.group_id = g.id
+      WHERE s.session_date = $1
+        AND s.status NOT IN ('Cancelled')
+      ORDER BY s.session_time ASC
+    `, [todayUtc]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET students for a group session
+app.get('/api/live-points/group/:groupId/students', async (req, res) => {
+  try {
+    const result = await executeQuery(
+      `SELECT id, name FROM students WHERE group_id = $1 AND is_active = true ORDER BY name ASC`,
+      [req.params.groupId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET all active students (for manual / private class picker)
+app.get('/api/live-points/all-students', async (req, res) => {
+  try {
+    const result = await executeQuery(
+      `SELECT id, name, class_type, group_name FROM students WHERE is_active = true ORDER BY name ASC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET point totals for a list of students (for overlay live display)
+app.get('/api/live-points/totals', async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
+    if (ids.length === 0) return res.json([]);
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+    const result = await executeQuery(
+      `SELECT student_id, SUM(points) AS total_points
+       FROM class_points
+       WHERE student_id IN (${placeholders})
+       GROUP BY student_id`,
+      ids
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST award points to a student
+app.post('/api/live-points/award', async (req, res) => {
+  try {
+    const { student_id, points, reason, session_id } = req.body;
+    if (!student_id || points === undefined) {
+      return res.status(400).json({ error: 'student_id and points are required' });
+    }
+    const safePoints = Math.max(-100, Math.min(100, parseInt(points) || 0));
+    const result = await executeQuery(
+      `INSERT INTO class_points (student_id, session_id, points, reason) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [student_id, session_id || null, safePoints, reason || 'Good work!']
+    );
+    // Return the new running total for this student
+    const totalResult = await executeQuery(
+      `SELECT COALESCE(SUM(points), 0) AS total_points FROM class_points WHERE student_id = $1`,
+      [student_id]
+    );
+    res.json({ entry: result.rows[0], total_points: parseInt(totalResult.rows[0].total_points) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET a student's full points history and total
+app.get('/api/live-points/student/:id/history', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const history = await executeQuery(
+      `SELECT cp.*, s.name AS student_name
+       FROM class_points cp
+       JOIN students s ON s.id = cp.student_id
+       WHERE cp.student_id = $1
+       ORDER BY cp.awarded_at DESC
+       LIMIT 100`,
+      [id]
+    );
+    const total = await executeQuery(
+      `SELECT COALESCE(SUM(points), 0) AS total_points FROM class_points WHERE student_id = $1`,
+      [id]
+    );
+    res.json({ history: history.rows, total_points: parseInt(total.rows[0].total_points) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 LMS Running on port ${PORT}`);
   startKeepAlive();
