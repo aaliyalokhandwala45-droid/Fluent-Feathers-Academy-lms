@@ -3504,7 +3504,7 @@ I'm passionate about helping children develop confidence in communication!"></te
     (function() {
       let serverReady = false;
       let checkAttempts = 0;
-      const maxAttempts = 6;
+      const maxAttempts = 2;
 
       const loadingScreen = document.getElementById('serverLoadingScreen');
       const loadingMessage = document.getElementById('loadingMessage');
@@ -3547,9 +3547,9 @@ I'm passionate about helping children develop confidence in communication!"></te
       async function checkServerHealth() {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-          const response = await fetch('/api/config', {
+          const response = await fetch('/api/health/light', {
             signal: controller.signal,
             cache: 'no-store'
           });
