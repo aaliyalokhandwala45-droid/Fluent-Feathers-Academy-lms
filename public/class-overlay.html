@@ -1,721 +1,500 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Class Points</title>
+<title>⭐ Class Points</title>
 <style>
   :root {
-    --bg: #17091c;
-    --surface: #220f2e;
-    --surface2: #2d1240;
-    --border: #4a1e66;
-    --accent: #B05D9E;
-    --accent-dark: #8B4789;
-    --accent-deep: #764ba2;
-    --accent2: #38d888;
-    --danger: #f75454;
-    --text: #f0e8f5;
-    --muted: #c09ab8;
-    --gold: #f5c842;
-    --radius: 12px;
-    --shadow: 0 4px 24px rgba(176,93,158,0.25);
+    --bg:       #1e0a2e;
+    --surface:  #2d1245;
+    --surface2: #3a1858;
+    --border:   #6b3a8a;
+    --accent:   #B05D9E;
+    --accent2:  #764ba2;
+    --green:    #38d888;
+    --red:      #f75454;
+    --gold:     #f5c842;
+    --text:     #f5eeff;
+    --muted:    #d4a8e8;
+    --radius:   10px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-size: 13px;
-    overflow-x: hidden;
-    min-height: 100vh;
+  html, body { min-height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+
+  .hdr {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 12px rgba(176,93,158,0.4);
+  }
+  .hdr-title { font-size: 15px; font-weight: 800; letter-spacing: 0.3px; }
+  .btn-reset {
+    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3);
+    color: #fff; padding: 4px 11px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600;
+  }
+  .btn-reset:hover { background: rgba(255,255,255,0.28); }
+
+  #setup { padding: 14px; }
+
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted); margin-bottom: 8px;
   }
 
-  /* ── Header ── */
-  .header {
-    background: linear-gradient(135deg, #2d1240 0%, #1a0928 100%);
-    border-bottom: 1px solid var(--border);
-    padding: 10px 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    -webkit-app-region: drag;
+  .mode-tabs, .type-tabs { display: flex; gap: 5px; margin-bottom: 12px; }
+  .mtab {
+    flex: 1; padding: 8px 4px; border-radius: 8px; border: 1.5px solid var(--border);
+    background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 700;
+    text-align: center; cursor: pointer; transition: all 0.15s;
   }
-  .header-title {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    -webkit-app-region: no-drag;
-  }
-  .header-title span.dot { width:8px;height:8px;border-radius:50%;background:var(--accent2);display:inline-block;box-shadow:0 0 6px var(--accent2); }
-  .btn-sm {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 4px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 11px;
-    transition: all 0.15s;
-    -webkit-app-region: no-drag;
-  }
-  .btn-sm:hover { background: var(--surface); color: var(--text); }
+  .mtab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  /* ── Setup panel ── */
-  #setup-panel { padding: 12px; }
-  .label { font-size: 11px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.6px; }
-  select, input[type="text"] {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 7px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    outline: none;
+  .field-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  select {
+    width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+    color: var(--text); padding: 8px 10px; border-radius: 8px; font-size: 12px;
+    outline: none; margin-bottom: 10px; cursor: pointer;
+  }
+  select:focus { border-color: var(--accent); }
+  select option { background: #2d1245; }
+
+  .btn-start {
+    width: 100%; background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    border: none; color: #fff; padding: 10px; border-radius: 8px;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; margin-top: 2px;
+  }
+  .btn-start:hover { opacity: 0.88; }
+  .btn-start:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .loading-bar { text-align:center; padding: 20px 14px; color: var(--muted); font-size: 12px; }
+  .spin { display:inline-block; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #cls { display: none; padding: 12px; }
+
+  .cls-info {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cls-name { font-size: 14px; font-weight: 800; }
+  .cls-sub  { font-size: 10px; opacity: 0.8; margin-top: 2px; }
+  .cls-badge {
+    background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4);
+    color: #fff; font-size: 10px; padding: 3px 8px; border-radius: 20px; font-weight: 700;
+  }
+
+  .s-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .s-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px; position: relative; overflow: hidden;
     transition: border-color 0.2s;
-    margin-bottom: 10px;
   }
-  select:focus, input[type="text"]:focus { border-color: var(--accent); }
-  select option { background: #220f2e; }
+  .s-card:hover { border-color: var(--accent); }
+  .s-card.flash-g { animation: fg 0.5s; }
+  .s-card.flash-r { animation: fr 0.5s; }
+  @keyframes fg { 0%,100%{background:var(--surface)} 40%{background:rgba(56,216,136,0.2);border-color:var(--green)} }
+  @keyframes fr { 0%,100%{background:var(--surface)} 40%{background:rgba(247,84,84,0.18);border-color:var(--red)} }
 
-  .btn-primary {
-    width: 100%;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
-    border: none;
-    color: #fff;
-    padding: 9px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
+  .s-top { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .s-av {
+    width:32px; height:32px; border-radius:50%;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; flex-shrink:0;
   }
-  .btn-primary:hover { opacity: 0.9; }
-  .btn-primary:active { transform: scale(0.98); }
-  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 10px;
-  }
-  .tab {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 7px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 600;
-    text-align: center;
-    transition: all 0.15s;
-  }
-  .tab.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+  .s-nm { flex:1; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .s-pts {
+    background: var(--surface2); border: 1.5px solid var(--border); border-radius: 20px;
+    padding: 3px 12px; font-weight: 800; font-size: 15px; color: var(--gold); min-width: 46px; text-align:center;
   }
 
-  /* ── Class panel ── */
-  #class-panel { display: none; padding: 12px; }
+  .btn-row { display:flex; gap:4px; }
+  .pb {
+    flex:1; border:none; border-radius:7px; padding:6px 2px;
+    cursor:pointer; font-size:11px; font-weight:800; transition: transform 0.1s, opacity 0.15s; line-height:1.3;
+  }
+  .pb:active { transform:scale(0.92); }
+  .pb.p1 { background: rgba(56,216,136,0.15); color: var(--green); border:1.5px solid rgba(56,216,136,0.4); }
+  .pb.p2 { background: rgba(56,216,136,0.22); color: var(--green); border:1.5px solid rgba(56,216,136,0.5); }
+  .pb.p5 { background: rgba(245,200,66,0.15);  color: var(--gold);  border:1.5px solid rgba(245,200,66,0.4); }
+  .pb.m1 { background: rgba(247,84,84,0.13);   color: var(--red);   border:1.5px solid rgba(247,84,84,0.35); }
+  .pb:hover { opacity:0.8; }
 
-  .session-info {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 8px 12px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--muted);
-  }
-  .session-info .name { color: var(--text); font-weight: 600; font-size: 13px; }
-  .session-badge {
-    background: var(--accent);
-    color: #fff;
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 20px;
-    font-weight: 700;
-  }
-
-  /* ── Student cards ── */
-  #students-list { display: flex; flex-direction: column; gap: 8px; }
-
-  .student-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-  .student-card:hover { border-color: var(--accent); }
-  .student-card.flash-green {
-    animation: flashGreen 0.5s ease;
-  }
-  .student-card.flash-red {
-    animation: flashRed 0.5s ease;
-  }
-  @keyframes flashGreen {
-    0%,100% { background: var(--surface); }
-    40% { background: rgba(56, 216, 136, 0.18); border-color: var(--accent2); }
-  }
-  @keyframes flashRed {
-    0%,100% { background: var(--surface); }
-    40% { background: rgba(247, 84, 84, 0.15); border-color: var(--danger); }
-  }
-
-  .card-top {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .student-avatar {
-    width: 32px; height: 32px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; color: #fff;
-    flex-shrink: 0;
-  }
-  .student-name {
-    font-size: 13px; font-weight: 600; flex: 1;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .points-badge {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 3px 10px;
-    font-weight: 700;
-    font-size: 14px;
-    min-width: 44px;
-    text-align: center;
-    transition: color 0.3s;
-    color: var(--gold);
-  }
-
-  /* Quick award buttons */
-  .award-row {
-    display: flex;
-    gap: 4px;
-  }
-  .award-btn {
-    flex: 1;
-    border: none;
-    border-radius: 8px;
-    padding: 6px 2px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 700;
-    transition: transform 0.1s, opacity 0.15s;
-    line-height: 1.3;
-  }
-  .award-btn:active { transform: scale(0.93); }
-  .award-btn.plus1  { background: rgba(56,216,136,0.15); color: var(--accent2); border: 1px solid rgba(56,216,136,0.35); }
-  .award-btn.plus2  { background: rgba(56,216,136,0.22); color: var(--accent2); border: 1px solid rgba(56,216,136,0.45); }
-  .award-btn.plus5  { background: rgba(245,200,66,0.15); color: var(--gold);    border: 1px solid rgba(245,200,66,0.35); }
-  .award-btn.minus1 { background: rgba(247,84,84,0.13);  color: var(--danger);  border: 1px solid rgba(247,84,84,0.3);  }
-  .award-btn:hover { opacity: 0.85; }
-
-  /* Floating +1 pop animation */
   .float-pop {
-    position: absolute;
-    right: 14px;
-    top: 8px;
-    font-size: 16px;
-    font-weight: 800;
-    pointer-events: none;
-    animation: floatUp 0.9s ease forwards;
-    z-index: 10;
+    position:absolute; right:14px; top:6px; font-size:16px; font-weight:900;
+    pointer-events:none; animation:fup 0.9s ease forwards; z-index:10;
   }
-  @keyframes floatUp {
-    0%   { opacity: 1; transform: translateY(0) scale(1.1); }
-    80%  { opacity: 0.6; transform: translateY(-28px) scale(0.95); }
-    100% { opacity: 0; transform: translateY(-40px); }
-  }
+  @keyframes fup { 0%{opacity:1;transform:translateY(0) scale(1.1)} 100%{opacity:0;transform:translateY(-38px) scale(0.9)} }
 
-  /* ── Bottom summary bar ── */
-  #summary-bar {
-    display: none;
-    position: sticky;
-    bottom: 0;
-    background: linear-gradient(0deg, var(--bg) 60%, transparent 100%);
-    padding: 10px 12px 12px;
-    border-top: 1px solid var(--border);
-    margin-top: 8px;
+  .hero {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 20px 14px; text-align:center; margin-bottom:10px; position:relative; overflow:hidden;
   }
-  .summary-row {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    font-size: 11px;
-    color: var(--muted);
-    margin-bottom: 4px;
+  .hero.flash-g { animation: fg 0.5s; }
+  .hero.flash-r { animation: fr 0.5s; }
+  .hero-av {
+    width:58px; height:58px; border-radius:50%;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; margin:0 auto 10px;
   }
-  .summary-stat { text-align: center; }
-  .summary-stat .val { font-size:18px;font-weight:800;color:var(--gold); display:block; }
-  .summary-stat .lbl { font-size:10px;color:var(--muted); }
+  .hero-nm { font-size:17px; font-weight:800; margin-bottom:6px; }
+  .hero-pts { font-size:48px; font-weight:900; color:var(--gold); line-height:1; margin:4px 0 2px; }
+  .hero-lbl { font-size:11px; color:var(--muted); margin-bottom:16px; }
+  .hero-row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; }
+  .hero-row .pb { padding:11px 4px; font-size:14px; }
+
+  .summary {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 10px 14px; margin-top: 12px;
+    display: flex; align-items: center; justify-content: space-around;
+  }
+  .sum-stat { text-align:center; }
+  .sum-val  { font-size:20px; font-weight:900; color:var(--gold); display:block; }
+  .sum-lbl  { font-size:10px; color:var(--muted); }
+
   .btn-end {
-    width:100%;margin-top:8px;
-    background:linear-gradient(135deg,#9B2C2C,#e74c3c);
-    border:none;color:#fff;padding:8px;border-radius:8px;
-    font-size:12px;font-weight:700;cursor:pointer;
-    opacity:0.85;transition:opacity 0.2s;
+    width:100%; margin-top:10px;
+    background: linear-gradient(135deg,#9B2C2C,#e74c3c);
+    border:none; color:#fff; padding:9px; border-radius:8px;
+    font-size:12px; font-weight:700; cursor:pointer; opacity:0.85;
   }
   .btn-end:hover { opacity:1; }
 
-  /* ── Toast ── */
   #toast {
-    position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
-    background: var(--surface2); border: 1px solid var(--border);
-    color: var(--text); padding: 7px 16px; border-radius: 20px;
-    font-size: 12px; pointer-events: none; opacity: 0;
-    transition: opacity 0.3s; z-index: 999; white-space: nowrap;
-    box-shadow: var(--shadow);
+    position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+    background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    padding:8px 18px; border-radius:20px; font-size:12px; opacity:0;
+    transition:opacity 0.3s; z-index:999; white-space:nowrap; pointer-events:none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   }
-  #toast.show { opacity: 1; }
+  #toast.show { opacity:1; }
 
-  /* ── Scrollbar ── */
   ::-webkit-scrollbar { width:4px; }
-  ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
-
-  /* ── Loading spinner ── */
-  .spinner {
-    display: inline-block; width:16px; height:16px;
-    border:2px solid var(--border); border-top-color:var(--accent-dark);
-    border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle;
-  }
-  @keyframes spin { to { transform:rotate(360deg); } }
-
-  /* Private class single-student layout */
-  .private-hero {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-    text-align: center;
-    margin-bottom: 10px;
-  }
-  .private-hero .big-avatar {
-    width:56px;height:56px;border-radius:50%;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
-    display:flex;align-items:center;justify-content:center;
-    font-size:22px;font-weight:800;color:#fff;
-    margin:0 auto 10px;
-  }
-  .private-hero .big-name { font-size:16px;font-weight:700;margin-bottom:4px; }
-  .private-hero .big-pts {
-    font-size:40px;font-weight:800;color:var(--gold);
-    line-height:1; margin:8px 0 4px;
-  }
-  .private-hero .pts-lbl { font-size:11px;color:var(--muted);margin-bottom:14px; }
-  .private-award-row {
-    display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;
-  }
-  .private-award-row .award-btn { padding:10px 4px; font-size: 13px; }
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="header">
-  <div class="header-title">
-    <span class="dot"></span>
-    ⭐ Class Points
-  </div>
-  <button class="btn-sm" onclick="resetToSetup()">↩ Reset</button>
+<div class="hdr">
+  <div class="hdr-title">⭐ Class Points</div>
+  <button class="btn-reset" onclick="goSetup()">↩ Reset</button>
 </div>
 
-<!-- SETUP PANEL -->
-<div id="setup-panel">
-  <!-- Mode tabs -->
-  <div style="margin-bottom:10px;">
-    <div class="label">Class Mode</div>
-    <div class="tabs">
-      <div class="tab active" id="tab-today" onclick="switchTab('today')">📅 Today's Classes</div>
-      <div class="tab" id="tab-manual" onclick="switchTab('manual')">🔍 Manual Pick</div>
-    </div>
+<!-- SETUP -->
+<div id="setup">
+  <div id="loading-area" class="loading-bar">
+    <span class="spin">⏳</span> Loading students &amp; sessions…
   </div>
 
-  <!-- TODAY's sessions mode -->
-  <div id="mode-today">
-    <div class="label">Select Session</div>
-    <select id="session-select">
-      <option value="">— loading... —</option>
-    </select>
-    <button class="btn-primary" id="btn-start-session" onclick="startTodaySession()" disabled>
-      Start Class ▶
-    </button>
-  </div>
-
-  <!-- MANUAL mode -->
-  <div id="mode-manual" style="display:none;">
-    <div class="label">Class Type</div>
-    <div class="tabs" style="margin-bottom:10px;">
-      <div class="tab active" id="tab-private" onclick="switchClassType('private')">👤 Private</div>
-      <div class="tab" id="tab-group" onclick="switchClassType('group')">👥 Group</div>
+  <div id="setup-content" style="display:none;">
+    <div class="section-title">Pick by</div>
+    <div class="mode-tabs">
+      <div class="mtab on" id="tb-today"  onclick="setMode('today')">📅 Today's Class</div>
+      <div class="mtab"    id="tb-manual" onclick="setMode('manual')">🔍 Any Student</div>
     </div>
 
-    <div id="manual-private">
-      <div class="label">Student</div>
-      <select id="manual-student-select">
-        <option value="">— loading... —</option>
+    <!-- TODAY pane -->
+    <div id="pane-today">
+      <div class="field-label">Session (today)</div>
+      <select id="sel-session">
+        <option value="">— choose session —</option>
       </select>
+      <button class="btn-start" id="btn-today" onclick="startToday()" disabled>▶ Start Class</button>
     </div>
 
-    <div id="manual-group" style="display:none;">
-      <div class="label">Group</div>
-      <select id="manual-group-select">
-        <option value="">— loading... —</option>
-      </select>
+    <!-- MANUAL pane -->
+    <div id="pane-manual" style="display:none;">
+      <div class="type-tabs">
+        <div class="mtab on" id="tb-priv" onclick="setClassType('private')">👤 Private</div>
+        <div class="mtab"    id="tb-grp"  onclick="setClassType('group')">👥 Group</div>
+      </div>
+      <div id="pane-priv">
+        <div class="field-label">Student</div>
+        <select id="sel-student"><option value="">— loading… —</option></select>
+      </div>
+      <div id="pane-grp" style="display:none;">
+        <div class="field-label">Group</div>
+        <select id="sel-group"><option value="">— loading… —</option></select>
+      </div>
+      <button class="btn-start" onclick="startManual()">▶ Start Class</button>
     </div>
-
-    <button class="btn-primary" id="btn-start-manual" onclick="startManualClass()" style="margin-top:4px;">
-      Start Class ▶
-    </button>
   </div>
 </div>
 
 <!-- CLASS PANEL -->
-<div id="class-panel">
-  <div class="session-info">
+<div id="cls">
+  <div class="cls-info">
     <div>
-      <div class="name" id="class-label">—</div>
-      <div id="class-meta">—</div>
+      <div class="cls-name" id="cls-name">—</div>
+      <div class="cls-sub"  id="cls-sub">—</div>
     </div>
-    <div class="session-badge" id="class-type-badge">Private</div>
+    <div class="cls-badge" id="cls-badge">Private</div>
   </div>
-
-  <div id="students-list"></div>
-
-  <div id="summary-bar">
-    <div class="summary-row">
-      <div class="summary-stat">
-        <span class="val" id="stat-total">0</span>
-        <span class="lbl">Total ⭐</span>
-      </div>
-      <div class="summary-stat">
-        <span class="val" id="stat-top"></span>
-        <span class="lbl">Top Student</span>
-      </div>
-      <div class="summary-stat">
-        <span class="val" id="stat-students">0</span>
-        <span class="lbl">Students</span>
-      </div>
-    </div>
-    <button class="btn-end" onclick="endClass()">End Class & Save 💾</button>
+  <div class="s-list" id="s-list"></div>
+  <div class="summary">
+    <div class="sum-stat"><span class="sum-val" id="stat-total">0</span><span class="sum-lbl">Total ⭐</span></div>
+    <div class="sum-stat"><span class="sum-val" id="stat-top">—</span><span class="sum-lbl">Top Student</span></div>
+    <div class="sum-stat"><span class="sum-val" id="stat-count">0</span><span class="sum-lbl">Students</span></div>
   </div>
+  <button class="btn-end" onclick="endClass()">End Class &amp; Save 💾</button>
 </div>
 
 <div id="toast"></div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────
-let currentMode   = 'today';      // 'today' | 'manual'
-let currentClassType = 'private'; // 'private' | 'group'
-let currentSessionId = null;
-let currentStudents  = [];        // [{id, name, points}]
-let allStudents      = [];
-let allGroups        = [];
+var mode      = 'today';
+var classType = 'private';
+var sessionId = null;
+var students    = [];
+var allStudents = [];
+var allGroups   = [];
 
-// ── Init ──────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  loadTodaySessions();
-  loadAllStudents();
-});
+window.addEventListener('load', init);
 
-// ── Tab switching ─────────────────────────────────────────────────────
-function switchTab(tab) {
-  currentMode = tab;
-  document.getElementById('tab-today').classList.toggle('active', tab === 'today');
-  document.getElementById('tab-manual').classList.toggle('active', tab === 'manual');
-  document.getElementById('mode-today').style.display  = tab === 'today'  ? '' : 'none';
-  document.getElementById('mode-manual').style.display = tab === 'manual' ? '' : 'none';
-}
-
-function switchClassType(type) {
-  currentClassType = type;
-  document.getElementById('tab-private').classList.toggle('active', type === 'private');
-  document.getElementById('tab-group').classList.toggle('active', type === 'group');
-  document.getElementById('manual-private').style.display = type === 'private' ? '' : 'none';
-  document.getElementById('manual-group').style.display   = type === 'group'   ? '' : 'none';
-}
-
-// ── Load today's sessions ─────────────────────────────────────────────
-async function loadTodaySessions() {
-  const sel = document.getElementById('session-select');
-  const btn = document.getElementById('btn-start-session');
+async function init() {
+  document.getElementById('loading-area').style.display  = '';
+  document.getElementById('setup-content').style.display = 'none';
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const res = await fetch(`/api/live-points/today-sessions?tz=${encodeURIComponent(tz)}`);
-    const sessions = await res.json();
+    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var results = await Promise.all([
+      safeJson('/api/live-points/all-students'),
+      safeJson('/api/groups'),
+      safeJson('/api/live-points/today-sessions?tz=' + encodeURIComponent(tz))
+    ]);
+    var sRes = results[0], gRes = results[1], tRes = results[2];
 
-    sel.innerHTML = sessions.length
-      ? '<option value="">— pick a session —</option>'
-      : '<option value="">No sessions today</option>';
-
-    sessions.forEach(s => {
-      const time  = s.session_time ? s.session_time.slice(0,5) : '';
-      const label = `${time} — ${s.label} (${s.session_type})`;
-      const opt   = new Option(label, JSON.stringify(s));
-      sel.appendChild(opt);
-    });
-
-    sel.onchange = () => { btn.disabled = !sel.value; };
-    btn.disabled = true;
-  } catch (e) {
-    sel.innerHTML = '<option value="">Error loading sessions</option>';
-  }
-}
-
-// ── Load all students (for manual) ───────────────────────────────────
-async function loadAllStudents() {
-  try {
-    const res = await fetch('/api/live-points/all-students');
-    allStudents = await res.json();
-
-    // Populate private dropdown
-    const pSel = document.getElementById('manual-student-select');
+    allStudents = Array.isArray(sRes) ? sRes : [];
+    var pSel = document.getElementById('sel-student');
     pSel.innerHTML = '<option value="">— choose student —</option>';
-    allStudents.forEach(s => {
-      pSel.appendChild(new Option(s.name, s.id));
-    });
+    allStudents.forEach(function(s) { pSel.appendChild(new Option(s.name, s.id)); });
 
-    // Collect unique groups
-    const groupMap = {};
-    allStudents.forEach(s => {
-      if (s.group_name) groupMap[s.group_name] = true;
-    });
-
-    // Load group details from API
-    const gRes = await fetch('/api/groups');
-    const groups = await gRes.json();
-    allGroups = groups;
-
-    const gSel = document.getElementById('manual-group-select');
+    allGroups = Array.isArray(gRes) ? gRes : [];
+    var gSel = document.getElementById('sel-group');
     gSel.innerHTML = '<option value="">— choose group —</option>';
-    groups.forEach(g => {
-      gSel.appendChild(new Option(g.group_name, g.id));
-    });
-  } catch (e) {
-    console.error('Failed to load students:', e);
+    allGroups.forEach(function(g) { gSel.appendChild(new Option(g.group_name, g.id)); });
+
+    var sessions = Array.isArray(tRes) ? tRes : [];
+    var tSel = document.getElementById('sel-session');
+    if (sessions.length) {
+      tSel.innerHTML = '<option value="">— pick a session —</option>';
+      sessions.forEach(function(s) {
+        var t = s.session_time ? s.session_time.slice(0,5) : '';
+        var lbl = (t ? t + ' — ' : '') + (s.label || s.student_name || '?') + ' (' + s.session_type + ')';
+        tSel.appendChild(new Option(lbl, JSON.stringify(s)));
+      });
+    } else {
+      tSel.innerHTML = '<option value="">No sessions today — use Any Student tab</option>';
+    }
+    tSel.onchange = function() {
+      document.getElementById('btn-today').disabled = !tSel.value;
+    };
+
+    document.getElementById('loading-area').style.display  = 'none';
+    document.getElementById('setup-content').style.display = '';
+  } catch(e) {
+    document.getElementById('loading-area').innerHTML =
+      '⚠️ Could not load data. <button onclick="init()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:6px;">Retry</button>';
   }
 }
 
-// ── Start a today-session ─────────────────────────────────────────────
-async function startTodaySession() {
-  const raw = document.getElementById('session-select').value;
+async function safeJson(url) {
+  var r = await fetch(url);
+  return await r.json();
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('tb-today').classList.toggle('on', m === 'today');
+  document.getElementById('tb-manual').classList.toggle('on', m === 'manual');
+  document.getElementById('pane-today').style.display  = m === 'today'  ? '' : 'none';
+  document.getElementById('pane-manual').style.display = m === 'manual' ? '' : 'none';
+}
+
+function setClassType(t) {
+  classType = t;
+  document.getElementById('tb-priv').classList.toggle('on', t === 'private');
+  document.getElementById('tb-grp').classList.toggle('on',  t === 'group');
+  document.getElementById('pane-priv').style.display = t === 'private' ? '' : 'none';
+  document.getElementById('pane-grp').style.display  = t === 'group'   ? '' : 'none';
+}
+
+async function startToday() {
+  var raw = document.getElementById('sel-session').value;
   if (!raw) return;
-  const session = JSON.parse(raw);
-  currentSessionId = session.session_id;
-
-  if (session.session_type === 'Private' || session.session_type === 'private') {
-    if (!session.student_id) return showToast('No student linked to this session');
-    currentStudents = [{ id: session.student_id, name: session.student_name, points: 0 }];
-    await fetchExistingPoints();
-    showClassPanel(session.label, session.session_type, 'private');
+  var s = JSON.parse(raw);
+  sessionId = s.session_id;
+  var isPrivate = (s.session_type || '').toLowerCase().indexOf('private') !== -1;
+  if (isPrivate) {
+    if (!s.student_id) return toast('No student linked to this session');
+    students = [{ id: s.student_id, name: s.student_name || 'Student', points: 0 }];
+    await loadPoints();
+    showClass(s.student_name || s.label || 'Private Class', s.session_type, 'private');
   } else {
-    // Group session — load all students in the group
-    if (!session.group_id) return showToast('No group linked to this session');
-    await loadGroupStudents(session.group_id);
-    showClassPanel(session.group_name || session.label, session.session_type, 'group');
+    if (!s.group_id) return toast('No group linked to this session');
+    await loadGroupStudents(s.group_id);
+    showClass(s.group_name || s.label || 'Group Class', s.session_type, 'group');
   }
 }
 
-// ── Start a manually selected class ──────────────────────────────────
-async function startManualClass() {
-  if (currentClassType === 'private') {
-    const selId = parseInt(document.getElementById('manual-student-select').value);
-    if (!selId) return showToast('Please select a student');
-    const student = allStudents.find(s => s.id === selId);
-    currentStudents = [{ id: selId, name: student ? student.name : 'Student', points: 0 }];
-    currentSessionId = null;
-    await fetchExistingPoints();
-    showClassPanel(student ? student.name : 'Private Class', 'Private', 'private');
+async function startManual() {
+  if (classType === 'private') {
+    var id = parseInt(document.getElementById('sel-student').value);
+    if (!id) return toast('Please select a student');
+    var st = allStudents.find(function(x){ return x.id === id; });
+    students = [{ id: id, name: st ? st.name : 'Student', points: 0 }];
+    sessionId = null;
+    await loadPoints();
+    showClass(st ? st.name : 'Private Class', 'Private', 'private');
   } else {
-    const groupId = parseInt(document.getElementById('manual-group-select').value);
-    if (!groupId) return showToast('Please select a group');
-    const group = allGroups.find(g => g.id === groupId);
-    currentSessionId = null;
-    await loadGroupStudents(groupId);
-    showClassPanel(group ? group.group_name : 'Group Class', 'Group', 'group');
+    var gid = parseInt(document.getElementById('sel-group').value);
+    if (!gid) return toast('Please select a group');
+    var grp = allGroups.find(function(x){ return x.id === gid; });
+    sessionId = null;
+    await loadGroupStudents(gid);
+    showClass(grp ? grp.group_name : 'Group Class', 'Group', 'group');
   }
 }
 
-// ── Load students for a group ─────────────────────────────────────────
-async function loadGroupStudents(groupId) {
-  const res = await fetch(`/api/live-points/group/${groupId}/students`);
-  const students = await res.json();
-  currentStudents = students.map(s => ({ id: s.id, name: s.name, points: 0 }));
-  await fetchExistingPoints();
+async function loadGroupStudents(gid) {
+  var data = await safeJson('/api/live-points/group/' + gid + '/students');
+  students = Array.isArray(data) ? data.map(function(s){ return { id: s.id, name: s.name, points: 0 }; }) : [];
+  await loadPoints();
 }
 
-// ── Fetch today's existing points for loaded students ─────────────────
-async function fetchExistingPoints() {
-  if (!currentStudents.length) return;
-  const ids = currentStudents.map(s => s.id).join(',');
+async function loadPoints() {
+  if (!students.length) return;
+  var ids = students.map(function(s){ return s.id; }).join(',');
   try {
-    const res = await fetch(`/api/live-points/totals?ids=${ids}`);
-    const totals = await res.json();
-    totals.forEach(row => {
-      const s = currentStudents.find(s => s.id === row.student_id);
-      if (s) s.points = parseInt(row.total_points) || 0;
-    });
-  } catch (e) {}
+    var rows = await safeJson('/api/live-points/totals?ids=' + ids);
+    if (Array.isArray(rows)) {
+      rows.forEach(function(r) {
+        var s = students.find(function(x){ return x.id === r.student_id; });
+        if (s) s.points = parseInt(r.total_points) || 0;
+      });
+    }
+  } catch(e) {}
 }
 
-// ── Show the class panel ──────────────────────────────────────────────
-function showClassPanel(label, sessionType, mode) {
-  document.getElementById('setup-panel').style.display = 'none';
-  document.getElementById('class-panel').style.display = '';
-  document.getElementById('class-label').textContent   = label;
-  document.getElementById('class-meta').textContent    = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  document.getElementById('class-type-badge').textContent = sessionType;
+function showClass(label, type, m) {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('cls').style.display   = '';
+  document.getElementById('cls-name').textContent  = label;
+  document.getElementById('cls-sub').textContent   = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('cls-badge').textContent = type;
 
-  const list = document.getElementById('students-list');
+  var list = document.getElementById('s-list');
   list.innerHTML = '';
 
-  if (mode === 'private' && currentStudents.length === 1) {
-    // Single-student hero card
-    const s = currentStudents[0];
-    list.innerHTML = `
-      <div class="private-hero" id="hero-${s.id}">
-        <div class="big-avatar">${s.name.charAt(0).toUpperCase()}</div>
-        <div class="big-name">${escHtml(s.name)}</div>
-        <div class="big-pts" id="big-pts-${s.id}">${s.points}</div>
-        <div class="pts-lbl">total points ⭐</div>
-        <div class="private-award-row">
-          <button class="award-btn plus1"  onclick="awardPoints(${s.id}, 1, 'Good answer!')">+1<br>⭐</button>
-          <button class="award-btn plus2"  onclick="awardPoints(${s.id}, 2, 'Great work!')">+2<br>🌟</button>
-          <button class="award-btn plus5"  onclick="awardPoints(${s.id}, 5, 'Excellent!')">+5<br>🔥</button>
-          <button class="award-btn minus1" onclick="awardPoints(${s.id}, -1, 'Oops!')">-1<br>😅</button>
-        </div>
-      </div>`;
+  if (m === 'private' && students.length === 1) {
+    var s = students[0];
+    var div = document.createElement('div');
+    div.className = 'hero';
+    div.id = 'hero-' + s.id;
+    div.innerHTML =
+      '<div class="hero-av">' + esc(s.name[0].toUpperCase()) + '</div>' +
+      '<div class="hero-nm">' + esc(s.name) + '</div>' +
+      '<div class="hero-pts" id="pts-' + s.id + '">' + s.points + '</div>' +
+      '<div class="hero-lbl">total points ⭐</div>' +
+      '<div class="hero-row">' +
+        '<button class="pb p1" onclick="give(' + s.id + ',1,\'Good answer!\')">+1<br>⭐</button>' +
+        '<button class="pb p2" onclick="give(' + s.id + ',2,\'Great work!\')">+2<br>🌟</button>' +
+        '<button class="pb p5" onclick="give(' + s.id + ',5,\'Excellent!\')">+5<br>🔥</button>' +
+        '<button class="pb m1" onclick="give(' + s.id + ',-1,\'Oops!\')">-1<br>😅</button>' +
+      '</div>';
+    list.appendChild(div);
   } else {
-    // Multi-student list
-    currentStudents.forEach(s => {
-      const card = document.createElement('div');
-      card.className = 'student-card';
-      card.id = `card-${s.id}`;
-      card.innerHTML = `
-        <div class="card-top">
-          <div class="student-avatar">${s.name.charAt(0).toUpperCase()}</div>
-          <div class="student-name">${escHtml(s.name)}</div>
-          <div class="points-badge" id="pts-${s.id}">${s.points}</div>
-        </div>
-        <div class="award-row">
-          <button class="award-btn plus1"  onclick="awardPoints(${s.id}, 1,  'Good answer!')">+1 ⭐</button>
-          <button class="award-btn plus2"  onclick="awardPoints(${s.id}, 2,  'Great work!')">+2 🌟</button>
-          <button class="award-btn plus5"  onclick="awardPoints(${s.id}, 5,  'Excellent!')">+5 🔥</button>
-          <button class="award-btn minus1" onclick="awardPoints(${s.id}, -1, 'Oops!')">-1 😅</button>
-        </div>`;
+    students.forEach(function(s) {
+      var card = document.createElement('div');
+      card.className = 's-card';
+      card.id = 'card-' + s.id;
+      card.innerHTML =
+        '<div class="s-top">' +
+          '<div class="s-av">' + esc(s.name[0].toUpperCase()) + '</div>' +
+          '<div class="s-nm">' + esc(s.name) + '</div>' +
+          '<div class="s-pts" id="pts-' + s.id + '">' + s.points + '</div>' +
+        '</div>' +
+        '<div class="btn-row">' +
+          '<button class="pb p1" onclick="give(' + s.id + ',1,\'Good answer!\')">+1 ⭐</button>' +
+          '<button class="pb p2" onclick="give(' + s.id + ',2,\'Great work!\')">+2 🌟</button>' +
+          '<button class="pb p5" onclick="give(' + s.id + ',5,\'Excellent!\')">+5 🔥</button>' +
+          '<button class="pb m1" onclick="give(' + s.id + ',-1,\'Oops!\')">-1 😅</button>' +
+        '</div>';
       list.appendChild(card);
     });
   }
-
-  document.getElementById('summary-bar').style.display = '';
   updateSummary();
 }
 
-// ── Award points ──────────────────────────────────────────────────────
-async function awardPoints(studentId, pts, reason) {
+async function give(studentId, pts, reason) {
   try {
-    const res = await fetch('/api/live-points/award', {
+    var res = await fetch('/api/live-points/award', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ student_id: studentId, points: pts, reason, session_id: currentSessionId })
+      body: JSON.stringify({ student_id: studentId, points: pts, reason: reason, session_id: sessionId })
     });
-    const data = await res.json();
-    if (!res.ok) { showToast('⚠️ ' + (data.error || 'Error')); return; }
+    var data = await res.json();
+    if (!res.ok) { toast('⚠️ ' + (data.error || 'Error')); return; }
 
-    // Update local state
-    const s = currentStudents.find(s => s.id === studentId);
+    var s = students.find(function(x){ return x.id === studentId; });
     if (s) s.points = data.total_points;
 
-    // Update UI
-    const ptsEl = document.getElementById(`pts-${studentId}`) || document.getElementById(`big-pts-${studentId}`);
+    var ptsEl = document.getElementById('pts-' + studentId);
     if (ptsEl) ptsEl.textContent = data.total_points;
 
-    // Flash card
-    const card = document.getElementById(`card-${studentId}`) || document.getElementById(`hero-${studentId}`);
+    var card = document.getElementById('card-' + studentId) || document.getElementById('hero-' + studentId);
     if (card) {
-      card.classList.remove('flash-green', 'flash-red');
-      void card.offsetWidth; // force reflow
-      card.classList.add(pts > 0 ? 'flash-green' : 'flash-red');
-      // Floating pop
-      const pop = document.createElement('div');
+      card.classList.remove('flash-g','flash-r');
+      void card.offsetWidth;
+      card.classList.add(pts > 0 ? 'flash-g' : 'flash-r');
+      var pop = document.createElement('div');
       pop.className = 'float-pop';
+      pop.style.color = pts > 0 ? 'var(--green)' : 'var(--red)';
       pop.textContent = (pts > 0 ? '+' : '') + pts + (pts > 0 ? ' ⭐' : '');
-      pop.style.color = pts > 0 ? 'var(--accent2)' : 'var(--danger)';
       card.appendChild(pop);
-      setTimeout(() => pop.remove(), 1000);
+      setTimeout(function(){ pop.remove(); }, 950);
     }
-
     updateSummary();
-  } catch (e) {
-    showToast('Network error — check connection');
-  }
+  } catch(e) { toast('Network error — try again'); }
 }
 
-// ── Summary bar ───────────────────────────────────────────────────────
 function updateSummary() {
-  const total = currentStudents.reduce((a, s) => a + s.points, 0);
-  document.getElementById('stat-total').textContent    = total;
-  document.getElementById('stat-students').textContent = currentStudents.length;
-
-  const top = currentStudents.reduce((a, b) => a.points >= b.points ? a : b, currentStudents[0]);
+  var total = students.reduce(function(a,s){ return a + s.points; }, 0);
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-count').textContent = students.length;
+  var top = students.reduce(function(a,b){ return a.points >= b.points ? a : b; }, students[0]);
   document.getElementById('stat-top').textContent = top ? top.name.split(' ')[0] : '—';
 }
 
-// ── End class ─────────────────────────────────────────────────────────
 function endClass() {
-  const lines = currentStudents.map(s => `${s.name}: ${s.points} pts`).join('\n');
-  showToast('✅ Points saved!');
-  setTimeout(() => {
-    document.getElementById('class-panel').style.display  = 'none';
-    document.getElementById('setup-panel').style.display  = '';
-    // Reload today's sessions in case new ones appeared
-    loadTodaySessions();
+  toast('✅ Points saved!');
+  setTimeout(function(){
+    document.getElementById('cls').style.display   = 'none';
+    document.getElementById('setup').style.display = '';
+    students = []; sessionId = null;
+    init();
   }, 1200);
 }
 
-function resetToSetup() {
-  currentStudents  = [];
-  currentSessionId = null;
-  document.getElementById('class-panel').style.display = 'none';
-  document.getElementById('setup-panel').style.display = '';
+function goSetup() {
+  students = []; sessionId = null;
+  document.getElementById('cls').style.display   = 'none';
+  document.getElementById('setup').style.display = '';
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+var toastTimer;
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2600);
 }
-
-// ── XSS helper ───────────────────────────────────────────────────────
-function escHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
 }
 </script>
 </body>
