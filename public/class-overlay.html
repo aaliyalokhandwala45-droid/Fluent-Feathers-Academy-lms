@@ -84,6 +84,29 @@ select option { background: #ede0ff; color: #2d1245; }
   white-space: nowrap; pointer-events: none;
 }
 #toast.show { opacity: 1; }
+
+.s-name-row { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.s-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge-wrap { position: relative; flex-shrink: 0; }
+.badge-btn {
+  border: 1.5px solid #c9a227; background: linear-gradient(135deg, #fff8dc 0%, #fde97a 100%); border-radius: 7px;
+  padding: 3px 7px; cursor: pointer; font-size: 12px; line-height: 1.4;
+  color: #7a5c00; font-weight: 700; transition: transform 0.1s;
+  white-space: nowrap; box-shadow: 0 1px 3px rgba(201,162,39,0.25);
+}
+.badge-btn:active { transform: scale(0.88); }
+.badge-menu {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 300;
+  background: #fff; border: 1.5px solid #c084e8; border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(176,93,158,0.22);
+  min-width: 190px; padding: 4px 0; display: none;
+}
+.badge-opt {
+  padding: 8px 13px; font-size: 11.5px; cursor: pointer; color: #2d1245;
+  display: flex; align-items: center; gap: 7px; transition: background 0.1s;
+}
+.badge-opt:hover { background: #ede0ff; }
+.badge-opt .bo-emoji { font-size: 14px; }
 </style>
 </head>
 <body>
@@ -130,15 +153,18 @@ function playSound(positive) {
     var ctx = ac();
     function go() {
       if (positive) {
-        [523, 784].forEach(function(f, i) {
+        // Twinkling sparkle sound – like a correct-answer chime
+        var freqs = [1318, 1568, 2093, 1760, 2637];
+        var delays = [0, 0.06, 0.12, 0.18, 0.24];
+        freqs.forEach(function(f, i) {
           var o = ctx.createOscillator(), g = ctx.createGain();
           o.connect(g); g.connect(ctx.destination);
           o.type = 'sine'; o.frequency.value = f;
-          var t = ctx.currentTime + i * 0.13;
+          var t = ctx.currentTime + delays[i];
           g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(0.28, t + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-          o.start(t); o.stop(t + 0.3);
+          g.gain.linearRampToValueAtTime(0.18, t + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+          o.start(t); o.stop(t + 0.2);
         });
       } else {
         var o = ctx.createOscillator(), g = ctx.createGain();
@@ -176,6 +202,66 @@ function badgeFanfare() {
 var allStudents = [];
 var allGroups   = [];
 var students    = [];
+
+var CLASS_BADGES = [
+  { emoji: '✏️', name: 'Punctuation Pro',     desc: 'Used punctuation correctly' },
+  { emoji: '✍️', name: 'Creative Writer',      desc: 'Showed creative writing skills' },
+  { emoji: '📚', name: 'Vocabulary Star',      desc: 'Used new vocabulary words' },
+  { emoji: '👂', name: 'Active Listener',      desc: 'Demonstrated active listening' },
+  { emoji: '🙋', name: 'Class Participator',   desc: 'Participated actively in class' },
+  { emoji: '📝', name: 'Neat Handwriting',     desc: 'Showed neat and tidy handwriting' },
+  { emoji: '🎤', name: 'Impromptu Speaker',    desc: 'Performed an impromptu speech' },
+  { emoji: '⭐', name: 'Star Student',          desc: 'Outstanding performance today' },
+  { emoji: '💡', name: 'Quick Thinker',        desc: 'Demonstrated quick thinking' },
+  { emoji: '🤝', name: 'Team Player',          desc: 'Worked well with others' },
+];
+
+function buildBadgeMenuHTML(id) {
+  return CLASS_BADGES.map(function(b) {
+    return '<div class="badge-opt" onclick="assignBadge(' + id + ',\'' + b.name.replace(/'/g,"\\'") + '\',\'' + b.desc.replace(/'/g,"\\'") + '\',this)">' +
+      '<span class="bo-emoji">' + b.emoji + '</span>' + esc(b.name) + '</div>';
+  }).join('');
+}
+
+function toggleBadgeMenu(id, e) {
+  e.stopPropagation();
+  var menu = document.getElementById('bmenu-' + id);
+  var isOpen = menu.style.display === 'block';
+  // close all open menus
+  document.querySelectorAll('.badge-menu').forEach(function(m){ m.style.display = 'none'; });
+  if (!isOpen) menu.style.display = 'block';
+}
+
+document.addEventListener('click', function() {
+  document.querySelectorAll('.badge-menu').forEach(function(m){ m.style.display = 'none'; });
+});
+
+async function assignBadge(studentId, badgeName, badgeDesc, optEl) {
+  // close the menu
+  if (optEl) { var menu = optEl.closest('.badge-menu'); if (menu) menu.style.display = 'none'; }
+  try {
+    var res = await fetch('/api/students/' + studentId + '/badges/assign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ badge_type: 'class', badge_name: badgeName, badge_description: badgeDesc })
+    });
+    // play fanfare regardless of response (may succeed silently)
+    badgeFanfare();
+    var badge = CLASS_BADGES.find(function(b){ return b.name === badgeName; });
+    setTimeout(function(){ toast((badge ? badge.emoji + ' ' : '') + badgeName + ' badge awarded!'); }, 350);
+    // flash the card
+    var card = document.getElementById('card-' + studentId);
+    if (card) {
+      card.classList.remove('flash-g', 'flash-r');
+      void card.offsetWidth;
+      card.classList.add('flash-g');
+    }
+  } catch(e) {
+    badgeFanfare();
+    var badge = CLASS_BADGES.find(function(b){ return b.name === badgeName; });
+    setTimeout(function(){ toast((badge ? badge.emoji + ' ' : '') + badgeName + ' badge awarded!'); }, 350);
+  }
+}
 
 window.addEventListener('load', function() { loadDropdowns(); });
 
@@ -262,7 +348,13 @@ function renderList() {
     card.id = 'card-' + s.id;
     card.innerHTML =
       '<div class="av">' + esc(s.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div class="s-name">' + esc(s.name) + '</div>' +
+      '<div class="s-name-row">' +
+        '<div class="s-name">' + esc(s.name) + '</div>' +
+        '<div class="badge-wrap" id="bwrap-' + s.id + '">' +
+          '<button class="badge-btn" onclick="toggleBadgeMenu(' + s.id + ', event)" title="Award a badge">🏅 ▾</button>' +
+          '<div class="badge-menu" id="bmenu-' + s.id + '">' + buildBadgeMenuHTML(s.id) + '</div>' +
+        '</div>' +
+      '</div>' +
       '<div class="s-pts" id="pts-' + s.id + '">' + s.points + '</div>' +
       '<div class="btn-row">' +
         '<button class="pb p1" onclick="give(' + s.id + ',1)">+1</button>' +
