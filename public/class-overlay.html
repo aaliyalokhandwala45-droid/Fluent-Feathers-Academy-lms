@@ -133,12 +133,34 @@ body.float-mode .s-card { padding: 8px 10px; }
 body.float-mode .av { width: 28px; height: 28px; font-size: 13px; }
 body.float-mode .s-pts { font-size: 18px; }
 body.float-mode .pb { padding: 5px 7px; font-size: 10px; }
+
+/* Pin-on-top button (float mode only) */
+#btn-pin {
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.45);
+  border-radius: 7px;
+  padding: 5px 10px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: none;        /* shown only in float mode via JS */
+}
+#btn-pin.pinned {
+  background: rgba(255,255,255,0.45);
+  border-color: #fff;
+  color: #2d1245;
+}
 </style>
 </head>
 <body>
 
 <div class="hdr">
   <div class="hdr-title">&#x2B50; Class Points</div>
+  <button id="btn-pin" title="Keep this window on top while you work in Canva">&#x1F4CC; Pin</button>
   <button id="btn-float" onclick="openFloat()" title="Pop out as floating window — position it on screen while you share Canva">&#x1F4CC; Float</button>
 </div>
 
@@ -520,6 +542,38 @@ window.addEventListener('load', function() {
     });
     // Auto-refresh points every 10 s so the popup stays current
     setInterval(function() { loadTotals().then(function() { refreshPts(); }); }, 10000);
+
+    // ── Pin-on-top: keep float window in front while Canva/PPT is running ──
+    var _pinned = true;  // ON by default so it just works
+    var _pinBlurTimer = null;
+    var pinBtn = document.getElementById('btn-pin');
+    if (pinBtn) {
+      pinBtn.style.display = 'inline-block';
+      pinBtn.classList.add('pinned');
+      pinBtn.textContent = '\uD83D\uDCCC Pinned';
+      pinBtn.addEventListener('click', function() {
+        _pinned = !_pinned;
+        if (_pinned) {
+          pinBtn.classList.add('pinned');
+          pinBtn.textContent = '\uD83D\uDCCC Pinned';
+          pinBtn.title = 'Click to unpin — window will no longer force itself to front';
+        } else {
+          pinBtn.classList.remove('pinned');
+          pinBtn.textContent = '\u2610 Pin';
+          pinBtn.title = 'Click to pin — keeps this window on top while you work in Canva';
+        }
+      });
+    }
+    // When the float window loses focus and pin is ON, refocus it
+    window.addEventListener('blur', function() {
+      if (!_pinned) return;
+      // Small delay so the OS can finish the focus-switch animation first
+      clearTimeout(_pinBlurTimer);
+      _pinBlurTimer = setTimeout(function() {
+        if (_pinned) window.focus();
+      }, 120);
+    });
+    // ────────────────────────────────────────────────────────────────────────
   } else {
     loadDropdowns();
   }
