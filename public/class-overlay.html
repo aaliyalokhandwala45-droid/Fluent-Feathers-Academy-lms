@@ -266,9 +266,6 @@ body.zo-hidden #zo-cards { display: none; }
   <div class="hdr-title">&#x2B50; Class Points</div>
   <button id="btn-pin" title="Keep this window on top while you work in Canva">&#x1F4CC; Pin</button>
   <button id="btn-present" onclick="window.open('/present.html','_blank')" style="background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);border-radius:7px;padding:5px 10px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;" title="Open Present Mode — Canva + Points side by side, share one tab in Zoom">&#x1F3A8; Present</button>
-  <button id="btn-zoom" onclick="openZoomShare()" title="Capture your Canva/PPT window and show it beside the points — share this one tab in Zoom">&#x1F4FA; Zoom Share</button>
-  <button id="btn-pip" onclick="openScreenWidget()" title="Open as always-on-top screen widget — floats over your PPT/screen share">🖥️ Widget</button>
-  <button id="btn-float" onclick="openFloat()" title="Pop out as floating window — position it on screen while you share Canva">&#x1F4CC; Float</button>
 </div>
 
 <div class="body">
@@ -394,16 +391,44 @@ var _pipWin     = null;
 var _pipSyncInt = null;
 
 var CLASS_BADGES = [
-  { emoji: '✏️', name: 'Punctuation Pro',     desc: 'Used punctuation correctly' },
-  { emoji: '✍️', name: 'Creative Writer',      desc: 'Showed creative writing skills' },
-  { emoji: '📚', name: 'Vocabulary Star',      desc: 'Used new vocabulary words' },
-  { emoji: '👂', name: 'Active Listener',      desc: 'Demonstrated active listening' },
-  { emoji: '🙋', name: 'Class Participator',   desc: 'Participated actively in class' },
-  { emoji: '📝', name: 'Neat Handwriting',     desc: 'Showed neat and tidy handwriting' },
-  { emoji: '🎤', name: 'Impromptu Speaker',    desc: 'Performed an impromptu speech' },
-  { emoji: '⭐', name: 'Star Student',          desc: 'Outstanding performance today' },
-  { emoji: '💡', name: 'Quick Thinker',        desc: 'Demonstrated quick thinking' },
-  { emoji: '🤝', name: 'Team Player',          desc: 'Worked well with others' },
+  // ── Public Speaking ──
+  { emoji: '🎤', name: 'Confident Speaker',      desc: 'Spoke with confidence in class' },
+  { emoji: '🎙️', name: 'Impromptu Speaker',      desc: 'Gave an impressive impromptu speech' },
+  { emoji: '📢', name: 'Clear Communicator',     desc: 'Communicated ideas clearly and fluently' },
+  { emoji: '🎭', name: 'Story Teller',            desc: 'Told a story with great expression' },
+  { emoji: '🏆', name: 'Debate Champion',         desc: 'Argued a point brilliantly' },
+  // ── Creative Writing ──
+  { emoji: '✍️', name: 'Creative Writer',         desc: 'Showed excellent creative writing skills' },
+  { emoji: '📖', name: 'Story Builder',           desc: 'Built a well-structured story' },
+  { emoji: '🌟', name: 'Poetry Star',             desc: 'Wrote a wonderful poem' },
+  { emoji: '💬', name: 'Dialogue Master',         desc: 'Wrote natural and engaging dialogue' },
+  // ── Grammar ──
+  { emoji: '📐', name: 'Grammar Guru',            desc: 'Used grammar correctly throughout' },
+  { emoji: '✏️', name: 'Punctuation Pro',         desc: 'Used punctuation perfectly' },
+  { emoji: '🔤', name: 'Sentence Superstar',      desc: 'Wrote excellent sentence structures' },
+  { emoji: '🧩', name: 'Tense Master',            desc: 'Used verb tenses correctly' },
+  // ── Vocabulary ──
+  { emoji: '📚', name: 'Vocabulary Star',         desc: 'Used impressive new vocabulary words' },
+  { emoji: '🔍', name: 'Word Explorer',           desc: 'Explored and used new words confidently' },
+  { emoji: '💡', name: 'Synonym Superstar',       desc: 'Used varied and rich synonyms' },
+  // ── Handwriting ──
+  { emoji: '📝', name: 'Neat Handwriting',        desc: 'Showed neat and tidy handwriting' },
+  { emoji: '🖊️', name: 'Handwriting Hero',        desc: 'Exceptional handwriting today' },
+  // ── Spelling ──
+  { emoji: '🐝', name: 'Spelling Bee',            desc: 'Spelled all words correctly' },
+  { emoji: '🏅', name: 'Spelling Champion',       desc: 'Outstanding spelling performance' },
+  { emoji: '🎯', name: 'Zero Mistakes',           desc: 'Zero spelling errors — perfect score!' },
+  // ── Reading ──
+  { emoji: '📗', name: 'Fluent Reader',           desc: 'Read aloud fluently and clearly' },
+  { emoji: '🔖', name: 'Bookworm',                desc: 'Showed a love for reading' },
+  { emoji: '🧠', name: 'Reading Comprehension',   desc: 'Understood the text deeply' },
+  // ── General ──
+  { emoji: '⭐', name: 'Star Student',            desc: 'Outstanding performance today' },
+  { emoji: '👂', name: 'Active Listener',         desc: 'Demonstrated excellent active listening' },
+  { emoji: '🙋', name: 'Class Participator',      desc: 'Participated actively in class' },
+  { emoji: '🤝', name: 'Team Player',             desc: 'Worked brilliantly with others' },
+  { emoji: '🚀', name: 'Most Improved',           desc: 'Showed great improvement today' },
+  { emoji: '😊', name: 'Positive Attitude',       desc: 'Kept a wonderful positive attitude' },
 ];
 
 function buildBadgeMenuHTML(id) {

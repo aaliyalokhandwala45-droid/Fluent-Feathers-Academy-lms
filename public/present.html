@@ -37,6 +37,12 @@ body { display: flex; flex-direction: column; background: #111; }
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
 }
 .topbar-save:hover { background: #4e236e; }
+.topbar-fs {
+  background: #3d1a5e; color: #e0c4ff; border: 1.5px solid #764ba2;
+  border-radius: 7px; padding: 7px 10px; font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.topbar-fs:hover { background: #4e236e; }
 #saved-select {
   background: #3d1a5e; border: 1.5px solid #764ba2; color: #e0c4ff;
   padding: 7px 8px; border-radius: 7px; font-size: 12px; outline: none;
@@ -48,12 +54,24 @@ body { display: flex; flex-direction: column; background: #111; }
 /* ── CONTENT ROW ── */
 .content { flex: 1; display: flex; overflow: hidden; min-height: 0; }
 
+/* ── RESIZER ── */
+.resizer {
+  width: 7px; flex-shrink: 0; background: #B05D9E;
+  cursor: col-resize; position: relative; z-index: 2; transition: background 0.15s;
+}
+.resizer:hover, .resizer.dragging { background: #e040fb; }
+.resizer::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%); height: 36px; width: 2px;
+  background: rgba(255,255,255,0.6); border-radius: 2px;
+}
+
 /* ── LEFT PANEL ── */
 .panel {
   width: 285px; flex-shrink: 0;
+  min-width: 160px; max-width: 520px;
   background: #f3eeff;
   display: flex; flex-direction: column;
-  border-right: 2px solid #B05D9E;
   overflow: hidden;
 }
 .panel-hdr {
@@ -97,7 +115,32 @@ select.std:focus { border-color: #B05D9E; }
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 900; color: #fff;
 }
-.s-name { flex: 1; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-name-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.s-name { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-earned { display: flex; flex-wrap: wrap; gap: 2px; min-height: 0; }
+.s-earned-pill { font-size: 13px; line-height: 1; title-display: none; }
+
+/* Badge award button */
+.badge-wrap { position: relative; flex-shrink: 0; }
+.badge-btn {
+  border: 1.5px solid #c9a227; background: linear-gradient(135deg,#fff8dc 0%,#fde97a 100%);
+  border-radius: 6px; padding: 3px 6px; cursor: pointer; font-size: 11px; line-height: 1.4;
+  color: #7a5c00; font-weight: 700; transition: transform 0.1s;
+  white-space: nowrap; box-shadow: 0 1px 3px rgba(201,162,39,0.25);
+}
+.badge-btn:active { transform: scale(0.88); }
+.badge-menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 300;
+  background: #fff; border: 1.5px solid #c084e8; border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(176,93,158,0.22);
+  min-width: 185px; padding: 4px 0; display: none;
+}
+.badge-opt {
+  padding: 7px 12px; font-size: 11px; cursor: pointer; color: #2d1245;
+  display: flex; align-items: center; gap: 7px; transition: background 0.1s;
+}
+.badge-opt:hover { background: #ede0ff; }
+.badge-opt .bo-emoji { font-size: 13px; }
 .s-pts {
   font-size: 16px; font-weight: 900; color: #b45309;
   background: #fef3c7; border-radius: 7px; padding: 2px 7px;
@@ -162,19 +205,43 @@ select.std:focus { border-color: #B05D9E; }
   border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
 }
 
-/* Saved list in panel */
-.saved-section { margin-top: 12px; border-top: 1.5px solid #e0cffa; padding-top: 10px; }
-.saved-lbl { font-size: 11px; font-weight: 700; color: #7c3aad; margin-bottom: 6px; }
-.saved-item {
+/* ── My Slides quick-switcher ── */
+.slides-panel {
+  border-bottom: 2px solid #B05D9E;
+  background: #ede0ff;
+  flex-shrink: 0;
+}
+.slides-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 11px; cursor: pointer; user-select: none;
+}
+.slides-hdr-title { font-size: 12px; font-weight: 800; color: #7c3aad; }
+.slides-toggle { font-size: 11px; color: #B05D9E; font-weight: 700; }
+.slides-list { padding: 0 8px 8px; display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.slides-empty { font-size: 11px; color: #a78bca; text-align: center; padding: 6px 0 8px; }
+.slide-item {
   background: #fff; border: 1.5px solid #e0cffa; border-radius: 8px;
-  padding: 8px 10px; margin-bottom: 5px;
-  display: flex; align-items: center; gap: 6px;
+  padding: 7px 9px; display: flex; align-items: center; gap: 6px;
   cursor: pointer; transition: background 0.12s;
 }
-.saved-item:hover { background: #ede0ff; border-color: #B05D9E; }
+.slide-item:hover { background: #f3eeff; border-color: #B05D9E; }
+.slide-item.active { background: #B05D9E; border-color: #9a4d8a; }
+.slide-item.active .slide-item-name { color: #fff; }
+.slide-item.active .slide-del { color: rgba(255,255,255,0.7); }
+.slide-item-name { flex: 1; font-size: 11.5px; font-weight: 700; color: #2d1245; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slide-del { background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; flex-shrink: 0; }
+.slide-del:hover { color: #dc2626; }
+.slide-add-btn {
+  width: 100%; background: #B05D9E; color: #fff; border: none;
+  border-radius: 7px; padding: 6px; font-size: 11px; font-weight: 800;
+  cursor: pointer; margin: 0 0 2px;
+}
+.slide-add-btn:hover { background: #9a4d8a; }
+
+/* Saved list in panel (hidden — replaced by slides-panel above) */
+.saved-section { display: none !important; }
 .saved-item-name { flex: 1; font-size: 12px; font-weight: 700; color: #2d1245; }
 .saved-del { background: none; border: none; color: #f87171; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
-.saved-del:hover { color: #dc2626; }
 
 #toast {
   position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
@@ -193,6 +260,7 @@ select.std:focus { border-color: #B05D9E; }
   <input type="text" id="canva-url" placeholder="Paste Canva link here…" onkeydown="if(event.key==='Enter')loadCanva()" />
   <button class="topbar-go" onclick="loadCanva()">▶ Present</button>
   <button class="topbar-save" onclick="openSaveDialog()" title="Save this link with a topic name">💾 Save</button>
+  <button class="topbar-fs" id="btn-fs" onclick="toggleFullscreen()" title="Fullscreen — hides browser address bar">⛶ Fullscreen</button>
   <select id="saved-select" onchange="pickSaved()" title="Load a saved presentation">
     <option value="">📂 My Presentations…</option>
   </select>
@@ -204,6 +272,23 @@ select.std:focus { border-color: #B05D9E; }
   <!-- LEFT: Points Panel -->
   <div class="panel">
     <div class="panel-hdr">⭐ Class Points</div>
+
+    <!-- My Slides Quick Switcher -->
+    <div class="slides-panel">
+      <div class="slides-hdr" onclick="toggleSlidesPanel()">
+        <span class="slides-hdr-title">📂 My Slides</span>
+        <span class="slides-toggle" id="slides-toggle-icon">▼</span>
+      </div>
+      <div id="slides-list-wrap">
+        <div class="slides-list" id="slides-list">
+          <div class="slides-empty" id="slides-empty">No saved slides yet — paste a link and click 💾 Save</div>
+        </div>
+        <div style="padding: 0 8px 8px;">
+          <button class="slide-add-btn" onclick="openSaveDialog()" title="Save current link as a slide">+ Save Current Link</button>
+        </div>
+      </div>
+    </div>
+
     <div class="panel-body">
       <div class="tabs">
         <div class="tab on" id="tab-s" onclick="switchTab('student')">👤 Student</div>
@@ -225,25 +310,24 @@ select.std:focus { border-color: #B05D9E; }
         <div class="empty">Select a student or group above</div>
       </div>
 
-      <!-- Saved presentations list in sidebar -->
-      <div class="saved-section" id="saved-section" style="display:none;">
-        <div class="saved-lbl">📂 Saved Presentations</div>
-        <div id="saved-list"></div>
-      </div>
     </div>
   </div>
 
-  <!-- RIGHT: Canva -->
+  <!-- RESIZER -->
+  <div class="resizer" id="panel-resizer" title="Drag to resize panel"></div>
+
+  <!-- RIGHT: Canva / PDF -->
   <div class="main">
     <div class="placeholder" id="placeholder">
       <div class="placeholder-icon">🎨</div>
-      <h2>Your Canva slide will appear here</h2>
+      <h2>Your slide or PDF will appear here</h2>
       <div class="steps-box">
-        <b>How to get the Canva embed link:</b><br>
-        1. Open your presentation in Canva<br>
-        2. Click <b>Share</b> → <b>More</b> → <b>Embed</b><br>
-        3. Copy the URL inside the iframe code (the <b>src="…"</b> part)<br>
-        4. Paste it in the bar above → click <b>▶ Present</b>
+        <b>Canva link:</b><br>
+        1. Open your Canva presentation → click <b>Share</b> → <b>More</b> → <b>Embed</b><br>
+        2. Copy the URL inside <b>src="…"</b> and paste above<br><br>
+        <b>PDF link:</b><br>
+        • Paste any <b>direct .pdf URL</b> and click ▶ Present<br>
+        • Or paste a <b>Google Drive</b> share link (drive.google.com/…) — it will auto-embed
       </div>
       <p>Then in Zoom → <b>Share Screen</b> → pick <b>this tab</b>.<br>Students see your slides + points together! 🎉</p>
     </div>
@@ -271,6 +355,7 @@ var allStudents = [], allGroups = [], students = [];
 window.addEventListener('load', function() {
   loadDropdowns();
   renderSaved();
+  renderSlidesPanel();
   var saved = localStorage.getItem('present_canva_url');
   if (saved) {
     document.getElementById('canva-url').value = saved;
@@ -312,8 +397,8 @@ async function onStudentChange() {
   var id = parseInt(document.getElementById('sel-student').value);
   if (!id) { students = []; document.getElementById('s-list').innerHTML = '<div class="empty">Select a student or group above</div>'; return; }
   var s = allStudents.find(function(x){ return x.id === id; });
-  students = [{ id: id, name: s ? s.name : 'Student', points: 0 }];
-  await loadTotals(); renderList();
+  students = [{ id: id, name: s ? s.name : 'Student', points: 0, badges: [] }];
+  await loadTotals(); await loadBadges(); renderList();
 }
 
 async function onGroupChange() {
@@ -322,8 +407,8 @@ async function onGroupChange() {
   try {
     var r = await fetch('/api/live-points/group/' + gid + '/students');
     var data = await r.json();
-    students = Array.isArray(data) ? data.map(function(s){ return { id: s.id, name: s.name, points: 0 }; }) : [];
-    await loadTotals(); renderList();
+    students = Array.isArray(data) ? data.map(function(s){ return { id: s.id, name: s.name, points: 0, badges: [] }; }) : [];
+    await loadTotals(); await loadBadges(); renderList();
   } catch(e) { toast('Could not load group students'); }
 }
 
@@ -350,15 +435,29 @@ function renderList() {
     var card = document.createElement('div');
     card.className = 's-card';
     card.id = 'card-' + s.id;
+    var earnedHTML = '';
+    if (s.badges && s.badges.length) {
+      s.badges.forEach(function(b) {
+        var em = CLASS_BADGES_MAP[b.badge_name] || '🏅';
+        earnedHTML += '<span class="s-earned-pill" title="' + esc(b.badge_name) + '">' + em + '</span>';
+      });
+    }
     card.innerHTML =
       '<div class="av">' + esc(s.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div class="s-name" title="' + esc(s.name) + '">' + esc(s.name.split(' ')[0]) + '</div>' +
+      '<div class="s-name-col">' +
+        '<div class="s-name" title="' + esc(s.name) + '">' + esc(s.name.split(' ')[0]) + '</div>' +
+        '<div class="s-earned" id="earned-' + s.id + '">' + earnedHTML + '</div>' +
+      '</div>' +
       '<div class="s-pts" id="pts-' + s.id + '">' + s.points + '</div>' +
       '<div class="btn-row">' +
         '<button class="pb p1" onclick="give(' + s.id + ',1)">+1</button>' +
         '<button class="pb p2" onclick="give(' + s.id + ',2)">+2</button>' +
         '<button class="pb p5" onclick="give(' + s.id + ',5)">+5</button>' +
         '<button class="pb m1" onclick="give(' + s.id + ',-1)">&minus;1</button>' +
+      '</div>' +
+      '<div class="badge-wrap">' +
+        '<button class="badge-btn" onclick="toggleBadgeMenu(' + s.id + ',event)" title="Award a badge">🏅▾</button>' +
+        '<div class="badge-menu" id="bmenu-' + s.id + '">' + buildBadgeMenuHTML(s.id) + '</div>' +
       '</div>';
     list.appendChild(card);
   });
@@ -417,12 +516,151 @@ async function give(studentId, pts) {
       void card.offsetWidth;
       card.classList.add(pts > 0 ? 'flash-g' : 'flash-r');
     }
+    if (data.badge_awarded) {
+      badgeFanfare();
+      setTimeout(function(){ toast('🏅 Badge unlocked: ' + data.badge_awarded + '!'); }, 400);
+      updateBadgeDisplay(studentId);
+    }
   } catch(e) { toast('Network error'); }
 }
 
-// ── Canva URL handling ──
+// ── Badges ──
+var CLASS_BADGES = [
+  // ── Public Speaking ──
+  { emoji: '🎤', name: 'Confident Speaker',      desc: 'Spoke with confidence in class' },
+  { emoji: '🎙️', name: 'Impromptu Speaker',      desc: 'Gave an impressive impromptu speech' },
+  { emoji: '📢', name: 'Clear Communicator',     desc: 'Communicated ideas clearly and fluently' },
+  { emoji: '🎭', name: 'Story Teller',            desc: 'Told a story with great expression' },
+  { emoji: '🏆', name: 'Debate Champion',         desc: 'Argued a point brilliantly' },
+  // ── Creative Writing ──
+  { emoji: '✍️', name: 'Creative Writer',         desc: 'Showed excellent creative writing skills' },
+  { emoji: '📖', name: 'Story Builder',           desc: 'Built a well-structured story' },
+  { emoji: '🌟', name: 'Poetry Star',             desc: 'Wrote a wonderful poem' },
+  { emoji: '💬', name: 'Dialogue Master',         desc: 'Wrote natural and engaging dialogue' },
+  // ── Grammar ──
+  { emoji: '📐', name: 'Grammar Guru',            desc: 'Used grammar correctly throughout' },
+  { emoji: '✏️', name: 'Punctuation Pro',         desc: 'Used punctuation perfectly' },
+  { emoji: '🔤', name: 'Sentence Superstar',      desc: 'Wrote excellent sentence structures' },
+  { emoji: '🧩', name: 'Tense Master',            desc: 'Used verb tenses correctly' },
+  // ── Vocabulary ──
+  { emoji: '📚', name: 'Vocabulary Star',         desc: 'Used impressive new vocabulary words' },
+  { emoji: '🔍', name: 'Word Explorer',           desc: 'Explored and used new words confidently' },
+  { emoji: '💡', name: 'Synonym Superstar',       desc: 'Used varied and rich synonyms' },
+  // ── Handwriting ──
+  { emoji: '📝', name: 'Neat Handwriting',        desc: 'Showed neat and tidy handwriting' },
+  { emoji: '🖊️', name: 'Handwriting Hero',        desc: 'Exceptional handwriting today' },
+  // ── Spelling ──
+  { emoji: '🐝', name: 'Spelling Bee',            desc: 'Spelled all words correctly' },
+  { emoji: '🏅', name: 'Spelling Champion',       desc: 'Outstanding spelling performance' },
+  { emoji: '🎯', name: 'Zero Mistakes',           desc: 'Zero spelling errors — perfect score!' },
+  // ── Reading ──
+  { emoji: '📗', name: 'Fluent Reader',           desc: 'Read aloud fluently and clearly' },
+  { emoji: '🔖', name: 'Bookworm',                desc: 'Showed a love for reading' },
+  { emoji: '🧠', name: 'Reading Comprehension',   desc: 'Understood the text deeply' },
+  // ── General ──
+  { emoji: '⭐', name: 'Star Student',            desc: 'Outstanding performance today' },
+  { emoji: '👂', name: 'Active Listener',         desc: 'Demonstrated excellent active listening' },
+  { emoji: '🙋', name: 'Class Participator',      desc: 'Participated actively in class' },
+  { emoji: '🤝', name: 'Team Player',             desc: 'Worked brilliantly with others' },
+  { emoji: '🚀', name: 'Most Improved',           desc: 'Showed great improvement today' },
+  { emoji: '😊', name: 'Positive Attitude',       desc: 'Kept a wonderful positive attitude' },
+];
+// Quick lookup: badge name → emoji
+var CLASS_BADGES_MAP = {};
+CLASS_BADGES.forEach(function(b){ CLASS_BADGES_MAP[b.name] = b.emoji; });
+
+function buildBadgeMenuHTML(id) {
+  return CLASS_BADGES.map(function(b) {
+    return '<div class="badge-opt" onclick="assignBadge(' + id + ',\'' + b.name.replace(/'/g,"\\'") + '\',\'' + b.desc.replace(/'/g,"\\'") + '\',this)">' +
+      '<span class="bo-emoji">' + b.emoji + '</span>' + esc(b.name) + '</div>';
+  }).join('');
+}
+
+function toggleBadgeMenu(id, e) {
+  e.stopPropagation();
+  var menu = document.getElementById('bmenu-' + id);
+  var isOpen = menu.style.display === 'block';
+  document.querySelectorAll('.badge-menu').forEach(function(m){ m.style.display = 'none'; });
+  if (!isOpen) menu.style.display = 'block';
+}
+document.addEventListener('click', function() {
+  document.querySelectorAll('.badge-menu').forEach(function(m){ m.style.display = 'none'; });
+});
+
+async function assignBadge(studentId, badgeName, badgeDesc, optEl) {
+  if (optEl) { var menu = optEl.closest('.badge-menu'); if (menu) menu.style.display = 'none'; }
+  try {
+    await fetch('/api/students/' + studentId + '/badges/assign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ badge_type: 'class', badge_name: badgeName, badge_description: badgeDesc })
+    });
+  } catch(e) {}
+  badgeFanfare();
+  var b = CLASS_BADGES.find(function(x){ return x.name === badgeName; });
+  setTimeout(function(){ toast((b ? b.emoji + ' ' : '') + badgeName + ' badge awarded!'); }, 350);
+  var card = document.getElementById('card-' + studentId);
+  if (card) { card.classList.remove('flash-g','flash-r'); void card.offsetWidth; card.classList.add('flash-g'); }
+  updateBadgeDisplay(studentId);
+}
+
+async function updateBadgeDisplay(studentId) {
+  try {
+    var r = await fetch('/api/students/' + studentId + '/badges');
+    var data = await r.json();
+    var s = students.find(function(x){ return x.id === studentId; });
+    if (s) s.badges = Array.isArray(data) ? data : [];
+    var row = document.getElementById('earned-' + studentId);
+    if (row && s) {
+      row.innerHTML = '';
+      s.badges.forEach(function(b) {
+        var em = CLASS_BADGES_MAP[b.badge_name] || '🏅';
+        var pill = document.createElement('span');
+        pill.className = 's-earned-pill';
+        pill.title = b.badge_name;
+        pill.textContent = em;
+        row.appendChild(pill);
+      });
+    }
+  } catch(e) {}
+}
+
+async function loadBadges() {
+  if (!students.length) return;
+  await Promise.all(students.map(async function(s) {
+    try {
+      var r = await fetch('/api/students/' + s.id + '/badges');
+      var data = await r.json();
+      s.badges = Array.isArray(data) ? data : [];
+    } catch(e) { s.badges = []; }
+  }));
+}
+
+function badgeFanfare() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [523,659,784,1047].forEach(function(f, i) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = f;
+      var t = ctx.currentTime + i * 0.13;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.3, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.start(t); o.stop(t + 0.4);
+    });
+  } catch(e) {}
+}
+
+// ── URL handling (Canva + PDF + Google Drive) ──
 function toEmbedUrl(raw) {
   var url = raw.trim();
+  // Google Drive file share/view → preview embed
+  var gd = url.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/);
+  if (gd) return 'https://drive.google.com/file/d/' + gd[1] + '/preview';
+  // Direct .pdf link — use as-is (browser renders PDF in iframe)
+  if (url.match(/\.pdf(\?|$)/i)) return url;
+  // Already an embed URL
   if (url.indexOf('embed') !== -1) return url;
   // canva.com/design/ID/HASH/view → add ?embed
   var m = url.match(/canva\.com\/design\/([^\/\?]+)\/([^\/\?]+)\/view/);
@@ -438,7 +676,7 @@ function toEmbedUrl(raw) {
 
 function loadCanva(silent) {
   var raw = document.getElementById('canva-url').value.trim();
-  if (!raw) { if (!silent) toast('Paste a Canva link first'); return; }
+  if (!raw) { if (!silent) toast('Paste a Canva or PDF link first'); return; }
   var embed = toEmbedUrl(raw);
   localStorage.setItem('present_canva_url', raw);
   var frame = document.getElementById('canva-frame');
@@ -446,10 +684,116 @@ function loadCanva(silent) {
   frame.src = embed;
   frame.style.display = 'block';
   ph.style.display = 'none';
+  // Highlight the matching saved slide
+  var arr = getSaved();
+  var matchIdx = arr.findIndex(function(x){ return x.url.trim() === raw || toEmbedUrl(x.url) === embed; });
+  _activeSlideIdx = matchIdx;
+  renderSlidesPanel();
   if (!silent) toast('✅ Loaded! Now share this tab in Zoom');
 }
 
+// ── Fullscreen ──function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(function(e){ toast('Fullscreen unavailable: ' + e.message); });
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('fullscreenchange', function() {
+  var btn = document.getElementById('btn-fs');
+  if (!btn) return;
+  if (document.fullscreenElement) {
+    btn.textContent = '✕ Exit Fullscreen';
+    btn.title = 'Exit fullscreen';
+  } else {
+    btn.textContent = '⛶ Fullscreen';
+    btn.title = 'Fullscreen — hides browser address bar';
+  }
+});
+
+// ── Panel resizer ──
+(function() {
+  var resizer = document.getElementById('panel-resizer');
+  var panel   = resizer ? resizer.previousElementSibling : null;
+  if (!resizer || !panel) return;
+  var startX, startW;
+  resizer.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = panel.offsetWidth;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    function onMove(ev) {
+      var newW = startW + (ev.clientX - startX);
+      var mn = parseInt(getComputedStyle(panel).minWidth) || 160;
+      var mx = parseInt(getComputedStyle(panel).maxWidth) || 520;
+      panel.style.width = Math.max(mn, Math.min(mx, newW)) + 'px';
+    }
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
 // ── Save / load presentations ──
+var _activeSlideIdx = -1;
+var _slidesPanelOpen = true;
+
+function toggleSlidesPanel() {
+  _slidesPanelOpen = !_slidesPanelOpen;
+  document.getElementById('slides-list-wrap').style.display = _slidesPanelOpen ? '' : 'none';
+  document.getElementById('slides-toggle-icon').textContent = _slidesPanelOpen ? '▼' : '▶';
+}
+
+function renderSlidesPanel() {
+  var arr = getSaved();
+  var list = document.getElementById('slides-list');
+  var empty = document.getElementById('slides-empty');
+  if (!list) return;
+  // clear existing slide items (keep empty placeholder)
+  Array.from(list.querySelectorAll('.slide-item')).forEach(function(el){ el.remove(); });
+  if (!arr.length) {
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  arr.forEach(function(item, i) {
+    var row = document.createElement('div');
+    row.className = 'slide-item' + (i === _activeSlideIdx ? ' active' : '');
+    row.innerHTML =
+      '<span class="slide-item-name" title="' + esc(item.name) + '">' + esc(item.name) + '</span>' +
+      '<button class="slide-del" onclick="deleteSlide(' + i + ');event.stopPropagation();" title="Remove">✕</button>';
+    row.addEventListener('click', function() { loadSlide(i); });
+    list.appendChild(row);
+  });
+}
+
+function loadSlide(i) {
+  var arr = getSaved();
+  if (!arr[i]) return;
+  _activeSlideIdx = i;
+  document.getElementById('canva-url').value = arr[i].url;
+  loadCanva();
+}
+
+function deleteSlide(i) {
+  var arr = getSaved();
+  arr.splice(i, 1);
+  setSaved(arr);
+  if (_activeSlideIdx === i) _activeSlideIdx = -1;
+  else if (_activeSlideIdx > i) _activeSlideIdx--;
+  renderSaved();
+  renderSlidesPanel();
+  toast('Removed');
+}
+
 function getSaved() {
   try { return JSON.parse(localStorage.getItem('saved_presentations') || '[]'); } catch(e) { return []; }
 }
@@ -464,21 +808,11 @@ function renderSaved() {
   arr.forEach(function(item, i) {
     sel.appendChild(new Option('🎨 ' + item.name, i));
   });
+  // also refresh the slides panel
+  renderSlidesPanel();
 
   var section = document.getElementById('saved-section');
-  var list    = document.getElementById('saved-list');
-  if (!arr.length) { section.style.display = 'none'; return; }
-  section.style.display = '';
-  list.innerHTML = '';
-  arr.forEach(function(item, i) {
-    var row = document.createElement('div');
-    row.className = 'saved-item';
-    row.innerHTML =
-      '<span class="saved-item-name">🎨 ' + esc(item.name) + '</span>' +
-      '<button class="saved-del" onclick="deleteSaved(' + i + ');event.stopPropagation();" title="Delete">✕</button>';
-    row.addEventListener('click', function() { loadSaved(i); });
-    list.appendChild(row);
-  });
+  if (section) section.style.display = 'none';
 }
 
 function pickSaved() {
@@ -506,7 +840,7 @@ function deleteSaved(i) {
 
 function openSaveDialog() {
   var url = document.getElementById('canva-url').value.trim();
-  if (!url) { toast('Paste a Canva link first, then save it'); return; }
+  if (!url) { toast('Paste a link first, then save it'); return; }
   document.getElementById('save-name').value = '';
   document.getElementById('save-dialog').classList.add('open');
   setTimeout(function() { document.getElementById('save-name').focus(); }, 80);
@@ -520,12 +854,12 @@ function confirmSave() {
   var url = document.getElementById('canva-url').value.trim();
   if (!url) { closeSaveDialog(); toast('No link to save'); return; }
   var arr = getSaved();
-  // avoid duplicates by name
   var existing = arr.findIndex(function(x){ return x.name.toLowerCase() === name.toLowerCase(); });
-  if (existing >= 0) arr[existing].url = url;
-  else arr.push({ name: name, url: url });
+  if (existing >= 0) { arr[existing].url = url; _activeSlideIdx = existing; }
+  else { arr.push({ name: name, url: url }); _activeSlideIdx = arr.length - 1; }
   setSaved(arr);
   renderSaved();
+  renderSlidesPanel();
   closeSaveDialog();
   toast('✅ Saved: ' + name);
 }
