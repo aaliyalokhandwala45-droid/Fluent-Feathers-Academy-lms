@@ -342,7 +342,42 @@ app.get('/join-class', async (req, res) => {
     `, [sid]);
 
     if (result.rows.length === 0) {
-      return res.status(404).send(joinClassErrorPage('Session Not Found', 'This session could not be found. Please check your Parent Portal for the correct join link.'));
+      // Fallback: check if this is a demo session (demo_leads.id)
+      const demoResult = await executeQuery(`
+        SELECT demo_date AS session_date, demo_time AS session_time,
+               child_name AS student_name, '40 mins' AS duration,
+               status
+        FROM demo_leads
+        WHERE id = $1
+      `, [sid]);
+
+      if (demoResult.rows.length === 0) {
+        return res.status(404).send(joinClassErrorPage('Session Not Found', 'This session could not be found. Please check your Parent Portal for the correct join link.'));
+      }
+
+      const demoRow = demoResult.rows[0];
+      const classLink = DEFAULT_CLASS;
+      const demoDateStr = demoRow.session_date instanceof Date
+        ? demoRow.session_date.toISOString().split('T')[0]
+        : String(demoRow.session_date).split('T')[0];
+      const demoStart = new Date(demoDateStr + 'T' + demoRow.session_time + 'Z');
+      const demoEnd = new Date(demoStart.getTime() + 40 * 60 * 1000);
+      const nowDemo = new Date();
+      const minsUntilDemo = (demoStart - nowDemo) / (1000 * 60);
+
+      if (minsUntilDemo <= 5 && nowDemo <= demoEnd) {
+        return res.redirect(classLink);
+      }
+      if (minsUntilDemo > 5) {
+        const minsRemaining = Math.ceil(minsUntilDemo - 5);
+        const hoursRemaining = Math.floor(minsRemaining / 60);
+        const minsLeft = minsRemaining % 60;
+        const waitMsg = minsRemaining < 60
+          ? `${minsRemaining} minute${minsRemaining !== 1 ? 's' : ''}`
+          : `${hoursRemaining}h ${minsLeft}m`;
+        return res.send(joinClassTooEarlyPage(waitMsg, demoRow.student_name, sid, minsRemaining * 60));
+      }
+      return res.send(joinClassErrorPage('Class Has Ended', 'This demo class has already ended.'));
     }
 
     const row = result.rows[0];
@@ -374,7 +409,7 @@ app.get('/join-class', async (req, res) => {
       let waitMsg = minsRemaining < 60
         ? `${minsRemaining} minute${minsRemaining !== 1 ? 's' : ''}`
         : `${hoursRemaining}h ${minsLeft}m`;
-      return res.send(joinClassTooEarlyPage(waitMsg, row.student_name));
+      return res.send(joinClassTooEarlyPage(waitMsg, row.student_name, sid, minsRemaining * 60));
     }
 
     // Past class end time
@@ -386,7 +421,8 @@ app.get('/join-class', async (req, res) => {
   }
 });
 
-function joinClassTooEarlyPage(waitTime, studentName) {
+function joinClassTooEarlyPage(waitTime, studentName, sid, secondsRemaining) {
+  const joinUrl = `/join-class?sid=${sid}`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -400,27 +436,52 @@ function joinClassTooEarlyPage(waitTime, studentName) {
     .icon { font-size: 80px; margin-bottom: 20px; display: block; }
     h1 { color: #2d3748; font-size: 26px; margin-bottom: 12px; }
     .badge { display: inline-block; background: #fef3c7; color: #92400e; border: 2px solid #f59e0b; border-radius: 30px; padding: 10px 24px; font-size: 15px; font-weight: 700; margin: 16px 0 20px; }
+    .countdown { font-size: 32px; font-weight: 900; color: #667eea; margin: 8px 0 20px; letter-spacing: 2px; }
     .info-box { background: #f0f9ff; border: 2px solid #bae6fd; border-radius: 12px; padding: 20px; margin: 20px 0; }
     .info-box p { color: #0369a1; font-size: 15px; line-height: 1.6; margin: 0; }
-    .warn-box { background: #fff7ed; border: 2px solid #fed7aa; border-radius: 12px; padding: 16px; margin: 16px 0; }
-    .warn-box p { color: #9a3412; font-size: 14px; line-height: 1.6; margin: 0; }
-    .portal-btn { display: inline-block; margin-top: 24px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; padding: 14px 32px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 15px; }
+    .btn-row { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+    .retry-btn { display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 14px 28px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 15px; }
+    .portal-btn { display: inline-block; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; padding: 14px 28px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 15px; }
+    .auto-msg { margin-top: 16px; color: #718096; font-size: 13px; }
   </style>
 </head>
 <body>
   <div class="card">
     <span class="icon">⏰</span>
-    <h1>Another Session May Be Going On</h1>
-    <div class="badge">Join opens in ${waitTime}</div>
+    <h1>Class Not Open Yet</h1>
+    <div class="badge">Opens in ${waitTime}</div>
+    <div class="countdown" id="countdown"></div>
     <div class="info-box">
       <p>👋 Hi${studentName ? ' <strong>' + studentName + '</strong>' : ''}! Your class hasn't started yet.</p>
-      <p style="margin-top: 10px;">The join button becomes active <strong>5 minutes before</strong> your class starts. Please come back then!</p>
+      <p style="margin-top: 10px;">The join link becomes active <strong>5 minutes before</strong> your class starts.</p>
     </div>
-    <div class="warn-box">
-      <p>🚫 Joining early may interrupt another ongoing session on the same link. Please wait for your scheduled time.</p>
+    <div class="btn-row">
+      <a href="${joinUrl}" class="retry-btn">🔄 Try Again</a>
+      <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">🏠 Parent Portal</a>
     </div>
-    <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">🏠 Go to Parent Portal</a>
+    <p class="auto-msg" id="autoMsg">This page will automatically open the class when it's time.</p>
   </div>
+  <script>
+    var seconds = ${secondsRemaining || 0};
+    var joinUrl = '${joinUrl}';
+    function pad(n) { return n < 10 ? '0' + n : n; }
+    function tick() {
+      if (seconds <= 0) {
+        document.getElementById('autoMsg').textContent = 'Opening class now...';
+        window.location.href = joinUrl;
+        return;
+      }
+      var h = Math.floor(seconds / 3600);
+      var m = Math.floor((seconds % 3600) / 60);
+      var s = seconds % 60;
+      var display = h > 0 ? pad(h) + ':' + pad(m) + ':' + pad(s) : pad(m) + ':' + pad(s);
+      document.getElementById('countdown').textContent = display;
+      seconds--;
+      setTimeout(tick, 1000);
+    }
+    if (seconds > 0) tick();
+    else document.getElementById('countdown').style.display = 'none';
+  </script>
 </body>
 </html>`;
 }
@@ -6983,6 +7044,17 @@ app.get('/api/materials/:studentId', async (req, res) => {
 app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded. If using Cloudinary, check credentials in Render environment variables.' });
   try {
+    // Duplicate guard: block re-submission of the same filename for the same session
+    if (req.body.sessionId) {
+      const dup = await pool.query(
+        `SELECT id FROM materials WHERE student_id = $1 AND session_id = $2 AND file_name = $3 AND uploaded_by = 'Parent'`,
+        [req.params.studentId, req.body.sessionId, req.file.originalname]
+      );
+      if (dup.rows.length > 0) {
+        return res.status(409).json({ error: 'duplicate', message: `'${req.file.originalname}' was already submitted for this session.` });
+      }
+    }
+
     // Get file path - Cloudinary returns URL in req.file.path, local storage uses filename
     let filePath;
     if (useCloudinary) {

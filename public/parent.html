@@ -3005,10 +3005,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           const canSubmitHw = s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance !== 'Pending') || s.status === 'Missed';
           const hwSubs = Array.isArray(s.hw_submissions) ? s.hw_submissions : [];
           if (canSubmitHw) {
+            const existingNames = hwSubs.map(f => f.file_name || '').filter(Boolean);
+            const existingNamesJson = JSON.stringify(existingNames).replace(/"/g, '&quot;');
             if (hwSubs.length > 0) {
-              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">🔄 Resubmit HW</button>`;
+              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', true, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">🔄 Resubmit HW</button>`;
             } else {
-              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Submit HW</button>`;
+              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', false, [])" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Submit HW</button>`;
             }
           }
           if (!materials) materials = '-';
@@ -3108,9 +3110,22 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         }).join('');
     }
 
-    function openHwSubmitModal(sessionId, sessionSerial) {
+    function openHwSubmitModal(sessionId, sessionSerial, isResubmit, existingFiles) {
+      existingFiles = Array.isArray(existingFiles) ? existingFiles : [];
       const existing = document.getElementById('hwSubmitModal');
       if (existing) existing.remove();
+
+      const resubmitWarning = isResubmit ? `
+        <div style="background:#fff8e1;border:2px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.88rem;color:#744210;">
+          ⚠️ <strong>You already submitted homework for this session.</strong><br>
+          Only upload <em>new</em> files — files you already submitted will be skipped automatically.
+        </div>` : '';
+
+      const existingList = existingFiles.length > 0 ? `
+        <div style="background:#f0fff4;border:1.5px solid #68d391;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.83rem;color:#276749;">
+          <strong>✅ Already submitted (${existingFiles.length} file${existingFiles.length > 1 ? 's' : ''}):</strong>
+          <ul style="margin:6px 0 0 16px;">${existingFiles.map(n => `<li>${n}</li>`).join('')}</ul>
+        </div>` : '';
 
       const modal = document.createElement('div');
       modal.id = 'hwSubmitModal';
@@ -3118,10 +3133,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       modal.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h2 style="margin:0;color:#B05D9E;font-size:1.3rem;">📤 Submit Homework</h2>
+            <h2 style="margin:0;color:#B05D9E;font-size:1.3rem;">${isResubmit ? '🔄 Resubmit Homework' : '📤 Submit Homework'}</h2>
             <button onclick="closeHwSubmitModal()" style="background:#e53e3e;color:white;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
           </div>
           <p style="color:#718096;margin-bottom:15px;font-size:0.9rem;">Session <strong>#${sessionSerial}</strong></p>
+          ${resubmitWarning}
+          ${existingList}
           <div style="background:#fff8f0;border:1px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:18px;font-size:0.85rem;color:#744210;">
             📎 Accepted: Images, PDFs, MP4/video, Word docs, PowerPoints & more. Max 100MB per file.<br>
             🎯 <strong>Tip:</strong> Select multiple files at once! Uploading many files still earns <strong>10 points</strong> on the leaderboard.
@@ -3158,6 +3175,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         }
       });
 
+      modal._existingFiles = existingFiles;
       modal.addEventListener('click', (e) => { if (e.target === modal) closeHwSubmitModal(); });
       document.addEventListener('keydown', function escHw(e) {
         if (e.key === 'Escape') { closeHwSubmitModal(); document.removeEventListener('keydown', escHw); }
@@ -3170,23 +3188,43 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       if (m) m.remove();
     }
 
+    var _hwUploading = false;
     async function submitHwFiles(sessionId) {
+      if (_hwUploading) return; // prevent double-fire
       const input = document.getElementById('hwSubmitFileInput');
       if (!input || input.files.length === 0) {
         alert('Please select at least one file to upload.');
         return;
       }
-      const files = Array.from(input.files);
+
+      // Filter out files already submitted for this session
+      const modal = document.getElementById('hwSubmitModal');
+      const existingFiles = (modal && Array.isArray(modal._existingFiles)) ? modal._existingFiles.map(n => n.toLowerCase()) : [];
+      const allFiles = Array.from(input.files);
+      const skippedFiles = allFiles.filter(f => existingFiles.includes(f.name.toLowerCase()));
+      const files = allFiles.filter(f => !existingFiles.includes(f.name.toLowerCase()));
+
+      if (files.length === 0) {
+        alert('⚠️ All selected files have already been submitted for this session.\n\nPlease choose different files to add new homework.');
+        return;
+      }
+
+      if (skippedFiles.length > 0) {
+        const ok = confirm(`These files are already submitted and will be skipped:\n${skippedFiles.map(f => '• ' + f.name).join('\n')}\n\nContinue uploading the other ${files.length} new file(s)?`);
+        if (!ok) return;
+      }
+
       const btn = document.getElementById('hwSubmitBtn');
       const progress = document.getElementById('hwSubmitProgress');
       const progressBar = document.getElementById('hwSubmitProgressBar');
       const progressText = document.getElementById('hwSubmitProgressText');
 
+      _hwUploading = true;
       btn.disabled = true;
       btn.textContent = 'Uploading...';
       progress.style.display = 'block';
 
-      let successCount = 0, errorCount = 0;
+      let successCount = 0, errorCount = 0, dupCount = 0;
       for (let i = 0; i < files.length; i++) {
         progressBar.style.width = Math.round((i / files.length) * 100) + '%';
         progressText.textContent = `Uploading ${i + 1} of ${files.length}: ${files[i].name}`;
@@ -3200,23 +3238,32 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             headers: authHeaders(),
             body: fd
           });
-          if (res.ok) successCount++;
-          else errorCount++;
+          if (res.ok) {
+            successCount++;
+          } else {
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 409 || data.error === 'duplicate') dupCount++;
+            else errorCount++;
+          }
         } catch (err) { errorCount++; }
       }
 
+      _hwUploading = false;
       progressBar.style.width = '100%';
-      progressText.textContent = successCount > 0
-        ? `✅ ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`
-        : '❌ All uploads failed. Please try again.';
 
+      const skipMsg = (skippedFiles.length + dupCount) > 0 ? ` (${skippedFiles.length + dupCount} duplicate(s) skipped)` : '';
       if (successCount > 0) {
+        progressText.textContent = `✅ ${successCount} new file(s) uploaded!${skipMsg}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`;
         setTimeout(() => {
           closeHwSubmitModal();
           loadPast();
           loadBadges();
         }, 1800);
+      } else if ((skippedFiles.length + dupCount) > 0 && errorCount === 0) {
+        progressText.textContent = `⚠️ All files were already submitted. No duplicates created.`;
+        setTimeout(() => closeHwSubmitModal(), 2500);
       } else {
+        progressText.textContent = '❌ Upload failed. Please try again.';
         btn.disabled = false;
         btn.textContent = '📤 Try Again';
       }

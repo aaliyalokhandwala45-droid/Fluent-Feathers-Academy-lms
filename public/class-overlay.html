@@ -124,6 +124,21 @@ select option { background: #ede0ff; color: #2d1245; }
 }
 #btn-float:hover { background: rgba(255,255,255,0.32); }
 
+#btn-pip {
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.45);
+  border-radius: 7px;
+  padding: 5px 10px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#btn-pip:hover { background: rgba(255,255,255,0.32); }
+
 /* Float / compact popup mode */
 body.float-mode .tabs { display: none; }
 body.float-mode #pane-student,
@@ -161,6 +176,7 @@ body.float-mode .pb { padding: 5px 7px; font-size: 10px; }
 <div class="hdr">
   <div class="hdr-title">&#x2B50; Class Points</div>
   <button id="btn-pin" title="Keep this window on top while you work in Canva">&#x1F4CC; Pin</button>
+  <button id="btn-pip" onclick="openScreenWidget()" title="Open as always-on-top screen widget — floats over your PPT/screen share">🖥️ Widget</button>
   <button id="btn-float" onclick="openFloat()" title="Pop out as floating window — position it on screen while you share Canva">&#x1F4CC; Float</button>
 </div>
 
@@ -283,6 +299,8 @@ function badgeFanfare() {
 var allStudents = [];
 var allGroups   = [];
 var students    = [];
+var _pipWin     = null;
+var _pipSyncInt = null;
 
 var CLASS_BADGES = [
   { emoji: '✏️', name: 'Punctuation Pro',     desc: 'Used punctuation correctly' },
@@ -472,6 +490,19 @@ async function give(studentId, pts) {
       card.classList.add(pts > 0 ? 'flash-g' : 'flash-r');
     }
 
+    // Sync PiP widget if open
+    _syncPiP();
+    if (_pipWin) {
+      try {
+        var pipCard = _pipWin.document.getElementById('pip-card-' + studentId);
+        if (pipCard) {
+          pipCard.classList.remove('fg', 'fr');
+          void pipCard.offsetWidth;
+          pipCard.classList.add(pts > 0 ? 'fg' : 'fr');
+        }
+      } catch(e) {}
+    }
+
     if (data.badge_awarded) {
       badgeFanfare();
       setTimeout(function(){ toast('Badge unlocked: ' + data.badge_awarded + '!'); }, 400);
@@ -489,6 +520,125 @@ function toast(msg) {
   el.classList.add('show');
   clearTimeout(_tt);
   _tt = setTimeout(function(){ el.classList.remove('show'); }, 2800);
+}
+
+// ── Screen Widget (Document Picture-in-Picture — always on top, shows in screen share) ──
+async function openScreenWidget() {
+  if (!students.length) { toast('Select a student or group first'); return; }
+  if (!window.documentPictureInPicture) {
+    toast('\uD83D\uDCA1 Use Chrome 116+ for Screen Widget. Opening popup...');
+    setTimeout(openFloat, 1200);
+    return;
+  }
+  try {
+    if (window.documentPictureInPicture.window) {
+      toast('Widget already open — check your screen!'); return;
+    }
+  } catch(e) {}
+  try {
+    var h = Math.min(60 + students.length * 68, 500);
+    _pipWin = await window.documentPictureInPicture.requestWindow({ width: 315, height: h });
+    _buildPiP();
+    clearInterval(_pipSyncInt);
+    _pipSyncInt = setInterval(function() {
+      try { if (!window.documentPictureInPicture || !window.documentPictureInPicture.window) { clearInterval(_pipSyncInt); _pipWin = null; } }
+      catch(e) { clearInterval(_pipSyncInt); _pipWin = null; }
+    }, 3000);
+  } catch(e) {
+    toast(e.message || 'Could not open widget');
+  }
+}
+
+function _buildPiP() {
+  if (!_pipWin) return;
+  var doc = _pipWin.document;
+  var st = doc.createElement('style');
+  st.textContent = [
+    '* { box-sizing:border-box; margin:0; padding:0; }',
+    'body { font-family:\'Segoe UI\',system-ui,sans-serif; background:#f3eeff; font-size:13px; color:#2d1245; }',
+    '.ph { background:linear-gradient(135deg,#B05D9E 0%,#764ba2 100%); padding:9px 12px;',
+    '       display:flex; align-items:center; justify-content:space-between;',
+    '       position:sticky; top:0; z-index:9; box-shadow:0 2px 8px rgba(176,93,158,0.35); }',
+    '.pt { font-size:14px; font-weight:800; color:#fff; }',
+    '.pm-btn { background:rgba(255,255,255,0.2); border:1.5px solid rgba(255,255,255,0.5);',
+    '           border-radius:6px; padding:4px 9px; color:#fff; font-size:11px; font-weight:800; cursor:pointer; }',
+    '.pm-btn:hover { background:rgba(255,255,255,0.38); }',
+    '#pip-body { padding:10px; overflow-y:auto; }',
+    'body.mini #pip-body { display:none; }',
+    '.sc { background:#fff; border:1.5px solid #e0cffa; border-radius:10px;',
+    '       padding:9px 11px; display:flex; align-items:center; gap:8px;',
+    '       margin-bottom:8px; box-shadow:0 1px 4px rgba(176,93,158,0.08); }',
+    '.sc.fg { animation:fg 0.5s; }',
+    '.sc.fr { animation:fr 0.5s; }',
+    '@keyframes fg { 0%,100%{background:#fff} 40%{background:#d1fae5;border-color:#34d399} }',
+    '@keyframes fr { 0%,100%{background:#fff} 40%{background:#fee2e2;border-color:#f87171} }',
+    '.av { width:30px;height:30px;border-radius:50%;flex-shrink:0;',
+    '       background:linear-gradient(135deg,#B05D9E 0%,#764ba2 100%);',
+    '       display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff; }',
+    '.sn { flex:1;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:30px; }',
+    '.sp { font-size:17px;font-weight:900;color:#b45309;min-width:34px;text-align:center;',
+    '       background:#fef3c7;border-radius:7px;padding:2px 7px; }',
+    '.br { display:flex;gap:3px; }',
+    '.pb { border:none;border-radius:6px;padding:5px 7px;cursor:pointer;font-size:11px;font-weight:800;transition:transform 0.1s; }',
+    '.pb:active { transform:scale(0.85); }',
+    '.p1 { background:#d1fae5;color:#065f46;border:1.5px solid #34d399; }',
+    '.p2 { background:#a7f3d0;color:#065f46;border:1.5px solid #10b981; }',
+    '.p5 { background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b; }',
+    '.m1 { background:#fee2e2;color:#991b1b;border:1.5px solid #f87171; }'
+  ].join('\n');
+  doc.head.appendChild(st);
+
+  var tab = document.getElementById('tab-s').classList.contains('on') ? 'student' : 'group';
+  var selEl = tab === 'group' ? document.getElementById('sel-group') : document.getElementById('sel-student');
+  var title = (selEl && selEl.selectedIndex >= 0 && selEl.options[selEl.selectedIndex].text !== '--') ?
+    selEl.options[selEl.selectedIndex].text : 'Class Points';
+
+  doc.body.innerHTML =
+    '<div class="ph">' +
+      '<span class="pt">\u2B50 ' + title + '</span>' +
+      '<button class="pm-btn" id="pip-min" onclick="document.body.classList.toggle(\'mini\');this.textContent=document.body.classList.contains(\'mini\')?\'▲ Show\':\'▼ Hide\'">\u25bc Hide</button>' +
+    '</div>' +
+    '<div id="pip-body"></div>';
+
+  _renderPiP();
+
+  // Expose give so PiP onclick buttons can call it
+  _pipWin._pipGive = give;
+}
+
+function _renderPiP() {
+  if (!_pipWin) return;
+  try {
+    var body = _pipWin.document.getElementById('pip-body');
+    if (!body) return;
+    body.innerHTML = '';
+    students.forEach(function(s) {
+      var d = _pipWin.document.createElement('div');
+      d.className = 'sc';
+      d.id = 'pip-card-' + s.id;
+      d.innerHTML =
+        '<div class="av">' + s.name.charAt(0).toUpperCase() + '</div>' +
+        '<div class="sn" title="' + s.name + '">' + s.name.split(' ')[0] + '</div>' +
+        '<div class="sp" id="pip-pts-' + s.id + '">' + s.points + '</div>' +
+        '<div class="br">' +
+          '<button class="pb p1" onclick="_pipGive(' + s.id + ',1)">+1</button>' +
+          '<button class="pb p2" onclick="_pipGive(' + s.id + ',2)">+2</button>' +
+          '<button class="pb p5" onclick="_pipGive(' + s.id + ',5)">+5</button>' +
+          '<button class="pb m1" onclick="_pipGive(' + s.id + ',-1)">&minus;1</button>' +
+        '</div>';
+      body.appendChild(d);
+    });
+  } catch(e) { _pipWin = null; }
+}
+
+function _syncPiP() {
+  if (!_pipWin) return;
+  try {
+    students.forEach(function(s) {
+      var el = _pipWin.document.getElementById('pip-pts-' + s.id);
+      if (el) el.textContent = s.points;
+    });
+  } catch(e) { _pipWin = null; }
 }
 
 // ── Float / pop-out support ──
