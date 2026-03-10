@@ -680,7 +680,8 @@ function loadCanva(silent) {
   if (!silent) toast('✅ Loaded! Now share this tab in Zoom');
 }
 
-// ── Fullscreen ──function toggleFullscreen() {
+// ── Fullscreen ──
+function toggleFullscreen() {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(function(e){ toast('Fullscreen unavailable: ' + e.message); });
   } else {
