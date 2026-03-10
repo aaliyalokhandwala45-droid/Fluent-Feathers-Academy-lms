@@ -4608,7 +4608,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
       executeQuery(`SELECT COUNT(*) as upcoming FROM sessions WHERE status IN ('Pending', 'Scheduled') AND session_date >= CURRENT_DATE`),
       executeQuery('SELECT COUNT(*) as total FROM groups'),
       executeQuery(`SELECT COUNT(*) as total FROM events WHERE status = 'Active'`),
-      executeQuery(`SELECT COUNT(*) as pending FROM materials WHERE uploaded_by = 'Parent' AND file_type = 'Homework' AND (feedback_grade IS NULL OR feedback_grade = '')`)
+      executeQuery(`SELECT COUNT(*) as pending FROM materials WHERE uploaded_by IN ('Parent', 'Admin') AND file_type = 'Homework' AND (feedback_grade IS NULL OR feedback_grade = '')`)
     ]);
 
     const monthlyRevenue = {};
@@ -6077,11 +6077,12 @@ app.get('/api/sessions/:studentId', async (req, res) => {
                 'feedback_comments', feedback_comments,
                 'corrected_file_path', corrected_file_path,
                 'uploaded_at', uploaded_at,
-                'feedback_date', feedback_date
+                'feedback_date', feedback_date,
+                'uploaded_by', uploaded_by
               ) ORDER BY uploaded_at ASC NULLS LAST
             ) as hw_submissions
             FROM materials
-            WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by = 'Parent'
+            WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
           ) ma ON true
           LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
           WHERE s.student_id = $1 AND s.session_type = 'Private'
@@ -6125,11 +6126,12 @@ app.get('/api/sessions/:studentId', async (req, res) => {
                   'feedback_comments', feedback_comments,
                   'corrected_file_path', corrected_file_path,
                   'uploaded_at', uploaded_at,
-                  'feedback_date', feedback_date
+                  'feedback_date', feedback_date,
+                  'uploaded_by', uploaded_by
                 ) ORDER BY uploaded_at ASC NULLS LAST
               ) as hw_submissions
               FROM materials
-              WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by = 'Parent'
+              WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
             ) ma ON true
             LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
             WHERE s.group_id = $2 AND s.session_type = 'Group'

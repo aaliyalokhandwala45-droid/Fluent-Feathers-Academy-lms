@@ -3037,7 +3037,10 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
               const subNum = hwSubs.length > 1 ? `<span style="background:${isLatest ? '#9f7aea' : '#a0aec0'}; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem; margin-right:4px;">Submission #${idx + 1}${isLatest ? ' (latest)' : ''}</span>` : '';
               // divider between multiple submissions
               if (idx > 0) hwStatus += `<hr style="border:none;border-top:1px dashed #e2e8f0;margin:6px 0;">`;
-              hwStatus += `${subNum}<span style="color:#38a169; font-weight:600;">✅ Submitted</span>`;
+              const submissionLabel = sub.uploaded_by === 'Admin'
+                ? `<span style="color:#38a169; font-weight:600;">✅ Submitted</span> <span style="background:#667eea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;">📱 WhatsApp</span>`
+                : `<span style="color:#38a169; font-weight:600;">✅ Submitted</span>`;
+              hwStatus += `${subNum}${submissionLabel}`;
               if (s.session_topic && idx === 0) hwStatus += `<br><small style="color:#5a67d8; font-weight:600;">📌 ${s.session_topic}</small>`;
               if (submittedOn) hwStatus += `<br><small style="color:#718096;">📅 ${submittedOn}</small>`;
               if (sub.feedback_grade) hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${sub.feedback_grade}</span>`;
