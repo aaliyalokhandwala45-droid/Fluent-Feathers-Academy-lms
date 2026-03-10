@@ -332,7 +332,7 @@ app.get('/join-class', async (req, res) => {
   try {
     const result = await executeQuery(`
       SELECT s.session_date, s.session_time, s.status,
-             COALESCE(s.class_link, st.class_link, g.class_link) AS class_link,
+             COALESCE(s.class_link, st.class_link) AS class_link,
              COALESCE(st.duration, g.duration, '40 mins') AS duration,
              COALESCE(st.name, g.name) AS student_name
       FROM sessions s
