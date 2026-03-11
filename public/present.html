@@ -115,19 +115,17 @@ select.std:focus { border-color: #B05D9E; }
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 900; color: #fff;
 }
-.s-name-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; }
-.s-name { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.badge-count { font-size: 11px; font-weight: 700; color: #92400e; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 1px 5px; white-space: nowrap; flex-shrink: 0; }
+.s-name { flex: 1; font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* Badge award button */
 .badge-wrap { position: relative; flex-shrink: 0; }
-.badge-btn {
+.badge-count-btn {
   border: 1.5px solid #c9a227; background: linear-gradient(135deg,#fff8dc 0%,#fde97a 100%);
-  border-radius: 6px; padding: 3px 6px; cursor: pointer; font-size: 11px; line-height: 1.4;
+  border-radius: 6px; padding: 2px 6px; cursor: pointer; font-size: 11px; line-height: 1.4;
   color: #7a5c00; font-weight: 700; transition: transform 0.1s;
   white-space: nowrap; box-shadow: 0 1px 3px rgba(201,162,39,0.25);
 }
-.badge-btn:active { transform: scale(0.88); }
+.badge-count-btn:active { transform: scale(0.88); }
 .badge-menu {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: 300;
   background: #fff; border: 1.5px solid #c084e8; border-radius: 10px;
@@ -143,13 +141,12 @@ select.std:focus { border-color: #B05D9E; }
 .s-pts {
   font-size: 16px; font-weight: 900; color: #b45309;
   background: #fef3c7; border-radius: 7px; padding: 2px 7px;
-  min-width: 32px; text-align: center;
+  min-width: 38px; text-align: center; flex-shrink: 0;
 }
-.btn-row { display: flex; gap: 3px; }
+.btn-row { display: flex; gap: 3px; flex-shrink: 0; }
 .pb { border: none; border-radius: 6px; padding: 5px 6px; cursor: pointer; font-size: 10px; font-weight: 800; transition: transform 0.1s; }
 .pb:active { transform: scale(0.88); }
 .pb.p1 { background: #d1fae5; color: #065f46; border: 1.5px solid #34d399; }
-.pb.p2 { background: #a7f3d0; color: #065f46; border: 1.5px solid #10b981; }
 .pb.p5 { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; }
 .pb.m1 { background: #fee2e2; color: #991b1b; border: 1.5px solid #f87171; }
 .empty { text-align: center; padding: 25px 10px; color: #c084e8; font-size: 12px; }
@@ -438,20 +435,16 @@ function renderList() {
     var cntStyle = badgeCount > 0 ? '' : 'display:none;';
     card.innerHTML =
       '<div class="av">' + esc(s.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div class="s-name-row">' +
-        '<div class="s-name" title="' + esc(s.name) + '">' + esc(s.name.split(' ')[0]) + '</div>' +
-        '<span class="badge-count" id="bcnt-' + s.id + '" style="' + cntStyle + '">🏅' + badgeCount + '</span>' +
+      '<div class="s-name" title="' + esc(s.name) + '">' + esc(s.name.split(' ')[0]) + '</div>' +
+      '<div class="badge-wrap">' +
+        '<button class="badge-count-btn" id="bcnt-' + s.id + '" onclick="toggleBadgeMenu(' + s.id + ',event)" title="Award a badge">🏅 ' + badgeCount + ' ▾</button>' +
+        '<div class="badge-menu" id="bmenu-' + s.id + '">' + buildBadgeMenuHTML(s.id) + '</div>' +
       '</div>' +
       '<div class="s-pts" id="pts-' + s.id + '">' + s.points + '</div>' +
       '<div class="btn-row">' +
         '<button class="pb p1" onclick="give(' + s.id + ',1)">+1</button>' +
-        '<button class="pb p2" onclick="give(' + s.id + ',2)">+2</button>' +
         '<button class="pb p5" onclick="give(' + s.id + ',5)">+5</button>' +
         '<button class="pb m1" onclick="give(' + s.id + ',-1)">&minus;1</button>' +
-      '</div>' +
-      '<div class="badge-wrap">' +
-        '<button class="badge-btn" onclick="toggleBadgeMenu(' + s.id + ',event)" title="Award a badge">🏅▾</button>' +
-        '<div class="badge-menu" id="bmenu-' + s.id + '">' + buildBadgeMenuHTML(s.id) + '</div>' +
       '</div>';
     list.appendChild(card);
   });
@@ -607,8 +600,7 @@ async function updateBadgeDisplay(studentId) {
     var cnt = document.getElementById('bcnt-' + studentId);
     if (cnt && s) {
       var n = s.badges.length;
-      cnt.textContent = '🏅' + n;
-      cnt.style.display = n > 0 ? '' : 'none';
+      cnt.textContent = '🏅 ' + n + ' ▾';
     }
   } catch(e) {}
 }
