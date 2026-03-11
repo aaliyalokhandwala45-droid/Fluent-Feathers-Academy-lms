@@ -1884,6 +1884,34 @@ async function runMigrations() {
       console.log('Migration 42 note:', err.message);
     }
 
+    // Migration 43: One-time fix - increment remaining_sessions for existing students who have
+    // upcoming scheduled makeup classes that were scheduled before the fix (remaining was never incremented)
+    try {
+      const fixResult = await client.query(`
+        UPDATE students s
+        SET remaining_sessions = remaining_sessions + sub.makeup_pending
+        FROM (
+          SELECT sess.student_id, COUNT(*) AS makeup_pending
+          FROM sessions sess
+          INNER JOIN makeup_classes mc ON mc.scheduled_session_id = sess.id AND mc.status = 'Scheduled'
+          WHERE sess.notes = 'Makeup Class'
+            AND sess.status IN ('Scheduled', 'Pending')
+            AND sess.session_date >= CURRENT_DATE
+          GROUP BY sess.student_id
+        ) sub
+        WHERE s.id = sub.student_id
+        RETURNING s.id, s.name, sub.makeup_pending
+      `);
+      if (fixResult.rows.length > 0) {
+        fixResult.rows.forEach(r => console.log(`  ✅ ${r.name}: remaining_sessions +${r.makeup_pending} (makeup backfill)`));
+        console.log(`✅ Migration 43: Fixed remaining_sessions for ${fixResult.rows.length} student(s) with existing scheduled makeup classes`);
+      } else {
+        console.log('✅ Migration 43: No students needed remaining_sessions makeup backfill');
+      }
+    } catch (err) {
+      console.log('Migration 43 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
