@@ -3016,10 +3016,13 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           if (!materials) materials = '-';
 
           // Helper: format a UTC timestamp in the parent's portal timezone
+          // PostgreSQL returns TIMESTAMP columns without 'Z', so we must force UTC interpretation
           const fmtTz = (ts) => {
             if (!ts) return null;
             try {
-              return new Date(ts).toLocaleString('en-IN', {
+              const s = String(ts).trim().replace(' ', 'T');
+              const utc = (s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) ? s : s + 'Z';
+              return new Date(utc).toLocaleString('en-IN', {
                 timeZone: getPortalTimezone(),
                 day: 'numeric', month: 'short', year: 'numeric',
                 hour: 'numeric', minute: '2-digit', hour12: true
