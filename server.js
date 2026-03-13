@@ -10421,10 +10421,11 @@ app.post('/api/assessments/ai-suggest', express.json(), async (req, res) => {
     let studentAge = '';
     let pastAssessments = [];
     if (student_id) {
-      const sRes = await pool.query('SELECT name, age FROM students WHERE id = $1', [student_id]);
+      const sRes = await pool.query('SELECT name, date_of_birth FROM students WHERE id = $1', [student_id]);
       if (sRes.rows[0]) {
         studentName = sRes.rows[0].name;
-        studentAge = sRes.rows[0].age ? ` (age ${sRes.rows[0].age})` : '';
+        const ageVal = calculateAge(sRes.rows[0].date_of_birth);
+        studentAge = ageVal !== null ? ` (age ${ageVal})` : '';
       }
       const aRes = await pool.query(
         `SELECT skill_ratings, certificate_title, performance_summary, month, year
