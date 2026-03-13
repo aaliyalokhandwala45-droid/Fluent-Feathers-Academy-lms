@@ -1164,6 +1164,41 @@
       </div>
     </div>
 
+    <!-- Homework Feedback Modal -->
+    <div id="hwFeedbackModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:16px;padding:28px 28px 22px;max-width:520px;width:94%;box-shadow:0 8px 40px rgba(0,0,0,0.35);position:relative;">
+        <button onclick="closeHwFeedbackModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#a0aec0;">&times;</button>
+        <h3 style="margin:0 0 4px;color:#2d3748;font-size:16px;">&#x1F4DD; Grade Homework</h3>
+        <p style="margin:0 0 16px;color:#718096;font-size:13px;">Student: <strong id="hwFeedbackStudent"></strong> &mdash; <span id="hwFeedbackFile" style="color:#B05D9E;"></span></p>
+        <input type="hidden" id="hwFeedbackId">
+
+        <!-- AI Notes bar -->
+        <div style="background:#f5f0ff;border:1.5px solid #b794f4;border-radius:10px;padding:11px 13px;margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:800;color:#553c9a;margin-bottom:6px;">&#x2728; AI Feedback Generator</div>
+          <div style="display:flex;gap:7px;align-items:flex-start;">
+            <textarea id="hwFeedbackNotes" rows="2" placeholder='e.g. "Great effort, sentences were clear but had some spelling mistakes, needs to work on grammar"' style="flex:1;background:#fff;border:1px solid #b794f4;border-radius:7px;padding:7px 9px;font-size:12px;resize:vertical;outline:none;color:#2d3748;"></textarea>
+            <button id="hwAiBtn" type="button" onclick="aiGenerateHwFeedback()" style="background:#764ba2;border:none;border-radius:7px;padding:10px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">&#x2728; AI Feedback</button>
+          </div>
+          <div style="font-size:10px;color:#a78bca;margin-top:4px;">AI will write polished parent-facing feedback &amp; suggest a grade. You can edit before saving.</div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-end;">
+          <div style="flex:1;">
+            <label style="font-size:12px;font-weight:700;color:#4a5568;display:block;margin-bottom:4px;">Grade *</label>
+            <input id="hwFeedbackGrade" type="text" placeholder="A+, A, B+, B, C+…" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;outline:none;">
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="font-size:12px;font-weight:700;color:#4a5568;display:block;margin-bottom:4px;">Feedback for Parents</label>
+          <textarea id="hwFeedbackComments" rows="5" placeholder="Write feedback here, or use &#x2728; AI Feedback above…" style="width:100%;padding:9px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;resize:vertical;outline:none;color:#2d3748;"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" onclick="closeHwFeedbackModal()" style="background:#edf2f7;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;color:#4a5568;">Cancel</button>
+          <button type="button" onclick="submitHwFeedback()" style="background:#B05D9E;color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:800;cursor:pointer;">&#x1F4BE; Save Grade &amp; Feedback</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Homework Submissions Tab -->
     <div id="homeworkTab" class="tab-content">
       <div class="section">
@@ -5085,12 +5120,48 @@ if (dueEl) {
     }
 
     function openGradeHomeworkModal(homeworkId, studentName, fileName) {
-      const grade = prompt(`Grade homework for ${studentName}\n\nFile: ${fileName}\n\nEnter grade (e.g., A+, A, B+, B, C, Excellent, Good):`);
-      if (grade === null) return;
-
-      const comments = prompt('Enter feedback comments (optional):') || '';
-
-      gradeHomework(homeworkId, grade, comments);
+      document.getElementById('hwFeedbackId').value = homeworkId;
+      document.getElementById('hwFeedbackStudent').textContent = studentName;
+      document.getElementById('hwFeedbackFile').textContent = fileName;
+      document.getElementById('hwFeedbackGrade').value = '';
+      document.getElementById('hwFeedbackComments').value = '';
+      document.getElementById('hwFeedbackNotes').value = '';
+      document.getElementById('hwFeedbackModal').style.display = 'flex';
+    }
+    function closeHwFeedbackModal() {
+      document.getElementById('hwFeedbackModal').style.display = 'none';
+    }
+    async function aiGenerateHwFeedback() {
+      const notes = document.getElementById('hwFeedbackNotes').value.trim();
+      if (!notes) { document.getElementById('hwFeedbackNotes').focus(); alert('Please type your quick notes about the homework first.'); return; }
+      const btn = document.getElementById('hwAiBtn');
+      const studentName = document.getElementById('hwFeedbackStudent').textContent;
+      const fileName    = document.getElementById('hwFeedbackFile').textContent;
+      btn.textContent = '⏳ Thinking…'; btn.disabled = true;
+      try {
+        const res  = await fetch('/api/homework/ai-feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_name: studentName, teacher_notes: notes, file_name: fileName })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'AI error');
+        if (data.feedback) document.getElementById('hwFeedbackComments').value = data.feedback;
+        if (data.grade)    document.getElementById('hwFeedbackGrade').value    = data.grade;
+        btn.textContent = '✅ Done!';
+        setTimeout(() => { btn.textContent = '✨ AI Feedback'; btn.disabled = false; }, 2000);
+      } catch (err) {
+        alert('AI Error: ' + err.message);
+        btn.textContent = '✨ AI Feedback'; btn.disabled = false;
+      }
+    }
+    async function submitHwFeedback() {
+      const id       = document.getElementById('hwFeedbackId').value;
+      const grade    = document.getElementById('hwFeedbackGrade').value.trim();
+      const comments = document.getElementById('hwFeedbackComments').value.trim();
+      if (!grade) { alert('Please enter a grade.'); return; }
+      await gradeHomework(id, grade, comments);
+      closeHwFeedbackModal();
     }
 
     // Delete homework submission

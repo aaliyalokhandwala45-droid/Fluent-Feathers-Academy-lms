@@ -10507,6 +10507,51 @@ Return ONLY JSON. No markdown. No explanation.`;
   }
 });
 
+// AI homework feedback generator
+app.post('/api/homework/ai-feedback', express.json(), async (req, res) => {
+  try {
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) return res.status(400).json({ error: 'GROQ_API_KEY not configured on Render.' });
+    const { student_name, teacher_notes, file_name } = req.body;
+    if (!teacher_notes) return res.status(400).json({ error: 'teacher_notes is required' });
+
+    const prompt = `You are a warm, encouraging English language teacher writing homework feedback for a child.
+
+Student name: ${student_name || 'the student'}
+Homework file: ${file_name || 'submitted homework'}
+Teacher\'s quick notes: "${teacher_notes}"
+
+Write polished, friendly feedback (3-5 sentences) addressed to the parents about their child\'s homework. Be specific, encouraging, and mention what was done well and what to improve. End with a motivating closing line.
+
+Also suggest a grade from: A+, A, B+, B, C+, C, Needs Improvement.
+
+Return ONLY valid JSON:
+{
+  "feedback": "The full feedback text here...",
+  "grade": "A"
+}
+Return ONLY JSON. No markdown.`;
+
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 512,
+        temperature: 0.5
+      },
+      { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 15000 }
+    );
+    const content = response.data.choices?.[0]?.message?.content?.trim();
+    if (!content) return res.status(500).json({ error: 'AI returned empty response' });
+    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const jsonStr = fenceMatch ? fenceMatch[1].trim() : (content.match(/\{[\s\S]*\}/) || [content])[0];
+    res.json(JSON.parse(jsonStr));
+  } catch (err) {
+    res.status(500).json({ error: err.response?.data?.error?.message || err.message });
+  }
+});
+
 // AI Quick Fill — fills challenge / announcement / resource forms
 app.post('/api/ai/quickfill', express.json(), async (req, res) => {
   try {
