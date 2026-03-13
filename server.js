@@ -10507,6 +10507,71 @@ Return ONLY JSON. No markdown. No explanation.`;
   }
 });
 
+// AI Quick Fill — fills challenge / announcement / resource forms
+app.post('/api/ai/quickfill', express.json(), async (req, res) => {
+  try {
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) return res.status(400).json({ error: 'GROQ_API_KEY not configured on Render. Get a free key at console.groq.com' });
+    const { form_type, prompt } = req.body;
+    if (!form_type || !prompt) return res.status(400).json({ error: 'form_type and prompt are required' });
+
+    const systemPrompts = {
+      challenge: `You are a helper for a children's English language learning school. Fill in a weekly challenge form based on the teacher's brief description.
+Return ONLY valid JSON:
+{
+  "title": "Challenge title, short and engaging, max 60 chars",
+  "type": "one of: Reading, Vocabulary, Speaking, Writing, Homework, Practice, General",
+  "description": "2-3 sentences describing what students need to do",
+  "badge_reward": "one of: 🎯 Challenge Champion, 📖 Reading Star, 📚 Vocab Master, 🗣️ Speaking Hero, ✍️ Writing Wizard, ⭐ Super Achiever, 🏆 Weekly Winner, 🌟 Shining Star"
+}
+Return ONLY JSON. No markdown. No explanation.`,
+      announcement: `You are a helper for a children's English language learning school. Fill in an announcement form.
+Return ONLY valid JSON:
+{
+  "title": "Clear announcement title, max 80 chars",
+  "type": "one of: General, Holiday, Reminder, Update, Challenge Update, Competition Update, Results",
+  "priority": "one of: Normal, High, Urgent",
+  "content": "Full announcement text in 2-4 sentences, professional and friendly tone for parents"
+}
+Return ONLY JSON. No markdown. No explanation.`,
+      resource: `You are a helper for a children's English language learning school. Fill in a learning resource form.
+Return ONLY valid JSON:
+{
+  "title": "Descriptive resource title, max 80 chars",
+  "category": "one of: Videos, Worksheets, PDFs, Practice, Games, Stories, Other",
+  "description": "1-2 sentences describing this resource and how students use it",
+  "tags": "3-5 comma-separated tags, e.g. phonics, reading, grade 2"
+}
+Return ONLY JSON. No markdown. No explanation.`
+    };
+
+    const sysPrompt = systemPrompts[form_type];
+    if (!sysPrompt) return res.status(400).json({ error: 'Unknown form_type: ' + form_type });
+
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: sysPrompt },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 512,
+        temperature: 0.45
+      },
+      { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 15000 }
+    );
+
+    const content = response.data.choices?.[0]?.message?.content?.trim();
+    if (!content) return res.status(500).json({ error: 'AI returned empty response' });
+    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const jsonStr = fenceMatch ? fenceMatch[1].trim() : (content.match(/\{[\s\S]*\}/) || [content])[0];
+    res.json(JSON.parse(jsonStr));
+  } catch (err) {
+    res.status(500).json({ error: err.response?.data?.error?.message || err.message });
+  }
+});
+
 // Get all homework submissions (for admin panel)
 app.get('/api/homework/all', async (req, res) => {
   try {

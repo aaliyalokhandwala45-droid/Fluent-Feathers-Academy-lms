@@ -1411,6 +1411,12 @@
         <!-- Create Challenge Form -->
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px;">
           <h3 style="color: white; margin-bottom: 15px;">➕ Create New Challenge</h3>
+          <!-- AI Quick Fill -->
+          <div style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.45);border-radius:10px;padding:11px 14px;margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:11px;font-weight:800;color:#fff;white-space:nowrap;">✨ AI Fill</span>
+            <input type="text" id="ai-prompt-challenge" placeholder='e.g. "Reading challenge for beginners this week, award reading star"' style="flex:1;min-width:180px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:7px;padding:7px 10px;color:#fff;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')aiQuickFill('challenge')" />
+            <button type="button" id="ai-btn-challenge" onclick="aiQuickFill('challenge')" style="background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.6);border-radius:7px;padding:7px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">✨ Fill Form</button>
+          </div>
           <form id="createChallengeForm">
             <div class="form-row">
               <div class="form-group">
@@ -1486,6 +1492,12 @@
         <!-- Add Resource Form -->
         <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px;">
           <h3 style="color: #2d3748; margin-bottom: 20px;">➕ Add New Resource</h3>
+          <!-- AI Quick Fill -->
+          <div style="background:rgba(91,200,200,0.12);border:1.5px solid #5bc8c8;border-radius:10px;padding:11px 14px;margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:11px;font-weight:800;color:#2d8080;white-space:nowrap;">✨ AI Fill</span>
+            <input type="text" id="ai-prompt-resource" placeholder='e.g. "Phonics worksheet for grade 1, PDF practice"' style="flex:1;min-width:180px;background:#fff;border:1px solid #5bc8c8;border-radius:7px;padding:7px 10px;color:#2d3748;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')aiQuickFill('resource')" />
+            <button type="button" id="ai-btn-resource" onclick="aiQuickFill('resource')" style="background:#5bc8c8;border:none;border-radius:7px;padding:7px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">✨ Fill Form</button>
+          </div>
           <form id="addResourceForm">
             <div class="form-row">
               <div class="form-group"><label>Title *</label><input type="text" id="resourceTitle" required placeholder="e.g., Phonics Practice Worksheet"></div>
@@ -1901,6 +1913,12 @@
     <div id="announcementsTab" class="tab-content">
       <div class="section">
         <h2>📢 Create Announcement</h2>
+        <!-- AI Quick Fill -->
+        <div style="background:#f5f0ff;border:1.5px solid #b794f4;border-radius:10px;padding:11px 14px;margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:800;color:#553c9a;white-space:nowrap;">✨ AI Fill</span>
+          <input type="text" id="ai-prompt-announcement" placeholder='e.g. "Holiday on Monday, no class, high priority"' style="flex:1;min-width:180px;background:#fff;border:1px solid #b794f4;border-radius:7px;padding:7px 10px;color:#2d3748;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')aiQuickFill('announcement')" />
+          <button type="button" id="ai-btn-announcement" onclick="aiQuickFill('announcement')" style="background:#764ba2;border:none;border-radius:7px;padding:7px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">✨ Fill Form</button>
+        </div>
         <form id="createAnnouncementForm">
           <div class="form-row">
             <div class="form-group"><label>Title *</label><input type="text" id="announcementTitle" required></div>
@@ -12030,6 +12048,79 @@ async function submitBulkReschedule() {
     } catch(err) {
       alert('❌ Error: ' + err.message);
     }
+  }
+}
+
+// ── AI QUICK FILL ─────────────────────────────────────────
+async function aiQuickFill(formType) {
+  const promptEl = document.getElementById('ai-prompt-' + formType);
+  const btn      = document.getElementById('ai-btn-' + formType);
+  const prompt   = promptEl ? promptEl.value.trim() : '';
+  if (!prompt) { if (promptEl) promptEl.focus(); alert('Please type a brief description first.'); return; }
+  const origText = btn.textContent;
+  btn.textContent = '⏳ Thinking…';
+  btn.disabled = true;
+  try {
+    const res  = await fetch('/api/ai/quickfill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ form_type: formType, prompt })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'AI error');
+
+    function setVal(id, val) { const el = document.getElementById(id); if (el && val) el.value = val; }
+    function setSel(id, val) {
+      const sel = document.getElementById(id);
+      if (!sel || !val) return;
+      const opt = Array.from(sel.options).find(o => o.value.toLowerCase() === val.toLowerCase())
+               || Array.from(sel.options).find(o => o.value.toLowerCase().includes(val.toLowerCase()))
+               || Array.from(sel.options).find(o => val.toLowerCase().includes(o.value.toLowerCase()));
+      if (opt) sel.value = opt.value;
+    }
+
+    if (formType === 'challenge') {
+      setVal('challengeTitle', data.title);
+      setSel('challengeType', data.type);
+      setVal('challengeDescription', data.description);
+      if (data.badge_reward) {
+        const sel = document.getElementById('challengeBadgeReward');
+        if (sel) {
+          const opt = Array.from(sel.options).find(o => o.value.toLowerCase().includes(
+            data.badge_reward.replace(/^[^a-zA-Z]+/, '').split(' ').slice(0,2).join(' ').toLowerCase()
+          ));
+          if (opt) sel.value = opt.value;
+        }
+      }
+      // Auto-fill current week dates if empty
+      const ws = document.getElementById('challengeWeekStart');
+      const we = document.getElementById('challengeWeekEnd');
+      if (ws && !ws.value) {
+        const today = new Date();
+        const dow   = today.getDay();
+        const mon   = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+        const sun   = new Date(mon);   sun.setDate(mon.getDate() + 6);
+        ws.value = mon.toISOString().split('T')[0];
+        we.value = sun.toISOString().split('T')[0];
+      }
+    } else if (formType === 'announcement') {
+      setVal('announcementTitle', data.title);
+      setSel('announcementType', data.type);
+      setSel('announcementPriority', data.priority);
+      setVal('announcementContent', data.content);
+    } else if (formType === 'resource') {
+      setVal('resourceTitle', data.title);
+      setSel('resourceCategory', data.category);
+      setVal('resourceDescription', data.description);
+      setVal('resourceTags', data.tags);
+    }
+    promptEl.value = '';
+    btn.textContent = '✅ Done!';
+    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+  } catch (err) {
+    alert('AI Error: ' + err.message + '\n\nMake sure GROQ_API_KEY is set in Render environment variables.\nGet a free key at console.groq.com');
+    btn.textContent = origText;
+    btn.disabled = false;
   }
 }
 
