@@ -10329,18 +10329,13 @@ app.get('/api/students/:id/homework', async (req, res) => {
 // AI auto-correct homework using GPT-4 Vision
 app.post('/api/homework/ai-annotate', express.json({ limit: '20mb' }), async (req, res) => {
   try {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
-      return res.status(400).json({ error: 'GEMINI_API_KEY is not configured. Add it to your environment variables on Render. Get a free key at aistudio.google.com/apikey' });
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return res.status(400).json({ error: 'GROQ_API_KEY is not configured. Add it to your environment variables on Render. Get a free key at console.groq.com' });
     }
 
     const { image_data } = req.body;
     if (!image_data) return res.status(400).json({ error: 'No image data provided' });
-
-    // Strip data URL prefix to get raw base64
-    const base64 = image_data.replace(/^data:image\/[a-z]+;base64,/, '');
-    const mimeMatch = image_data.match(/^data:(image\/[a-z]+);base64,/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
 
     const prompt = `You are an English language teacher reviewing a student's creative writing homework image. Carefully read ALL the handwritten or typed text in the image.
 
@@ -10367,23 +10362,26 @@ If the writing has no errors, return {"corrections": [], "grade": "A+", "summary
 Return ONLY the JSON. No markdown. No explanation.`;
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiKey}`,
+      'https://api.groq.com/openai/v1/chat/completions',
       {
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType, data: base64 } }
+        model: 'llama-3.2-11b-vision-preview',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: image_data } }
           ]
         }],
-        generationConfig: { maxOutputTokens: 2048, temperature: 0.1 }
+        max_tokens: 2048,
+        temperature: 0.1
       },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 45000 }
+      { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 45000 }
     );
 
-    const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!content) return res.status(500).json({ error: 'Gemini returned empty response' });
+    const content = response.data.choices?.[0]?.message?.content?.trim();
+    if (!content) return res.status(500).json({ error: 'Groq returned empty response' });
 
-    // Extract JSON even if Gemini wraps it in markdown code block
+    // Extract JSON even if wrapped in markdown code block
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return res.status(500).json({ error: 'AI returned unexpected format', raw: content });
     const result = JSON.parse(jsonMatch[0]);
@@ -10395,12 +10393,12 @@ Return ONLY the JSON. No markdown. No explanation.`;
   }
 });
 
-// AI assessment suggestion using Gemini
+// AI assessment suggestion using Groq
 app.post('/api/assessments/ai-suggest', express.json(), async (req, res) => {
   try {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
-      return res.status(400).json({ error: 'GEMINI_API_KEY not configured on Render.' });
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return res.status(400).json({ error: 'GROQ_API_KEY not configured on Render. Get a free key at console.groq.com' });
     }
 
     const { student_id, quick_notes, assessment_type } = req.body;
@@ -10475,16 +10473,18 @@ For certificate_title, choose the most appropriate from: Star of the Month, Most
 Return ONLY JSON. No markdown. No explanation.`;
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiKey}`,
+      'https://api.groq.com/openai/v1/chat/completions',
       {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1024, temperature: 0.4 }
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1024,
+        temperature: 0.4
       },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 20000 }
+      { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 20000 }
     );
 
-    const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!content) return res.status(500).json({ error: 'Gemini returned empty response' });
+    const content = response.data.choices?.[0]?.message?.content?.trim();
+    if (!content) return res.status(500).json({ error: 'Groq returned empty response' });
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return res.status(500).json({ error: 'Unexpected AI response', raw: content });
     res.json(JSON.parse(jsonMatch[0]));

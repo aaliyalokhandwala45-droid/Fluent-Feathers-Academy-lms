@@ -5451,7 +5451,7 @@ if (dueEl) {
 
         alert(`🤖 AI marked ${corrections.length} correction(s).\n\nGrade suggestion: ${grade || ''}\n${summary || ''}\n\nYou can still draw or edit before saving.`);
       } catch (err) {
-        alert('AI Error: ' + err.message + '\n\nMake sure GEMINI_API_KEY is set in your Render environment variables.\nGet a free key at aistudio.google.com/apikey');
+        alert('AI Error: ' + err.message + '\n\nMake sure GROQ_API_KEY is set in your Render environment variables.\nGet a free key at console.groq.com');
       }
       btn.textContent = '🤖 AI Correct'; btn.disabled = false;
     }
