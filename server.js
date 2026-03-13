@@ -10367,7 +10367,7 @@ If the writing has no errors, return {"corrections": [], "grade": "A+", "summary
 Return ONLY the JSON. No markdown. No explanation.`;
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
       {
         contents: [{
           parts: [
@@ -10475,7 +10475,7 @@ For certificate_title, choose the most appropriate from: Star of the Month, Most
 Return ONLY JSON. No markdown. No explanation.`;
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
       {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: 1024, temperature: 0.4 }
