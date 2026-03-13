@@ -2439,24 +2439,40 @@
                 <span style="font-size:11px;color:#6366f1;">AI will fill star ratings, feedback & certificate based on your notes</span>
               </div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;" id="feedbackChips">
-              <button type="button" class="chip-btn" onclick="addChip('Shows excellent progress this month!')">Shows excellent progress this month!</button>
-              <button type="button" class="chip-btn" onclick="addChip('Very attentive and participates well in class.')">Very attentive in class</button>
-              <button type="button" class="chip-btn" onclick="addChip('Has been consistent with homework.')">Consistent with homework</button>
-              <button type="button" class="chip-btn" onclick="addChip('Great improvement this month, keep it up!')">Great improvement</button>
-              <button type="button" class="chip-btn" onclick="addChip('Needs to practice regularly at home.')">Needs home practice</button>
-              <button type="button" class="chip-btn" onclick="addChip('Reading skills are developing beautifully.')">Reading developing well</button>
-              <button type="button" class="chip-btn" onclick="addChip('Pronunciation has improved significantly.')">Pronunciation improved</button>
-              <button type="button" class="chip-btn" onclick="addChip('Confidence is growing with each class.')">Confidence growing</button>
-              <button type="button" class="chip-btn" onclick="addChip('Excellent attitude towards learning.')">Excellent attitude</button>
-              <button type="button" class="chip-btn" onclick="addChip('Ready to move to the next level.')">Ready for next level</button>
-              <button type="button" class="chip-btn" onclick="addChip('Could improve on focus during class.')">Improve focus</button>
-              <button type="button" class="chip-btn" onclick="addChip('Spelling accuracy is improving.')">Spelling improving</button>
-              <button type="button" class="chip-btn" onclick="addChip('Creative writing shows great imagination.')">Creative writing</button>
-              <button type="button" class="chip-btn" onclick="addChip('Grammar foundations are getting stronger.')">Grammar stronger</button>
-              <button type="button" class="chip-btn" onclick="addChip('Keep up the wonderful work!')">Keep up the work!</button>
+            <div style="background:#f0fdf4;border:1.5px dashed #86efac;border-radius:8px;padding:8px 12px;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:6px;">⚡ Quick Notes — click to add to AI box above:</div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px;" id="feedbackChips">
+                <button type="button" class="chip-btn" onclick="addChipToAI('excellent progress')">Shows excellent progress this month!</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('very attentive in class')">Very attentive in class</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('consistent with homework')">Consistent with homework</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('great improvement')">Great improvement</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('needs home practice')">Needs home practice</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('reading developing well')">Reading developing well</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('pronunciation improved')">Pronunciation improved</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('confidence growing')">Confidence growing</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('excellent attitude')">Excellent attitude</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('ready for next level')">Ready for next level</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('needs to improve focus')">Improve focus</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('spelling improving')">Spelling improving</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('creative writing good')">Creative writing</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('grammar stronger')">Grammar stronger</button>
+                <button type="button" class="chip-btn" onclick="addChipToAI('keep up the good work')">Keep up the work!</button>
+              </div>
             </div>
-            <textarea id="performanceSummary" rows="4" placeholder="Write overall feedback for parents, or click chips above to build it quickly..."></textarea>
+            <!-- AI Draft Preview (shown after AI suggests) -->
+            <div id="aiDraftPreview" style="display:none;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #4ade80;border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="font-size:16px;">✨</span>
+                <span style="font-weight:700;color:#15803d;font-size:13px;">AI Drafted Feedback — review and approve:</span>
+              </div>
+              <div id="aiDraftText" style="background:#fff;border:1px solid #86efac;border-radius:7px;padding:10px 12px;font-size:13px;color:#1e293b;line-height:1.6;margin-bottom:10px;white-space:pre-wrap;"></div>
+              <div style="display:flex;gap:8px;">
+                <button type="button" onclick="approveAIDraft()" style="background:linear-gradient(135deg,#16a34a,#15803d);color:white;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-weight:700;font-size:13px;">✅ Approve & Use This Feedback</button>
+                <button type="button" onclick="editAIDraft()" style="background:#f1f5f9;color:#475569;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:600;">✏️ Edit Manually</button>
+                <button type="button" onclick="document.getElementById('aiDraftPreview').style.display='none'" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:600;">✗ Discard</button>
+              </div>
+            </div>
+            <textarea id="performanceSummary" rows="4" placeholder="Write overall feedback for parents, or approve AI draft above to fill this..."></textarea>
           </div>
 
           <div style="display:none;">
@@ -5335,9 +5351,11 @@ if (dueEl) {
           }, 100);
         }
 
-        // 2. Fill performance summary
+        // 2. Show performance summary as AI draft for approval
         if (performance_summary) {
-          document.getElementById('performanceSummary').value = performance_summary;
+          document.getElementById('aiDraftText').textContent = performance_summary;
+          document.getElementById('aiDraftPreview').style.display = 'block';
+          document.getElementById('aiDraftPreview').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         // 3. Set certificate
@@ -9960,6 +9978,36 @@ async function saveEditedPayment() {
       const current = ta.value.trim();
       ta.value = current ? current + ' ' + text : text;
       ta.focus();
+    }
+
+    // Add chip keyword to AI notes box
+    function addChipToAI(keyword) {
+      const ta = document.getElementById('aiAssessNotes');
+      if (!ta) return;
+      const current = ta.value.trim();
+      ta.value = current ? current + ', ' + keyword : keyword;
+      ta.focus();
+      // Flash the AI box to show it was added
+      const box = ta.closest('div').parentElement;
+      const orig = box.style.background;
+      box.style.background = 'linear-gradient(135deg,#dbeafe,#bfdbfe)';
+      setTimeout(() => { box.style.background = ''; }, 600);
+    }
+
+    // Approve the AI draft and copy to feedback textarea
+    function approveAIDraft() {
+      const draft = document.getElementById('aiDraftText').textContent;
+      document.getElementById('performanceSummary').value = draft;
+      document.getElementById('aiDraftPreview').style.display = 'none';
+      document.getElementById('performanceSummary').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Let user edit the draft manually by copying it to the feedback box
+    function editAIDraft() {
+      const draft = document.getElementById('aiDraftText').textContent;
+      document.getElementById('performanceSummary').value = draft;
+      document.getElementById('aiDraftPreview').style.display = 'none';
+      document.getElementById('performanceSummary').focus();
     }
 
     // ── Skill categories and their checkbox IDs ───────────────────────────
