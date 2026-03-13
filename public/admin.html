@@ -5386,15 +5386,70 @@ if (dueEl) {
       // Text tool click
       annotCanvas.addEventListener('click', function(e) {
         if (annotTool !== 'text') return;
+        // Remove any existing popup
+        const oldPop = document.getElementById('annotTextPopup');
+        if (oldPop) oldPop.remove();
+
         const rect = annotCanvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const text = prompt('Enter text:');
-        if (!text) return;
-        annotCtx.font = `bold ${annotTextSize}px Arial`;
-        annotCtx.fillStyle = annotColor;
-        annotCtx.fillText(text, x, y);
-        annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+
+        // Build floating popup positioned near the click
+        let left = e.clientX + 12;
+        let top  = e.clientY - 24;
+        if (left + 280 > window.innerWidth)  left = e.clientX - 292;
+        if (top  + 220 > window.innerHeight) top  = e.clientY - 224;
+
+        const popup = document.createElement('div');
+        popup.id = 'annotTextPopup';
+        popup.style.cssText = `position:fixed;left:${left}px;top:${top}px;z-index:10100;background:#2d3748;border:1.5px solid #667eea;border-radius:10px;padding:12px 14px;box-shadow:0 6px 28px rgba(0,0,0,0.65);min-width:268px;`;
+
+        const colors = ['#e53e3e','#3182ce','#38a169','#000000','#f59e0b','#ffffff'];
+        const sizes  = [{s:12,l:'S'},{s:18,l:'M'},{s:26,l:'L'},{s:38,l:'XL'}];
+
+        popup.innerHTML = `
+          <div style="color:#a0aec0;font-size:11px;font-weight:700;margin-bottom:6px;">✏️ Add Text</div>
+          <input id="annotTextInput" type="text" placeholder="Type text here…"
+            style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid #4a5568;background:#1a202c;color:white;font-size:14px;outline:none;margin-bottom:8px;box-sizing:border-box;">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;">
+            <span style="color:#a0aec0;font-size:11px;white-space:nowrap;">Color:</span>
+            ${colors.map(c => `<div data-c="${c}" onclick="window._atpC='${c}';document.querySelectorAll('#annotTextPopup [data-c]').forEach(d=>d.style.outline='none');this.style.outline='2px solid #fff'"
+              style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;border:1.5px solid #718096;flex-shrink:0;${c===annotColor?'outline:2px solid #fff':''}"></div>`).join('')}
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:10px;">
+            <span style="color:#a0aec0;font-size:11px;white-space:nowrap;">Size:</span>
+            ${sizes.map(p => `<button data-s="${p.s}" onclick="window._atpS=${p.s};document.querySelectorAll('#annotTextPopup [data-s]').forEach(b=>b.style.background='#4a5568');this.style.background='#3182ce'"
+              style="padding:4px 10px;border:none;border-radius:5px;background:${p.s===annotTextSize?'#3182ce':'#4a5568'};color:white;cursor:pointer;font-size:12px;">${p.l}</button>`).join('')}
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button id="annotTextConfirm" style="flex:1;padding:8px;border:none;border-radius:6px;background:linear-gradient(135deg,#38a169,#2f855a);color:white;cursor:pointer;font-weight:700;font-size:13px;">✓ Place</button>
+            <button onclick="document.getElementById('annotTextPopup').remove()" style="flex:1;padding:8px;border:none;border-radius:6px;background:#718096;color:white;cursor:pointer;font-size:13px;">✕ Cancel</button>
+          </div>`;
+
+        document.body.appendChild(popup);
+        window._atpC = annotColor;
+        window._atpS = annotTextSize;
+
+        const inp = document.getElementById('annotTextInput');
+        inp.focus();
+
+        document.getElementById('annotTextConfirm').onclick = function() {
+          const text = inp.value.trim();
+          if (!text) { inp.focus(); return; }
+          annotCtx.font = `bold ${window._atpS}px Arial`;
+          annotCtx.fillStyle = window._atpC;
+          annotCtx.fillText(text, x, y);
+          annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+          // sync toolbar state to last used values
+          annotTextSize = window._atpS;
+          annotColor    = window._atpC;
+          popup.remove();
+        };
+
+        inp.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter')  document.getElementById('annotTextConfirm').click();
+          if (ev.key === 'Escape') popup.remove();
+        });
       });
     }
 
