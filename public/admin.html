@@ -5121,7 +5121,9 @@ if (dueEl) {
 
     function openGradeHomeworkModal(homeworkId, studentName, fileName) {
       document.getElementById('hwFeedbackId').value = homeworkId;
-      document.getElementById('hwFeedbackStudent').textContent = studentName;
+      // Only show first name
+      const firstName = studentName.split(' ')[0];
+      document.getElementById('hwFeedbackStudent').textContent = firstName;
       document.getElementById('hwFeedbackFile').textContent = fileName;
       document.getElementById('hwFeedbackGrade').value = '';
       document.getElementById('hwFeedbackComments').value = '';
