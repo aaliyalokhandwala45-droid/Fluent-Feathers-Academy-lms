@@ -5222,8 +5222,8 @@ if (dueEl) {
           <div style="flex:1;"></div>
           <button onclick="document.getElementById('annotationModal').remove()" style="padding:5px 15px;border:none;border-radius:5px;background:#e53e3e;color:white;cursor:pointer;">✕ Cancel</button>
         </div>
-        <div id="annotCanvasWrap" style="flex:1;overflow:auto;display:flex;justify-content:center;align-items:center;padding:10px;min-height:0;position:relative;">
-          <div id="annotAiSidebar" style="position:absolute;top:14px;right:14px;z-index:12;width:min(320px,calc(100vw - 40px));max-height:calc(100% - 28px);overflow:auto;background:rgba(26,32,44,0.96);border:1px solid rgba(102,126,234,0.45);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,0.35);padding:12px;display:none;">
+        <div id="annotCanvasWrap" style="flex:1;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:18px;min-height:0;position:relative;">
+          <div id="annotAiSidebar" style="position:absolute;top:18px;right:18px;z-index:12;width:min(280px,calc(100vw - 44px));max-height:calc(100% - 36px);overflow:auto;background:rgba(26,32,44,0.96);border:1px solid rgba(102,126,234,0.45);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,0.35);padding:12px;display:none;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;">
               <div>
                 <div style="color:white;font-size:13px;font-weight:800;">AI Corrections</div>
@@ -5271,16 +5271,17 @@ if (dueEl) {
         img.crossOrigin = 'anonymous';
         img.onload = function() {
           const wrap = document.getElementById('annotCanvasWrap');
-          const maxW = Math.max(320, (wrap?.clientWidth || (window.innerWidth - 40)) - 24);
-          const maxH = Math.max(240, (wrap?.clientHeight || (window.innerHeight - 220)) - 24);
+          const maxW = Math.max(320, (wrap?.clientWidth || (window.innerWidth - 40)) - 36);
+          const maxH = Math.max(240, (wrap?.clientHeight || (window.innerHeight - 220)) - 36);
           let w = img.naturalWidth, h = img.naturalHeight;
           if (w > maxW) { h = h * (maxW / w); w = maxW; }
           if (h > maxH) { w = w * (maxH / h); h = maxH; }
           annotCanvas.width = w;
           annotCanvas.height = h;
           annotCtx.drawImage(img, 0, 0, w, h);
-          annotBgImage = annotCtx.getImageData(0, 0, w, h);
-          annotHistory.push(annotCtx.getImageData(0, 0, w, h));
+          cropAnnotationCanvasWhitespace();
+          annotBgImage = annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height);
+          annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
         };
         img.onerror = function() { alert('Could not load image. Try downloading and re-uploading.'); };
         img.src = fileUrl;
@@ -5544,20 +5545,78 @@ if (dueEl) {
         const pdf = await pdfjsLib.getDocument(url).promise;
         const page = await pdf.getPage(1);
         const wrap = document.getElementById('annotCanvasWrap');
-        const maxW = Math.max(320, (wrap?.clientWidth || (window.innerWidth - 40)) - 24);
-        const maxH = Math.max(240, (wrap?.clientHeight || (window.innerHeight - 220)) - 24);
+        const maxW = Math.max(320, (wrap?.clientWidth || (window.innerWidth - 40)) - 36);
+        const maxH = Math.max(240, (wrap?.clientHeight || (window.innerHeight - 220)) - 36);
         let viewport = page.getViewport({ scale: 1 });
         let scale = Math.min(maxW / viewport.width, maxH / viewport.height);
         viewport = page.getViewport({ scale: scale });
         annotCanvas.width = viewport.width;
         annotCanvas.height = viewport.height;
         await page.render({ canvasContext: annotCtx, viewport: viewport }).promise;
+        cropAnnotationCanvasWhitespace();
         annotBgImage = annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height);
         annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
       } catch (err) {
         console.error('PDF load error:', err);
         alert('Could not load PDF for annotation. Try with an image file instead.');
       }
+    }
+
+    function getCanvasWhitespaceBounds(source, padding = 20, threshold = 244) {
+      const width = source?.width || 0;
+      const height = source?.height || 0;
+      const data = source?.data;
+      if (!width || !height || !data) return { left: 0, top: 0, width, height };
+
+      let minX = width, minY = height, maxX = -1, maxY = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          const alpha = data[i + 3];
+          if (alpha < 24) continue;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          if (r > threshold && g > threshold && b > threshold) continue;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      if (maxX < minX || maxY < minY) return { left: 0, top: 0, width, height };
+      const left = Math.max(0, minX - padding);
+      const top = Math.max(0, minY - padding);
+      const right = Math.min(width, maxX + padding + 1);
+      const bottom = Math.min(height, maxY + padding + 1);
+      return { left, top, width: right - left, height: bottom - top };
+    }
+
+    function cropAnnotationCanvasWhitespace() {
+      if (!annotCanvas || !annotCtx || !annotCanvas.width || !annotCanvas.height) return;
+      const snapshot = annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height);
+      const bounds = getCanvasWhitespaceBounds(snapshot, 18);
+      if (
+        bounds.left === 0 &&
+        bounds.top === 0 &&
+        bounds.width === annotCanvas.width &&
+        bounds.height === annotCanvas.height
+      ) return;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = bounds.width;
+      tempCanvas.height = bounds.height;
+      tempCanvas.getContext('2d').putImageData(
+        annotCtx.getImageData(bounds.left, bounds.top, bounds.width, bounds.height),
+        0,
+        0
+      );
+
+      annotCanvas.width = bounds.width;
+      annotCanvas.height = bounds.height;
+      annotCtx = annotCanvas.getContext('2d');
+      annotCtx.drawImage(tempCanvas, 0, 0);
     }
 
     async function saveAnnotation(materialId) {
@@ -5843,9 +5902,10 @@ if (dueEl) {
         const anchorX = clamp(Math.round(((Number(c.x) || 0) / 100) * W), 10, Math.max(10, W - 10));
         const anchorY = clamp(Math.round(((Number(c.y) || 0) / 100) * H), 10, Math.max(10, H - 10));
         const text = String(c.correct || c.note || '').trim() || 'Correction';
-        const width = clamp(Math.max(140, text.length * 8), 140, 240);
-        const left = clamp(anchorX + 18 + ((idx % 2) * 28), 0, Math.max(0, W - width));
-        const top = clamp(anchorY - 18 + ((idx % 3) * 26), 0, Math.max(0, H - 90));
+        const width = clamp(Math.max(128, text.length * 7), 128, 188);
+        const preferredLeft = anchorX > W * 0.64 ? anchorX - width - 14 : anchorX + 14;
+        const left = clamp(preferredLeft + ((idx % 2) * 12), 0, Math.max(0, W - width));
+        const top = clamp(anchorY - 14 + ((idx % 3) * 18), 0, Math.max(0, H - 78));
         return {
           id: `ai-correction-${Date.now()}-${idx}`,
           wrong: String(c.wrong || '').trim(),
@@ -5857,7 +5917,7 @@ if (dueEl) {
           left,
           top,
           width,
-          minHeight: 84
+          minHeight: 72
         };
       });
     }
@@ -5887,15 +5947,15 @@ if (dueEl) {
 
       overlay.innerHTML = annotAiCorrections.map(item => `
         <div id="${item.id}" data-correction-id="${item.id}" class="annot-ai-card"
-          style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;min-height:${item.minHeight}px;pointer-events:auto;resize:both;overflow:auto;background:rgba(255,255,255,0.86);backdrop-filter:blur(3px);border:1.5px solid rgba(220,38,38,0.45);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,0.18);">
-          <div class="annot-ai-drag" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;background:rgba(255,255,255,0.76);color:#b91c1c;border-bottom:1px solid rgba(220,38,38,0.18);border-radius:11px 11px 0 0;cursor:move;">
-            <span style="font-size:10px;font-weight:800;letter-spacing:0.25px;text-transform:uppercase;">Correction</span>
+          style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;min-height:${item.minHeight}px;pointer-events:auto;resize:both;overflow:auto;background:rgba(255,255,255,0.88);backdrop-filter:blur(3px);border:1.5px solid rgba(220,38,38,0.40);border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,0.16);">
+          <div class="annot-ai-drag" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;background:rgba(255,255,255,0.8);color:#b91c1c;border-bottom:1px solid rgba(220,38,38,0.16);border-radius:11px 11px 0 0;cursor:move;">
+            <span style="font-size:10px;font-weight:800;letter-spacing:0.25px;text-transform:uppercase;">Fix</span>
             <button onclick="removeAiCorrection('${item.id}')" style="border:none;background:rgba(239,68,68,0.10);color:#b91c1c;width:22px;height:22px;border-radius:999px;cursor:pointer;font-size:12px;">✕</button>
           </div>
-          <div style="padding:8px 10px 10px;">
-            ${item.wrong ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px;">Wrong: ${escapeHtml(item.wrong)}</div>` : ''}
-            <textarea oninput="updateAiCorrectionText('${item.id}', this.value)" style="width:100%;min-height:52px;border:1px solid #fecaca;border-radius:8px;padding:8px 9px;font-size:13px;line-height:1.45;color:#1f2937;resize:vertical;outline:none;">${escapeHtml(item.text)}</textarea>
-            ${item.note ? `<div style="margin-top:6px;font-size:11px;color:#6b7280;">${escapeHtml(item.note)}</div>` : ''}
+          <div style="padding:7px 9px 9px;">
+            ${item.wrong ? `<div style="font-size:10px;color:#64748b;margin-bottom:5px;">Replace: ${escapeHtml(item.wrong)}</div>` : ''}
+            <textarea oninput="updateAiCorrectionText('${item.id}', this.value)" style="width:100%;min-height:42px;border:1px solid #fecaca;border-radius:8px;padding:7px 8px;font-size:12px;line-height:1.4;color:#1f2937;resize:vertical;outline:none;">${escapeHtml(item.text)}</textarea>
+            ${item.note ? `<div style="margin-top:5px;font-size:10px;color:#6b7280;">${escapeHtml(item.note)}</div>` : ''}
           </div>
         </div>
       `).join('');
@@ -6002,36 +6062,51 @@ if (dueEl) {
       const includeScreen = exportMode === 'screen' || exportMode === 'both';
       const includePanel = exportMode === 'panel' || exportMode === 'both';
       const panelWidth = includePanel ? getExportPanelWidth() : 0;
-      const gap = includePanel ? 18 : 0;
+      const gap = includePanel ? 12 : 0;
+      const cropBounds = includeScreen && annotBgImage
+        ? getCanvasWhitespaceBounds(annotBgImage, 18)
+        : { left: 0, top: 0, width: annotCanvas.width, height: annotCanvas.height };
+      const screenWidth = includeScreen ? cropBounds.width : 0;
+      const screenHeight = includeScreen ? cropBounds.height : annotCanvas.height;
 
       const exportCanvas = document.createElement('canvas');
-      exportCanvas.width = annotCanvas.width + panelWidth + gap;
-      exportCanvas.height = Math.max(annotCanvas.height, includePanel ? getExportPanelHeight(panelWidth) : annotCanvas.height);
+      exportCanvas.width = screenWidth + panelWidth + gap;
+      exportCanvas.height = Math.max(screenHeight, includePanel ? getExportPanelHeight(panelWidth) : screenHeight);
       const ctx = exportCanvas.getContext('2d');
 
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
 
       if (includeScreen) {
-        ctx.drawImage(annotCanvas, 0, 0);
-        drawAiCorrectionsOnCanvas(ctx);
-      } else {
+        ctx.drawImage(
+          annotCanvas,
+          cropBounds.left,
+          cropBounds.top,
+          cropBounds.width,
+          cropBounds.height,
+          0,
+          0,
+          cropBounds.width,
+          cropBounds.height
+        );
+        drawAiCorrectionsOnCanvas(ctx, cropBounds);
+      } else if (!includePanel) {
         if (annotBgImage) ctx.putImageData(annotBgImage, 0, 0);
         else ctx.drawImage(annotCanvas, 0, 0);
       }
 
       if (includePanel) {
-        drawExportSidebar(ctx, annotCanvas.width + gap, 0, panelWidth, exportCanvas.height);
+        drawExportSidebar(ctx, screenWidth + gap, 0, panelWidth, exportCanvas.height);
       }
 
       return exportCanvas.toDataURL('image/png');
     }
 
-    function drawAiCorrectionsOnCanvas(ctx) {
+    function drawAiCorrectionsOnCanvas(ctx, cropBounds = { left: 0, top: 0 }) {
       annotAiCorrections.forEach(item => {
         const card = document.getElementById(item.id);
-        const left = card ? (parseFloat(card.style.left) || item.left) : item.left;
-        const top = card ? (parseFloat(card.style.top) || item.top) : item.top;
+        const left = (card ? (parseFloat(card.style.left) || item.left) : item.left) - (cropBounds.left || 0);
+        const top = (card ? (parseFloat(card.style.top) || item.top) : item.top) - (cropBounds.top || 0);
         const width = card ? card.offsetWidth : item.width;
         const height = card ? card.offsetHeight : item.minHeight;
         const text = (item.text || '').trim();
@@ -6042,14 +6117,14 @@ if (dueEl) {
         ctx.lineWidth = 1.1;
         ctx.setLineDash([4, 5]);
         ctx.beginPath();
-        ctx.moveTo(item.anchorX, item.anchorY);
+        ctx.moveTo(item.anchorX - (cropBounds.left || 0), item.anchorY - (cropBounds.top || 0));
         ctx.lineTo(left + 12, top + 12);
         ctx.stroke();
         ctx.setLineDash([]);
 
         ctx.fillStyle = '#dc2626';
         ctx.beginPath();
-        ctx.arc(item.anchorX, item.anchorY, 2.5, 0, Math.PI * 2);
+        ctx.arc(item.anchorX - (cropBounds.left || 0), item.anchorY - (cropBounds.top || 0), 2.5, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = 'rgba(255,255,255,0.90)';
@@ -6075,17 +6150,17 @@ if (dueEl) {
 
     function getExportPanelWidth() {
       const sidebar = document.getElementById('annotAiSidebar');
-      if (!sidebar) return 320;
-      return Math.max(300, Math.min(360, sidebar.offsetWidth || 320));
+      if (!sidebar) return 280;
+      return Math.max(260, Math.min(300, sidebar.offsetWidth || 280));
     }
 
     function getExportPanelHeight(panelWidth) {
       const cardsHeight = annotAiCorrections.reduce((sum, item) => {
         const card = document.getElementById(item.id);
-        return sum + Math.max(84, card ? card.offsetHeight : item.minHeight) + 12;
+        return sum + Math.max(72, card ? card.offsetHeight : item.minHeight) + 10;
       }, 0);
-      const headerHeight = 96;
-      return Math.max(annotCanvas.height, headerHeight + cardsHeight + 20);
+      const headerHeight = 92;
+      return Math.max(annotCanvas.height, headerHeight + cardsHeight + 18);
     }
 
     function drawExportSidebar(ctx, x, y, width, height) {
