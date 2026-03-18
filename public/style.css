@@ -58,6 +58,37 @@ body {
    CONTAINER & LAYOUT
 ======================================== */
 
+/* Ensure annotation/correction overlays in homework modal stay within modal/viewport */
+#hwFeedbackModal .annotation-overlay, #hwFeedbackModal .correction-popup, #hwFeedbackModal .ai-correct-tooltip {
+  position: absolute;
+  max-width: 95%;
+  max-height: 90vh;
+  overflow: auto;
+  z-index: 10001;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  border: 1.5px solid #b794f4;
+}
+
+/* Prevent overlays from going out of the modal horizontally */
+#hwFeedbackModal .annotation-overlay, #hwFeedbackModal .correction-popup, #hwFeedbackModal .ai-correct-tooltip {
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  inset: unset !important;
+}
+
+@media (max-width: 600px) {
+  #hwFeedbackModal .annotation-overlay, #hwFeedbackModal .correction-popup, #hwFeedbackModal .ai-correct-tooltip {
+    max-width: 99vw;
+    max-height: 80vh;
+    font-size: 0.95em;
+  }
+}
+
 .container {
   max-width: 1400px;
   margin: 0 auto;

@@ -61,38 +61,11 @@
     header h1 { color: #B05D9E; font-size: 24px; }
     .login-section { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 500px; margin: 50px auto; text-align: center; }
     .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #B05D9E; }
-    .tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
-    .tab-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      background: #ffffff;
-      border: 1px solid #eadcf6;
-      border-radius: 14px;
-      padding: 12px;
-      box-shadow: 0 2px 10px rgba(176,93,158,0.08);
-    }
-    .tab-group-label {
-      padding: 7px 12px;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      font-weight: 800;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    .tab-group-label.learning {
-      background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
-      color: #6b21a8;
-    }
-    .tab-group-label.extras {
-      background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
-      color: #9d174d;
-    }
-    .tab-btn { padding: 12px 20px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; position: relative; }
+    .tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
+    .tab-btn { width: 100%; padding: 12px 14px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; position: relative; text-align: center; }
     .tab-btn.active { background: #B05D9E; color: white; border-color: #B05D9E; }
     .tab-btn .red-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; background: #e53e3e; border-radius: 50%; display: none; }
+    .tab-spacer { visibility: hidden; pointer-events: none; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
@@ -411,7 +384,6 @@
       header p { font-size: 10px !important; }
       #headerLogo { height: 35px !important; }
       .tab-btn { padding: 8px 10px; font-size: 0.8rem; }
-      .tab-group-label { font-size: 0.68rem; padding: 6px 10px; }
       table { min-width: 500px; }
       th, td { padding: 6px 4px; font-size: 0.8rem; }
       .badges-grid { grid-template-columns: repeat(2, 1fr); }
@@ -463,6 +435,13 @@
       .parent-podium-container > div > div:nth-child(2) > div:nth-child(2) { font-size: 0.9rem !important; }
       .parent-podium-container > div > div:nth-child(2) > div:nth-child(3) { font-size: 0.55rem !important; }
       .parent-podium-container > div > div:nth-child(3) { width: 55px !important; }
+    }
+
+    @media screen and (max-width: 900px) {
+      .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media screen and (max-width: 640px) {
+      .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     /* Badge Summary Strip */
@@ -842,23 +821,18 @@
       </div>
 
       <div class="tabs">
-        <div class="tab-group">
-          <span class="tab-group-label learning">Learning</span>
-          <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
-          <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
-          <button class="tab-btn" onclick="showTab('makeup', event)">🎁 Makeup</button>
-          <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
-          <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">📢 News<span class="red-dot" id="dotAnnouncements"></span></button>
-        </div>
-        <div class="tab-group">
-          <span class="tab-group-label extras">Extras</span>
-          <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">🏆 Achievements<span class="red-dot" id="dotAchievements"></span></button>
-          <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">🎯 Challenges<span class="red-dot" id="dotChallenges"></span></button>
-          <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">🎉 Events<span class="red-dot" id="dotEvents"></span></button>
-          <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">📚 Resources<span class="red-dot" id="dotResources"></span></button>
-          <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">💳 Payments<span class="red-dot" id="dotPayments"></span></button>
-          <button class="tab-btn" onclick="showTab('profile', event)">👤 Profile</button>
-        </div>
+        <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
+        <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
+        <button class="tab-btn" onclick="showTab('makeup', event)">🎁 Makeup</button>
+        <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
+        <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">📢 News<span class="red-dot" id="dotAnnouncements"></span></button>
+        <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">🏆 Achievements<span class="red-dot" id="dotAchievements"></span></button>
+        <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">🎯 Challenges<span class="red-dot" id="dotChallenges"></span></button>
+        <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">🎉 Events<span class="red-dot" id="dotEvents"></span></button>
+        <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">📚 Resources<span class="red-dot" id="dotResources"></span></button>
+        <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">💳 Payments<span class="red-dot" id="dotPayments"></span></button>
+        <button class="tab-btn" onclick="showTab('profile', event)">👤 Profile</button>
+        <div class="tab-spacer" aria-hidden="true"></div>
       </div>
 
       <div id="upcomingTab" class="tab-content active">
@@ -1063,6 +1037,29 @@
               <div id="classPointsBar" style="height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:20px;width:0%;transition:width 0.5s;"></div>
             </div>
             <div style="margin-top:8px;font-size:11px;color:#92400e;">🎯 Every 10 points unlocks a new badge on this page!</div>
+          </div>
+        </div>
+
+        <div class="section" style="background:linear-gradient(135deg,#eff6ff,#fdf2f8);border:1.5px solid #c4b5fd;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+            <div>
+              <h2 style="color:#6d28d9;margin:0 0 4px;">📈 Score Tracker</h2>
+              <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track every score update from homework, challenges, badges, and live class points.</p>
+            </div>
+            <div style="background:linear-gradient(135deg,#6d28d9,#ec4899);color:white;padding:10px 16px;border-radius:12px;text-align:center;min-width:110px;">
+              <div style="font-size:0.72rem;opacity:0.9;">Leaderboard</div>
+              <div id="scoreTrackerTotal" style="font-size:1.8rem;font-weight:800;line-height:1.1;">0</div>
+            </div>
+          </div>
+          <div id="scoreTrackerBreakdown" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Homework</div><div id="scoreTrackerHomework" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Challenges</div><div id="scoreTrackerChallenges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Badges</div><div id="scoreTrackerBadges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Class Points</div><div id="scoreTrackerClassPoints" style="font-size:1.3rem;font-weight:800;color:#d97706;">0</div></div>
+          </div>
+          <div id="scoreTrackerPending" style="display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;color:#9a3412;font-size:0.82rem;font-weight:600;margin-bottom:14px;"></div>
+          <div id="scoreHistoryContainer">
+            <p style="text-align:center;color:#718096;">Loading score history...</p>
           </div>
         </div>
 
@@ -2005,6 +2002,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       loadMakeupCredits();
       loadBadges(); // Also updates badge summary strip
       loadClassPoints();
+      loadScoreHistory();
       loadChallengeSummary(); // Updates challenge strip on front page
       loadUpcoming();
       checkForFeedback();
@@ -2146,6 +2144,25 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
     let allBadges = []; // Store all badges for the modal
 
+    function formatPortalDateTime(ts) {
+      if (!ts) return '';
+      try {
+        const raw = String(ts).trim().replace(' ', 'T');
+        const normalized = (raw.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(raw)) ? raw : raw + 'Z';
+        return new Date(normalized).toLocaleString('en-IN', {
+          timeZone: getPortalTimezone(),
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+      } catch (e) {
+        return new Date(ts).toLocaleString();
+      }
+    }
+
     async function loadClassPoints() {
       try {
         if (!currentStudent) return;
@@ -2182,6 +2199,71 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         var bar = document.getElementById('classPointsBar');
         if (bar) bar.style.width = pct + '%';
       } catch(e) { console.error('loadClassPoints error', e); }
+    }
+
+    async function loadScoreHistory() {
+      try {
+        if (!currentStudent) return;
+        const res = await fetch(`/api/students/${currentStudent.id}/score-history`, { headers: authHeaders() });
+        const data = await res.json();
+        const totals = data.totals || {};
+        const history = Array.isArray(data.history) ? data.history : [];
+
+        document.getElementById('scoreTrackerTotal').textContent = totals.leaderboard_total || 0;
+        document.getElementById('scoreTrackerHomework').textContent = totals.homework_points || 0;
+        document.getElementById('scoreTrackerChallenges').textContent = totals.challenge_points || 0;
+        document.getElementById('scoreTrackerBadges').textContent = totals.badge_points || 0;
+        document.getElementById('scoreTrackerClassPoints').textContent = totals.class_points || 0;
+
+        const pendingEl = document.getElementById('scoreTrackerPending');
+        const pendingChallenges = totals.pending_challenges || 0;
+        if (pendingChallenges > 0) {
+          pendingEl.style.display = 'block';
+          pendingEl.textContent = `⏳ ${pendingChallenges} challenge${pendingChallenges > 1 ? 's are' : ' is'} awaiting teacher approval, so those leaderboard points are not added yet.`;
+        } else {
+          pendingEl.style.display = 'none';
+          pendingEl.textContent = '';
+        }
+
+        const typeMeta = {
+          homework: { icon: '📝', bg: '#eef2ff', color: '#5b21b6' },
+          challenge: { icon: '🎯', bg: '#fef3c7', color: '#92400e' },
+          badge: { icon: '🏅', bg: '#fce7f3', color: '#9d174d' },
+          class_points: { icon: '⭐', bg: '#fef3c7', color: '#b45309' }
+        };
+
+        const container = document.getElementById('scoreHistoryContainer');
+        if (!history.length) {
+          container.innerHTML = '<p style="text-align:center;color:#718096;">No score activity yet.</p>';
+          return;
+        }
+
+        container.innerHTML = history.map(item => {
+          const meta = typeMeta[item.score_type] || { icon: '📌', bg: '#edf2f7', color: '#4a5568' };
+          const points = parseInt(item.points) || 0;
+          const isPending = item.status === 'pending';
+          const groupLabel = item.score_group === 'class_points' ? 'Class Points' : 'Leaderboard';
+          const pointsLabel = isPending ? 'Pending' : `${points > 0 ? '+' : ''}${points}`;
+          const pointsBg = isPending ? '#fff7ed' : points >= 0 ? '#ecfdf5' : '#fef2f2';
+          const pointsColor = isPending ? '#9a3412' : points >= 0 ? '#166534' : '#b91c1c';
+          return `
+            <div style="background:white;border:1px solid #e9d5ff;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+              <div style="display:flex;gap:10px;min-width:0;">
+                <div style="width:38px;height:38px;border-radius:10px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${meta.icon}</div>
+                <div style="min-width:0;">
+                  <div style="font-weight:700;color:#2d3748;font-size:0.92rem;">${item.title || 'Score update'}</div>
+                  <div style="color:#4a5568;font-size:0.82rem;line-height:1.4;">${item.detail || groupLabel}</div>
+                  <div style="color:#718096;font-size:0.74rem;margin-top:4px;">${groupLabel} • ${formatPortalDateTime(item.occurred_at)}</div>
+                </div>
+              </div>
+              <div style="background:${pointsBg};color:${pointsColor};border-radius:999px;padding:6px 10px;font-size:0.8rem;font-weight:800;min-width:72px;text-align:center;flex-shrink:0;">${pointsLabel}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error('loadScoreHistory error', e);
+        document.getElementById('scoreHistoryContainer').innerHTML = '<p style="color:#e53e3e;">Error loading score history</p>';
+      }
     }
 
     async function loadBadges() {
@@ -2256,10 +2338,10 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
     function hofPastWeeks(count=16) {
       const opts=[]; const now=new Date();
-      const day=now.getDay(); const diffToMon=day===0?-6:1-day;
-      const thisMon=new Date(now); thisMon.setDate(now.getDate()+diffToMon); thisMon.setHours(0,0,0,0);
+      const day=now.getDay();
+      const thisSun=new Date(now); thisSun.setDate(now.getDate()-day); thisSun.setHours(0,0,0,0);
       for(let i=1;i<=count;i++){
-        const ws=new Date(thisMon); ws.setDate(thisMon.getDate()-i*7);
+        const ws=new Date(thisSun); ws.setDate(thisSun.getDate()-i*7);
         const we=new Date(ws); we.setDate(ws.getDate()+6);
         opts.push({ label:ws.toLocaleDateString('en-IN',{month:'short',day:'numeric'})+' – '+we.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'}), start:_hofIsoDate(ws), end:_hofIsoDate(we) });
       }
@@ -2561,15 +2643,17 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         }
 
         // Prefer actionable challenge; otherwise show latest (including Finished)
-        const active = challenges.find(c => c.status !== 'Completed' && c.status !== 'Finished') || challenges[0];
+        const active = challenges.find(c => c.status !== 'Completed' && c.status !== 'Finished' && c.status !== 'Not Approved') || challenges[0];
         const dueDate = new Date(active.week_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const statusLabel = active.status === 'Completed'
           ? 'Completed!'
-          : active.status === 'Submitted'
-            ? 'Awaiting Review'
-            : active.status === 'Finished'
-              ? 'Finished'
-              : `Due ${dueDate}`;
+          : active.status === 'Not Approved'
+            ? 'Not Approved'
+            : active.status === 'Submitted'
+              ? 'Awaiting Review'
+              : active.status === 'Finished'
+                ? 'Finished'
+                : `Due ${dueDate}`;
 
         titleEl.textContent = active.title;
         detailEl.textContent = `${statusLabel} • ${active.badge_reward || 'Earn a badge!'}`;
@@ -2593,6 +2677,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         container.innerHTML = challenges.map(c => {
           const isCompleted = c.status === 'Completed';
           const isSubmitted = c.status === 'Submitted';
+          const isNotApproved = c.status === 'Not Approved';
           const isFinished = c.status === 'Finished';
           const dueDate = new Date(c.week_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const badgeReward = c.badge_reward || '🎯 Challenge Champion';
@@ -2603,6 +2688,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
           if (isCompleted) {
             statusBadge = `<div style="background: #38b2ac; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">COMPLETED! 🎉</div>`;
+          } else if (isNotApproved) {
+            statusBadge = `<div style="background: #e53e3e; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">❌ NOT APPROVED</div>`;
           } else if (isSubmitted) {
             statusBadge = `<div style="background: #9f7aea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">⏳ Awaiting Approval</div>`;
           } else if (isFinished) {
@@ -2618,12 +2705,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           }
 
           return `
-            <div style="background: ${isCompleted ? 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' : isSubmitted ? 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)' : isFinished ? 'linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%)' : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'};
-                        padding: 15px; border-radius: 12px; border-left: 4px solid ${isCompleted ? '#38b2ac' : isSubmitted ? '#9f7aea' : isFinished ? '#718096' : '#f5576c'};">
+            <div style="background: ${isCompleted ? 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' : isNotApproved ? 'linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%)' : isSubmitted ? 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)' : isFinished ? 'linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%)' : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'};
+                        padding: 15px; border-radius: 12px; border-left: 4px solid ${isCompleted ? '#38b2ac' : isNotApproved ? '#e53e3e' : isSubmitted ? '#9f7aea' : isFinished ? '#718096' : '#f5576c'};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div style="flex: 1; min-width: 200px;">
                   <h3 style="margin: 0 0 8px 0; color: #2d3748; font-size: 1rem;">
-                    ${isCompleted ? '✅' : isSubmitted ? '⏳' : isFinished ? '🏁' : '🎯'} ${c.title}
+                    ${isCompleted ? '✅' : isNotApproved ? '❌' : isSubmitted ? '⏳' : isFinished ? '🏁' : '🎯'} ${c.title}
                   </h3>
                   <p style="margin: 0 0 8px 0; color: #4a5568; font-size: 0.9rem;">${c.description || ''}</p>
                   <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #718096; flex-wrap: wrap;">
@@ -2679,6 +2766,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         if (res.ok) {
           alert('🎉 Challenge submitted! Your teacher will review and award your badge soon.');
           loadStudentChallenges();
+          loadScoreHistory();
         } else {
           alert('❌ Error: ' + result.error);
         }
@@ -3525,6 +3613,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           closeHwSubmitModal();
           loadPast();
           loadBadges();
+          loadScoreHistory();
         }, 1800);
       } else if ((skippedFiles.length + dupCount) > 0 && errorCount === 0) {
         progressText.textContent = `⚠️ All files were already submitted. No duplicates created.`;
@@ -3852,6 +3941,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           alert('Thank you for your feedback! 🌟');
           closeFeedbackModal();
           loadBadges(); // Reload badges as feedback might award one
+          loadScoreHistory();
           loadPast(); // Refresh past classes to show feedback given
         } else {
           alert('Error submitting feedback');
@@ -3973,6 +4063,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           e.target.reset();
           loadPast();
           loadBadges();
+          loadScoreHistory();
           loadSubmittedHomework();
         } else {
           alert('Error uploading files');

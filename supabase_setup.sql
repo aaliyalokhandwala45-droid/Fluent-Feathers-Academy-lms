@@ -274,6 +274,15 @@ CREATE TABLE makeup_classes (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE class_points (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  session_id INTEGER,
+  points INTEGER NOT NULL DEFAULT 1,
+  reason TEXT DEFAULT 'Good work!',
+  awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==================== INDEXES ====================
 
 CREATE INDEX idx_students_email ON students(parent_email);
@@ -287,12 +296,15 @@ CREATE INDEX idx_badges_student ON student_badges(student_id);
 CREATE INDEX idx_certificates_student ON student_certificates(student_id);
 CREATE INDEX idx_materials_student ON materials(student_id);
 CREATE INDEX idx_email_log_date ON email_log(sent_at);
+CREATE INDEX idx_class_points_student ON class_points(student_id);
+CREATE INDEX idx_class_points_session ON class_points(session_id);
 
 -- ==================== ROW LEVEL SECURITY ====================
 -- Enable RLS on all tables to prevent unauthorized direct access
 -- The app connects via service_role key which bypasses RLS, so this is safe
 
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE group_timings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE session_attendance ENABLE ROW LEVEL SECURITY;
@@ -309,25 +321,28 @@ ALTER TABLE student_certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_renewals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE makeup_classes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE class_points ENABLE ROW LEVEL SECURITY;
 
 -- Allow service_role full access (this is what your server uses)
-CREATE POLICY "Service role full access" ON groups FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON students FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON sessions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON session_attendance FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON materials FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON events FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON event_registrations FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON email_log FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON announcements FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON parent_credentials FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON class_feedback FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON student_badges FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON monthly_assessments FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON student_certificates FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON payment_history FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON payment_renewals FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON makeup_classes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON groups FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON group_timings FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON students FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON sessions FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON session_attendance FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON materials FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON events FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON event_registrations FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON email_log FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON announcements FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON parent_credentials FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON class_feedback FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON student_badges FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON monthly_assessments FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON student_certificates FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON payment_history FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON payment_renewals FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON makeup_classes FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON class_points FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- ==================== DONE ====================
 -- Now you can import your backup data!

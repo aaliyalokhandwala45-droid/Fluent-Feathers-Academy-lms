@@ -1684,7 +1684,7 @@ async function runMigrations() {
 
     // Migration 29: Enable Row Level Security on all tables (fixes Supabase security warning)
     try {
-      const tables = ['groups', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library'];
+      const tables = ['groups', 'group_timings', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library', 'class_points'];
       for (const table of tables) {
         try {
           await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
@@ -1919,6 +1919,31 @@ async function runMigrations() {
       console.log('✅ Migration 44: Added skill_ratings and deferred columns to monthly_assessments');
     } catch (err) {
       console.log('Migration 44 note:', err.message);
+    }
+
+    // Migration 45: Track when challenges were submitted by parents
+    try {
+      await client.query(`ALTER TABLE student_challenges ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP`);
+      console.log('✅ Migration 45: Added submitted_at to student_challenges');
+    } catch (err) {
+      console.log('Migration 45 note:', err.message);
+    }
+
+    // Migration 46: Harden RLS policies and cover tables missed by earlier migration
+    try {
+      const tables = ['groups', 'group_timings', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library', 'class_points'];
+      for (const table of tables) {
+        try {
+          await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+          await client.query(`DROP POLICY IF EXISTS "Allow all for service role" ON ${table}`);
+          await client.query(`DROP POLICY IF EXISTS "Service role full access" ON ${table}`);
+          await client.query(`DROP POLICY IF EXISTS "Service role only" ON ${table}`);
+          await client.query(`CREATE POLICY "Service role only" ON ${table} FOR ALL TO service_role USING (true) WITH CHECK (true)`);
+        } catch (e) { /* table may not exist yet */ }
+      }
+      console.log('✅ Migration 46: Hardened RLS policies for Supabase Security Advisor');
+    } catch (err) {
+      console.log('Migration 46 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -2860,8 +2885,75 @@ function getOTPEmail(data) {
 }
 
 function getClassReminderEmail(data) {
-  const { studentName, localDate, localTime, localDay, classLink, hoursBeforeClass, timezoneLabel } = data;
+  const { studentName, localDate, localTime, localDay, classLink, hoursBeforeClass, timezoneLabel, isDemo } = data;
 
+  // For demo classes, remove parent portal references and update instructions
+  if (isDemo) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">⏰ Demo Class Reminder</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Your demo class is starting ${hoursBeforeClass === 5 ? 'in 5 hours' : 'in 1 hour'}!</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Hi <strong>${studentName}</strong>,
+      </p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        This is a friendly reminder that your upcoming <strong>demo class</strong> is ${hoursBeforeClass === 5 ? '<strong>starting in 5 hours</strong>' : '<strong>starting in 1 hour</strong>'}!
+      </p>
+
+      <div style="background: linear-gradient(135deg, #f6f9fc 0%, #e9f2ff 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; margin-bottom: 25px;">
+        <h2 style="margin: 0 0 15px; color: #667eea; font-size: 20px;">📅 Class Details</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Date:</strong></td>
+            <td style="padding: 8px 0; color: #2d3748; font-size: 15px; text-align: right;">${localDay}, ${localDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Time:</strong></td>
+            <td style="padding: 8px 0; color: #667eea; font-size: 16px; font-weight: bold; text-align: right;">${localTime}${timezoneLabel ? ` <span style=\"font-size: 12px; font-weight: normal; color: #718096;\">(${timezoneLabel})</span>` : ''}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${classLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
+  🎥 Join Class
+</a>
+      </div>
+
+      <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
+        <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
+          <strong>💡 Pro Tip:</strong> Make sure you're in a quiet place with good internet connection. Have your materials ready!
+        </p>
+        <p style="margin: 10px 0 0; color: #856404; font-size: 13px; line-height: 1.5;">
+          <strong>📌 Note:</strong> If you need to cancel or reschedule, please contact your teacher or our team directly before the session starts.
+        </p>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        We're excited to see you in class!<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  // Default (non-demo) class reminder email
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -2891,7 +2983,7 @@ function getClassReminderEmail(data) {
           </tr>
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Time:</strong></td>
-            <td style="padding: 8px 0; color: #667eea; font-size: 16px; font-weight: bold; text-align: right;">${localTime}${timezoneLabel ? ` <span style="font-size: 12px; font-weight: normal; color: #718096;">(${timezoneLabel})</span>` : ''}</td>
+            <td style="padding: 8px 0; color: #667eea; font-size: 16px; font-weight: bold; text-align: right;">${localTime}${timezoneLabel ? ` <span style=\"font-size: 12px; font-weight: normal; color: #718096;\">(${timezoneLabel})</span>` : ''}</td>
           </tr>
         </table>
       </div>
@@ -3189,7 +3281,7 @@ function getRenewalReminderEmail(data) {
           <tr><td style="padding: 8px 0;">Student:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentName}</td></tr>
           <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
           <tr><td style="padding: 8px 0;">Sessions Remaining:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e53e3e;">${remainingSessions}</td></tr>
-          ${makeupCredits > 0 ? `<tr><td style="padding: 8px 0;">Makeup Credits:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #6b46c1;">${makeupCredits} (these are bonus classes, not regular sessions)</td></tr>` : ''}
+          ${makeupCredits > 0 ? `<tr><td style="padding: 8px 0;">Makeup Credits:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #6b46c1;">${makeupCredits} <span style='font-size:12px;'>(contact teacher to book these missed sessions)</span></td></tr>` : ''}
           ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>` : ''}
         </table>
       </div>
@@ -3375,30 +3467,31 @@ function getMakeupCreditAddedEmail(data) {
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 40px 30px; text-align: center;">
       <div style="font-size: 50px; margin-bottom: 10px;">🎁</div>
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Makeup Credit Added!</h1>
-      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Extra Session Available</p>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Missed Class & Extra Session Added</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Excused Class Notification</p>
     </div>
     <div style="padding: 40px 30px;">
       <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
         Dear <strong>${parentName}</strong>,
       </p>
       <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
-        Great news! A makeup credit has been added to <strong>${studentName}</strong>'s account.
+        This is to inform you that <strong>${studentName}</strong> missed a class (excused absence). An extra session (makeup credit) has been added to their account for this missed class.<br><br>
+        <strong>Please contact the teacher to schedule this missed session at your convenience.</strong>
       </p>
 
       <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #38b2ac; margin: 20px 0;">
         <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 10px 0; color: #234e52;">Credit Type:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">Exception Class / Makeup Session</td></tr>
-          <tr><td style="padding: 10px 0; color: #234e52;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">${reason || 'Added by teacher'}</td></tr>
+          <tr><td style="padding: 10px 0; color: #234e52;">Credit Type:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">Excused Class / Makeup Session</td></tr>
+          <tr><td style="padding: 10px 0; color: #234e52;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">${reason || 'Excused by teacher'}</td></tr>
           ${notes ? `<tr><td style="padding: 10px 0; color: #234e52;">Notes:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">${notes}</td></tr>` : ''}
           <tr><td style="padding: 10px 0; color: #234e52;">Status:</td><td style="padding: 10px 0; font-weight: bold; color: #38b2ac;">✅ Available</td></tr>
         </table>
       </div>
 
       <div style="background: #fffbeb; padding: 20px; border-radius: 12px; border-left: 4px solid #f59e0b; margin: 20px 0;">
-        <h3 style="margin: 0 0 10px; color: #92400e; font-size: 16px;">📅 How to Use This Credit</h3>
+        <h3 style="margin: 0 0 10px; color: #92400e; font-size: 16px;">📅 How to Use This Session</h3>
         <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
-          This exception class credit will be available during your next renewal. You can use it to book an additional session at no extra cost. The credit will remain in your account until used.
+          This makeup session is available for you to book with the teacher. Please coordinate with your teacher to schedule the missed class at a mutually convenient time. The credit will remain in your account until used.
         </p>
       </div>
 
@@ -3407,16 +3500,11 @@ function getMakeupCreditAddedEmail(data) {
         <strong style="color: #38b2ac;">Team Fluent Feathers Academy</strong>
       </p>
 
-      <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+      <div style="margin-top: 30px; padding: 20px; background: #f7fafc; border-radius: 12px; text-align: center;">
+        <p style="margin: 0; color: #718096; font-size: 13px;">
+          Made with ❤️ By Aaliya
+        </p>
       </div>
-    </div>
-    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
-      </p>
     </div>
   </div>
 </body>
@@ -10034,6 +10122,169 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+// Get score history and score breakdown for a student (parent portal)
+app.get('/api/students/:id/score-history', async (req, res) => {
+  try {
+    const studentId = req.params.id;
+
+    const [totalsResult, historyResult] = await Promise.all([
+      pool.query(`
+        WITH homework_scores AS (
+          SELECT COUNT(*) * ${HOMEWORK_POINT_VALUE} AS points
+          FROM (
+            SELECT DISTINCT ON (m.session_id) m.session_id
+            FROM materials m
+            WHERE m.student_id = $1
+              AND m.file_type = 'Homework'
+              AND m.uploaded_by IN ('Parent', 'Admin')
+              AND m.session_id IS NOT NULL
+            ORDER BY m.session_id, m.uploaded_at ASC, m.id ASC
+          ) first_homework
+        ),
+        challenge_scores AS (
+          SELECT COUNT(*) * ${CHALLENGE_POINT_VALUE} AS points
+          FROM student_challenges sc
+          WHERE sc.student_id = $1
+            AND sc.status = 'Completed'
+        ),
+        badge_scores AS (
+          SELECT COUNT(*) * ${BADGE_POINT_VALUE} AS points
+          FROM student_badges sb
+          WHERE sb.student_id = $1
+        ),
+        class_points_total AS (
+          SELECT COALESCE(SUM(cp.points), 0) AS points
+          FROM class_points cp
+          WHERE cp.student_id = $1
+        ),
+        pending_challenges AS (
+          SELECT COUNT(*) AS count
+          FROM student_challenges sc
+          WHERE sc.student_id = $1
+            AND sc.status = 'Submitted'
+        )
+        SELECT
+          COALESCE((SELECT points FROM homework_scores), 0) AS homework_points,
+          COALESCE((SELECT points FROM challenge_scores), 0) AS challenge_points,
+          COALESCE((SELECT points FROM badge_scores), 0) AS badge_points,
+          COALESCE((SELECT points FROM class_points_total), 0) AS class_points,
+          COALESCE((SELECT count FROM pending_challenges), 0) AS pending_challenges
+      `, [studentId]),
+      pool.query(`
+        WITH homework_history AS (
+          SELECT DISTINCT ON (m.session_id)
+            'leaderboard'::text AS score_group,
+            'homework'::text AS score_type,
+            ${HOMEWORK_POINT_VALUE}::int AS points,
+            m.uploaded_at AS occurred_at,
+            'Homework submitted'::text AS title,
+            COALESCE(
+              'Session #' || s.session_number || CASE WHEN s.session_topic IS NOT NULL AND s.session_topic <> '' THEN ' • ' || s.session_topic ELSE '' END,
+              m.file_name,
+              'Homework upload'
+            ) AS detail,
+            'awarded'::text AS status
+          FROM materials m
+          LEFT JOIN sessions s ON s.id = m.session_id
+          WHERE m.student_id = $1
+            AND m.file_type = 'Homework'
+            AND m.uploaded_by IN ('Parent', 'Admin')
+            AND m.session_id IS NOT NULL
+          ORDER BY m.session_id, m.uploaded_at ASC, m.id ASC
+        ),
+        completed_challenges AS (
+          SELECT
+            'leaderboard'::text AS score_group,
+            'challenge'::text AS score_type,
+            ${CHALLENGE_POINT_VALUE}::int AS points,
+            sc.completed_at AS occurred_at,
+            'Challenge completed'::text AS title,
+            COALESCE(wc.title, 'Weekly challenge') AS detail,
+            'awarded'::text AS status
+          FROM student_challenges sc
+          LEFT JOIN weekly_challenges wc ON wc.id = sc.challenge_id
+          WHERE sc.student_id = $1
+            AND sc.status = 'Completed'
+            AND sc.completed_at IS NOT NULL
+        ),
+        pending_challenge_history AS (
+          SELECT
+            'leaderboard'::text AS score_group,
+            'challenge'::text AS score_type,
+            0::int AS points,
+            COALESCE(sc.submitted_at, sc.created_at) AS occurred_at,
+            'Challenge submitted'::text AS title,
+            COALESCE(wc.title, 'Weekly challenge') || ' • awaiting teacher approval' AS detail,
+            'pending'::text AS status
+          FROM student_challenges sc
+          LEFT JOIN weekly_challenges wc ON wc.id = sc.challenge_id
+          WHERE sc.student_id = $1
+            AND sc.status = 'Submitted'
+        ),
+        badge_history AS (
+          SELECT
+            'leaderboard'::text AS score_group,
+            'badge'::text AS score_type,
+            ${BADGE_POINT_VALUE}::int AS points,
+            sb.earned_date AS occurred_at,
+            'Badge earned'::text AS title,
+            COALESCE(sb.badge_name, 'Achievement badge') AS detail,
+            'awarded'::text AS status
+          FROM student_badges sb
+          WHERE sb.student_id = $1
+        ),
+        class_points_history AS (
+          SELECT
+            'class_points'::text AS score_group,
+            'class_points'::text AS score_type,
+            cp.points::int AS points,
+            cp.awarded_at AS occurred_at,
+            'Class points update'::text AS title,
+            COALESCE(cp.reason, 'Live class points') AS detail,
+            'awarded'::text AS status
+          FROM class_points cp
+          WHERE cp.student_id = $1
+        )
+        SELECT *
+        FROM (
+          SELECT * FROM homework_history
+          UNION ALL
+          SELECT * FROM completed_challenges
+          UNION ALL
+          SELECT * FROM pending_challenge_history
+          UNION ALL
+          SELECT * FROM badge_history
+          UNION ALL
+          SELECT * FROM class_points_history
+        ) history
+        ORDER BY occurred_at DESC NULLS LAST
+        LIMIT 100
+      `, [studentId])
+    ]);
+
+    const totalsRow = totalsResult.rows[0] || {};
+    const homeworkPoints = parseInt(totalsRow.homework_points) || 0;
+    const challengePoints = parseInt(totalsRow.challenge_points) || 0;
+    const badgePoints = parseInt(totalsRow.badge_points) || 0;
+    const classPoints = parseInt(totalsRow.class_points) || 0;
+
+    res.json({
+      totals: {
+        leaderboard_total: homeworkPoints + challengePoints + badgePoints,
+        homework_points: homeworkPoints,
+        challenge_points: challengePoints,
+        badge_points: badgePoints,
+        class_points: classPoints,
+        pending_challenges: parseInt(totalsRow.pending_challenges) || 0
+      },
+      history: historyResult.rows
+    });
+  } catch (err) {
+    console.error('Error loading student score history:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get current award holders (Student of the Week/Month/Year)
 // Shows PREVIOUS completed period winners (not live in-progress data)
 app.get('/api/awards/current', async (req, res) => {
@@ -11133,6 +11384,7 @@ app.get('/api/challenges/:id/students', async (req, res) => {
         c.week_end,
         CASE
           WHEN sc.status = 'Completed' THEN 'Completed'
+          WHEN sc.status = 'Not Approved' THEN 'Not Approved'
           WHEN sc.status = 'Submitted' THEN 'Submitted'
           WHEN c.week_end < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date THEN 'Finished'
           ELSE 'In Progress'
@@ -11174,7 +11426,7 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
     );
     if (existing.rows.length > 0) {
       await pool.query(
-        `UPDATE student_challenges SET status = 'Submitted', notes = 'Submitted by parent on ' || CURRENT_DATE,
+        `UPDATE student_challenges SET status = 'Submitted', submitted_at = CURRENT_TIMESTAMP, notes = 'Submitted by parent on ' || CURRENT_DATE,
          submission_file_path = COALESCE($3, submission_file_path),
          submission_file_name = COALESCE($4, submission_file_name)
          WHERE challenge_id = $1 AND student_id = $2`,
@@ -11182,8 +11434,8 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
       );
     } else {
       await pool.query(
-        `INSERT INTO student_challenges (challenge_id, student_id, status, notes, submission_file_path, submission_file_name)
-         VALUES ($1, $2, 'Submitted', 'Submitted by parent on ' || CURRENT_DATE, $3, $4)`,
+        `INSERT INTO student_challenges (challenge_id, student_id, status, submitted_at, notes, submission_file_path, submission_file_name)
+         VALUES ($1, $2, 'Submitted', CURRENT_TIMESTAMP, 'Submitted by parent on ' || CURRENT_DATE, $3, $4)`,
         [challengeId, studentId, filePath, fileName]
       );
     }
@@ -11204,12 +11456,12 @@ app.put('/api/challenges/:challengeId/student/:studentId/submit', async (req, re
     );
     if (existing.rows.length > 0) {
       await pool.query(
-        `UPDATE student_challenges SET status = 'Submitted', notes = 'Submitted by parent on ' || CURRENT_DATE WHERE challenge_id = $1 AND student_id = $2`,
+        `UPDATE student_challenges SET status = 'Submitted', submitted_at = CURRENT_TIMESTAMP, notes = 'Submitted by parent on ' || CURRENT_DATE WHERE challenge_id = $1 AND student_id = $2`,
         [challengeId, studentId]
       );
     } else {
       await pool.query(
-        `INSERT INTO student_challenges (challenge_id, student_id, status, notes) VALUES ($1, $2, 'Submitted', 'Submitted by parent on ' || CURRENT_DATE)`,
+        `INSERT INTO student_challenges (challenge_id, student_id, status, submitted_at, notes) VALUES ($1, $2, 'Submitted', CURRENT_TIMESTAMP, 'Submitted by parent on ' || CURRENT_DATE)`,
         [challengeId, studentId]
       );
     }
@@ -11308,6 +11560,21 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
     }
 
     res.json({ success: true, message: 'Challenge completed!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reject a challenge submission
+app.put('/api/challenges/:challengeId/student/:studentId/dont-approve', async (req, res) => {
+  try {
+    await pool.query(`
+      UPDATE student_challenges
+      SET status = 'Not Approved'
+      WHERE challenge_id = $1 AND student_id = $2
+    `, [req.params.challengeId, req.params.studentId]);
+
+    res.json({ success: true, message: 'Challenge submission not approved!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

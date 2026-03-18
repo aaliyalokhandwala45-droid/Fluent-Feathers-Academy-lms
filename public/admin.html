@@ -5433,10 +5433,12 @@ if (dueEl) {
       btn.disabled = true;
       try {
         const imageData = annotCanvas.toDataURL('image/png');
+        // Custom prompt: Only return the corrected word(s), not the whole sentence
+        // (Assumes backend will use this prompt or you can add a 'mode' param for minimal correction)
         const res = await fetch('/api/homework/ai-annotate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image_data: imageData, student_name: annotStudentName || '' })
+          body: JSON.stringify({ image_data: imageData, student_name: annotStudentName || '', minimal: true })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'AI request failed');
@@ -5450,16 +5452,28 @@ if (dueEl) {
         // Save snapshot BEFORE drawing AI marks so ↩️ Undo removes all AI marks at once
         annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
 
-        // Draw corrections on canvas with thin red pen style
+        // Draw corrections on canvas, avoid overlap by offsetting each correction
         const W = annotCanvas.width, H = annotCanvas.height;
         annotCtx.save();
-        corrections.forEach(c => {
+        let usedPositions = [];
+        corrections.forEach((c, idx) => {
           const cx = ((c.x || 0) / 100) * W;
           const cy = ((c.y || 0) / 100) * H;
-          const label = `✗ ${c.wrong} → ${c.correct}`;
-          const fontSize = Math.max(11, Math.round(W / 60));
-          annotCtx.font = `${fontSize}px 'Courier New', monospace`;
+          const label = `${c.correct}`;
+          const fontSize = Math.max(13, Math.round(W / 55));
+          annotCtx.font = `bold ${fontSize}px 'Courier New', monospace`;
           const tw = annotCtx.measureText(label).width;
+
+          // Find a non-overlapping position for the correction label
+          let offsetY = -fontSize - 8;
+          let finalY = cy + offsetY;
+          let tries = 0;
+          while (usedPositions.some(pos => Math.abs(pos.x - cx) < tw + 10 && Math.abs(pos.y - finalY) < fontSize + 8) && tries < 5) {
+            offsetY -= (fontSize + 8);
+            finalY = cy + offsetY;
+            tries++;
+          }
+          usedPositions.push({ x: cx, y: finalY });
 
           // Red underline squiggle under the error area
           annotCtx.beginPath();
@@ -5474,12 +5488,11 @@ if (dueEl) {
           annotCtx.stroke();
           annotCtx.setLineDash([]);
 
-          // Red correction text above
-          const textY = Math.max(fontSize + 4, cy - 4);
-          annotCtx.fillStyle = 'rgba(255,255,255,0.82)';
-          annotCtx.fillRect(cx - 2, textY - fontSize, tw + 4, fontSize + 3);
+          // Correction word in a white box above or near the wrong word
+          annotCtx.fillStyle = 'rgba(255,255,255,0.92)';
+          annotCtx.fillRect(cx - 2, finalY - fontSize, tw + 4, fontSize + 4);
           annotCtx.fillStyle = '#dc2626';
-          annotCtx.fillText(label, cx, textY);
+          annotCtx.fillText(label, cx, finalY);
         });
         annotCtx.restore();
         annotHistory.push(annotCtx.getImageData(0, 0, W, H));
@@ -9461,7 +9474,7 @@ async function saveEditedPayment() {
 
               ${students.length === 0 ? '<p style="color: #718096; text-align: center; padding: 30px;">No students assigned to this challenge yet.</p>' : (() => {
                 // Count per status for filter button badges
-                const statusCounts = { All: students.length, Submitted: 0, Finished: 0, Completed: 0, 'In Progress': 0 };
+                const statusCounts = { All: students.length, Submitted: 0, Finished: 0, Completed: 0, 'Not Approved': 0, 'In Progress': 0 };
                 students.forEach(s => {
                   const st = s.effective_status || s.status || 'In Progress';
                   if (statusCounts[st] !== undefined) statusCounts[st]++; else statusCounts['In Progress']++;
@@ -9475,6 +9488,7 @@ async function saveEditedPayment() {
                   ${statusCounts.Submitted > 0 ? `<button id="csf-Submitted" style="${filterBtnStyle(false,'#ed8936')}" onclick="filterChallengeStudents('Submitted')">📩 Submitted <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Submitted}</span></button>` : ''}
                   ${statusCounts.Finished > 0 ? `<button id="csf-Finished" style="${filterBtnStyle(false,'#718096')}" onclick="filterChallengeStudents('Finished')">🏁 Finished <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Finished}</span></button>` : ''}
                   ${statusCounts.Completed > 0 ? `<button id="csf-Completed" style="${filterBtnStyle(false,'#38a169')}" onclick="filterChallengeStudents('Completed')">✅ Completed <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Completed}</span></button>` : ''}
+                  ${statusCounts['Not Approved'] > 0 ? `<button id="csf-Not Approved" style="${filterBtnStyle(false,'#e53e3e')}" onclick="filterChallengeStudents('Not Approved')">❌ Not Approved <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts['Not Approved']}</span></button>` : ''}
                   ${statusCounts['In Progress'] > 0 ? `<button id="csf-In Progress" style="${filterBtnStyle(false,'#3182ce')}" onclick="filterChallengeStudents('In Progress')">⏳ Not Started <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts['In Progress']}</span></button>` : ''}
                 </div>
                 <table id="csf-table" style="width: 100%; border-collapse: collapse;">
@@ -9525,9 +9539,13 @@ async function saveEditedPayment() {
                         statusBadge = '<span class="challenge-badge challenge-badge-completed">✅ Completed</span>' +
                                        '<br><small style="color: #718096;">' + (s.completed_at ? new Date(s.completed_at).toLocaleDateString() : '') + '</small>';
                         actionBtn = '<span class="status-active">🏅 Badge Awarded</span>';
+                      } else if (effectiveStatus === 'Not Approved') {
+                        statusBadge = '<span class="challenge-badge" style="background:#e53e3e;">❌ Not Approved</span>' +
+                                       '<br><small style="color: #718096;">Submission not approved</small>';
+                        actionBtn = '<span style="color: #e53e3e; font-weight: bold;">Not Approved</span>';
                       } else if (effectiveStatus === 'Submitted') {
                         statusBadge = '<span class="challenge-badge challenge-badge-submitted">📩 Submitted!</span>';
-                        actionBtn = '<button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: white; font-weight: bold;">✅ Approve & Award Badge</button>';
+                        actionBtn = '<div style="display: flex; gap: 5px; flex-direction: column;"><button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: white; font-weight: bold;">✅ Approve & Award Badge</button><button onclick="dontApproveChallenge(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'))" class="btn btn-sm" style="background: #e53e3e; color: white; font-weight: bold;">❌ Don't Approve</button></div>';
                         rowClass = 'challenge-row-submitted';
                       } else if (effectiveStatus === 'Finished') {
                         statusBadge = '<span class="challenge-badge" style="background:#718096;">🏁 Finished</span>';
@@ -9569,7 +9587,7 @@ async function saveEditedPayment() {
     // Filter challenge students by status
     function filterChallengeStudents(status) {
       // Update button styles
-      const colorMap = { 'All': '#667eea', 'Submitted': '#ed8936', 'Finished': '#718096', 'Completed': '#38a169', 'In Progress': '#3182ce' };
+      const colorMap = { 'All': '#667eea', 'Submitted': '#ed8936', 'Finished': '#718096', 'Completed': '#38a169', 'Not Approved': '#e53e3e', 'In Progress': '#3182ce' };
       const bar = document.getElementById('csf-bar');
       if (bar) {
         bar.querySelectorAll('button').forEach(btn => {
@@ -9610,6 +9628,29 @@ async function saveEditedPayment() {
           const modalTitle = currentChallengeTitle;
           document.getElementById('challengeStudentsModal')?.remove();
           viewChallengeStudents(challengeId, modalTitle, badgeReward);
+          loadChallenges();
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function dontApproveChallenge(challengeId, studentId, studentName) {
+      if (!confirm(`Don't approve ${studentName}'s challenge submission?\n\nNo badge will be awarded.`)) return;
+
+      try {
+        const res = await fetch(`/api/challenges/${challengeId}/student/${studentId}/dont-approve`, {
+          method: 'PUT'
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(`❌ ${studentName}'s challenge submission has not been approved.`);
+          // Refresh the modal and list
+          const modalTitle = currentChallengeTitle;
+          document.getElementById('challengeStudentsModal')?.remove();
+          viewChallengeStudents(challengeId, modalTitle, ''); // badgeReward not needed for don't approve
           loadChallenges();
         } else {
           alert('❌ Error: ' + result.error);
