@@ -10855,20 +10855,34 @@ app.post('/api/homework/ai-annotate', express.json({ limit: '20mb' }), async (re
       return res.status(400).json({ error: 'GROQ_API_KEY is not configured. Add it to your environment variables on Render. Get a free key at console.groq.com' });
     }
 
-    const { image_data, student_name } = req.body;
+    const { image_data, student_name, minimal } = req.body;
     if (!image_data) return res.status(400).json({ error: 'No image data provided' });
 
     const studentLabel = student_name ? `Student: ${student_name}. ` : '';
+    const minimalMode = minimal === true || minimal === 'true';
     const prompt = `You are an English language teacher reviewing a student's creative writing homework image. ${studentLabel}Carefully read ALL the handwritten or typed text in the image.
 
 Find every spelling mistake, grammar error, punctuation error, and capitalisation error.
+
+${minimalMode ? `IMPORTANT:
+- For "correct", return only the smallest correction needed near the mistake.
+- Prefer a SINGLE WORD.
+- Use at most 2 short words only when absolutely necessary.
+- Do NOT rewrite the whole sentence.
+- Do NOT return long explanations in "correct".
+- Examples:
+  - wrong: "goed" -> correct: "went"
+  - wrong: "she go" -> correct: "goes"
+  - wrong: missing capital letter -> correct: "The"
+  - wrong: missing punctuation -> correct: "."
+` : ''}
 
 Return ONLY a valid JSON object in this exact format (no other text before or after):
 {
   "corrections": [
     {
       "wrong": "the exact wrong word or phrase as written by student",
-      "correct": "the correct version",
+      "correct": "the corrected word/token only",
       "type": "spelling",
       "note": "brief reason",
       "x": 45,

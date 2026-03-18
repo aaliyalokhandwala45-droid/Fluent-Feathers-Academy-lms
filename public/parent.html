@@ -65,7 +65,6 @@
     .tab-btn { width: 100%; padding: 12px 14px; background: white; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; position: relative; text-align: center; }
     .tab-btn.active { background: #B05D9E; color: white; border-color: #B05D9E; }
     .tab-btn .red-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; background: #e53e3e; border-radius: 50%; display: none; }
-    .tab-spacer { visibility: hidden; pointer-events: none; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
@@ -795,7 +794,7 @@
       </div>
 
       <!-- Class Points Strip -->
-      <div id="classPointsStrip" style="background:linear-gradient(135deg,#fef9c3,#fde68a);border:1.5px solid #fbbf24;border-radius:12px;padding:11px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 2px 8px rgba(245,200,66,0.25);" onclick="showTab('achievements')">
+      <div id="classPointsStrip" style="background:linear-gradient(135deg,#fef9c3,#fde68a);border:1.5px solid #fbbf24;border-radius:12px;padding:11px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 2px 8px rgba(245,200,66,0.25);" onclick="showTab('pointsTracker')">
         <div style="display:flex;align-items:center;gap:10px;">
           <div style="font-size:24px;">⭐</div>
           <div>
@@ -803,7 +802,7 @@
             <div style="font-size:11px;color:#b45309;" id="classPointsNext">Earn points in live classes!</div>
           </div>
         </div>
-        <button onclick="event.stopPropagation();showTab('achievements')" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">View →</button>
+        <button onclick="event.stopPropagation();showTab('pointsTracker')" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">View →</button>
       </div>
 
       <!-- Challenge Summary Strip -->
@@ -827,12 +826,12 @@
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
         <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">📢 News<span class="red-dot" id="dotAnnouncements"></span></button>
         <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">🏆 Achievements<span class="red-dot" id="dotAchievements"></span></button>
+        <button class="tab-btn" onclick="showTab('pointsTracker', event)">⭐ Points Tracker</button>
         <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">🎯 Challenges<span class="red-dot" id="dotChallenges"></span></button>
         <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">🎉 Events<span class="red-dot" id="dotEvents"></span></button>
         <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">📚 Resources<span class="red-dot" id="dotResources"></span></button>
         <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">💳 Payments<span class="red-dot" id="dotPayments"></span></button>
         <button class="tab-btn" onclick="showTab('profile', event)">👤 Profile</button>
-        <div class="tab-spacer" aria-hidden="true"></div>
       </div>
 
       <div id="upcomingTab" class="tab-content active">
@@ -1013,55 +1012,8 @@
         </div>
       </div>
 
-      <!-- Achievements Tab (Badges + Hall of Fame + Challenges) -->
+      <!-- Achievements Tab -->
       <div id="achievementsTab" class="tab-content">
-
-        <!-- Class Points Card -->
-        <div class="section" style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1.5px solid #fbbf24;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-            <div>
-              <h2 style="color:#d97706;margin:0 0 4px;">⭐ Class Points</h2>
-              <p style="color:#92400e;margin:0;font-size:0.85rem;">Points awarded during your live classes</p>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:36px;font-weight:900;color:#d97706;line-height:1;" id="classPointsTotalTab">0</div>
-              <div style="font-size:11px;color:#92400e;">total points</div>
-            </div>
-          </div>
-          <div style="margin-top:12px;">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:#b45309;margin-bottom:4px;">
-              <span id="classPointsNextTab">Next badge at 10 pts</span>
-              <span id="classPointsPct">0%</span>
-            </div>
-            <div style="background:#fde68a;border-radius:20px;height:10px;overflow:hidden;">
-              <div id="classPointsBar" style="height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:20px;width:0%;transition:width 0.5s;"></div>
-            </div>
-            <div style="margin-top:8px;font-size:11px;color:#92400e;">🎯 Every 10 points unlocks a new badge on this page!</div>
-          </div>
-        </div>
-
-        <div class="section" style="background:linear-gradient(135deg,#eff6ff,#fdf2f8);border:1.5px solid #c4b5fd;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
-            <div>
-              <h2 style="color:#6d28d9;margin:0 0 4px;">📈 Score Tracker</h2>
-              <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track every score update from homework, challenges, badges, and live class points.</p>
-            </div>
-            <div style="background:linear-gradient(135deg,#6d28d9,#ec4899);color:white;padding:10px 16px;border-radius:12px;text-align:center;min-width:110px;">
-              <div style="font-size:0.72rem;opacity:0.9;">Leaderboard</div>
-              <div id="scoreTrackerTotal" style="font-size:1.8rem;font-weight:800;line-height:1.1;">0</div>
-            </div>
-          </div>
-          <div id="scoreTrackerBreakdown" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
-            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Homework</div><div id="scoreTrackerHomework" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
-            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Challenges</div><div id="scoreTrackerChallenges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
-            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Badges</div><div id="scoreTrackerBadges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
-            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Class Points</div><div id="scoreTrackerClassPoints" style="font-size:1.3rem;font-weight:800;color:#d97706;">0</div></div>
-          </div>
-          <div id="scoreTrackerPending" style="display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;color:#9a3412;font-size:0.82rem;font-weight:600;margin-bottom:14px;"></div>
-          <div id="scoreHistoryContainer">
-            <p style="text-align:center;color:#718096;">Loading score history...</p>
-          </div>
-        </div>
 
         <!-- Badges Section -->
         <div class="section">
@@ -1099,6 +1051,65 @@
           </div>
         </div>
 
+      </div>
+
+      <div id="pointsTrackerTab" class="tab-content">
+        <div class="section" style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1.5px solid #fbbf24;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2 style="color:#d97706;margin:0 0 4px;">⭐ Class Points</h2>
+              <p style="color:#92400e;margin:0;font-size:0.85rem;">Points awarded during your live classes</p>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:36px;font-weight:900;color:#d97706;line-height:1;" id="classPointsTotalTab">0</div>
+              <div style="font-size:11px;color:#92400e;">total points</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#b45309;margin-bottom:4px;">
+              <span id="classPointsNextTab">Next badge at 10 pts</span>
+              <span id="classPointsPct">0%</span>
+            </div>
+            <div style="background:#fde68a;border-radius:20px;height:10px;overflow:hidden;">
+              <div id="classPointsBar" style="height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:20px;width:0%;transition:width 0.5s;"></div>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:#92400e;">🎯 Every 10 points unlocks a new badge on this page!</div>
+          </div>
+        </div>
+
+        <div class="section" style="background:linear-gradient(135deg,#eff6ff,#fdf2f8);border:1.5px solid #c4b5fd;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+            <div>
+              <h2 style="color:#6d28d9;margin:0 0 4px;">📈 Score Tracker</h2>
+              <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track every score update from homework, challenges, badges, and live class points.</p>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+              <select id="scoreHistoryFilter" onchange="renderScoreHistory()" style="padding:9px 12px;border:1.5px solid #c4b5fd;border-radius:10px;background:white;color:#4c1d95;font-weight:600;font-size:0.82rem;">
+                <option value="all">All Activity</option>
+                <option value="leaderboard">Leaderboard Points</option>
+                <option value="class_points">Class Points</option>
+                <option value="homework">Homework</option>
+                <option value="challenge">Challenges</option>
+                <option value="badge">Badges</option>
+                <option value="pending">Pending Approvals</option>
+              </select>
+              <div style="background:linear-gradient(135deg,#6d28d9,#ec4899);color:white;padding:10px 16px;border-radius:12px;text-align:center;min-width:110px;">
+                <div style="font-size:0.72rem;opacity:0.9;">Leaderboard</div>
+                <div id="scoreTrackerTotal" style="font-size:1.8rem;font-weight:800;line-height:1.1;">0</div>
+              </div>
+            </div>
+          </div>
+          <div id="scoreTrackerBreakdown" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Homework</div><div id="scoreTrackerHomework" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Challenges</div><div id="scoreTrackerChallenges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Badges</div><div id="scoreTrackerBadges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Class Points</div><div id="scoreTrackerClassPoints" style="font-size:1.3rem;font-weight:800;color:#d97706;">0</div></div>
+          </div>
+          <div id="scoreTrackerPending" style="display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;color:#9a3412;font-size:0.82rem;font-weight:600;margin-bottom:14px;"></div>
+          <div id="scoreHistoryContainer">
+            <p style="text-align:center;color:#718096;">Loading score history...</p>
+          </div>
+        </div>
       </div>
 
       <!-- Challenges Tab -->
@@ -1980,6 +1991,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       if (name === 'upcoming') loadUpcoming(true);
       if (name === 'past') loadPast(true);
       if (name === 'challenges') loadStudentChallenges();
+      if (name === 'pointsTracker') { loadClassPoints(); loadScoreHistory(); }
     }
 
     function showDashboard() {
@@ -2143,6 +2155,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     let allBadges = []; // Store all badges for the modal
+    let allScoreHistory = [];
 
     function formatPortalDateTime(ts) {
       if (!ts) return '';
@@ -2207,7 +2220,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         const res = await fetch(`/api/students/${currentStudent.id}/score-history`, { headers: authHeaders() });
         const data = await res.json();
         const totals = data.totals || {};
-        const history = Array.isArray(data.history) ? data.history : [];
+        allScoreHistory = Array.isArray(data.history) ? data.history : [];
 
         document.getElementById('scoreTrackerTotal').textContent = totals.leaderboard_total || 0;
         document.getElementById('scoreTrackerHomework').textContent = totals.homework_points || 0;
@@ -2224,30 +2237,52 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           pendingEl.style.display = 'none';
           pendingEl.textContent = '';
         }
+        renderScoreHistory();
+      } catch (e) {
+        console.error('loadScoreHistory error', e);
+        document.getElementById('scoreHistoryContainer').innerHTML = '<p style="color:#e53e3e;">Error loading score history</p>';
+      }
+    }
 
-        const typeMeta = {
-          homework: { icon: '📝', bg: '#eef2ff', color: '#5b21b6' },
-          challenge: { icon: '🎯', bg: '#fef3c7', color: '#92400e' },
-          badge: { icon: '🏅', bg: '#fce7f3', color: '#9d174d' },
-          class_points: { icon: '⭐', bg: '#fef3c7', color: '#b45309' }
-        };
+    function renderScoreHistory() {
+      const container = document.getElementById('scoreHistoryContainer');
+      if (!container) return;
 
-        const container = document.getElementById('scoreHistoryContainer');
-        if (!history.length) {
-          container.innerHTML = '<p style="text-align:center;color:#718096;">No score activity yet.</p>';
-          return;
-        }
+      const filter = document.getElementById('scoreHistoryFilter')?.value || 'all';
+      const history = allScoreHistory.filter(item => {
+        if (filter === 'all') return true;
+        if (filter === 'pending') return item.status === 'pending';
+        if (filter === 'leaderboard') return item.score_group === 'leaderboard';
+        if (filter === 'class_points') return item.score_group === 'class_points';
+        return item.score_type === filter;
+      });
 
-        container.innerHTML = history.map(item => {
-          const meta = typeMeta[item.score_type] || { icon: '📌', bg: '#edf2f7', color: '#4a5568' };
-          const points = parseInt(item.points) || 0;
-          const isPending = item.status === 'pending';
-          const groupLabel = item.score_group === 'class_points' ? 'Class Points' : 'Leaderboard';
-          const pointsLabel = isPending ? 'Pending' : `${points > 0 ? '+' : ''}${points}`;
-          const pointsBg = isPending ? '#fff7ed' : points >= 0 ? '#ecfdf5' : '#fef2f2';
-          const pointsColor = isPending ? '#9a3412' : points >= 0 ? '#166534' : '#b91c1c';
-          return `
-            <div style="background:white;border:1px solid #e9d5ff;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+      if (!history.length) {
+        container.innerHTML = '<p style="text-align:center;color:#718096;">No score activity for this filter yet.</p>';
+        return;
+      }
+
+      const typeMeta = {
+        homework: { icon: '📝', bg: '#eef2ff', color: '#5b21b6' },
+        challenge: { icon: '🎯', bg: '#fef3c7', color: '#92400e' },
+        badge: { icon: '🏅', bg: '#fce7f3', color: '#9d174d' },
+        class_points: { icon: '⭐', bg: '#fef3c7', color: '#b45309' }
+      };
+
+      container.innerHTML = history.map(item => {
+        const meta = typeMeta[item.score_type] || { icon: '📌', bg: '#edf2f7', color: '#4a5568' };
+        const points = parseInt(item.points) || 0;
+        const isPending = item.status === 'pending';
+        const groupLabel = item.score_group === 'class_points' ? 'Class Points' : 'Leaderboard';
+        const typeLabel = item.score_type === 'class_points'
+          ? 'Class Points'
+          : item.score_type.charAt(0).toUpperCase() + item.score_type.slice(1);
+        const pointsLabel = isPending ? 'Pending' : `${points > 0 ? '+' : ''}${points}`;
+        const pointsBg = isPending ? '#fff7ed' : points >= 0 ? '#ecfdf5' : '#fef2f2';
+        const pointsColor = isPending ? '#9a3412' : points >= 0 ? '#166534' : '#b91c1c';
+        return `
+          <details style="background:white;border:1px solid #e9d5ff;border-radius:12px;padding:0;margin-bottom:10px;overflow:hidden;">
+            <summary style="list-style:none;cursor:pointer;padding:12px 14px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
               <div style="display:flex;gap:10px;min-width:0;">
                 <div style="width:38px;height:38px;border-radius:10px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${meta.icon}</div>
                 <div style="min-width:0;">
@@ -2256,14 +2291,20 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
                   <div style="color:#718096;font-size:0.74rem;margin-top:4px;">${groupLabel} • ${formatPortalDateTime(item.occurred_at)}</div>
                 </div>
               </div>
-              <div style="background:${pointsBg};color:${pointsColor};border-radius:999px;padding:6px 10px;font-size:0.8rem;font-weight:800;min-width:72px;text-align:center;flex-shrink:0;">${pointsLabel}</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <div style="background:${pointsBg};color:${pointsColor};border-radius:999px;padding:6px 10px;font-size:0.8rem;font-weight:800;min-width:72px;text-align:center;">${pointsLabel}</div>
+                <span style="color:#7c3aed;font-size:0.8rem;font-weight:700;">Details ▾</span>
+              </div>
+            </summary>
+            <div style="padding:0 14px 14px 62px;color:#4a5568;font-size:0.82rem;line-height:1.5;border-top:1px solid #f3e8ff;background:#faf5ff;">
+              <div style="padding-top:10px;"><strong>Type:</strong> ${typeLabel}</div>
+              <div><strong>Status:</strong> ${isPending ? 'Awaiting Approval' : 'Added'}</div>
+              <div><strong>Points:</strong> ${pointsLabel}</div>
+              <div><strong>Recorded:</strong> ${formatPortalDateTime(item.occurred_at)}</div>
             </div>
-          `;
-        }).join('');
-      } catch (e) {
-        console.error('loadScoreHistory error', e);
-        document.getElementById('scoreHistoryContainer').innerHTML = '<p style="color:#e53e3e;">Error loading score history</p>';
-      }
+          </details>
+        `;
+      }).join('');
     }
 
     async function loadBadges() {
