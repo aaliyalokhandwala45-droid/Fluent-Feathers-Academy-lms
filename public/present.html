@@ -59,6 +59,7 @@ body { display: flex; flex-direction: column; background: #111; }
 .resizer {
   width: 7px; flex-shrink: 0; background: #B05D9E;
   cursor: col-resize; position: relative; z-index: 2; transition: background 0.15s;
+  touch-action: none;
 }
 .resizer:hover, .resizer.dragging { background: #e040fb; }
 .resizer::after {
@@ -75,6 +76,7 @@ body { display: flex; flex-direction: column; background: #111; }
   display: flex; flex-direction: column;
   overflow: hidden;
 }
+.panel.resizing { transition: none !important; }
 .panel-hdr {
   background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%);
   padding: 11px 14px;
@@ -872,29 +874,61 @@ document.addEventListener('fullscreenchange', function() {
   var resizer = document.getElementById('panel-resizer');
   var panel   = resizer ? resizer.previousElementSibling : null;
   if (!resizer || !panel) return;
-  var startX, startW;
-  resizer.addEventListener('mousedown', function(e) {
+  var startX = 0;
+  var startW = 0;
+  var nextWidth = 0;
+  var rafId = 0;
+  var dragging = false;
+
+  function applyWidth() {
+    rafId = 0;
+    panel.style.width = nextWidth + 'px';
+  }
+
+  function clampWidth(width) {
+    var style = getComputedStyle(panel);
+    var mn = parseInt(style.minWidth, 10) || 160;
+    var mx = parseInt(style.maxWidth, 10) || 520;
+    return Math.max(mn, Math.min(mx, width));
+  }
+
+  function stopDrag(pointerId) {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove('resizing');
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    if (pointerId != null && resizer.hasPointerCapture && resizer.hasPointerCapture(pointerId)) {
+      resizer.releasePointerCapture(pointerId);
+    }
+  }
+
+  resizer.addEventListener('pointerdown', function(e) {
     e.preventDefault();
+    dragging = true;
     startX = e.clientX;
-    startW = panel.offsetWidth;
+    startW = panel.getBoundingClientRect().width;
+    nextWidth = startW;
+    panel.classList.add('resizing');
     resizer.classList.add('dragging');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    function onMove(ev) {
-      var newW = startW + (ev.clientX - startX);
-      var mn = parseInt(getComputedStyle(panel).minWidth) || 160;
-      var mx = parseInt(getComputedStyle(panel).maxWidth) || 520;
-      panel.style.width = Math.max(mn, Math.min(mx, newW)) + 'px';
-    }
-    function onUp() {
-      resizer.classList.remove('dragging');
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    if (resizer.setPointerCapture) resizer.setPointerCapture(e.pointerId);
+  });
+
+  resizer.addEventListener('pointermove', function(e) {
+    if (!dragging) return;
+    nextWidth = clampWidth(startW + (e.clientX - startX));
+    if (!rafId) rafId = requestAnimationFrame(applyWidth);
+  });
+
+  resizer.addEventListener('pointerup', function(e) {
+    stopDrag(e.pointerId);
+  });
+
+  resizer.addEventListener('pointercancel', function(e) {
+    stopDrag(e.pointerId);
   });
 })();
 

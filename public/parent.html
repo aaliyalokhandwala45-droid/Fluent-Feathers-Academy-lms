@@ -1081,7 +1081,7 @@
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div>
               <h2 style="color:#6d28d9;margin:0 0 4px;">📈 Score Tracker</h2>
-              <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track every score update from homework, challenges, and badges.</p>
+              <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track homework and challenge points.</p>
             </div>
             <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
               <div style="background:linear-gradient(135deg,#6d28d9,#ec4899);color:white;padding:10px 16px;border-radius:12px;text-align:center;min-width:110px;">
@@ -1093,22 +1093,12 @@
           <div id="scoreTrackerBreakdown" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
             <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Homework</div><div id="scoreTrackerHomework" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
             <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Challenges</div><div id="scoreTrackerChallenges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
-            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Badges</div><div id="scoreTrackerBadges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
           </div>
           <div id="scoreTrackerPending" style="display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;color:#9a3412;font-size:0.82rem;font-weight:600;margin-bottom:14px;"></div>
           <div style="margin-top:2px;">
             <button id="scoreTrackerShowMoreBtn" onclick="toggleScoreTrackerMore()" style="background:none;border:none;padding:0;color:#6d28d9;font-size:0.9rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Show more</button>
           </div>
           <div id="scoreTrackerExpanded" style="display:none;margin-top:14px;">
-            <div style="background:rgba(255,255,255,0.82);border:1px solid #ddd6fe;border-radius:14px;padding:14px;margin-bottom:14px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-                <h3 style="margin:0;color:#6d28d9;font-size:1rem;">🏅 Badges</h3>
-                <span id="scoreTrackerBadgeMeta" style="font-size:0.78rem;color:#6b7280;">Loading badges...</span>
-              </div>
-              <div id="scoreTrackerBadgesExpanded" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;">
-                <p style="text-align:center;color:#718096;grid-column:1/-1;">Loading badges...</p>
-              </div>
-            </div>
             <div id="scoreHistoryContainer">
               <p style="text-align:center;color:#718096;">Loading points info...</p>
             </div>
@@ -2229,7 +2219,6 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         document.getElementById('scoreTrackerTotal').textContent = totals.leaderboard_total || 0;
         document.getElementById('scoreTrackerHomework').textContent = totals.homework_points || 0;
         document.getElementById('scoreTrackerChallenges').textContent = totals.challenge_points || 0;
-        document.getElementById('scoreTrackerBadges').textContent = totals.badge_points || 0;
 
         const pendingEl = document.getElementById('scoreTrackerPending');
         const pendingChallenges = totals.pending_challenges || 0;
@@ -2251,7 +2240,11 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       const container = document.getElementById('scoreHistoryContainer');
       if (!container) return;
 
-      const history = allScoreHistory.filter(item => item.score_group !== 'class_points' && item.score_type !== 'class_points');
+      const history = allScoreHistory.filter(item =>
+        item.score_group !== 'class_points' &&
+        item.score_type !== 'class_points' &&
+        item.score_type !== 'badge'
+      );
 
       if (!history.length) {
         container.innerHTML = '<p style="text-align:center;color:#718096;">No points info available yet.</p>';
@@ -2260,8 +2253,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
       const typeMeta = {
         homework: { icon: '📝', bg: '#eef2ff', color: '#5b21b6' },
-        challenge: { icon: '🎯', bg: '#fef3c7', color: '#92400e' },
-        badge: { icon: '🏅', bg: '#fce7f3', color: '#9d174d' }
+        challenge: { icon: '🎯', bg: '#fef3c7', color: '#92400e' }
       };
 
       container.innerHTML = history.map(item => {
@@ -2269,15 +2261,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         const points = parseInt(item.points) || 0;
         const isPending = item.status === 'pending';
         const groupLabel = item.score_group === 'class_points' ? 'Class Points' : 'Leaderboard';
-        const typeLabel = item.score_type === 'class_points'
-          ? 'Class Points'
-          : item.score_type.charAt(0).toUpperCase() + item.score_type.slice(1);
         const pointsLabel = isPending ? 'Pending' : `${points > 0 ? '+' : ''}${points}`;
         const pointsBg = isPending ? '#fff7ed' : points >= 0 ? '#ecfdf5' : '#fef2f2';
         const pointsColor = isPending ? '#9a3412' : points >= 0 ? '#166534' : '#b91c1c';
         return `
-          <details style="background:white;border:1px solid #e9d5ff;border-radius:12px;padding:0;margin-bottom:10px;overflow:hidden;">
-            <summary style="list-style:none;cursor:pointer;padding:12px 14px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+          <div style="background:white;border:1px solid #e9d5ff;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
               <div style="display:flex;gap:10px;min-width:0;">
                 <div style="width:38px;height:38px;border-radius:10px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${meta.icon}</div>
                 <div style="min-width:0;">
@@ -2288,16 +2277,9 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                 <div style="background:${pointsBg};color:${pointsColor};border-radius:999px;padding:6px 10px;font-size:0.8rem;font-weight:800;min-width:72px;text-align:center;">${pointsLabel}</div>
-                <span style="color:#7c3aed;font-size:0.8rem;font-weight:700;">Details ▾</span>
               </div>
-            </summary>
-            <div style="padding:0 14px 14px 62px;color:#4a5568;font-size:0.82rem;line-height:1.5;border-top:1px solid #f3e8ff;background:#faf5ff;">
-              <div style="padding-top:10px;"><strong>Type:</strong> ${typeLabel}</div>
-              <div><strong>Status:</strong> ${isPending ? 'Awaiting Approval' : 'Added'}</div>
-              <div><strong>Points:</strong> ${pointsLabel}</div>
-              <div><strong>Recorded:</strong> ${formatPortalDateTime(item.occurred_at)}</div>
             </div>
-          </details>
+          </div>
         `;
       }).join('');
     }
@@ -2311,30 +2293,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       btn.textContent = opening ? 'Show less' : 'Show more';
       if (opening) {
         renderScoreHistory();
-        renderPointsTrackerBadges();
       }
-    }
-
-    function renderPointsTrackerBadges() {
-      const container = document.getElementById('scoreTrackerBadgesExpanded');
-      const meta = document.getElementById('scoreTrackerBadgeMeta');
-      if (!container || !meta) return;
-
-      if (!Array.isArray(allBadges) || allBadges.length === 0) {
-        meta.textContent = 'No badges yet';
-        container.innerHTML = '<p style="text-align:center;color:#718096;grid-column:1/-1;">No badges earned yet.</p>';
-        return;
-      }
-
-      meta.textContent = `${allBadges.length} badge${allBadges.length > 1 ? 's' : ''} earned`;
-      container.innerHTML = allBadges.map(b => `
-        <div class="badge-card" style="padding:12px 10px;">
-          <div class="badge-icon" style="font-size:1.7rem;">${b.badge_name.split(' ')[0]}</div>
-          <div class="badge-name" style="font-size:0.78rem;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
-          <div class="badge-desc" style="font-size:0.68rem;">${b.badge_description}</div>
-          <div class="badge-date" style="font-size:0.62rem;">${new Date(b.earned_date).toLocaleDateString()}</div>
-        </div>
-      `).join('');
     }
 
     async function loadBadges() {
@@ -2394,14 +2353,9 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           // Show "View All" button if more than 5 badges
           document.getElementById('viewAllBadgesBtn').style.display = badges.length > 5 ? 'block' : 'none';
         }
-        renderPointsTrackerBadges();
       } catch(e) {
         console.error('Error loading badges:', e);
         document.getElementById('badgesContainer').innerHTML = '<p style="color: #e53e3e;">Error loading badges</p>';
-        const trackerBadges = document.getElementById('scoreTrackerBadgesExpanded');
-        const trackerMeta = document.getElementById('scoreTrackerBadgeMeta');
-        if (trackerBadges) trackerBadges.innerHTML = '<p style="color:#e53e3e;grid-column:1/-1;">Error loading badges</p>';
-        if (trackerMeta) trackerMeta.textContent = 'Error loading badges';
       }
     }
 

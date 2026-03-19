@@ -320,6 +320,41 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.get('/demo', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'demo-register.html'));
+});
+
+app.get('/b/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim();
+    if (!code) {
+      return res.status(404).sendFile(path.join(__dirname, 'public', 'birthday-card.html'));
+    }
+
+    const result = await executeQuery(`
+      SELECT student_name, age, wish_message
+      FROM birthday_cards
+      WHERE code = $1
+      LIMIT 1
+    `, [code]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).sendFile(path.join(__dirname, 'public', 'birthday-card.html'));
+    }
+
+    const row = result.rows[0];
+    const params = new URLSearchParams({
+      n: row.student_name,
+      a: String(row.age),
+      w: row.wish_message
+    });
+    res.redirect(`/birthday-card.html?${params.toString()}`);
+  } catch (err) {
+    console.error('Birthday short-link redirect error:', err);
+    res.status(500).sendFile(path.join(__dirname, 'public', 'birthday-card.html'));
+  }
+});
+
 // ==================== JOIN CLASS TIME-GATE ====================
 // Email buttons point here. Redirects to Zoom only within 5 mins before to class-end.
 // Outside that window shows a friendly block page.
@@ -1912,6 +1947,24 @@ async function runMigrations() {
       console.log('Migration 43 note:', err.message);
     }
 
+    // Migration 44A: Create short birthday card links table
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS birthday_cards (
+          id SERIAL PRIMARY KEY,
+          code TEXT UNIQUE NOT NULL,
+          student_name TEXT NOT NULL,
+          age INTEGER NOT NULL,
+          wish_message TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_birthday_cards_code ON birthday_cards(code)`);
+      console.log('✅ Migration 44A: Created birthday_cards table');
+    } catch (err) {
+      console.log('Migration 44A note:', err.message);
+    }
+
     // Migration 44: Add skill_ratings and deferred columns to monthly_assessments
     try {
       await client.query(`ALTER TABLE monthly_assessments ADD COLUMN IF NOT EXISTS skill_ratings TEXT`);
@@ -2225,15 +2278,29 @@ async function sendEmail(to, subject, html, recipientName, emailType) {
       return false;
     }
 
-    // Parent portal link is now embedded directly in each email template.
+    const websiteLink = 'https://tinyurl.com/Fluent-Feathers-Academy';
+    const websiteFooter = `
+      <div style="text-align:center;padding:14px 20px 4px;">
+        <a href="${websiteLink}" target="_blank" style="display:inline-block;color:#B05D9E;font-size:14px;font-weight:700;text-decoration:none;">
+          Visit Our Website: Fluent Feathers Academy
+        </a>
+      </div>
+    `;
     let finalHtml = html;
+    if (typeof finalHtml === 'string' && !finalHtml.includes(websiteLink)) {
+      if (finalHtml.includes('</body>')) {
+        finalHtml = finalHtml.replace('</body>', `${websiteFooter}\n</body>`);
+      } else {
+        finalHtml += websiteFooter;
+      }
+    }
 
     await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: subject, htmlContent: finalHtml }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
-    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Sent', $5)`, [recipientName || '', to, emailType, subject, html]);
+    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Sent', $5)`, [recipientName || '', to, emailType, subject, finalHtml]);
     return true;
   } catch (e) {
     console.error('Email Error:', e.message);
-    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Failed', $5)`, [recipientName || '', to, emailType, subject, html]);
+    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Failed', $5)`, [recipientName || '', to, emailType, subject, finalHtml]);
     return false;
   }
 }
@@ -7956,6 +8023,70 @@ app.post('/api/public/demo-register', async (req, res) => {
   }
 });
 
+app.post('/api/public/birthday-cards', async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim().slice(0, 60);
+    const age = parseInt(req.body.age, 10);
+    const wish = String(req.body.wish || '').trim().slice(0, 500);
+
+    if (!name) return res.status(400).json({ error: 'Student name is required' });
+    if (!age || age < 1 || age > 100) return res.status(400).json({ error: 'Age must be between 1 and 100' });
+    if (!wish) return res.status(400).json({ error: 'Birthday wish is required' });
+
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+      code = crypto.randomBytes(5).toString('base64url').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+      if (!code) continue;
+      const exists = await executeQuery('SELECT 1 FROM birthday_cards WHERE code = $1 LIMIT 1', [code]);
+      if (exists.rows.length === 0) break;
+      code = '';
+    }
+
+    if (!code) return res.status(500).json({ error: 'Could not create a short birthday link' });
+
+    await executeQuery(`
+      INSERT INTO birthday_cards (code, student_name, age, wish_message)
+      VALUES ($1, $2, $3, $4)
+    `, [code, name, age, wish]);
+
+    res.json({
+      code,
+      url: `${req.protocol}://${req.get('host')}/b/${code}`
+    });
+  } catch (err) {
+    console.error('Create birthday card error:', err);
+    res.status(500).json({ error: 'Failed to create birthday card link' });
+  }
+});
+
+app.get('/api/public/birthday-cards/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim();
+    if (!code) return res.status(400).json({ error: 'Missing code' });
+
+    const result = await executeQuery(`
+      SELECT student_name, age, wish_message
+      FROM birthday_cards
+      WHERE code = $1
+      LIMIT 1
+    `, [code]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Birthday card not found' });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      name: row.student_name,
+      age: row.age,
+      wish: row.wish_message
+    });
+  } catch (err) {
+    console.error('Get birthday card error:', err);
+    res.status(500).json({ error: 'Failed to load birthday card' });
+  }
+});
+
 // Get all registrations for an event (including public registrations)
 app.get('/api/events/:eventId/all-registrations', async (req, res) => {
   try {
@@ -10864,18 +10995,18 @@ app.post('/api/homework/ai-annotate', express.json({ limit: '20mb' }), async (re
 
 Find every spelling mistake, grammar error, punctuation error, and capitalisation error.
 
-${minimalMode ? `IMPORTANT:
-- For "correct", return only the smallest correction needed near the mistake.
-- Prefer a SINGLE WORD.
-- Use at most 2 short words only when absolutely necessary.
-- Do NOT rewrite the whole sentence.
+For each correction, you MUST:
+- Set "type" to one of: spelling, grammar, punctuation, capitalization (choose the most specific).
+- Set "note" to a short, student-friendly explanation (e.g. "Spelling mistake", "Needs a capital letter", "Check your punctuation").
+- For "correct", return only the smallest correction needed near the mistake (prefer a single word or token, do NOT rewrite the whole sentence).
 - Do NOT return long explanations in "correct".
-- Examples:
-  - wrong: "goed" -> correct: "went"
-  - wrong: "she go" -> correct: "goes"
-  - wrong: missing capital letter -> correct: "The"
-  - wrong: missing punctuation -> correct: "."
-` : ''}
+${minimalMode ? '- Keep every "correct" answer as short as possible, usually just one word or one punctuation mark.' : ''}
+
+Examples:
+  "wrong: 'goed' -> correct: 'went', type: 'spelling', note: 'Spelling mistake'"
+  "wrong: 'she go' -> correct: 'goes', type: 'grammar', note: 'Verb agreement'"
+  "wrong: missing capital letter -> correct: 'The', type: 'capitalization', note: 'Needs a capital letter'"
+  "wrong: missing punctuation -> correct: '.', type: 'punctuation', note: 'Add a period'"
 
 Return ONLY a valid JSON object in this exact format (no other text before or after):
 {
@@ -10883,8 +11014,8 @@ Return ONLY a valid JSON object in this exact format (no other text before or af
     {
       "wrong": "the exact wrong word or phrase as written by student",
       "correct": "the corrected word/token only",
-      "type": "spelling",
-      "note": "brief reason",
+      "type": "spelling|grammar|punctuation|capitalization",
+      "note": "short student-friendly explanation",
       "x": 45,
       "y": 30
     }
@@ -10932,7 +11063,39 @@ Return ONLY the JSON. No markdown. No explanation.`;
       try { result = JSON.parse(sanitized); }
       catch (e2) { return res.status(500).json({ error: 'AI returned malformed JSON', raw: jsonStr.slice(0, 300) }); }
     }
-    res.json(result);
+    const allowedTypes = new Set(['spelling', 'grammar', 'punctuation', 'capitalization']);
+    const defaultNotes = {
+      spelling: 'Spelling mistake',
+      grammar: 'Grammar correction',
+      punctuation: 'Check your punctuation',
+      capitalization: 'Needs a capital letter'
+    };
+    const clampPercent = (value) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return 50;
+      return Math.max(0, Math.min(100, Math.round(num)));
+    };
+
+    const normalizedCorrections = Array.isArray(result?.corrections)
+      ? result.corrections.map((item) => {
+          const normalizedType = String(item?.type || '').trim().toLowerCase();
+          const type = allowedTypes.has(normalizedType) ? normalizedType : 'spelling';
+          return {
+            wrong: String(item?.wrong || '').trim().slice(0, 120),
+            correct: String(item?.correct || '').trim().slice(0, 120),
+            type,
+            note: String(item?.note || defaultNotes[type]).trim().slice(0, 140) || defaultNotes[type],
+            x: clampPercent(item?.x),
+            y: clampPercent(item?.y)
+          };
+        }).filter((item) => item.correct || item.note)
+      : [];
+
+    res.json({
+      corrections: normalizedCorrections,
+      grade: String(result?.grade || '').trim().slice(0, 20),
+      summary: String(result?.summary || '').trim().slice(0, 240)
+    });
   } catch (err) {
     console.error('AI annotate error:', err.response?.data || err.message);
     const msg = err.response?.data?.error?.message || err.message;
@@ -11050,13 +11213,14 @@ app.post('/api/homework/ai-feedback', express.json(), async (req, res) => {
     const { student_name, teacher_notes, file_name } = req.body;
     if (!teacher_notes) return res.status(400).json({ error: 'teacher_notes is required' });
 
+    const firstName = (student_name || 'the student').split(' ')[0];
     const prompt = `You are a warm, encouraging English language teacher writing homework feedback directly to a student.
 
-Student name: ${student_name || 'the student'}
+Student first name: ${firstName}
 Homework file: ${file_name || 'submitted homework'}
-Teacher\'s quick notes: "${teacher_notes}"
+Teacher's quick notes: "${teacher_notes}"
 
-Write polished, friendly feedback (3-5 sentences) in second person, addressed directly to the student by name (e.g. "Great work, ${student_name || 'you'}!"). Be specific, encouraging, and mention what was done well and what to improve. End with a motivating closing line directed at the student.
+Write detailed, friendly feedback (4-6 sentences) in second person, addressed directly to the student by their first name (e.g. "Great work, ${firstName}!"). Use a warm, positive tone with interjections like "Awesome!", "Keep it up!", "Fantastic effort!", etc. Be specific, mention what was done well, and give at least one clear suggestion for improvement. End with a motivating, personal closing line.
 
 Also suggest a grade from: A+, A, B+, B, C+, C, Needs Improvement.
 
