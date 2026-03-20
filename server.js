@@ -7115,7 +7115,7 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
   try {
     // First try to get from session_attendance table
     let result = await pool.query(`
-      SELECT sa.*, s.name as student_name
+      SELECT sa.*, s.name as student_name, s.is_active
       FROM session_attendance sa
       JOIN students s ON sa.student_id = s.id
       WHERE sa.session_id = $1
@@ -7168,7 +7168,7 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
         // Re-fetch the records
         result = await pool.query(`
-          SELECT sa.*, s.name as student_name
+          SELECT sa.*, s.name as student_name, s.is_active
           FROM session_attendance sa
           JOIN students s ON sa.student_id = s.id
           WHERE sa.session_id = $1
