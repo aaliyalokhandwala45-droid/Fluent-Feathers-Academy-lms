@@ -1095,6 +1095,17 @@
           <div style="font-size:10px;color:#a78bca;margin-top:4px;">AI will write polished student-facing feedback in second person &amp; suggest a grade. You can edit before saving.</div>
         </div>
 
+        <div style="background:#fffaf0;border:1.5px solid #f6ad55;border-radius:10px;padding:11px 13px;margin-bottom:14px;">
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <div style="flex:1;">
+              <div style="font-size:11px;font-weight:800;color:#9c4221;margin-bottom:6px;">&#x1F50E; AI / Copy Detection</div>
+              <div style="font-size:10px;color:#c05621;line-height:1.5;">Estimates how much of the visible work looks AI-written, copied/template-based, or lightly humanized from AI. This is a teacher signal, not a final accusation.</div>
+            </div>
+            <button id="hwIntegrityBtn" type="button" onclick="analyzeHwIntegrity()" style="background:#dd6b20;border:none;border-radius:7px;padding:10px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">Analyze</button>
+          </div>
+          <div id="hwIntegrityPanel" style="display:none;margin-top:10px;padding:10px;border-radius:8px;background:#fff;border:1px solid #fbd38d;"></div>
+        </div>
+
         <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-end;">
           <div style="flex:1;">
             <label style="font-size:12px;font-weight:700;color:#4a5568;display:block;margin-bottom:4px;">Grade *</label>
@@ -5016,6 +5027,152 @@ if (dueEl) {
       } catch (err) { alert('Error: ' + err.message); }
     }
 
+    let homeworkSubmissionCache = {};
+    let currentHwFileContext = null;
+    let currentHwIntegrity = null;
+
+    function getIntegrityRiskLabel(score) {
+      const n = Number(score) || 0;
+      if (n >= 70) return 'High concern';
+      if (n >= 40) return 'Medium concern';
+      return 'Low concern';
+    }
+
+    function getIntegrityTone(score) {
+      const n = Number(score) || 0;
+      if (n >= 70) return { bg: '#fff1f2', border: '#fda4af', color: '#be123c' };
+      if (n >= 40) return { bg: '#fffbeb', border: '#fcd34d', color: '#b45309' };
+      return { bg: '#f0fdf4', border: '#86efac', color: '#15803d' };
+    }
+
+    function parseIntegrityReport(hw) {
+      if (!hw) return null;
+      let details = null;
+      if (hw.integrity_details) {
+        try { details = typeof hw.integrity_details === 'string' ? JSON.parse(hw.integrity_details) : hw.integrity_details; } catch (e) {}
+      }
+      const aiScore = Number(hw.ai_generated_score ?? details?.ai_generated_score ?? 0) || 0;
+      const plagiarismScore = Number(hw.plagiarism_score ?? details?.plagiarism_score ?? 0) || 0;
+      const humanizedAiScore = Number(hw.humanized_ai_score ?? details?.humanized_ai_score ?? 0) || 0;
+      const originalityScore = Number(hw.student_originality_score ?? details?.student_originality_score ?? Math.max(0, 100 - Math.max(aiScore, plagiarismScore, humanizedAiScore))) || 0;
+      const overall = Math.max(aiScore, plagiarismScore, humanizedAiScore);
+      const summary = hw.integrity_summary || details?.summary || '';
+      if (!hw.integrity_checked_at && !summary && !details) return null;
+      return {
+        ai_generated_score: aiScore,
+        plagiarism_score: plagiarismScore,
+        humanized_ai_score: humanizedAiScore,
+        student_originality_score: originalityScore,
+        overall_concern_score: overall,
+        overall_risk_label: details?.overall_risk_label || getIntegrityRiskLabel(overall),
+        summary,
+        suspected_ai_phrases: Array.isArray(details?.suspected_ai_phrases) ? details.suspected_ai_phrases : [],
+        copied_indicators: Array.isArray(details?.copied_indicators) ? details.copied_indicators : [],
+        humanized_ai_signals: Array.isArray(details?.humanized_ai_signals) ? details.humanized_ai_signals : [],
+        originality_signals: Array.isArray(details?.originality_signals) ? details.originality_signals : [],
+        teacher_flags: Array.isArray(details?.teacher_flags) ? details.teacher_flags : [],
+        confidence: details?.confidence || 'low',
+        checked_at: hw.integrity_checked_at || details?.checked_at || ''
+      };
+    }
+
+    function buildIntegrityMiniBadge(hw) {
+      const report = parseIntegrityReport(hw);
+      if (!report) return '';
+      const tone = getIntegrityTone(report.overall_concern_score);
+      return `<div style="margin-top:8px;padding:7px 8px;border-radius:8px;background:${tone.bg};border:1px solid ${tone.border};font-size:11px;line-height:1.45;color:#4a5568;">
+        <div style="font-weight:800;color:${tone.color};margin-bottom:3px;">${report.overall_risk_label}</div>
+        <div>AI ${report.ai_generated_score}% · Copied ${report.plagiarism_score}% · Humanized AI ${report.humanized_ai_score}% · Own work ${report.student_originality_score}%</div>
+      </div>`;
+    }
+
+    function renderHwIntegrityPanel(report) {
+      const panel = document.getElementById('hwIntegrityPanel');
+      if (!panel) return;
+      if (!report) {
+        panel.style.display = 'none';
+        panel.innerHTML = '';
+        return;
+      }
+
+      const tone = getIntegrityTone(report.overall_concern_score);
+      const makeList = (items, label) => Array.isArray(items) && items.length > 0
+        ? `<div style="margin-top:8px;"><div style="font-size:11px;font-weight:800;color:#7c2d12;margin-bottom:4px;">${label}</div>${items.map(item => `<div style="font-size:11px;color:#7c2d12;line-height:1.45;">• ${escapeHtml(item)}</div>`).join('')}</div>`
+        : '';
+
+      panel.style.display = 'block';
+      panel.innerHTML = `
+        <div style="padding:9px 10px;border-radius:8px;background:${tone.bg};border:1px solid ${tone.border};">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+            <div>
+              <div style="font-size:12px;font-weight:800;color:${tone.color};">${escapeHtml(report.overall_risk_label || 'Analysis complete')}</div>
+              <div style="font-size:11px;color:#7c2d12;margin-top:3px;line-height:1.45;">${escapeHtml(report.summary || 'No extra summary provided.')}</div>
+            </div>
+            <div style="font-size:10px;color:#9a3412;text-transform:uppercase;font-weight:800;">${escapeHtml(report.confidence || 'low')} confidence</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+            <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;color:#7c2d12;">AI ${report.ai_generated_score}%</span>
+            <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;color:#7c2d12;">Copied ${report.plagiarism_score}%</span>
+            <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;color:#7c2d12;">Humanized AI ${report.humanized_ai_score}%</span>
+            <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;color:#7c2d12;">Own work ${report.student_originality_score}%</span>
+          </div>
+          ${makeList(report.suspected_ai_phrases, 'Likely AI-style phrases')}
+          ${makeList(report.copied_indicators, 'Copied / template indicators')}
+          ${makeList(report.humanized_ai_signals, 'Humanized AI signals')}
+          ${makeList(report.originality_signals, 'Original child-writing signals')}
+          ${makeList(report.teacher_flags, 'Teacher follow-up checks')}
+        </div>`;
+    }
+
+    async function ensurePdfJsLoaded() {
+      if (window.pdfjsLib) return;
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      document.head.appendChild(script);
+      await new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = reject;
+      });
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    async function buildHomeworkIntegrityImageData(fileUrl, fileType) {
+      if (fileType === 'image') {
+        return await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = function() {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth || img.width;
+              canvas.height = img.naturalHeight || img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            } catch (err) {
+              reject(err);
+            }
+          };
+          img.onerror = () => reject(new Error('Could not load image for analysis.'));
+          img.src = fileUrl;
+        });
+      }
+
+      if (fileType === 'pdf') {
+        await ensurePdfJsLoaded();
+        const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        return canvas.toDataURL('image/png');
+      }
+
+      throw new Error('Integrity analysis currently supports image and PDF submissions only.');
+    }
+
     async function loadHomeworkSubmissions() {
       try {
         // Populate filter dropdowns
@@ -5034,6 +5191,7 @@ if (dueEl) {
         const res = await fetch(url);
         const submissions = await res.json();
         const tbody = document.getElementById('homeworkBody');
+        homeworkSubmissionCache = {};
 
         if (!submissions || submissions.length === 0) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #718096; padding: 30px;">No homework submissions yet. Students can upload homework from the Parent Portal.</td></tr>';
@@ -5081,16 +5239,12 @@ if (dueEl) {
           const isVideo = ['mp4', 'mov', 'avi', 'webm'].includes(fileExt);
           const isPdf = ['pdf'].includes(fileExt);
           const isDoc = ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(fileExt);
+          const fileType = isImage ? 'image' : isVideo ? 'video' : isPdf ? 'pdf' : isDoc ? 'doc' : 'other';
+          homeworkSubmissionCache[hw.id] = { ...hw, file_url: fileUrl, file_kind: fileType };
 
           // Create preview button for all file types
           let previewBtn = '';
           if (fileUrl && !isLink) {
-            let fileType = 'other';
-            if (isImage) fileType = 'image';
-            else if (isVideo) fileType = 'video';
-            else if (isPdf) fileType = 'pdf';
-            else if (isDoc) fileType = 'doc';
-
             previewBtn = `<button onclick="previewFile('${fileUrl}', '${fileType}', decodeURIComponent('${encodeURIComponent(hw.file_name || 'File')}'))" class="btn btn-sm" style="background:#9f7aea; color:white;">View</button>`;
           }
 
@@ -5110,9 +5264,9 @@ if (dueEl) {
               </a>` : `${fileIcon} ${hw.file_name || 'File'}`}
             </td>
             <td>${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
-            <td>${gradeDisplay}${feedbackDisplay}</td>
+            <td>${gradeDisplay}${feedbackDisplay}${buildIntegrityMiniBadge(hw)}</td>
             <td>
-              <button onclick="openGradeHomeworkModal(${hw.id}, decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'), decodeURIComponent('${encodeURIComponent(hw.file_name || '')}'), decodeURIComponent('${encodeURIComponent(fileUrl || '')}'), ${isImage})" class="btn btn-sm btn-primary">Grade</button>
+              <button onclick="openGradeHomeworkModal(${hw.id})" class="btn btn-sm btn-primary">Grade</button>
               ${(isImage || isPdf) && fileUrl ? `<button onclick="openAnnotationEditor(${hw.id}, decodeURIComponent('${encodeURIComponent(fileUrl)}'), '${isPdf ? 'pdf' : 'image'}', decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'))" class="btn btn-sm" style="background:#e53e3e;color:white;">✏️ Annotate</button>` : ''}
               ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Corrected - ${hw.file_name || 'File'}')" class="btn btn-sm" style="background:#f59e0b;color:white;">📝 View Corrected</button>` : ''}
               ${previewBtn}
@@ -5127,7 +5281,13 @@ if (dueEl) {
       }
     }
 
-    function openGradeHomeworkModal(homeworkId, studentName, fileName, fileUrl, isImage) {
+    function openGradeHomeworkModal(homeworkId) {
+      const hw = homeworkSubmissionCache[homeworkId];
+      if (!hw) { alert('Could not load submission details. Please refresh and try again.'); return; }
+      const studentName = hw.student_name || '';
+      const fileName = hw.file_name || '';
+      const fileUrl = hw.file_url || '';
+      const isImage = hw.file_kind === 'image';
       document.getElementById('hwFeedbackId').value = homeworkId;
       // Only show first name
       const firstName = studentName.split(' ')[0];
@@ -5147,11 +5307,71 @@ if (dueEl) {
           imgDiv.style.display = 'none';
         }
       }
+      currentHwFileContext = {
+        id: homeworkId,
+        student_name: studentName,
+        file_name: fileName,
+        file_url: fileUrl,
+        file_type: hw.file_kind || 'other'
+      };
+      currentHwIntegrity = parseIntegrityReport(hw);
+      renderHwIntegrityPanel(currentHwIntegrity);
+      const integrityBtn = document.getElementById('hwIntegrityBtn');
+      if (integrityBtn) {
+        integrityBtn.disabled = false;
+        integrityBtn.textContent = currentHwIntegrity ? 'Re-analyze' : 'Analyze';
+      }
       document.getElementById('hwFeedbackModal').style.display = 'flex';
     }
     function closeHwFeedbackModal() {
+      currentHwFileContext = null;
+      currentHwIntegrity = null;
+      renderHwIntegrityPanel(null);
       document.getElementById('hwFeedbackModal').style.display = 'none';
     }
+
+    async function analyzeHwIntegrity() {
+      if (!currentHwFileContext) return;
+      const btn = document.getElementById('hwIntegrityBtn');
+      btn.textContent = '⏳ Analyzing...';
+      btn.disabled = true;
+      try {
+        const imageData = await buildHomeworkIntegrityImageData(currentHwFileContext.file_url, currentHwFileContext.file_type);
+        const res = await fetch('/api/homework/ai-integrity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            material_id: currentHwFileContext.id,
+            image_data: imageData,
+            student_name: currentHwFileContext.student_name,
+            file_name: currentHwFileContext.file_name
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'AI request failed');
+        currentHwIntegrity = data;
+        if (homeworkSubmissionCache[currentHwFileContext.id]) {
+          homeworkSubmissionCache[currentHwFileContext.id] = {
+            ...homeworkSubmissionCache[currentHwFileContext.id],
+            ai_generated_score: data.ai_generated_score,
+            plagiarism_score: data.plagiarism_score,
+            humanized_ai_score: data.humanized_ai_score,
+            student_originality_score: data.student_originality_score,
+            integrity_summary: data.summary,
+            integrity_details: JSON.stringify(data),
+            integrity_checked_at: new Date().toISOString()
+          };
+        }
+        renderHwIntegrityPanel(data);
+        btn.textContent = '✅ Done';
+        setTimeout(() => { btn.textContent = 'Re-analyze'; btn.disabled = false; }, 1800);
+      } catch (err) {
+        alert('AI Detection Error: ' + err.message);
+        btn.textContent = currentHwIntegrity ? 'Re-analyze' : 'Analyze';
+        btn.disabled = false;
+      }
+    }
+
     async function aiGenerateHwFeedback() {
       const notes = document.getElementById('hwFeedbackNotes').value.trim();
       if (!notes) { document.getElementById('hwFeedbackNotes').focus(); alert('Please type your quick notes about the homework first.'); return; }
@@ -5320,9 +5540,11 @@ if (dueEl) {
 
     // ==================== HOMEWORK ANNOTATION EDITOR ====================
     let annotCanvas, annotCtx, annotBgImage, annotHistory = [], annotDrawing = false, annotTool = 'pen', annotColor = '#e53e3e', annotSize = 3, annotTextSize = 18;
+    let annotMaterialId = null;
     let annotStudentName = '';
     let annotAiCorrections = [];
     let annotAiMeta = { grade: '', summary: '' };
+    let annotAiIntegrity = null;
 
     function openAnnotationEditor(materialId, fileUrl, fileType, studentName) {
       // Remove existing
@@ -5375,6 +5597,7 @@ if (dueEl) {
               </div>
               <button onclick="clearAiCorrections()" style="padding:6px 10px;border:none;border-radius:10px;background:#e2e8f0;color:#334155;cursor:pointer;font-size:11px;font-weight:700;">Clear</button>
             </div>
+            <div id="annotAiIntegrity" style="display:none;margin-bottom:12px;"></div>
             <!-- Correction Type Legend -->
             <div id="annotAiLegend" style="display:flex;flex-wrap:wrap;gap:7px 8px;margin-bottom:12px;align-items:center;">
               <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:5px 8px;"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#f87171;"></span>Spelling</span>
@@ -5409,9 +5632,11 @@ if (dueEl) {
       annotColor = '#e53e3e';
       annotSize = 3;
       annotTextSize = 18;
+      annotMaterialId = materialId;
       annotStudentName = studentName || '';
       annotAiCorrections = [];
       annotAiMeta = { grade: '', summary: '' };
+      annotAiIntegrity = null;
       updateAiCorrectionsUI();
 
       // Load image
@@ -5615,20 +5840,22 @@ if (dueEl) {
         const res = await fetch('/api/homework/ai-annotate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image_data: imageData, student_name: annotStudentName || '', minimal: true })
+          body: JSON.stringify({ image_data: imageData, student_name: annotStudentName || '', minimal: true, material_id: annotMaterialId, file_name: homeworkSubmissionCache[annotMaterialId]?.file_name || '' })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'AI request failed');
 
-        const { corrections, grade, summary } = data;
+        const { corrections, grade, summary, integrity } = data;
         if (!corrections || corrections.length === 0) {
           annotAiCorrections = [];
           annotAiMeta = { grade: grade || '', summary: summary || '' };
+          annotAiIntegrity = integrity || null;
           updateAiCorrectionsUI();
           alert(`✅ AI found no errors!\n\nGrade suggestion: ${grade || 'A+'}\n\n${summary || ''}`);
           btn.textContent = '🤖 AI Correct'; btn.disabled = false; return;
         }
         annotAiMeta = { grade: grade || '', summary: summary || '' };
+        annotAiIntegrity = integrity || null;
         annotAiCorrections = buildAiCorrectionCards(corrections);
         updateAiCorrectionsUI();
 
@@ -6087,16 +6314,41 @@ if (dueEl) {
     function updateAiCorrectionsUI() {
       const sidebar = document.getElementById('annotAiSidebar');
       const meta = document.getElementById('annotAiMeta');
+      const integrityBox = document.getElementById('annotAiIntegrity');
       const list = document.getElementById('annotAiCorrectionsList');
       const overlay = document.getElementById('annotOverlayLayer');
-      if (!sidebar || !meta || !list || !overlay) return;
+      if (!sidebar || !meta || !list || !overlay || !integrityBox) return;
 
       const hasCorrections = annotAiCorrections.length > 0;
-      sidebar.style.display = hasCorrections || annotAiMeta.grade || annotAiMeta.summary ? 'block' : 'none';
+      sidebar.style.display = hasCorrections || annotAiMeta.grade || annotAiMeta.summary || annotAiIntegrity ? 'block' : 'none';
       meta.textContent = [
         annotAiMeta.grade ? `Grade: ${annotAiMeta.grade}` : '',
         annotAiMeta.summary || ''
       ].filter(Boolean).join(' | ') || 'Run AI Correct to generate movable notes.';
+
+      if (annotAiIntegrity) {
+        const tone = getIntegrityTone(annotAiIntegrity.overall_concern_score);
+        const smallList = (items, title) => Array.isArray(items) && items.length > 0
+          ? `<div style="margin-top:6px;"><div style="font-size:10px;font-weight:800;color:#7c2d12;margin-bottom:3px;">${title}</div>${items.slice(0, 2).map(item => `<div style="font-size:10px;color:#7c2d12;line-height:1.45;">• ${escapeHtml(item)}</div>`).join('')}</div>`
+          : '';
+        integrityBox.style.display = 'block';
+        integrityBox.innerHTML = `
+          <div style="padding:10px;border-radius:12px;background:${tone.bg};border:1px solid ${tone.border};">
+            <div style="font-size:12px;font-weight:800;color:${tone.color};">${escapeHtml(annotAiIntegrity.overall_risk_label || 'Integrity check')}</div>
+            <div style="font-size:11px;color:#7c2d12;line-height:1.45;margin-top:4px;">${escapeHtml(annotAiIntegrity.summary || 'Analysis complete.')}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+              <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;color:#7c2d12;">AI ${annotAiIntegrity.ai_generated_score}%</span>
+              <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;color:#7c2d12;">Copied ${annotAiIntegrity.plagiarism_score}%</span>
+              <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;color:#7c2d12;">Humanized AI ${annotAiIntegrity.humanized_ai_score}%</span>
+              <span style="background:white;border:1px solid ${tone.border};border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;color:#7c2d12;">Own work ${annotAiIntegrity.student_originality_score}%</span>
+            </div>
+            ${smallList(annotAiIntegrity.suspected_ai_phrases, 'AI-style phrases')}
+            ${smallList(annotAiIntegrity.copied_indicators, 'Copy indicators')}
+          </div>`;
+      } else {
+        integrityBox.style.display = 'none';
+        integrityBox.innerHTML = '';
+      }
 
 
       list.innerHTML = hasCorrections
@@ -6232,6 +6484,7 @@ if (dueEl) {
 
     function clearAiCorrections() {
       annotAiCorrections = [];
+      annotAiIntegrity = null;
       updateAiCorrectionsUI();
     }
 
@@ -6369,6 +6622,34 @@ if (dueEl) {
       wrapCanvasText(ctx, metaText || 'AI correction summary', x + 18, y + 54, width - 36, 18, 3);
 
       let currentY = y + 106;
+      if (annotAiIntegrity) {
+        const tone = getIntegrityTone(annotAiIntegrity.overall_concern_score);
+        ctx.fillStyle = tone.bg;
+        roundRect(ctx, x + 14, currentY, width - 28, 104, 14);
+        ctx.fill();
+        ctx.strokeStyle = tone.border;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.fillStyle = tone.color;
+        ctx.font = 'bold 13px Arial';
+        ctx.fillText(annotAiIntegrity.overall_risk_label || 'Integrity check', x + 28, currentY + 22);
+
+        ctx.fillStyle = '#7c2d12';
+        ctx.font = '12px Arial';
+        wrapCanvasText(ctx, annotAiIntegrity.summary || 'AI/copy detection summary', x + 28, currentY + 42, width - 56, 16, 2);
+        wrapCanvasText(
+          ctx,
+          `AI ${annotAiIntegrity.ai_generated_score}% | Copied ${annotAiIntegrity.plagiarism_score}% | Humanized AI ${annotAiIntegrity.humanized_ai_score}% | Own work ${annotAiIntegrity.student_originality_score}%`,
+          x + 28,
+          currentY + 74,
+          width - 56,
+          15,
+          2
+        );
+        currentY += 118;
+      }
+
       annotAiCorrections.forEach((item, index) => {
         const appearance = getAiCorrectionAppearance(item.type);
         const card = document.getElementById(item.id);
