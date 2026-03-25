@@ -436,6 +436,14 @@ app.get('/demo', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'demo-register.html'));
 });
 
+function getAppBaseUrl() {
+  return process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
+}
+
+function getJoinClassUrl(sessionId) {
+  return `${getAppBaseUrl()}/join-class?sid=${encodeURIComponent(sessionId)}`;
+}
+
 app.get('/b/:code', async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
@@ -604,7 +612,7 @@ function joinClassTooEarlyPage(waitTime, studentName, sid, secondsRemaining) {
     </div>
     <div class="btn-row">
       <a href="${joinUrl}" class="retry-btn">🔄 Try Again</a>
-      <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">🏠 Parent Portal</a>
+        <a href="${getAppBaseUrl()}/parent.html" class="portal-btn">🏠 Parent Portal</a>
     </div>
     <p class="auto-msg" id="autoMsg">This page will automatically open the class when it's time.</p>
   </div>
@@ -655,7 +663,7 @@ function joinClassErrorPage(title, message) {
     <span class="icon">🔒</span>
     <h1>${title}</h1>
     <p>${message}</p>
-    <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">🏠 Go to Parent Portal</a>
+    <a href="${getAppBaseUrl()}/parent.html" class="portal-btn">🏠 Go to Parent Portal</a>
   </div>
 </body>
 </html>`;
@@ -1894,7 +1902,7 @@ async function runMigrations() {
 
     // Migration 29: Enable Row Level Security on all tables (fixes Supabase security warning)
     try {
-      const tables = ['groups', 'group_timings', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library', 'class_points'];
+      const tables = ['groups', 'group_timings', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library', 'class_points', 'birthday_cards'];
       for (const table of tables) {
         try {
           await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
@@ -2159,7 +2167,7 @@ async function runMigrations() {
 
     // Migration 46: Harden RLS policies and cover tables missed by earlier migration
     try {
-      const tables = ['groups', 'group_timings', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library', 'class_points'];
+      const tables = ['groups', 'group_timings', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library', 'class_points', 'birthday_cards', 'parent_fcm_tokens'];
       for (const table of tables) {
         try {
           await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
@@ -2187,10 +2195,30 @@ async function runMigrations() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_parent_fcm_tokens_email ON parent_fcm_tokens (LOWER(parent_email))`);
       await client.query(`ALTER TABLE parent_fcm_tokens ENABLE ROW LEVEL SECURITY`);
-      await client.query(`DO $$ BEGIN CREATE POLICY "Allow all for service role" ON parent_fcm_tokens FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+      await client.query(`DROP POLICY IF EXISTS "Allow all for service role" ON parent_fcm_tokens`);
+      await client.query(`DROP POLICY IF EXISTS "Service role full access" ON parent_fcm_tokens`);
+      await client.query(`DROP POLICY IF EXISTS "Service role only" ON parent_fcm_tokens`);
+      await client.query(`CREATE POLICY "Service role only" ON parent_fcm_tokens FOR ALL TO service_role USING (true) WITH CHECK (true)`);
       console.log('✅ Migration 47: Created parent_fcm_tokens for Firebase push');
     } catch (err) {
       console.log('Migration 47 note:', err.message);
+    }
+
+    // Migration 48: Lock down late-added public tables for Supabase Security Advisor
+    try {
+      const tables = ['birthday_cards', 'parent_fcm_tokens'];
+      for (const table of tables) {
+        try {
+          await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+          await client.query(`DROP POLICY IF EXISTS "Allow all for service role" ON ${table}`);
+          await client.query(`DROP POLICY IF EXISTS "Service role full access" ON ${table}`);
+          await client.query(`DROP POLICY IF EXISTS "Service role only" ON ${table}`);
+          await client.query(`CREATE POLICY "Service role only" ON ${table} FOR ALL TO service_role USING (true) WITH CHECK (true)`);
+        } catch (e) { /* table may not exist yet */ }
+      }
+      console.log('✅ Migration 48: Secured birthday_cards and parent_fcm_tokens');
+    } catch (err) {
+      console.log('Migration 48 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -2530,7 +2558,10 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
     `;
     finalHtml = html;
     if (typeof finalHtml === 'string' && !finalHtml.includes(websiteLink)) {
-      if (finalHtml.includes('</body>')) {
+      const madeWithPattern = /(<(p|span)\b[^>]*>\s*Made with[\s\S]*?By Aaliya\s*<\/\2>)/i;
+      if (madeWithPattern.test(finalHtml)) {
+        finalHtml = finalHtml.replace(madeWithPattern, `${websiteFooter}\n$1`);
+      } else if (finalHtml.includes('</body>')) {
         finalHtml = finalHtml.replace('</body>', `${websiteFooter}\n</body>`);
       } else {
         finalHtml += websiteFooter;
@@ -3887,9 +3918,11 @@ function getCertificateEmail(data) {
 }
 
 function getMonthlyReportCardEmail(data) {
-  const { assessmentId, studentName, month, year, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
+  const { assessmentId, studentName, month, year, skills, skillRatings, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const skillsList = skills && skills.length > 0 ? skills : [];
+  const ratings = skillRatings && typeof skillRatings === 'object' ? skillRatings : {};
+  const ratingEntries = Object.entries(ratings).filter(([, value]) => Number(value) > 0);
   const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
   const certificateUrl = `${appUrl}/monthly-certificate.html?id=${assessmentId}`;
 
@@ -3941,6 +3974,28 @@ function getMonthlyReportCardEmail(data) {
             ✓ ${skill}
           </div>
           `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      ${ratingEntries.length > 0 ? `
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>⭐</span> Star Ratings
+        </h3>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+          ${ratingEntries.map(([skill, value]) => {
+            const rating = Math.max(0, Math.min(5, Number(value) || 0));
+            const filled = '★'.repeat(rating);
+            const empty = '☆'.repeat(5 - rating);
+            return `
+          <div style="background: #f7fafc; padding: 14px 16px; border-radius: 10px; border-left: 4px solid #f6ad55;">
+            <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap;">
+              <span style="font-size: 14px; color: #2d3748; font-weight: 700;">${skill}</span>
+              <span style="font-size: 18px; color: #f6ad55; letter-spacing: 2px;">${filled}<span style="color: #cbd5e0;">${empty}</span></span>
+            </div>
+          </div>`;
+          }).join('')}
         </div>
       </div>
       ` : ''}
@@ -4226,8 +4281,10 @@ function getDemoFollowUp7DayEmail(data) {
 
 // Demo Assessment Email Template
 function getDemoAssessmentEmail(data) {
-  const { assessmentId, childName, childGrade, demoDate, skills, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
+  const { assessmentId, childName, childGrade, demoDate, skills, skillRatings, certificateTitle, performanceSummary, areasOfImprovement, teacherComments } = data;
   const skillsList = skills && skills.length > 0 ? skills : [];
+  const ratings = skillRatings && typeof skillRatings === 'object' ? skillRatings : {};
+  const ratingEntries = Object.entries(ratings).filter(([, value]) => Number(value) > 0);
   const formattedDate = demoDate ? new Date(demoDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Demo Class';
   const appUrl = process.env.BASE_URL || process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com';
   const certificateUrl = `${appUrl}/demo-certificate.html?id=${assessmentId}`;
@@ -4289,6 +4346,28 @@ function getDemoAssessmentEmail(data) {
             ✓ ${skill}
           </div>
           `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      ${ratingEntries.length > 0 ? `
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
+          <span>⭐</span> Star Ratings
+        </h3>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+          ${ratingEntries.map(([skill, value]) => {
+            const rating = Math.max(0, Math.min(5, Number(value) || 0));
+            const filled = '★'.repeat(rating);
+            const empty = '☆'.repeat(5 - rating);
+            return `
+          <div style="background: #e6fffa; padding: 14px 16px; border-radius: 10px; border-left: 4px solid #38b2ac;">
+            <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap;">
+              <span style="font-size: 14px; color: #234e52; font-weight: 700;">${skill}</span>
+              <span style="font-size: 18px; color: #38b2ac; letter-spacing: 2px;">${filled}<span style="color: #9ae6b4;">${empty}</span></span>
+            </div>
+          </div>`;
+          }).join('')}
         </div>
       </div>
       ` : ''}
@@ -4529,7 +4608,7 @@ async function checkAndSendReminders() {
             console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
             const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
-            const joinGateUrl5 = `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/join-class?sid=${session.id}`;
+            const joinGateUrl5 = getJoinClassUrl(session.id);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
               localDate: localTime.date,
@@ -4537,7 +4616,8 @@ async function checkAndSendReminders() {
               localDay: localTime.day,
               classLink: joinGateUrl5,
               hoursBeforeClass: 5,
-              timezoneLabel: getTimezoneLabel(parentTimezone)
+              timezoneLabel: getTimezoneLabel(parentTimezone),
+              isDemo: session.is_demo
             });
 
             const subjectPrefix = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
@@ -4580,7 +4660,7 @@ async function checkAndSendReminders() {
             console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
             const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
             console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
-            const joinGateUrl1 = `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/join-class?sid=${session.id}`;
+            const joinGateUrl1 = getJoinClassUrl(session.id);
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
               localDate: localTime.date,
@@ -4588,7 +4668,8 @@ async function checkAndSendReminders() {
               localDay: localTime.day,
               classLink: joinGateUrl1,
               hoursBeforeClass: 1,
-              timezoneLabel: getTimezoneLabel(parentTimezone)
+              timezoneLabel: getTimezoneLabel(parentTimezone),
+              isDemo: session.is_demo
             });
 
             const subjectPrefix1hr = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
@@ -5436,7 +5517,7 @@ app.post('/api/demo-leads', async (req, res) => {
           adminName: settings.admin_name || 'Aaliya',
           adminTitle: settings.admin_title || 'Founder & Lead Instructor',
           adminBio: settings.admin_bio || '',
-          classLink: DEFAULT_CLASS
+          classLink: getJoinClassUrl(r.rows[0].id)
         });
 
         emailSent = await sendEmail(
@@ -5541,7 +5622,7 @@ app.put('/api/demo-leads/:id', async (req, res) => {
           adminName: settings.admin_name || 'Aaliya',
           adminTitle: settings.admin_title || 'Founder & Lead Instructor',
           adminBio: settings.admin_bio || '',
-          classLink: DEFAULT_CLASS
+          classLink: getJoinClassUrl(req.params.id)
         });
 
         emailSent = await sendEmail(
@@ -12682,10 +12763,10 @@ app.post('/api/assessments', async (req, res) => {
     if (isDemo) {
       // Demo assessment - linked to demo_lead
       result = await pool.query(`
-        INSERT INTO monthly_assessments (demo_lead_id, assessment_type, skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO monthly_assessments (demo_lead_id, assessment_type, skills, skill_ratings, certificate_title, performance_summary, areas_of_improvement, teacher_comments)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [demo_lead_id, 'demo', skills, certificate_title, performance_summary, areas_of_improvement, teacher_comments]);
+      `, [demo_lead_id, 'demo', skills, skill_ratings ? JSON.stringify(skill_ratings) : null, certificate_title, performance_summary, areas_of_improvement, teacher_comments]);
 
       // Send demo assessment email if requested
       if (send_email) {
@@ -12699,6 +12780,7 @@ app.post('/api/assessments', async (req, res) => {
             childGrade: lead.rows[0].child_grade,
             demoDate: lead.rows[0].demo_date,
             skills: skillsArray,
+            skillRatings: skill_ratings || {},
             certificateTitle: certificate_title,
             performanceSummary: performance_summary,
             areasOfImprovement: areas_of_improvement,
@@ -12735,6 +12817,7 @@ app.post('/api/assessments', async (req, res) => {
             month: month,
             year: year,
             skills: skillsArray,
+            skillRatings: skill_ratings || {},
             certificateTitle: certificate_title,
             performanceSummary: performance_summary,
             areasOfImprovement: areas_of_improvement,

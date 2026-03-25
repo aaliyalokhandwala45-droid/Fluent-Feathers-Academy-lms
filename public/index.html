@@ -93,6 +93,35 @@
       transform: translateY(-2px);
     }
 
+    .install-hint {
+      margin-top: -4px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .install-btn {
+      background: #2d1245;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 22px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .install-btn:hover {
+      background: #4a2070;
+    }
+
+    .install-note {
+      color: #6b7280;
+      margin: 0;
+      font-size: 0.92rem;
+    }
+
     /* Admin Password Modal */
     .modal {
       display: none;
@@ -226,6 +255,10 @@
       <a href="parent.html" class="login-btn parent-btn">
         👨‍👩‍👧 Parent Login
       </a>
+      <div id="installHint" class="install-hint">
+        <button id="installAppBtn" class="install-btn" type="button">Install Parent App</button>
+        <p id="installNote" class="install-note">Add the portal to your home screen for app-like access.</p>
+      </div>
     </div>
   </div>
 
@@ -254,6 +287,106 @@
   </div>
 
   <script>
+    let deferredInstallPrompt = null;
+    const APP_INSTALLED_KEY = 'ff_parent_app_installed';
+
+    async function registerPwaServiceWorker() {
+      if (!('serviceWorker' in navigator)) return;
+      try {
+        await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      } catch (err) {
+        console.warn('PWA service worker registration failed:', err);
+      }
+    }
+
+    function isIosInstallCandidate() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches && !window.navigator.standalone;
+    }
+
+    function isAppInstalled() {
+      return window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
+    }
+
+    function isAppKnownInstalled() {
+      return isAppInstalled() || localStorage.getItem(APP_INSTALLED_KEY) === '1';
+    }
+
+    function markAppInstalled() {
+      localStorage.setItem(APP_INSTALLED_KEY, '1');
+    }
+
+    function syncInstallButton() {
+      const installBtn = document.getElementById('installAppBtn');
+      const note = document.getElementById('installNote');
+      if (!installBtn || !note) return;
+      if (isAppKnownInstalled() && !isAppInstalled()) {
+        installBtn.textContent = 'Open in App';
+        note.textContent = 'The app is already installed on this device.';
+      } else {
+        installBtn.textContent = 'Install Parent App';
+        note.textContent = 'Add the portal to your home screen for app-like access.';
+      }
+    }
+
+    function showInstallHint(message) {
+      const wrap = document.getElementById('installHint');
+      const note = document.getElementById('installNote');
+      if (!wrap) return;
+      if (isAppInstalled()) {
+        wrap.style.display = 'none';
+        return;
+      }
+      wrap.style.display = 'flex';
+      if (note && message) note.textContent = message;
+    }
+
+    async function triggerInstallPrompt() {
+      if (isAppKnownInstalled() && !isAppInstalled()) {
+        window.location.href = '/parent.html';
+        return;
+      }
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice.catch(() => null);
+        if (choice && choice.outcome === 'accepted') {
+          markAppInstalled();
+          const hint = document.getElementById('installHint');
+          if (hint) hint.style.display = 'none';
+        }
+        deferredInstallPrompt = null;
+        return;
+      }
+      if (isIosInstallCandidate()) {
+        showInstallHint('On iPhone or iPad, tap Share and then "Add to Home Screen" to install the app.');
+      }
+    }
+
+    registerPwaServiceWorker();
+    if (isAppInstalled()) markAppInstalled();
+
+    window.addEventListener('beforeinstallprompt', function(event) {
+      if (isAppInstalled()) return;
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      syncInstallButton();
+      showInstallHint('Install the parent portal for faster access and notifications.');
+    });
+
+    window.addEventListener('appinstalled', function() {
+      markAppInstalled();
+      deferredInstallPrompt = null;
+      const hint = document.getElementById('installHint');
+      if (hint) hint.style.display = 'none';
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const installBtn = document.getElementById('installAppBtn');
+      if (installBtn) installBtn.addEventListener('click', triggerInstallPrompt);
+      syncInstallButton();
+      if (!isAppInstalled() && (isIosInstallCandidate() || isAppKnownInstalled())) {
+        showInstallHint('On iPhone or iPad, tap Share and then "Add to Home Screen" to install the app.');
+      }
+    });
     // ⚠️ CHANGE THIS PASSWORD TO YOUR OWN SECURE PASSWORD ⚠️
     const ADMIN_PASSWORD = 'aaliya@190795';  // ← CHANGE THIS!
 
