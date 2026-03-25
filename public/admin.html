@@ -4237,6 +4237,23 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     let _upcomingRetryCount = 0;
+    function joinScheduledClass(sessionId, classLink, sessionType) {
+      const targetUrl = classLink || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+      window.open(targetUrl, '_blank', 'noopener');
+
+      const normalizedType = String(sessionType || '').toLowerCase();
+      if (!sessionId || normalizedType === 'demo' || normalizedType === 'event') return false;
+
+      fetch('/api/sessions/' + sessionId + '/teacher-joined', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(err => {
+        console.warn('Teacher join notification failed:', err);
+      });
+
+      return false;
+    }
+
     async function loadUpcomingClasses(showLoadingOverlay = true) {
       try {
         if (showLoadingOverlay) setDbLoading(true, 'Loading upcoming classes...');
@@ -4301,7 +4318,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           ${studentsHtml}
           <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
            <button type="button"
-        onclick="window.open('https://us04web.zoom.us/j/7288533155?pwd=Ng5N2l0aU12L0FQK245c0VVHJBUTU09', '_blank')"
+        onclick="return joinScheduledClass(${cls.id}, decodeURIComponent('${encodeURIComponent(cls.class_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09')}'), decodeURIComponent('${encodeURIComponent(cls.session_type || '')}'))"
         class="btn btn-sm"
         style="background:white; color:#B05D9E;">
   Join Class
@@ -4342,7 +4359,13 @@ I'm passionate about helping children develop confidence in communication!"></te
       document.getElementById('adminTimerClassInfo').textContent = '📚 ' + (cls.class_info || 'N/A');
       document.getElementById('adminTimerDateTime').textContent = '📅 ' + formatSessionTime(cls);
       const joinBtn = document.getElementById('adminTimerJoinBtn');
-      if (joinBtn) joinBtn.href = cls.class_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+      if (joinBtn) {
+        joinBtn.href = cls.class_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+        joinBtn.onclick = function(ev) {
+          ev.preventDefault();
+          return joinScheduledClass(cls.id, cls.class_link, cls.session_type);
+        };
+      }
 
       let dateStr = cls.session_date;
       if (dateStr instanceof Date) dateStr = dateStr.toISOString().split('T')[0];
@@ -6280,10 +6303,10 @@ if (dueEl) {
         const anchorX = clamp(Math.round(((Number(c.x) || 0) / 100) * W), 10, Math.max(10, W - 10));
         const anchorY = clamp(Math.round(((Number(c.y) || 0) / 100) * H), 10, Math.max(10, H - 10));
         const text = String(c.correct || c.note || '').trim() || 'Correction';
-        const width = clamp(Math.max(128, text.length * 7), 128, 188);
-        const preferredLeft = anchorX > W * 0.64 ? anchorX - width - 14 : anchorX + 14;
-        const left = clamp(preferredLeft + ((idx % 2) * 12), 0, Math.max(0, W - width));
-        const top = clamp(anchorY - 14 + ((idx % 3) * 18), 0, Math.max(0, H - 78));
+        const markerSize = 26;
+        const preferredLeft = anchorX > W * 0.64 ? anchorX - markerSize - 8 : anchorX + 8;
+        const left = clamp(preferredLeft + ((idx % 2) * 6), 0, Math.max(0, W - markerSize));
+        const top = clamp(anchorY - (markerSize / 2) + ((idx % 3) * 10), 0, Math.max(0, H - markerSize));
         return {
           id: `ai-correction-${Date.now()}-${idx}`,
           wrong: String(c.wrong || '').trim(),
@@ -6294,8 +6317,8 @@ if (dueEl) {
           anchorY,
           left,
           top,
-          width,
-          minHeight: 72
+          width: markerSize,
+          minHeight: 116
         };
       });
     }
@@ -6355,36 +6378,31 @@ if (dueEl) {
         ? annotAiCorrections.map((item, index) => {
             const appearance = getAiCorrectionAppearance(item.type);
             return `
-              <button onclick="focusAiCorrection('${item.id}')" data-correction-button="${item.id}" style="width:100%;text-align:left;padding:12px;border:none;border-radius:14px;background:#ffffff;color:#0f172a;cursor:pointer;border:1px solid ${appearance.softBorder};box-shadow:${appearance.shadow};display:flex;align-items:flex-start;gap:10px;">
-                <span style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:11px;background:${appearance.tint};font-size:18px;line-height:1;flex-shrink:0;">${appearance.icon}</span>
-                <span style="flex:1;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-                    <div style="font-size:11px;color:${appearance.color};font-weight:800;letter-spacing:0.02em;">#${index + 1} ${appearance.label}</div>
-                    ${item.wrong ? `<div style="font-size:10px;color:#64748b;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.wrong)}</div>` : ''}
+              <div data-correction-panel="${item.id}" style="padding:10px 11px;border-radius:14px;background:#ffffff;color:#0f172a;border:1px solid ${appearance.softBorder};box-shadow:${appearance.shadow};display:flex;align-items:flex-start;gap:9px;">
+                <button type="button" onclick="focusAiCorrection('${item.id}')" data-correction-button="${item.id}" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:none;background:${appearance.color};color:white;cursor:pointer;font-size:12px;font-weight:800;line-height:1;flex-shrink:0;margin-top:1px;">${index + 1}</button>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:5px;">
+                    <div style="font-size:11px;color:${appearance.color};font-weight:800;letter-spacing:0.02em;">${appearance.icon} ${appearance.label}</div>
+                    <button type="button" onclick="removeAiCorrection('${item.id}')" style="border:none;background:#f8fafc;color:${appearance.color};width:22px;height:22px;border-radius:999px;cursor:pointer;font-size:11px;flex-shrink:0;">✕</button>
                   </div>
-                  <div data-correction-summary="${item.id}" style="font-size:13px;font-weight:700;line-height:1.45;color:#0f172a;">${escapeHtml(item.text)}</div>
-                  ${item.note ? `<div style=\"font-size:11px;color:#64748b;margin-top:4px;line-height:1.4;\">${escapeHtml(item.note)}</div>` : ''}
-                </span>
-              </button>
+                  ${item.wrong ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px;line-height:1.35;"><strong>Wrong:</strong> ${escapeHtml(item.wrong)}</div>` : ''}
+                  <div style="font-size:10px;color:#64748b;margin-bottom:4px;font-weight:700;">Replace with:</div>
+                  <textarea oninput="updateAiCorrectionText('${item.id}', this.value)" style="width:100%;min-height:58px;border:1px solid ${appearance.softBorder};border-radius:10px;padding:7px 8px;font-size:11px;line-height:1.35;color:#1f2937;resize:vertical;outline:none;background:#ffffff;">${escapeHtml(item.text)}</textarea>
+                  ${item.note ? `<div style=\"font-size:10px;color:#64748b;margin-top:5px;line-height:1.35;\">${escapeHtml(item.note)}</div>` : ''}
+                </div>
+              </div>
             `;
           }).join('')
         : '<div style="color:#a0aec0;font-size:12px;">No correction cards yet.</div>';
 
-      overlay.innerHTML = annotAiCorrections.map(item => {
+      overlay.innerHTML = annotAiCorrections.map((item, index) => {
         const appearance = getAiCorrectionAppearance(item.type);
         return `
-          <div id="${item.id}" data-correction-id="${item.id}" class="annot-ai-card"
-            style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;min-height:${item.minHeight}px;pointer-events:auto;resize:both;overflow:auto;background:rgba(255,255,255,0.98);backdrop-filter:blur(6px);border:2px solid ${appearance.softBorder};border-radius:14px;box-shadow:${appearance.shadow};">
-            <div class="annot-ai-drag" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;background:${appearance.tint};color:${appearance.color};border-bottom:1px solid ${appearance.softBorder};border-radius:13px 13px 0 0;cursor:move;">
-              <span style="font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">${appearance.icon} ${appearance.label}</span>
-              <button onclick="removeAiCorrection('${item.id}')" style="border:none;background:#ffffff;color:${appearance.color};width:24px;height:24px;border-radius:999px;cursor:pointer;font-size:12px;box-shadow:0 2px 8px rgba(15,23,42,0.08);">✕</button>
-            </div>
-            <div style="padding:9px 10px 10px;">
-              ${item.wrong ? `<div style=\"font-size:10px;color:#64748b;margin-bottom:6px;font-weight:700;\">Change near: ${escapeHtml(item.wrong)}</div>` : ''}
-              <textarea oninput="updateAiCorrectionText('${item.id}', this.value)" style="width:100%;min-height:42px;border:1px solid ${appearance.softBorder};border-radius:10px;padding:8px 9px;font-size:12px;line-height:1.45;color:#1f2937;resize:vertical;outline:none;background:#ffffff;">${escapeHtml(item.text)}</textarea>
-              ${item.note ? `<div style=\"margin-top:6px;font-size:10px;color:#64748b;line-height:1.45;\">${escapeHtml(item.note)}</div>` : ''}
-            </div>
-          </div>
+          <button id="${item.id}" data-correction-id="${item.id}" class="annot-ai-card"
+            onclick="focusAiCorrection('${item.id}')"
+            style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;height:${item.width}px;pointer-events:auto;border:none;border-radius:999px;background:${appearance.color};color:white;cursor:pointer;font-size:12px;font-weight:800;box-shadow:${appearance.shadow};display:flex;align-items:center;justify-content:center;line-height:1;">
+            ${index + 1}
+          </button>
         `;
       }).join('');
 
@@ -6460,21 +6478,77 @@ if (dueEl) {
       const item = annotAiCorrections.find(x => x.id === id);
       if (!item) return;
       item.text = value;
-      const summaryBtn = document.querySelector(`#annotAiCorrectionsList [data-correction-summary="${id}"]`);
-      if (summaryBtn) summaryBtn.textContent = value;
     }
 
     function focusAiCorrection(id) {
-      const card = document.getElementById(id);
-      if (!card) return;
-      const baseShadow = card.dataset.baseShadow || card.style.boxShadow;
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-      card.style.boxShadow = `${baseShadow}, 0 0 0 3px rgba(99,102,241,0.30)`;
-      setTimeout(() => {
-        if (card) card.style.boxShadow = card.dataset.baseShadow || baseShadow;
-      }, 1200);
-      const input = card.querySelector('textarea');
+      const marker = document.getElementById(id);
+      const panel = document.querySelector(`[data-correction-panel="${id}"]`);
+      if (marker) {
+        const baseShadow = marker.dataset.baseShadow || marker.style.boxShadow;
+        marker.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        marker.style.boxShadow = `${baseShadow}, 0 0 0 3px rgba(99,102,241,0.30)`;
+        setTimeout(() => {
+          if (marker) marker.style.boxShadow = marker.dataset.baseShadow || baseShadow;
+        }, 1200);
+      }
+      if (panel) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        panel.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.18)';
+        setTimeout(() => {
+          if (panel) panel.style.boxShadow = '';
+        }, 1200);
+      }
+      const input = panel ? panel.querySelector('textarea') : null;
       if (input) input.focus();
+    }
+
+    function getPanelCardHeight(item) {
+      const panel = document.querySelector(`[data-correction-panel="${item.id}"]`);
+      return Math.max(96, panel ? panel.offsetHeight : item.minHeight);
+    }
+
+    function getMarkerCenter(item, cropBounds = { left: 0, top: 0 }) {
+      return {
+        x: (item.left + (item.width / 2)) - (cropBounds.left || 0),
+        y: (item.top + (item.width / 2)) - (cropBounds.top || 0)
+      };
+    }
+
+    function drawCorrectionMarker(ctx, item, index, cropBounds = { left: 0, top: 0 }) {
+      const appearance = getAiCorrectionAppearance(item.type);
+      const center = getMarkerCenter(item, cropBounds);
+      const anchorX = item.anchorX - (cropBounds.left || 0);
+      const anchorY = item.anchorY - (cropBounds.top || 0);
+
+      ctx.save();
+      ctx.strokeStyle = appearance.color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(anchorX, anchorY);
+      ctx.lineTo(center.x, center.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = appearance.color;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(index + 1), center.x, center.y + 0.5);
+
+      ctx.fillStyle = appearance.color;
+      ctx.beginPath();
+      ctx.arc(anchorX, anchorY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
     function removeAiCorrection(id) {
@@ -6492,13 +6566,15 @@ if (dueEl) {
       const exportMode = mode || 'screen';
       const includeScreen = exportMode === 'screen' || exportMode === 'both';
       const includePanel = exportMode === 'panel' || exportMode === 'both';
-      const panelWidth = includePanel ? getExportPanelWidth() : 0;
-      const gap = includePanel ? 12 : 0;
       const cropBounds = includeScreen && annotBgImage
         ? getCanvasWhitespaceBounds(annotBgImage, 18)
         : { left: 0, top: 0, width: annotCanvas.width, height: annotCanvas.height };
       const screenWidth = includeScreen ? cropBounds.width : 0;
       const screenHeight = includeScreen ? cropBounds.height : annotCanvas.height;
+      const panelWidth = includePanel
+        ? (includeScreen && exportMode === 'both' ? screenWidth : getExportPanelWidth())
+        : 0;
+      const gap = includePanel ? 12 : 0;
 
       const exportCanvas = document.createElement('canvas');
       exportCanvas.width = screenWidth + panelWidth + gap;
@@ -6534,55 +6610,7 @@ if (dueEl) {
     }
 
     function drawAiCorrectionsOnCanvas(ctx, cropBounds = { left: 0, top: 0 }) {
-      annotAiCorrections.forEach(item => {
-        const appearance = getAiCorrectionAppearance(item.type);
-        const card = document.getElementById(item.id);
-        const left = (card ? (parseFloat(card.style.left) || item.left) : item.left) - (cropBounds.left || 0);
-        const top = (card ? (parseFloat(card.style.top) || item.top) : item.top) - (cropBounds.top || 0);
-        const width = card ? card.offsetWidth : item.width;
-        const height = card ? card.offsetHeight : item.minHeight;
-        const text = (item.text || '').trim();
-        if (!text) return;
-
-        ctx.save();
-        ctx.strokeStyle = appearance.color;
-        ctx.lineWidth = 1.1;
-        ctx.setLineDash([4, 5]);
-        ctx.beginPath();
-        ctx.moveTo(item.anchorX - (cropBounds.left || 0), item.anchorY - (cropBounds.top || 0));
-        ctx.lineTo(left + 12, top + 12);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = appearance.color;
-        ctx.beginPath();
-        ctx.arc(item.anchorX - (cropBounds.left || 0), item.anchorY - (cropBounds.top || 0), 2.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
-        roundRect(ctx, left, top, width, height, 12);
-        ctx.fill();
-        ctx.strokeStyle = appearance.softBorder;
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-
-        ctx.fillStyle = appearance.tint;
-        roundRect(ctx, left, top, width, 24, 12);
-        ctx.fill();
-        ctx.fillStyle = appearance.color;
-        ctx.font = 'bold 11px Arial';
-        ctx.fillText(`${appearance.icon} ${appearance.label}`, left + 10, top + 16);
-
-        ctx.fillStyle = '#111827';
-        ctx.font = '13px Arial';
-        wrapCanvasText(ctx, text, left + 10, top + 42, width - 20, 18, Math.max(2, Math.floor((height - 50) / 18)));
-        if (item.note) {
-          ctx.fillStyle = '#64748b';
-          ctx.font = '11px Arial';
-          wrapCanvasText(ctx, item.note, left + 10, top + height - 10, width - 20, 15, 2);
-        }
-        ctx.restore();
-      });
+      annotAiCorrections.forEach((item, index) => drawCorrectionMarker(ctx, item, index, cropBounds));
     }
 
     function getExportPanelWidth() {
@@ -6593,8 +6621,7 @@ if (dueEl) {
 
     function getExportPanelHeight(panelWidth) {
       const cardsHeight = annotAiCorrections.reduce((sum, item) => {
-        const card = document.getElementById(item.id);
-        return sum + Math.max(72, card ? card.offsetHeight : item.minHeight) + 10;
+        return sum + getPanelCardHeight(item) + 10;
       }, 0);
       const headerHeight = 92;
       return Math.max(annotCanvas.height, headerHeight + cardsHeight + 18);
@@ -6652,8 +6679,7 @@ if (dueEl) {
 
       annotAiCorrections.forEach((item, index) => {
         const appearance = getAiCorrectionAppearance(item.type);
-        const card = document.getElementById(item.id);
-        const cardHeight = Math.max(84, card ? card.offsetHeight : item.minHeight);
+        const cardHeight = getPanelCardHeight(item);
         const wrongLine = item.wrong ? `#${index + 1} | ${item.wrong}` : `#${index + 1}`;
 
         ctx.fillStyle = '#ffffff';

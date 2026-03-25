@@ -2751,9 +2751,9 @@ function stripHtmlSnippet(html, maxLen = 240) {
 }
 
 async function sendPushToParentByEmail(parentEmail, title, body, data = {}) {
-  if (!firebaseAdmin) return;
+  if (!firebaseAdmin) return { sent: 0, reason: 'firebase_disabled' };
   const norm = String(parentEmail || '').trim().toLowerCase();
-  if (!norm) return;
+  if (!norm) return { sent: 0, reason: 'invalid_email' };
   let tokens;
   try {
     const r = await pool.query(
@@ -2763,9 +2763,9 @@ async function sendPushToParentByEmail(parentEmail, title, body, data = {}) {
     tokens = r.rows.map((x) => x.fcm_token).filter(Boolean);
   } catch (e) {
     console.warn('FCM token lookup:', e.message);
-    return;
+    return { sent: 0, reason: 'lookup_failed' };
   }
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) return { sent: 0, reason: 'no_tokens' };
   const appUrl = (process.env.APP_URL || '').replace(/\/$/, '') || 'https://fluent-feathers-academy-lms.onrender.com';
   const link = `${appUrl}/parent.html`;
   const logoAbs = resolveLogoAbsoluteUrl(appUrl);
@@ -2786,9 +2786,137 @@ async function sendPushToParentByEmail(parentEmail, title, body, data = {}) {
         pool.query('DELETE FROM parent_fcm_tokens WHERE fcm_token = $1', [tokens[i]]).catch(() => {});
       }
     });
+    return { sent: resp.successCount || 0, failed: resp.failureCount || 0 };
   } catch (e) {
     console.warn('FCM send error:', e.message);
+    return { sent: 0, reason: 'send_failed' };
   }
+}
+
+async function notifyParentsTeacherJoinedSession(sessionId) {
+  const sid = parseInt(sessionId, 10);
+  if (!sid || Number.isNaN(sid)) {
+    return { success: false, reason: 'invalid_session' };
+  }
+
+  const sessionResult = await pool.query(`
+    SELECT s.id, s.session_type, s.session_date, s.session_time, s.status, s.student_id, s.group_id,
+           COALESCE(st.duration, g.duration, '40 mins') AS duration,
+           st.name AS student_name,
+           g.group_name
+    FROM sessions s
+    LEFT JOIN students st ON s.student_id = st.id
+    LEFT JOIN groups g ON s.group_id = g.id
+    WHERE s.id = $1
+    LIMIT 1
+  `, [sid]);
+
+  if (sessionResult.rows.length === 0) {
+    return { success: false, reason: 'not_found' };
+  }
+
+  const session = sessionResult.rows[0];
+  if (String(session.session_type || '').toLowerCase() === 'demo') {
+    return { success: false, reason: 'unsupported_session_type' };
+  }
+
+  const durationMatch = String(session.duration || '').match(/(\d+)/);
+  const durationMins = durationMatch ? parseInt(durationMatch[1], 10) : 40;
+  const dateStr = session.session_date instanceof Date
+    ? session.session_date.toISOString().split('T')[0]
+    : String(session.session_date).split('T')[0];
+  const timeStr = String(session.session_time || '00:00:00').substring(0, 8);
+  const sessionStart = new Date(`${dateStr}T${timeStr}Z`);
+  const sessionEnd = new Date(sessionStart.getTime() + durationMins * 60 * 1000);
+  const now = new Date();
+  const earlyWindowStart = new Date(sessionStart.getTime() - 5 * 60 * 1000);
+
+  if (now < earlyWindowStart || now > sessionEnd) {
+    return { success: false, reason: 'outside_join_window' };
+  }
+
+  const sentCheck = await pool.query(
+    `SELECT id
+     FROM email_log
+     WHERE email_type = 'Teacher-Joined-Push'
+       AND subject LIKE $1
+     LIMIT 1`,
+    [`%[SID:${sid}]%`]
+  );
+  if (sentCheck.rows.length > 0) {
+    return { success: true, alreadySent: true, recipients: 0 };
+  }
+
+  let recipientRows = [];
+  if (session.group_id) {
+    const recipients = await pool.query(`
+      SELECT DISTINCT ON (LOWER(st.parent_email))
+             st.parent_email, st.parent_name, st.name AS student_name
+      FROM session_attendance sa
+      JOIN students st ON sa.student_id = st.id
+      WHERE sa.session_id = $1
+        AND st.is_active = true
+        AND st.parent_email IS NOT NULL
+        AND TRIM(st.parent_email) <> ''
+        AND COALESCE(sa.attendance, 'Pending') NOT IN ('Cancelled', 'Cancelled by Parent', 'Excused', 'Unexcused', 'Absent')
+      ORDER BY LOWER(st.parent_email), st.id
+    `, [sid]);
+    recipientRows = recipients.rows;
+  } else if (session.student_id) {
+    const recipients = await pool.query(`
+      SELECT st.parent_email, st.parent_name, st.name AS student_name
+      FROM students st
+      WHERE st.id = $1
+        AND st.is_active = true
+        AND st.parent_email IS NOT NULL
+        AND TRIM(st.parent_email) <> ''
+      LIMIT 1
+    `, [session.student_id]);
+    recipientRows = recipients.rows;
+  }
+
+  if (recipientRows.length === 0) {
+    return { success: false, reason: 'no_recipients' };
+  }
+
+  const isGroup = !!session.group_id || String(session.session_type || '').toLowerCase() === 'group';
+  const title = isGroup
+    ? `Teacher joined ${session.group_name || 'the batch'}`
+    : 'Teacher has joined the class';
+  const body = isGroup
+    ? `The teacher has joined ${session.group_name || 'the batch'}. Please join the class now.`
+    : `The teacher has joined ${session.student_name || 'your child'}'s class. Please join now.`;
+  const joinUrl = getJoinClassUrl(sid);
+
+  const pushResults = await Promise.all(
+    recipientRows.map((row) =>
+      sendPushToParentByEmail(row.parent_email, title, body, {
+        type: 'teacher_joined_session',
+        session_id: String(sid),
+        session_kind: isGroup ? 'group' : 'private',
+        url: joinUrl
+      })
+    )
+  );
+
+  const sentCount = pushResults.reduce((sum, row) => sum + (row?.sent || 0), 0);
+  if (sentCount === 0) {
+    return { success: false, reason: 'no_active_parent_tokens' };
+  }
+
+  await pool.query(
+    `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body)
+     VALUES ($1, $2, $3, $4, 'Sent', $5)`,
+    [
+      isGroup ? (session.group_name || 'Batch Parents') : (session.student_name || 'Parent'),
+      isGroup ? 'group-parent-push' : String(recipientRows[0].parent_email || '').toLowerCase(),
+      'Teacher-Joined-Push',
+      `${title} [SID:${sid}]`,
+      body
+    ]
+  );
+
+  return { success: true, alreadySent: false, recipients: recipientRows.length, sentCount };
 }
 
 async function sendPushToAdmins(title, body, data = {}) {
@@ -7697,6 +7825,22 @@ app.put('/api/sessions/:sessionId/topic', async (req, res) => {
     res.json({ message: 'Session topic saved successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/sessions/:sessionId/teacher-joined', async (req, res) => {
+  try {
+    const result = await notifyParentsTeacherJoinedSession(req.params.sessionId);
+    if (!result.success) {
+      const status =
+        result.reason === 'not_found' ? 404 :
+        result.reason === 'invalid_session' ? 400 : 200;
+      return res.status(status).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('Teacher-joined notification error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
