@@ -6,6 +6,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - Fluent Feathers Academy By Aaliya</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#B05D9E">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Fluent Feathers Academy">
+  <link rel="icon" id="pwaFavicon" href="/logo.png" type="image/png">
+  <link rel="apple-touch-icon" id="pwaAppleTouch" href="/logo.png">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
@@ -394,6 +403,7 @@
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
           <span id="storageStatus" style="padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 600; cursor: help;" title="File storage status">⏳ Checking...</span>
+          <button id="adminNotifyBtn" onclick="enableAdminNotifications(true)" class="btn btn-sm" style="background: #38b2ac; color: white; font-size: 12px;">🔔 Enable Notifications</button>
           <button id="bulkTimezoneSyncHeaderBtn" onclick="runBulkTimezoneSync('bulkTimezoneSyncHeaderBtn')" class="btn btn-sm" style="background: #d69e2e; color: white; font-size: 12px;" title="Sync parent timezone data across existing records">🌍 Timezone Sync</button>
           <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">👁️ Learner View</button>
           <button onclick="location.href='index.html'" class="btn btn-sm" style="background: #718096; color: white; font-size: 12px;">Logout</button>
@@ -3726,6 +3736,90 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    let adminPushSetupDone = false;
+    window.__ffAdminPushToken = null;
+
+    async function enableAdminNotifications(showErrors) {
+      try {
+        if (typeof firebase === 'undefined' || !('serviceWorker' in navigator)) return;
+        await loadConfig();
+        if (!appConfig.firebase || !appConfig.firebaseVapidKey) {
+          if (showErrors) alert('Push notifications are not fully configured yet.');
+          return;
+        }
+        if (!('Notification' in window)) {
+          if (showErrors) alert('This browser does not support notifications.');
+          return;
+        }
+        let perm = Notification.permission;
+        if (perm === 'denied') {
+          if (showErrors) alert('Notifications are blocked in this browser. Please enable them in browser settings.');
+          return;
+        }
+        if (perm !== 'granted') {
+          perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            if (showErrors) alert('Notification permission was not granted.');
+            return;
+          }
+        }
+
+        const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        if (!firebase.apps.length) {
+          firebase.initializeApp(appConfig.firebase);
+        }
+        const messaging = firebase.messaging();
+        const token = await messaging.getToken({
+          vapidKey: appConfig.firebaseVapidKey,
+          serviceWorkerRegistration: reg
+        });
+        if (!token) {
+          if (showErrors) alert('Could not get an admin notification token.');
+          return;
+        }
+        window.__ffAdminPushToken = token;
+        await fetch('/api/admin/register-fcm-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        messaging.onMessage((payload) => {
+          const n = payload.notification;
+          const iconUrl = appConfig.logoUrl || '/logo.png';
+          if (n && n.title && Notification.permission === 'granted') {
+            new Notification(n.title, { body: n.body || '', icon: iconUrl, badge: iconUrl });
+          }
+        });
+        adminPushSetupDone = true;
+        updateAdminNotifyButton();
+        if (showErrors) alert('Admin notifications enabled successfully.');
+      } catch (e) {
+        console.warn('Admin push setup:', e);
+        if (showErrors) alert('Could not enable admin notifications right now. Please try again.');
+      }
+    }
+
+    function updateAdminNotifyButton() {
+      const btn = document.getElementById('adminNotifyBtn');
+      if (!btn) return;
+      if (adminPushSetupDone || Notification.permission === 'granted') {
+        btn.textContent = '✅ Notifications Enabled';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'default';
+      } else if (Notification.permission === 'denied') {
+        btn.textContent = '⚠️ Notifications Blocked';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'default';
+      } else {
+        btn.textContent = '🔔 Enable Notifications';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+      }
+    }
+
     // Load config (logo URL from environment)
     async function loadConfig() {
       try {
@@ -3736,6 +3830,10 @@ I'm passionate about helping children develop confidence in communication!"></te
         if (headerLogo && appConfig.logoUrl) {
           headerLogo.src = appConfig.logoUrl;
         }
+        const fav = document.getElementById('pwaFavicon');
+        const apple = document.getElementById('pwaAppleTouch');
+        if (fav && appConfig.logoUrl) fav.href = appConfig.logoUrl;
+        if (apple && appConfig.logoUrl) apple.href = appConfig.logoUrl;
         // Update storage status indicator
         const statusEl = document.getElementById('storageStatus');
         if (statusEl) {
@@ -3751,6 +3849,7 @@ I'm passionate about helping children develop confidence in communication!"></te
             statusEl.title = 'WARNING: Files stored locally - will be lost on restart! Configure Cloudinary in environment variables.';
           }
         }
+        updateAdminNotifyButton();
       } catch (e) { console.log('Using default config'); }
     }
 
@@ -3804,6 +3903,12 @@ I'm passionate about helping children develop confidence in communication!"></te
         loadDashboardStats(),
         loadUpcomingClasses()
       ]);
+
+      if (Notification.permission === 'granted') {
+        enableAdminNotifications(false);
+      } else {
+        updateAdminNotifyButton();
+      }
 
       // Restore last active tab from localStorage
       const savedTab = localStorage.getItem('adminActiveTab');

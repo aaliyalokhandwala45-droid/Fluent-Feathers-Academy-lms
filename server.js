@@ -366,7 +366,7 @@ app.get('/manifest.webmanifest', (req, res) => {
       name: APP_DISPLAY_NAME,
       short_name: APP_SHORT_NAME,
       description: 'Parent portal, class reminders, and school updates.',
-      start_url: `${base}/parent.html`,
+      start_url: `${base}/index.html`,
       scope: `${base}/`,
       display: 'standalone',
       orientation: 'portrait-primary',
@@ -881,6 +881,37 @@ app.delete('/api/parent/register-fcm-token', async (req, res) => {
     } else {
       await pool.query(`DELETE FROM parent_fcm_tokens WHERE fcm_token = $1`, [String(token)]);
     }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/register-fcm-token', async (req, res) => {
+  try {
+    const { token } = req.body || {};
+    if (!token) {
+      return res.status(400).json({ error: 'token required' });
+    }
+    await pool.query(
+      `INSERT INTO admin_fcm_tokens (fcm_token, user_agent)
+       VALUES ($1, $2)
+       ON CONFLICT (fcm_token) DO UPDATE SET user_agent = EXCLUDED.user_agent, updated_at = CURRENT_TIMESTAMP`,
+      [String(token), req.headers['user-agent'] || null]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/register-fcm-token', async (req, res) => {
+  try {
+    const { token } = req.body || {};
+    if (!token) {
+      return res.status(400).json({ error: 'token required' });
+    }
+    await pool.query(`DELETE FROM admin_fcm_tokens WHERE fcm_token = $1`, [String(token)]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2221,6 +2252,27 @@ async function runMigrations() {
       console.log('Migration 48 note:', err.message);
     }
 
+    // Migration 49: Admin FCM tokens for admin push notifications
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS admin_fcm_tokens (
+          id SERIAL PRIMARY KEY,
+          fcm_token TEXT NOT NULL UNIQUE,
+          user_agent TEXT,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_fcm_tokens_updated_at ON admin_fcm_tokens (updated_at)`);
+      await client.query(`ALTER TABLE admin_fcm_tokens ENABLE ROW LEVEL SECURITY`);
+      await client.query(`DROP POLICY IF EXISTS "Allow all for service role" ON admin_fcm_tokens`);
+      await client.query(`DROP POLICY IF EXISTS "Service role full access" ON admin_fcm_tokens`);
+      await client.query(`DROP POLICY IF EXISTS "Service role only" ON admin_fcm_tokens`);
+      await client.query(`CREATE POLICY "Service role only" ON admin_fcm_tokens FOR ALL TO service_role USING (true) WITH CHECK (true)`);
+      console.log('✅ Migration 49: Created admin_fcm_tokens for admin push');
+    } catch (err) {
+      console.log('Migration 49 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -2536,6 +2588,42 @@ async function sendPushToParentByEmail(parentEmail, title, body, data = {}) {
     });
   } catch (e) {
     console.warn('FCM send error:', e.message);
+  }
+}
+
+async function sendPushToAdmins(title, body, data = {}) {
+  if (!firebaseAdmin) return;
+  let tokens;
+  try {
+    const r = await pool.query(`SELECT fcm_token FROM admin_fcm_tokens`);
+    tokens = r.rows.map((x) => x.fcm_token).filter(Boolean);
+  } catch (e) {
+    console.warn('Admin FCM token lookup:', e.message);
+    return;
+  }
+  if (tokens.length === 0) return;
+  const appUrl = (process.env.APP_URL || '').replace(/\/$/, '') || 'https://fluent-feathers-academy-lms.onrender.com';
+  const link = `${appUrl}/admin.html`;
+  const logoAbs = resolveLogoAbsoluteUrl(appUrl);
+  const safeTitle = String(title || APP_DISPLAY_NAME).slice(0, 200);
+  const safeBody = String(body || '').slice(0, 240);
+  try {
+    const resp = await firebaseAdmin.messaging().sendEachForMulticast({
+      tokens,
+      notification: { title: safeTitle, body: safeBody },
+      data: { ...data, link, click_action: link },
+      webpush: {
+        notification: { icon: logoAbs, badge: logoAbs },
+        fcmOptions: { link }
+      }
+    });
+    resp.responses.forEach((x, i) => {
+      if (!x.success && x.error && (x.error.code === 'messaging/registration-token-not-registered' || x.error.code === 'messaging/invalid-registration-token')) {
+        pool.query('DELETE FROM admin_fcm_tokens WHERE fcm_token = $1', [tokens[i]]).catch(() => {});
+      }
+    });
+  } catch (e) {
+    console.warn('Admin FCM send error:', e.message);
   }
 }
 
@@ -6312,6 +6400,11 @@ app.post('/api/schedule/private-classes', async (req, res) => {
     const makeupMsg = makeupClasses.length > 0 ? ` (${makeupClasses.length} using makeup credits)` : '';
     const emailMsg = emailSent === true ? ' and email sent!' : emailSent === false ? ' (email failed to send)' : '';
     const message = 'Classes scheduled successfully!' + emailMsg + makeupMsg;
+    sendPushToAdmins(
+      'Class Scheduled',
+      `${student.name}: ${classes.length} private class${classes.length !== 1 ? 'es' : ''} scheduled${makeupClasses.length > 0 ? `, including ${makeupClasses.length} makeup` : ''}.`,
+      { type: 'admin_schedule_private', student_id: String(student_id) }
+    ).catch(() => {});
     res.json({ success: true, message, emailSent });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -6511,6 +6604,11 @@ app.post('/api/schedule/group-classes', async (req, res) => {
 
     const emailMsg = send_email !== false && emailsSent > 0 ? ` and emails sent to ${emailsSent} students` : '';
     const message = `Group classes scheduled successfully!${emailMsg}${makeupMsg}`;
+    sendPushToAdmins(
+      'Group Classes Scheduled',
+      `${group.group_name}: ${classes.length} group class${classes.length !== 1 ? 'es' : ''} scheduled.`,
+      { type: 'admin_schedule_group', group_id: String(group_id) }
+    ).catch(() => {});
     res.json({ success: true, message, emailsSent });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -8796,6 +8894,12 @@ app.post('/api/parent/cancel-class', async (req, res) => {
 
     // Give makeup credit in both cases
     await pool.query(`INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by) VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'parent')`, [id, session.id, req.body.reason || 'Parent cancelled']);
+
+    sendPushToAdmins(
+      'Class Cancelled by Parent',
+      `${student ? student.name : 'A student'} cancelled a ${isGroup ? 'group' : 'private'} class. Reason: ${req.body.reason || 'Parent cancelled'}.`,
+      { type: 'admin_parent_cancel', student_id: String(id), session_id: String(session.id) }
+    ).catch(() => {});
 
     // Send cancellation confirmation email to parent
     if (student && student.parent_email) {

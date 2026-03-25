@@ -300,6 +300,13 @@ CREATE TABLE parent_fcm_tokens (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE admin_fcm_tokens (
+  id SERIAL PRIMARY KEY,
+  fcm_token TEXT NOT NULL UNIQUE,
+  user_agent TEXT,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==================== INDEXES ====================
 
 CREATE INDEX idx_students_email ON students(parent_email);
@@ -317,6 +324,7 @@ CREATE INDEX idx_class_points_student ON class_points(student_id);
 CREATE INDEX idx_class_points_session ON class_points(session_id);
 CREATE INDEX idx_birthday_cards_code ON birthday_cards(code);
 CREATE INDEX idx_parent_fcm_tokens_email ON parent_fcm_tokens(LOWER(parent_email));
+CREATE INDEX idx_admin_fcm_tokens_updated_at ON admin_fcm_tokens(updated_at);
 
 -- ==================== ROW LEVEL SECURITY ====================
 -- Enable RLS on all tables to prevent unauthorized direct access
@@ -343,6 +351,7 @@ ALTER TABLE makeup_classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE class_points ENABLE ROW LEVEL SECURITY;
 ALTER TABLE birthday_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE parent_fcm_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_fcm_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Allow service_role full access (this is what your server uses)
 CREATE POLICY "Service role only" ON groups FOR ALL TO service_role USING (true) WITH CHECK (true);
@@ -366,6 +375,7 @@ CREATE POLICY "Service role only" ON makeup_classes FOR ALL TO service_role USIN
 CREATE POLICY "Service role only" ON class_points FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Service role only" ON birthday_cards FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Service role only" ON parent_fcm_tokens FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Service role only" ON admin_fcm_tokens FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- ==================== DONE ====================
 -- Now you can import your backup data!
