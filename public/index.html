@@ -289,6 +289,7 @@
   <script>
     let deferredInstallPrompt = null;
     const APP_INSTALLED_KEY = 'ff_parent_app_installed';
+    const ADMIN_LOGIN_KEY = 'ff_admin_logged_in';
 
     async function registerPwaServiceWorker() {
       if (!('serviceWorker' in navigator)) return;
@@ -391,6 +392,10 @@
     const ADMIN_PASSWORD = 'aaliya@190795';  // ← CHANGE THIS!
 
     function showAdminLogin() {
+      if (localStorage.getItem(ADMIN_LOGIN_KEY) === '1') {
+        window.location.href = 'admin.html';
+        return;
+      }
       document.getElementById('adminModal').style.display = 'flex';
       document.getElementById('adminPassword').focus();
     }
@@ -407,7 +412,8 @@
       const enteredPassword = document.getElementById('adminPassword').value;
       
       if (enteredPassword === ADMIN_PASSWORD) {
-        // Password correct - redirect to admin panel
+        // Password correct - persist admin login until manual logout
+        localStorage.setItem(ADMIN_LOGIN_KEY, '1');
         window.location.href = 'admin.html';
       } else {
         // Password incorrect - show error

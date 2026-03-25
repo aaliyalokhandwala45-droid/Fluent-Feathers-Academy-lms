@@ -406,7 +406,7 @@
           <button id="adminNotifyBtn" onclick="enableAdminNotifications(true)" class="btn btn-sm" style="background: #38b2ac; color: white; font-size: 12px;">🔔 Enable Notifications</button>
           <button id="bulkTimezoneSyncHeaderBtn" onclick="runBulkTimezoneSync('bulkTimezoneSyncHeaderBtn')" class="btn btn-sm" style="background: #d69e2e; color: white; font-size: 12px;" title="Sync parent timezone data across existing records">🌍 Timezone Sync</button>
           <button onclick="openSwitchToLearnerModal()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">👁️ Learner View</button>
-          <button onclick="location.href='index.html'" class="btn btn-sm" style="background: #718096; color: white; font-size: 12px;">Logout</button>
+          <button onclick="adminLogout()" class="btn btn-sm" style="background: #718096; color: white; font-size: 12px;">Logout</button>
         </div>
       </header>
 
@@ -3736,8 +3736,20 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    const ADMIN_LOGIN_KEY = 'ff_admin_logged_in';
     let adminPushSetupDone = false;
     window.__ffAdminPushToken = null;
+
+    function hasPersistentAdminLogin() {
+      return localStorage.getItem(ADMIN_LOGIN_KEY) === '1';
+    }
+
+    function adminLogout() {
+      if (!confirm('Are you sure you want to logout?')) return;
+      localStorage.removeItem(ADMIN_LOGIN_KEY);
+      sessionStorage.removeItem('adminParentToken');
+      window.location.href = 'index.html';
+    }
 
     async function enableAdminNotifications(showErrors) {
       try {
@@ -3897,6 +3909,11 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
+      if (!hasPersistentAdminLogin()) {
+        window.location.href = 'index.html';
+        return;
+      }
+
       // Load critical data FIRST (dashboard stats & upcoming classes)
       await Promise.all([
         loadConfig(),

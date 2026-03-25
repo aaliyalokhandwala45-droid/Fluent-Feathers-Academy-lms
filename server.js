@@ -365,7 +365,7 @@ app.get('/manifest.webmanifest', (req, res) => {
       id: `${base}/`,
       name: APP_DISPLAY_NAME,
       short_name: APP_SHORT_NAME,
-      description: 'Parent portal, class reminders, and school updates.',
+      description: 'Parent portal, class reminders, and session updates.',
       start_url: `${base}/index.html`,
       scope: `${base}/`,
       display: 'standalone',
@@ -4589,6 +4589,7 @@ function getEventCertificateEmail(data) {
 // Function to check and send class reminders (used by both cron and manual trigger)
 async function checkAndSendReminders() {
   const now = new Date();
+  const adminReminderSentThisRun = new Set();
   console.log('🔔 Checking for upcoming classes to send reminders...');
   console.log(`⏰ Current server time (UTC): ${now.toISOString()}`);
 
@@ -4727,6 +4728,7 @@ async function checkAndSendReminders() {
         if (hoursDiff > 0.5 && hoursDiff <= 1.5) {
           const emailType1hr = session.is_demo ? 'Reminder-1hr-Demo' : session.is_group ? 'Reminder-1hr-Group' : 'Reminder-1hr';
           const sidCheck1hr = session.is_demo ? `DEMO:${session.id}` : session.id;
+          const adminReminderKey = `${session.is_demo ? 'demo' : session.is_group ? 'group' : 'private'}:${sidCheck1hr}`;
           console.log(`⏰ ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 1-hour window, checking if reminder already sent...`);
           // Check if 1-hour reminder already sent for this SPECIFIC session using unique session ID
           const sentCheck = await pool.query(
@@ -4772,6 +4774,40 @@ async function checkAndSendReminders() {
             console.log(`✅ Sent 1-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
           } else {
             console.log(`⏭️ 1-hour reminder already sent for ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id})`);
+          }
+
+          if (!adminReminderSentThisRun.has(adminReminderKey)) {
+            const adminSentCheck = await pool.query(
+              `SELECT id FROM email_log
+               WHERE email_type = 'Admin-Reminder-1hr'
+                 AND subject LIKE $1
+               LIMIT 1`,
+              [`%[SID:${sidCheck1hr}]%`]
+            );
+
+            if (adminSentCheck.rows.length === 0) {
+              const adminTitle = session.is_demo ? 'Demo Class in 1 Hour' : session.is_group ? 'Group Class in 1 Hour' : 'Class in 1 Hour';
+              const adminBody = session.is_demo
+                ? `${session.student_name} demo class starts in 1 hour.`
+                : session.is_group
+                  ? `${session.group_name || 'Group'} starts in 1 hour.`
+                  : `${session.student_name} starts in 1 hour.`;
+              await sendPushToAdmins(adminTitle, adminBody, {
+                type: 'admin_class_reminder_1hr',
+                session_id: String(session.id),
+                session_kind: session.is_demo ? 'demo' : session.is_group ? 'group' : 'private'
+              });
+              await pool.query(
+                `INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body)
+                 VALUES ($1, $2, $3, $4, 'Sent', $5)`,
+                ['Admin', 'admin-push', 'Admin-Reminder-1hr', `${adminTitle} [SID:${sidCheck1hr}]`, adminBody]
+              );
+              console.log(`✅ Sent 1-hour admin reminder for ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id})`);
+            } else {
+              console.log(`⏭️ 1-hour admin reminder already sent for ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id})`);
+            }
+
+            adminReminderSentThisRun.add(adminReminderKey);
           }
         }
       } catch (sessionErr) {
@@ -6975,6 +7011,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
             SELECT json_agg(
               json_build_object(
                 'file_path', file_path,
+                'file_type', file_type,
                 'feedback_grade', feedback_grade,
                 'feedback_comments', feedback_comments,
                 'corrected_file_path', corrected_file_path,
@@ -6984,7 +7021,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
               ) ORDER BY uploaded_at ASC NULLS LAST
             ) as hw_submissions
             FROM materials
-            WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
+            WHERE session_id = s.id AND student_id = $1 AND file_type IN ('Homework', 'Classwork') AND uploaded_by IN ('Parent', 'Admin')
           ) ma ON true
           LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
           WHERE s.student_id = $1 AND s.session_type = 'Private'
@@ -7024,6 +7061,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
               SELECT json_agg(
                 json_build_object(
                   'file_path', file_path,
+                  'file_type', file_type,
                   'feedback_grade', feedback_grade,
                   'feedback_comments', feedback_comments,
                   'corrected_file_path', corrected_file_path,
@@ -7033,7 +7071,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
                 ) ORDER BY uploaded_at ASC NULLS LAST
               ) as hw_submissions
               FROM materials
-              WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
+              WHERE session_id = s.id AND student_id = $1 AND file_type IN ('Homework', 'Classwork') AND uploaded_by IN ('Parent', 'Admin')
             ) ma ON true
             LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
             WHERE s.group_id = $2 AND s.session_type = 'Group'
@@ -7192,7 +7230,7 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
 
     // Clear old reminder email logs for this session so new reminders can be sent
     await pool.query(
-      `DELETE FROM email_log WHERE email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group', 'Reminder-1hr', 'Reminder-1hr-Group') AND subject LIKE $1`,
+      `DELETE FROM email_log WHERE email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group', 'Reminder-1hr', 'Reminder-1hr-Group', 'Admin-Reminder-1hr') AND subject LIKE $1`,
       [`%[SID:${req.params.sessionId}]%`]
     );
 
@@ -7738,7 +7776,7 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
 
     // Clear old reminder email logs for this session so new reminders can be sent
     await client.query(
-      `DELETE FROM email_log WHERE email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group', 'Reminder-1hr', 'Reminder-1hr-Group') AND subject LIKE $1`,
+      `DELETE FROM email_log WHERE email_type IN ('Reminder-5hrs', 'Reminder-5hrs-Group', 'Reminder-1hr', 'Reminder-1hr-Group', 'Admin-Reminder-1hr') AND subject LIKE $1`,
       [`%[SID:${sessionId}]%`]
     );
 
@@ -7958,11 +7996,12 @@ app.get('/api/materials/:studentId', async (req, res) => {
 app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded. If using Cloudinary, check credentials in Render environment variables.' });
   try {
+    const submissionType = req.body.submissionType === 'Classwork' ? 'Classwork' : 'Homework';
     // Duplicate guard: block re-submission of the same filename for the same session
     if (req.body.sessionId) {
       const dup = await pool.query(
-        `SELECT id FROM materials WHERE student_id = $1 AND session_id = $2 AND file_name = $3 AND uploaded_by = 'Parent'`,
-        [req.params.studentId, req.body.sessionId, req.file.originalname]
+        `SELECT id FROM materials WHERE student_id = $1 AND session_id = $2 AND file_name = $3 AND file_type = $4 AND uploaded_by = 'Parent'`,
+        [req.params.studentId, req.body.sessionId, req.file.originalname, submissionType]
       );
       if (dup.rows.length > 0) {
         return res.status(409).json({ error: 'duplicate', message: `'${req.file.originalname}' was already submitted for this session.` });
@@ -7985,21 +8024,22 @@ app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, re
 
     await pool.query(`
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
-      VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent')
-    `, [req.params.studentId, req.body.sessionId, req.file.originalname, filePath]);
+      VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, 'Parent')
+    `, [req.params.studentId, req.body.sessionId, submissionType, req.file.originalname, filePath]);
 
-    // Award homework submission badge
-    await awardBadge(req.params.studentId, 'hw_submit', '📝 Homework Hero', 'Submitted homework on time');
+    if (submissionType === 'Homework') {
+      // Homework-only badges should not be awarded for classwork uploads.
+      await awardBadge(req.params.studentId, 'hw_submit', '📝 Homework Hero', 'Submitted homework on time');
 
-    // Check total homework submissions for milestone badges
-    const hwCount = await pool.query('SELECT COUNT(*) as count FROM materials WHERE student_id = $1 AND file_type = \'Homework\'', [req.params.studentId]);
-    const count = parseInt(hwCount.rows[0].count);
+      const hwCount = await pool.query('SELECT COUNT(*) as count FROM materials WHERE student_id = $1 AND file_type = \'Homework\'', [req.params.studentId]);
+      const count = parseInt(hwCount.rows[0].count);
 
-    if (count === 5) await awardBadge(req.params.studentId, '5_homework', '📚 5 Homework Superstar', 'Submitted 5 homework assignments!');
-    if (count === 10) await awardBadge(req.params.studentId, '10_homework', '🎓 10 Homework Champion', 'Submitted 10 homework assignments!');
-    if (count === 25) await awardBadge(req.params.studentId, '25_homework', '🏅 25 Homework Master', 'Submitted 25 homework assignments!');
+      if (count === 5) await awardBadge(req.params.studentId, '5_homework', '📚 5 Homework Superstar', 'Submitted 5 homework assignments!');
+      if (count === 10) await awardBadge(req.params.studentId, '10_homework', '🎓 10 Homework Champion', 'Submitted 10 homework assignments!');
+      if (count === 25) await awardBadge(req.params.studentId, '25_homework', '🏅 25 Homework Master', 'Submitted 25 homework assignments!');
+    }
 
-    res.json({ message: 'Homework uploaded successfully!' });
+    res.json({ message: `${submissionType} uploaded successfully!`, file_type: submissionType });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -11391,7 +11431,7 @@ app.get('/api/students/:id/homework', async (req, res) => {
       SELECT m.*, s.session_number
       FROM materials m
       LEFT JOIN sessions s ON m.session_id = s.id
-      WHERE m.student_id = $1 AND m.file_type = 'Homework'
+      WHERE m.student_id = $1 AND m.file_type IN ('Homework', 'Classwork')
       ORDER BY m.uploaded_at DESC
     `, [req.params.id]);
 
@@ -11757,7 +11797,7 @@ app.get('/api/homework/all', async (req, res) => {
       FROM materials m
       LEFT JOIN sessions s ON m.session_id = s.id
       LEFT JOIN students st ON m.student_id = st.id
-      WHERE m.file_type = 'Homework' AND m.uploaded_by IN ('Parent', 'Admin')
+      WHERE m.file_type IN ('Homework', 'Classwork') AND m.uploaded_by IN ('Parent', 'Admin')
     `;
 
     const params = [];

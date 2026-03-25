@@ -797,7 +797,7 @@
         <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap;">
           <div style="flex:1; min-width:260px;">
             <h2 style="color:#234e52; margin-bottom:10px;">📲 Parent App Setup</h2>
-            <p style="color:#2d3748; line-height:1.7; margin:0;">Install the app and enable notifications so you receive class reminders, announcements, and school updates directly on your phone.</p>
+            <p style="color:#2d3748; line-height:1.7; margin:0;">Install the app and enable notifications so you receive class reminders, announcements, and session updates directly on your phone.</p>
             <div style="margin-top:10px;">
               <span id="installStatusPill" class="setup-pill" style="background:#fff7ed;color:#9a3412;">⏳ App install pending</span>
               <span id="notifyStatusPill" class="setup-pill" style="background:#eff6ff;color:#1d4ed8;">🔔 Notifications not enabled</span>
@@ -987,7 +987,7 @@
           <p id="pastClassCount" style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Showing recent 10 classes</p>
           <div class="table-responsive">
             <table id="pastTable">
-              <thead><tr><th>#</th><th>Date / Topic</th><th>Time</th><th>Attendance</th><th>Materials & Submit HW</th><th>HW Status</th><th>Feedback</th></tr></thead>
+              <thead><tr><th>#</th><th>Date / Topic</th><th>Time</th><th>Attendance</th><th>Materials & Upload Work</th><th>Work Status</th><th>Feedback</th></tr></thead>
               <tbody id="pastBody"><tr><td colspan="7">Loading...</td></tr></tbody>
             </table>
           </div>
@@ -996,11 +996,18 @@
 
       <div id="homeworkTab" class="tab-content" style="display:none !important;">
         <div class="section">
-          <h2>📤 Upload Homework</h2>
+          <h2>📤 Upload Work</h2>
           <form id="uploadHomeworkForm">
             <div class="form-group">
               <label>Select Session *</label>
               <select id="homeworkSessionSelect" required><option value="">Loading...</option></select>
+            </div>
+            <div class="form-group">
+              <label>Work Type *</label>
+              <select id="homeworkTypeSelect" required>
+                <option value="Homework">Homework</option>
+                <option value="Classwork">Classwork</option>
+              </select>
             </div>
             <div class="form-group">
               <label>Files * (Select multiple files at once)</label>
@@ -1009,10 +1016,10 @@
                 Upload any file type: Images, Videos, PDFs, Documents, Presentations, Audio, etc. - Max 100MB per file. You can select multiple files.
               </p>
             </div>
-            <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
+            <button type="submit" class="btn btn-primary">📤 Upload Work</button>
           </form>
 
-          <h3 style="margin-top: 30px; color: #B05D9E;">📚 My Submitted Homework</h3>
+          <h3 style="margin-top: 30px; color: #B05D9E;">📚 My Submitted Work</h3>
           <div id="submittedHomeworkList" style="margin-top: 15px;">
             <p style="color: #718096;">Loading your submissions...</p>
           </div>
@@ -1993,9 +2000,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             }
           })
           .catch(() => {
-            // Error checking - clear storage and show login
-            localStorage.removeItem('parentSession');
-            setupLoginHandlers();
+            // Keep parents signed in across refreshes even if validation fails temporarily.
+            if (session.students && session.students.length > 0) {
+              handleMultipleStudents(session.students, true);
+            } else {
+              setupLoginHandlers();
+            }
           });
           return;
         } catch (e) {
@@ -3694,14 +3704,17 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           // Add Submit HW / Resubmit button next to HW download
           const canSubmitHw = s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance !== 'Pending') || s.status === 'Missed';
           const hwSubs = Array.isArray(s.hw_submissions) ? s.hw_submissions : [];
+          const homeworkSubs = hwSubs.filter(sub => (sub.file_type || 'Homework') === 'Homework');
+          const classworkSubs = hwSubs.filter(sub => sub.file_type === 'Classwork');
           if (canSubmitHw) {
-            const existingNames = hwSubs.map(f => f.file_name || '').filter(Boolean);
-            const existingNamesJson = JSON.stringify(existingNames).replace(/"/g, '&quot;');
-            if (hwSubs.length > 0) {
-              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', true, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">🔄 Resubmit HW</button>`;
+            const existingHomeworkNames = homeworkSubs.map(f => f.file_name || '').filter(Boolean);
+            const existingClassworkNames = classworkSubs.map(f => f.file_name || '').filter(Boolean);
+            if (homeworkSubs.length > 0) {
+              materials += `<button onclick='openHwSubmitModal(${s.id}, "${getSerial(s)}", true, ${JSON.stringify(existingHomeworkNames)}, "Homework")' style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">🔄 Resubmit HW</button>`;
             } else {
-              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', false, [])" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Submit HW</button>`;
+              materials += `<button onclick='openHwSubmitModal(${s.id}, "${getSerial(s)}", false, [], "Homework")' style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Submit HW</button>`;
             }
+            materials += `<button onclick='openHwSubmitModal(${s.id}, "${getSerial(s)}", ${classworkSubs.length > 0}, ${JSON.stringify(existingClassworkNames)}, "Classwork")' style="cursor:pointer; border:none; background: linear-gradient(135deg, #2b6cb0 0%, #2c5282 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">✏️ ${classworkSubs.length > 0 ? 'Add Classwork' : 'Upload Classwork'}</button>`;
           }
           if (!materials) materials = '-';
 
@@ -3730,10 +3743,13 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
               const subNum = hwSubs.length > 1 ? `<span style="background:${isLatest ? '#9f7aea' : '#a0aec0'}; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem; margin-right:4px;">Submission #${idx + 1}${isLatest ? ' (latest)' : ''}</span>` : '';
               // divider between multiple submissions
               if (idx > 0) hwStatus += `<hr style="border:none;border-top:1px dashed #e2e8f0;margin:6px 0;">`;
+              const typeBadge = sub.file_type === 'Classwork'
+                ? `<span style="background:#2b6cb0; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem; margin-right:4px;">Classwork</span>`
+                : `<span style="background:#805ad5; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem; margin-right:4px;">Homework</span>`;
               const submissionLabel = sub.uploaded_by === 'Admin'
                 ? `<span style="color:#38a169; font-weight:600;">✅ Submitted</span> <span style="background:#667eea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;">📱 WhatsApp</span>`
                 : `<span style="color:#38a169; font-weight:600;">✅ Submitted</span>`;
-              hwStatus += `${subNum}${submissionLabel}`;
+              hwStatus += `${subNum}${typeBadge}${submissionLabel}`;
               if (s.session_topic && idx === 0) hwStatus += `<br><small style="color:#5a67d8; font-weight:600;">📌 ${s.session_topic}</small>`;
               if (submittedOn) hwStatus += `<br><small style="color:#718096;">📅 ${submittedOn}</small>`;
               if (sub.feedback_grade) hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${sub.feedback_grade}</span>`;
@@ -3806,14 +3822,17 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         }).join('');
     }
 
-    function openHwSubmitModal(sessionId, sessionSerial, isResubmit, existingFiles) {
+    function openHwSubmitModal(sessionId, sessionSerial, isResubmit, existingFiles, submissionType = 'Homework') {
       existingFiles = Array.isArray(existingFiles) ? existingFiles : [];
       const existing = document.getElementById('hwSubmitModal');
       if (existing) existing.remove();
+      const isClasswork = submissionType === 'Classwork';
+      const noun = isClasswork ? 'Classwork' : 'Homework';
+      const actionTitle = isResubmit ? (isClasswork ? 'Add Classwork' : 'Resubmit Homework') : (isClasswork ? 'Upload Classwork' : 'Submit Homework');
 
       const resubmitWarning = isResubmit ? `
         <div style="background:#fff8e1;border:2px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.88rem;color:#744210;">
-          ⚠️ <strong>You already submitted homework for this session.</strong><br>
+          ⚠️ <strong>You already submitted ${noun.toLowerCase()} for this session.</strong><br>
           Only upload <em>new</em> files — files you already submitted will be skipped automatically.
         </div>` : '';
 
@@ -3829,7 +3848,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       modal.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h2 style="margin:0;color:#B05D9E;font-size:1.3rem;">${isResubmit ? '🔄 Resubmit Homework' : '📤 Submit Homework'}</h2>
+            <h2 style="margin:0;color:#B05D9E;font-size:1.3rem;">${isClasswork ? '✏️' : '📤'} ${actionTitle}</h2>
             <button onclick="closeHwSubmitModal()" style="background:#e53e3e;color:white;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
           </div>
           <p style="color:#718096;margin-bottom:15px;font-size:0.9rem;">Session <strong>#${sessionSerial}</strong></p>
@@ -3852,9 +3871,9 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             </div>
             <p id="hwSubmitProgressText" style="color:#718096;font-size:0.82rem;margin-top:6px;text-align:center;"></p>
           </div>
-          <button id="hwSubmitBtn" onclick="submitHwFiles(${sessionId})"
+          <button id="hwSubmitBtn" onclick="submitHwFiles(${sessionId}, '${submissionType}')"
             style="width:100%;padding:14px;background:linear-gradient(135deg,#B05D9E,#8B4789);color:white;border:none;border-radius:10px;cursor:pointer;font-size:1rem;font-weight:700;">
-            📤 Upload Homework
+            ${isClasswork ? '✏️ Upload Classwork' : '📤 Upload Homework'}
           </button>
         </div>
       `;
@@ -3885,7 +3904,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     var _hwUploading = false;
-    async function submitHwFiles(sessionId) {
+    async function submitHwFiles(sessionId, submissionType = 'Homework') {
       if (_hwUploading) return; // prevent double-fire
       const input = document.getElementById('hwSubmitFileInput');
       if (!input || input.files.length === 0) {
@@ -3901,7 +3920,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       const files = allFiles.filter(f => !existingFiles.includes(f.name.toLowerCase()));
 
       if (files.length === 0) {
-        alert('⚠️ All selected files have already been submitted for this session.\n\nPlease choose different files to add new homework.');
+        alert(`⚠️ All selected files have already been submitted for this session.\n\nPlease choose different files to add new ${submissionType.toLowerCase()}.`);
         return;
       }
 
@@ -3928,6 +3947,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         fd.append('file', files[i]);
         fd.append('sessionId', sessionId);
         fd.append('uploadType', 'homework');
+        fd.append('submissionType', submissionType);
         try {
           const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
             method: 'POST',
@@ -3955,6 +3975,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           loadPast();
           loadBadges();
           loadScoreHistory();
+          loadSubmittedHomework();
         }, 1800);
       } else if ((skippedFiles.length + dupCount) > 0 && errorCount === 0) {
         progressText.textContent = `⚠️ All files were already submitted. No duplicates created.`;
@@ -3998,12 +4019,16 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         const container = document.getElementById('submittedHomeworkList');
 
         if (!submissions || submissions.length === 0) {
-          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No homework submitted yet. Upload your first homework above!</p>';
+          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No work submitted yet. Upload homework or classwork from Past Classes.</p>';
           return;
         }
 
         container.innerHTML = submissions.map(hw => {
           const fileExt = hw.file_name ? hw.file_name.split('.').pop().toLowerCase() : '';
+          const workType = hw.file_type === 'Classwork' ? 'Classwork' : 'Homework';
+          const workTypeBadge = workType === 'Classwork'
+            ? '<span style="background:#2b6cb0;color:white;padding:3px 10px;border-radius:999px;font-size:0.75rem;font-weight:700;">Classwork</span>'
+            : '<span style="background:#805ad5;color:white;padding:3px 10px;border-radius:999px;font-size:0.75rem;font-weight:700;">Homework</span>';
           const fileIcon = ['mp4', 'mov', 'avi'].includes(fileExt) ? '🎥' :
                           ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt) ? '🖼️' :
                           ['pdf'].includes(fileExt) ? '📄' :
@@ -4080,6 +4105,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
                   </p>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  ${workTypeBadge}
                   ${gradeDisplay}
                   ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Teacher Corrections')" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">📝 View Corrections</button>` : ''}
                   ${viewButton}
@@ -4364,6 +4390,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const sid = document.getElementById('homeworkSessionSelect').value;
+      const submissionType = document.getElementById('homeworkTypeSelect').value === 'Classwork' ? 'Classwork' : 'Homework';
       const files = document.getElementById('homeworkFile').files;
       if(!sid || files.length === 0) return alert('Please select a session and at least one file');
 
@@ -4381,6 +4408,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           fd.append('file', files[i]);
           fd.append('sessionId', sid);
           fd.append('uploadType', 'homework');
+          fd.append('submissionType', submissionType);
 
           try {
             const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
@@ -4400,7 +4428,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         }
 
         if (successCount > 0) {
-          alert(`✅ ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+          alert(`✅ ${successCount} ${submissionType.toLowerCase()} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
           e.target.reset();
           loadPast();
           loadBadges();
@@ -4411,10 +4439,10 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         }
       } catch(err) {
         console.error('Upload error:', err);
-        alert('Error uploading homework');
+        alert(`Error uploading ${submissionType.toLowerCase()}`);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = '📤 Upload Homework';
+        submitBtn.textContent = '📤 Upload Work';
       }
     });
 
