@@ -2955,6 +2955,66 @@ async function sendPushToAdmins(title, body, data = {}) {
   }
 }
 
+async function notifyAdminsStudentSubmission({
+  studentId,
+  submissionType,
+  sessionId = null,
+  fileName = '',
+  challengeId = null
+}) {
+  try {
+    const normalizedType = String(submissionType || '').trim();
+    if (!studentId || !normalizedType) return;
+
+    const studentResult = await pool.query(
+      `SELECT id, name FROM students WHERE id = $1`,
+      [studentId]
+    );
+    const student = studentResult.rows[0];
+    if (!student) return;
+
+    let detail = '';
+    const payload = {
+      notificationType: 'student-submission',
+      submissionType: normalizedType,
+      studentId: String(student.id)
+    };
+
+    if (challengeId) {
+      const challengeResult = await pool.query(
+        `SELECT title FROM weekly_challenges WHERE id = $1`,
+        [challengeId]
+      );
+      const challenge = challengeResult.rows[0];
+      payload.challengeId = String(challengeId);
+      if (challenge?.title) detail = `Challenge: ${challenge.title}`;
+    } else if (sessionId) {
+      const sessionResult = await pool.query(
+        `SELECT session_number FROM sessions WHERE id = $1`,
+        [sessionId]
+      );
+      const session = sessionResult.rows[0];
+      payload.sessionId = String(sessionId);
+      if (session?.session_number) detail = `Class #${session.session_number}`;
+    }
+
+    const cleanFileName = String(fileName || '').trim();
+    const body = [
+      `${student.name} submitted ${normalizedType.toLowerCase()}`,
+      detail,
+      cleanFileName
+    ].filter(Boolean).join(' - ');
+
+    await sendPushToAdmins(
+      `${student.name} submitted ${normalizedType}`,
+      body,
+      payload
+    );
+  } catch (err) {
+    console.warn('Admin student submission push error:', err.message);
+  }
+}
+
 async function sendEmail(to, subject, html, recipientName, emailType, options = {}) {
   let finalHtml;
   try {
@@ -8383,6 +8443,13 @@ app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, re
       if (count === 25) await awardBadge(req.params.studentId, '25_homework', '🏅 25 Homework Master', 'Submitted 25 homework assignments!');
     }
 
+    await notifyAdminsStudentSubmission({
+      studentId: req.params.studentId,
+      submissionType,
+      sessionId: req.body.sessionId || null,
+      fileName: req.file.originalname || ''
+    });
+
     res.json({ message: `${submissionType} uploaded successfully!`, file_type: submissionType });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -12457,6 +12524,13 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
       );
     }
 
+    await notifyAdminsStudentSubmission({
+      studentId,
+      submissionType: 'Challenge',
+      challengeId,
+      fileName
+    });
+
     res.json({ success: true, message: 'Challenge submitted for review!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -12482,6 +12556,12 @@ app.put('/api/challenges/:challengeId/student/:studentId/submit', async (req, re
         [challengeId, studentId]
       );
     }
+
+    await notifyAdminsStudentSubmission({
+      studentId,
+      submissionType: 'Challenge',
+      challengeId
+    });
 
     res.json({ success: true, message: 'Challenge submitted for review!' });
   } catch (err) {
