@@ -2860,6 +2860,47 @@ async function runMigrations() {
       console.log('Migration 43 note:', err.message);
     }
 
+    // Migration 44: Backfill old scheduled makeup credits that already belong to resolved sessions
+    try {
+      const migration44Key = 'migration_44_makeup_status_backfill_done';
+      const migration44State = await client.query(
+        `SELECT setting_value FROM admin_settings WHERE setting_key = $1`,
+        [migration44Key]
+      );
+      if (migration44State.rows[0]?.setting_value === 'true') {
+        console.log('Migration 44: makeup status backfill already applied');
+      } else {
+        const fixResult = await client.query(`
+          UPDATE makeup_classes mc
+          SET status = 'Used'
+          WHERE LOWER(mc.status) = 'scheduled'
+            AND EXISTS (
+              SELECT 1
+              FROM sessions s
+              LEFT JOIN session_attendance sa
+                ON sa.session_id = s.id
+               AND sa.student_id = mc.student_id
+              WHERE s.id = mc.scheduled_session_id
+                AND (
+                  (s.session_type = 'Private' AND s.status NOT IN ('Pending', 'Scheduled'))
+                  OR
+                  (s.session_type = 'Group' AND COALESCE(sa.attendance, 'Pending') <> 'Pending')
+                )
+            )
+          RETURNING mc.id
+        `);
+        console.log(`✅ Migration 44: Marked ${fixResult.rows.length} resolved scheduled makeup credit(s) as Used`);
+        await client.query(`
+          INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+          VALUES ($1, 'true', CURRENT_TIMESTAMP)
+          ON CONFLICT (setting_key)
+          DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP
+        `, [migration44Key]);
+      }
+    } catch (err) {
+      console.log('Migration 44 note:', err.message);
+    }
+
     // Migration 44A: Create short birthday card links table
     try {
       await client.query(`
@@ -3668,6 +3709,18 @@ async function resetPackageExhaustedNotice(studentId, dbClient = pool) {
     `UPDATE students SET package_exhausted_notice_sent = false WHERE id = $1`,
     [studentId]
   );
+}
+
+async function markScheduledMakeupCreditUsed(sessionId, studentId, dbClient = pool) {
+  if (!sessionId || !studentId) return;
+
+  await dbClient.query(`
+    UPDATE makeup_classes
+    SET status = 'Used'
+    WHERE scheduled_session_id = $1
+      AND student_id = $2
+      AND LOWER(status) = 'scheduled'
+  `, [sessionId, studentId]);
 }
 
 async function sendPackageExhaustedNoticeIfNeeded(studentId, dbClient = pool) {
@@ -7436,9 +7489,6 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
     }
 
     await client.query('COMMIT');
-    if (makeupNum > 0) {
-      await sendPackageExhaustedNoticeIfNeeded(student_id);
-    }
 
     const studentName = student.rows[0].name;
     const makeupMsg = makeupNum > 0 ? ` (${makeupNum} using makeup credits)` : '';
@@ -7581,10 +7631,6 @@ app.post('/api/schedule/private-classes', async (req, res) => {
         student.parent_name,
         'Schedule'
       );
-    }
-
-    if (makeupClasses.length > 0) {
-      await sendPackageExhaustedNoticeIfNeeded(student_id);
     }
 
     const makeupMsg = makeupClasses.length > 0 ? ` (${makeupClasses.length} using makeup credits)` : '';
@@ -7790,10 +7836,6 @@ app.post('/api/schedule/group-classes', async (req, res) => {
     if (makeupUsed.length > 0) {
       const totalMakeup = makeupUsed.reduce((sum, [_, idx]) => sum + idx, 0);
       makeupMsg = ` (${totalMakeup} makeup credits used across ${makeupUsed.length} student${makeupUsed.length > 1 ? 's' : ''})`;
-    }
-
-    for (const [studentId] of makeupUsed) {
-      await sendPackageExhaustedNoticeIfNeeded(parseInt(studentId, 10));
     }
 
     const emailMsg = send_email !== false && emailsSent > 0 ? ` and emails sent to ${emailsSent} students` : '';
@@ -8765,6 +8807,8 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
           await pool.query('UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1', [studentId]);
         }
       }
+
+      await markScheduledMakeupCreditUsed(sessionId, studentId);
     }
 
     const message = attendance === 'Present' ? 'Marked as Present' :
@@ -8919,6 +8963,8 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
           await client.query(`UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`, [record.student_id]);
         }
       }
+
+      await markScheduledMakeupCreditUsed(sessionId, record.student_id, client);
     }
 
     await client.query('UPDATE sessions SET status = $1 WHERE id = $2', ['Completed', sessionId]);
@@ -10372,8 +10418,6 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
       await sendEmail(studentData.parent_email, `🎉 Makeup Class Scheduled for ${studentData.name}`, emailHTML, studentData.parent_name, 'Makeup-Schedule');
     }
 
-    await sendPackageExhaustedNoticeIfNeeded(student_id);
-
     res.json({
       success: true,
       message: 'Makeup class scheduled successfully!',
@@ -10839,10 +10883,6 @@ app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
         student.parent_name,
         'Schedule'
       );
-    }
-
-    if (deduct_from === 'makeup') {
-      await sendPackageExhaustedNoticeIfNeeded(studentId);
     }
 
     const deductMsg = deduct_from === 'remaining' ? ` (deducted from remaining)` : deduct_from === 'makeup' ? ` (using makeup credits)` : ` (extra - paid separately)`;
