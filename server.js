@@ -3359,12 +3359,21 @@ async function sendPushToParentByEmail(parentEmail, title, body, data = {}) {
   const safeTitle = String(title || APP_DISPLAY_NAME).slice(0, 200);
   const safeBody = String(body || '').slice(0, 240);
   const notificationTag = String(data.notificationTag || data.type || `${safeTitle}|${safeBody}|${data.url || link}`).slice(0, 180);
+  const webpushNotification = {
+    title: safeTitle,
+    body: safeBody,
+    icon: resolveLogoAbsoluteUrl(appUrl),
+    badge: resolveLogoAbsoluteUrl(appUrl),
+    tag: notificationTag
+  };
   try {
     const resp = await firebaseAdmin.messaging().sendEachForMulticast({
       tokens,
+      notification: { title: safeTitle, body: safeBody },
       data: { ...data, title: safeTitle, body: safeBody, link, click_action: link, notificationTag },
       webpush: {
-        fcmOptions: { link }
+        fcmOptions: { link },
+        notification: webpushNotification
       }
     });
     resp.responses.forEach((x, i) => {
@@ -3521,12 +3530,21 @@ async function sendPushToAdmins(title, body, data = {}) {
   const safeTitle = String(title || APP_DISPLAY_NAME).slice(0, 200);
   const safeBody = String(body || '').slice(0, 240);
   const notificationTag = String(data.notificationTag || data.type || `${safeTitle}|${safeBody}|${data.url || link}`).slice(0, 180);
+  const webpushNotification = {
+    title: safeTitle,
+    body: safeBody,
+    icon: resolveLogoAbsoluteUrl(appUrl),
+    badge: resolveLogoAbsoluteUrl(appUrl),
+    tag: notificationTag
+  };
   try {
     const resp = await firebaseAdmin.messaging().sendEachForMulticast({
       tokens,
+      notification: { title: safeTitle, body: safeBody },
       data: { ...data, title: safeTitle, body: safeBody, link, click_action: link, notificationTag },
       webpush: {
-        fcmOptions: { link }
+        fcmOptions: { link },
+        notification: webpushNotification
       }
     });
     resp.responses.forEach((x, i) => {
