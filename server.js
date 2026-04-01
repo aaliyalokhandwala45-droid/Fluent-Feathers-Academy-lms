@@ -3396,10 +3396,10 @@ async function sendPushToParentByEmail(parentEmail, title, body, data = {}) {
   }
   if (tokens.length === 0) return { sent: 0, reason: 'no_tokens' };
   const appUrl = (process.env.APP_URL || '').replace(/\/$/, '') || 'https://fluent-feathers-academy-lms.onrender.com';
-  const link = `${appUrl}/parent.html`;
+  const targetLink = String(data.url || data.link || `${appUrl}/parent.html`);
   const safeTitle = String(title || APP_DISPLAY_NAME).slice(0, 200);
   const safeBody = String(body || '').slice(0, 240);
-  const notificationTag = String(data.notificationTag || data.type || `${safeTitle}|${safeBody}|${data.url || link}`).slice(0, 180);
+  const notificationTag = String(data.notificationTag || data.type || `${safeTitle}|${safeBody}|${targetLink}`).slice(0, 180);
   const webpushNotification = {
     title: safeTitle,
     body: safeBody,
@@ -3410,10 +3410,10 @@ async function sendPushToParentByEmail(parentEmail, title, body, data = {}) {
   try {
     const resp = await firebaseAdmin.messaging().sendEachForMulticast({
       tokens,
-      notification: { title: safeTitle, body: safeBody },
-      data: { ...data, title: safeTitle, body: safeBody, link, click_action: link, notificationTag },
+      // Use a data-only payload for web so the service worker is the single notification renderer.
+      data: { ...data, title: safeTitle, body: safeBody, url: targetLink, link: targetLink, click_action: targetLink, notificationTag },
       webpush: {
-        fcmOptions: { link },
+        fcmOptions: { link: targetLink },
         notification: webpushNotification
       }
     });
@@ -3567,10 +3567,10 @@ async function sendPushToAdmins(title, body, data = {}) {
   }
   if (tokens.length === 0) return;
   const appUrl = (process.env.APP_URL || '').replace(/\/$/, '') || 'https://fluent-feathers-academy-lms.onrender.com';
-  const link = `${appUrl}/admin.html`;
+  const targetLink = String(data.url || data.link || `${appUrl}/admin.html`);
   const safeTitle = String(title || APP_DISPLAY_NAME).slice(0, 200);
   const safeBody = String(body || '').slice(0, 240);
-  const notificationTag = String(data.notificationTag || data.type || `${safeTitle}|${safeBody}|${data.url || link}`).slice(0, 180);
+  const notificationTag = String(data.notificationTag || data.type || `${safeTitle}|${safeBody}|${targetLink}`).slice(0, 180);
   const webpushNotification = {
     title: safeTitle,
     body: safeBody,
@@ -3581,10 +3581,10 @@ async function sendPushToAdmins(title, body, data = {}) {
   try {
     const resp = await firebaseAdmin.messaging().sendEachForMulticast({
       tokens,
-      notification: { title: safeTitle, body: safeBody },
-      data: { ...data, title: safeTitle, body: safeBody, link, click_action: link, notificationTag },
+      // Use a data-only payload for web so the service worker is the single notification renderer.
+      data: { ...data, title: safeTitle, body: safeBody, url: targetLink, link: targetLink, click_action: targetLink, notificationTag },
       webpush: {
-        fcmOptions: { link },
+        fcmOptions: { link: targetLink },
         notification: webpushNotification
       }
     });
