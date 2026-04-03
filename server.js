@@ -135,11 +135,15 @@ if (dbUrl && !dbUrl.includes('application_name=')) {
   dbUrl += dbUrl.includes('?') ? '&application_name=fluentfeathers_lms' : '?application_name=fluentfeathers_lms';
 }
 
-const DB_CONNECT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_CONNECT_TIMEOUT_MS) || 8000);
+const DB_CONNECT_TIMEOUT_MS = Math.max(8000, Number(process.env.DB_CONNECT_TIMEOUT_MS) || 20000);
 const DB_STATEMENT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_STATEMENT_TIMEOUT_MS) || 15000);
 const DB_QUERY_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_QUERY_TIMEOUT_MS) || 15000);
 const DB_ACTIVE_WINDOW_MS = Math.max(5 * 60 * 1000, Number(process.env.DB_ACTIVE_WINDOW_MS) || 20 * 60 * 1000);
-const DB_WAKE_WAIT_MS = Math.max(5000, Number(process.env.DB_WAKE_WAIT_MS) || 20000);
+const DB_WAKE_WAIT_MS = Math.max(10000, Number(process.env.DB_WAKE_WAIT_MS) || 45000);
+const USE_DEDICATED_DB_PING_CLIENT =
+  process.env.DB_DEDICATED_PING_CLIENT === 'true'
+    ? true
+    : !dbUrl.includes('pooler.supabase.com');
 
 // Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
@@ -15405,8 +15409,8 @@ let selfPingUrl = null;
 let selfPingInFlight = false;
 
 // ─── Dedicated persistent ping client ───────────────────────────────────────
-// Completely separate from the pool — never competes with user requests.
-// Keeps a permanent TCP connection to the DB and pings every 15 seconds.
+// Completely separate from the pool. Leave this off for transaction poolers
+// like Supabase because a sticky client can compete with real traffic.
 let _pingClient = null;
 let _pingConnecting = false;
 
@@ -15500,10 +15504,13 @@ function startKeepAlive() {
   if (keepAliveStarted) return;
   keepAliveStarted = true;
 
-  // Start persistent ping client immediately (separate from pool)
-  _connectPingClient();
-  // Ping DB every 8 seconds via dedicated client — keeps DB warm without touching pool
-  setInterval(_sendDbPing, 8 * 1000);
+  if (USE_DEDICATED_DB_PING_CLIENT) {
+    // Start persistent ping client immediately when the DB type can tolerate it.
+    _connectPingClient();
+    setInterval(_sendDbPing, 8 * 1000);
+  } else {
+    console.log('🏓 Dedicated DB ping client disabled for pooled database host; using /api/db/ping keepalive only');
+  }
 
   // Pool health check every 30 seconds — detects pool-level issues
   checkDatabaseHealth();
