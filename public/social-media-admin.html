@@ -837,6 +837,21 @@
       document.getElementById('socialMediaForm').addEventListener('submit', generateSocialMediaScriptDraft);
       toggleMusicUploadGroup();
 
+      // Keep DB warm while social media admin is open.
+      let _socialDbPingInFlight = false;
+      async function _socialDbPing() {
+        if (_socialDbPingInFlight) return;
+        _socialDbPingInFlight = true;
+        try { await fetch('/api/db/ping', { cache: 'no-store' }); } catch (_) {}
+        finally { _socialDbPingInFlight = false; }
+      }
+      setInterval(_socialDbPing, 20 * 1000);
+      document.addEventListener('click', _socialDbPing, { passive: true });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') _socialDbPing();
+      });
+      _socialDbPing();
+
       setInterval(async () => {
         if (!currentSocialMediaProject) return;
         if (!['queued', 'rendering'].includes(currentSocialMediaProject.video_status)) return;

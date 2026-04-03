@@ -139,6 +139,7 @@ const DB_CONNECT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_CONNECT_TIMEO
 const DB_STATEMENT_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_STATEMENT_TIMEOUT_MS) || 15000);
 const DB_QUERY_TIMEOUT_MS = Math.max(5000, Number(process.env.DB_QUERY_TIMEOUT_MS) || 15000);
 const DB_ACTIVE_WINDOW_MS = Math.max(5 * 60 * 1000, Number(process.env.DB_ACTIVE_WINDOW_MS) || 20 * 60 * 1000);
+const DB_WAKE_WAIT_MS = Math.max(5000, Number(process.env.DB_WAKE_WAIT_MS) || 20000);
 
 // Robust pool configuration for free-tier hosting with cold starts
 const pool = new Pool({
@@ -169,6 +170,52 @@ let lastDbActivityAt = Date.now();
 
 function markDbActivity() {
   lastDbActivityAt = Date.now();
+}
+
+function isTransientDbError(err) {
+  if (!err) return false;
+  const message = String(err.message || '');
+  return (
+    err.code === 'ECONNRESET' ||
+    err.code === 'ENOTFOUND' ||
+    err.code === 'ETIMEDOUT' ||
+    err.code === 'ECONNREFUSED' ||
+    err.code === '57P01' ||
+    err.code === '57P02' ||
+    err.code === '57P03' ||
+    err.code === '08006' ||
+    err.code === '08001' ||
+    err.code === '08004' ||
+    message.includes('Connection terminated') ||
+    message.includes('connection timeout') ||
+    message.includes('timeout expired') ||
+    message.includes('Client has encountered a connection error') ||
+    message.includes('timeout exceeded when trying to connect') ||
+    message.includes('Connection terminated due to connection timeout')
+  );
+}
+
+async function waitForDatabaseReady(timeoutMs = DB_WAKE_WAIT_MS) {
+  if (dbReady) return true;
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const connected = await initializeDatabaseConnection();
+      if (connected || dbReady) return true;
+    } catch (_) {}
+
+    try {
+      await pool.query('SELECT 1');
+      dbReady = true;
+      markDbActivity();
+      return true;
+    } catch (_) {}
+
+    await new Promise(resolve => setTimeout(resolve, 1200));
+  }
+
+  return dbReady;
 }
 
 // Pool error handler - critical for catching connection issues
@@ -878,23 +925,7 @@ async function executeQuery(queryText, params = [], retries = 3) {
       lastError = err;
 
       // Check if it's a transient/connection error worth retrying
-      const isTransientError =
-        err.code === 'ECONNRESET' ||
-        err.code === 'ENOTFOUND' ||
-        err.code === 'ETIMEDOUT' ||
-        err.code === 'ECONNREFUSED' ||
-        err.code === '57P01' ||  // admin_shutdown
-        err.code === '57P02' ||  // crash_shutdown
-        err.code === '57P03' ||  // cannot_connect_now
-        err.code === '08006' ||  // connection_failure
-        err.code === '08001' ||  // sqlclient_unable_to_establish_sqlconnection
-        err.code === '08004' ||  // sqlserver_rejected_establishment_of_sqlconnection
-        err.message.includes('Connection terminated') ||
-        err.message.includes('connection timeout') ||
-        err.message.includes('timeout expired') ||
-        err.message.includes('Client has encountered a connection error') ||
-        err.message.includes('timeout exceeded when trying to connect') ||
-        err.message.includes('Connection terminated due to connection timeout');
+      const isTransientError = isTransientDbError(err);
 
       if (isTransientError && attempt < retries) {
         console.warn(`⚠️ Database query failed (attempt ${attempt}/${retries}): ${err.message}`);
@@ -1343,8 +1374,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// DB wake-up handling: fail-open for page-critical routes, fast-fail for writes
-app.use((req, res, next) => {
+// DB wake-up handling: wait briefly for the DB instead of surfacing cold-start errors.
+app.use(async (req, res, next) => {
   if (!req.path.startsWith('/api/')) return next();
 
   const alwaysAvailable =
@@ -1357,7 +1388,8 @@ app.use((req, res, next) => {
   if (alwaysAvailable) return next();
 
   if (!dbReady) {
-    initializeDatabaseConnection(); // fire-and-forget reconnect attempt
+    const warmed = await waitForDatabaseReady();
+    if (warmed) return next();
 
     const failOpenRoutes =
       req.method === 'GET' ||
@@ -1367,7 +1399,7 @@ app.use((req, res, next) => {
     if (failOpenRoutes) return next();
 
     return res.status(503).json({
-      error: 'Database is waking up. Please retry in 5-10 seconds.',
+      error: 'Database is still reconnecting. Please retry in a few seconds.',
       code: 'DB_WAKING_UP'
     });
   }
@@ -12299,28 +12331,15 @@ app.get('/api/awards/current', async (req, res) => {
     res.json(awards);
   } catch (err) {
     console.error('Error calculating awards:', err);
-    const isDbWakeupError =
-      err.code === 'ECONNRESET' ||
-      err.code === 'ENOTFOUND' ||
-      err.code === 'ETIMEDOUT' ||
-      err.code === 'ECONNREFUSED' ||
-      err.code === '57P01' ||
-      err.code === '57P02' ||
-      err.code === '57P03' ||
-      err.code === '08006' ||
-      err.code === '08001' ||
-      err.code === '08004' ||
-      (err.message && err.message.includes('Connection terminated')) ||
-      (err.message && err.message.includes('connection timeout')) ||
-      (err.message && err.message.includes('timeout expired')) ||
-      (err.message && err.message.includes('Client has encountered a connection error')) ||
-      (err.message && err.message.includes('timeout exceeded when trying to connect')) ||
-      (err.message && err.message.includes('Connection terminated due to connection timeout'));
+    const isDbWakeupError = isTransientDbError(err);
 
     if (isDbWakeupError) {
-      initializeDatabaseConnection();
+      const warmed = await waitForDatabaseReady();
+      if (warmed) {
+        return res.redirect(307, req.originalUrl);
+      }
       return res.status(503).json({
-        error: 'Database is waking up. Please retry in 5-10 seconds.',
+        error: 'Database is still reconnecting. Please retry in a few seconds.',
         code: 'DB_WAKING_UP'
       });
     }
@@ -15272,8 +15291,9 @@ app.get('/api/health/light', (req, res) => {
 // Runs SELECT 1 against the real pool so the DB connection is never idle.
 app.get('/api/db/ping', async (req, res) => {
   try {
-    if (!dbReady) {
-      await initializeDatabaseConnection();
+    const warmed = await waitForDatabaseReady();
+    if (!warmed) {
+      return res.status(503).json({ ok: false, dbReady: false });
     }
     await pool.query('SELECT 1');
     if (!dbReady) dbReady = true;
@@ -15281,7 +15301,7 @@ app.get('/api/db/ping', async (req, res) => {
     res.json({ ok: true, dbReady: true });
   } catch (err) {
     try {
-      await initializeDatabaseConnection();
+      await waitForDatabaseReady();
       await pool.query('SELECT 1');
       dbReady = true;
       markDbActivity();
@@ -15404,7 +15424,12 @@ async function _connectPingClient() {
       query_timeout: 4000,
       connectionTimeoutMillis: 8000
     });
-    c.on('error', () => { _pingClient = null; });
+    c.on('error', () => {
+      _pingClient = null;
+      setTimeout(() => {
+        checkDatabaseHealth().catch(() => {});
+      }, 0);
+    });
     await c.connect();
     _pingClient = c;
     console.log('⚡ Persistent DB ping client connected');
@@ -15425,12 +15450,15 @@ async function _sendDbPing() {
   }
   try {
     await _pingClient.query('SELECT 1');
+    markDbActivity();
     if (!dbReady) { dbReady = true; console.log('✅ Database ready (ping ok)'); }
   } catch (err) {
     console.warn('⚡ DB ping failed, will reconnect:', err.message);
     _pingClient = null;
-    dbReady = false;
     setTimeout(_connectPingClient, 2000);
+    setTimeout(() => {
+      checkDatabaseHealth().catch(() => {});
+    }, 0);
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────

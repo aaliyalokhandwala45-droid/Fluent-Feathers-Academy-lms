@@ -3869,6 +3869,21 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     })();
 
+    // Global fetch wrapper: keep DB warm on every admin API call.
+    const _adminOriginalFetch = window.fetch.bind(window);
+    function _adminExtractUrl(input) {
+      if (typeof input === 'string') return input;
+      if (input && typeof input.url === 'string') return input.url;
+      return '';
+    }
+    window.fetch = function(input, init) {
+      const url = _adminExtractUrl(input);
+      if (url.startsWith('/api/') && !url.startsWith('/api/db/ping')) {
+        _adminOriginalFetch('/api/db/ping', { cache: 'no-store' }).catch(() => {});
+      }
+      return _adminOriginalFetch(input, init);
+    };
+
     let dbLoadingCounter = 0;
     let dbLoadingDelayTimer = null;
     function setDbLoading(isLoading, message = 'Loading classes from database...') {
@@ -4400,10 +4415,14 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     // Helper: Fetch with timeout (15 seconds for critical operations)
+    // Also pings DB to keep it warm whenever admin triggers an API request.
     async function fetchWithTimeout(url, timeoutMs = 15000) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
+        if (url && String(url).startsWith('/api/') && url !== '/api/db/ping') {
+          fetch('/api/db/ping', { cache: 'no-store' }).catch(() => {});
+        }
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
         return res;

@@ -387,6 +387,21 @@
       if (!isAppInstalled() && (isIosInstallCandidate() || isAppKnownInstalled())) {
         showInstallHint('On iPhone or iPad, tap Share and then "Add to Home Screen" to install the app.');
       }
+
+      // Keep DB warm while the login page is open.
+      let _loginDbPingInFlight = false;
+      async function _loginDbPing() {
+        if (_loginDbPingInFlight) return;
+        _loginDbPingInFlight = true;
+        try { await fetch('/api/db/ping', { cache: 'no-store' }); } catch (_) {}
+        finally { _loginDbPingInFlight = false; }
+      }
+      setInterval(_loginDbPing, 30 * 1000);
+      document.addEventListener('click', _loginDbPing, { passive: true });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') _loginDbPing();
+      });
+      _loginDbPing();
     });
     // ⚠️ CHANGE THIS PASSWORD TO YOUR OWN SECURE PASSWORD ⚠️
     const ADMIN_PASSWORD = 'aaliya@190795';  // ← CHANGE THIS!
