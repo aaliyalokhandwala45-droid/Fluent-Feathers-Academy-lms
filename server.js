@@ -15398,7 +15398,8 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ==================== KEEPALIVE PING ====================
-// Self-ping every 25 seconds to keep free-tier service and DB awake
+// Self-ping every 25 seconds to generate lightweight inbound traffic while the service is already running.
+// This does not prevent Render free instances from spinning down; use an external uptime monitor or a paid plan for that.
 const SELF_PING_INTERVAL = Math.max(20 * 1000, Number(process.env.SELF_PING_INTERVAL_MS) || 25 * 1000);
 const DB_CHECK_INTERVAL = 25 * 1000;        // Check DB every 25 seconds
 let selfPingUrl = null;
@@ -15517,7 +15518,7 @@ function startKeepAlive() {
     process.env.BASE_URL ||
     '';
   selfPingUrl = publicAppUrl.replace(/\/$/, '') || `http://localhost:${PORT}`;
-  console.log(`🏓 Keepalive ping enabled for: ${selfPingUrl} every ${Math.round(SELF_PING_INTERVAL / 1000)}s`);
+  console.log(`🏓 Service keepalive enabled for: ${selfPingUrl}/api/health/light every ${Math.round(SELF_PING_INTERVAL / 1000)}s`);
   if (!publicAppUrl && process.env.NODE_ENV === 'production') {
     console.warn('⚠️ No public app URL configured for keepalive. Localhost self-pings will not prevent host idle spin-down.');
   }
@@ -15526,15 +15527,10 @@ function startKeepAlive() {
     if (selfPingInFlight) return;
     selfPingInFlight = true;
     try {
-      const response = await axios.get(`${selfPingUrl}/api/db/ping`, { timeout: 15000 });
+      const response = await axios.get(`${selfPingUrl}/api/health/light`, { timeout: 15000 });
       const data = response.data;
-      const dbStatus = data.dbReady ? 'connected' : 'disconnected';
-      console.log(`🏓 Keepalive: ok=${data.ok === true}, DB: ${dbStatus} at ${new Date().toISOString()}`);
-
-      if (!data.dbReady) {
-        console.log('🔄 Database disconnected, triggering reconnect...');
-        await checkDatabaseHealth();
-      }
+      const dbStatus = data?.database?.ready ? 'connected' : 'disconnected';
+      console.log(`🏓 Service keepalive ok, DB: ${dbStatus} at ${new Date().toISOString()}`);
     } catch (err) {
       console.log(`🏓 Keepalive ping failed: ${err.message}`);
     } finally {
