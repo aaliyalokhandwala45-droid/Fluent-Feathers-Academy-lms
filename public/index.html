@@ -389,7 +389,7 @@
       }
     });
     // ⚠️ CHANGE THIS PASSWORD TO YOUR OWN SECURE PASSWORD ⚠️
-    const ADMIN_PASSWORD = 'aaliya@190795';  // ← CHANGE THIS!
+    // const ADMIN_PASSWORD = 'aaliya@190795';  // ← REMOVED FOR SECURITY
 
     function showAdminLogin() {
       if (localStorage.getItem(ADMIN_LOGIN_KEY) === '1') {
@@ -406,23 +406,45 @@
       document.getElementById('errorMessage').style.display = 'none';
     }
 
-    function verifyAdminPassword(event) {
+    async function verifyAdminPassword(event) {
       event.preventDefault();
       
       const enteredPassword = document.getElementById('adminPassword').value;
+      const submitBtn = document.querySelector('#adminLoginForm button[type="submit"]');
+      const originalText = submitBtn.textContent;
       
-      if (enteredPassword === ADMIN_PASSWORD) {
-        // Password correct - persist admin login until manual logout
-        localStorage.setItem(ADMIN_LOGIN_KEY, '1');
-        window.location.href = 'admin.html';
-      } else {
-        // Password incorrect - show error
+      // Show loading state
+      submitBtn.textContent = 'Verifying...';
+      submitBtn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ password: enteredPassword })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          // Password correct - persist admin login until manual logout
+          localStorage.setItem(ADMIN_LOGIN_KEY, '1');
+          window.location.href = 'admin.html';
+        } else {
+          // Password incorrect - show error
+          document.getElementById('errorMessage').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        document.getElementById('errorMessage').textContent = 'Network error. Please try again.';
         document.getElementById('errorMessage').style.display = 'block';
-        document.getElementById('adminPassword').value = '';
-        document.getElementById('adminPassword').focus();
+      } finally {
+        // Reset button state
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
       }
-      
-      return false;
     }
 
     // Press Enter to submit

@@ -779,6 +779,25 @@ app.post('/api/admin/register-fcm-token', async (req, res) => {
   }
 });
 
+// Admin login endpoint
+app.post('/api/admin/login', async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required' });
+  }
+  
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  if (password === adminPassword) {
+    // Generate a session token
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    // In a real app, you'd store this in a database with expiration
+    // For now, we'll just return success
+    res.json({ success: true, token: sessionToken });
+  } else {
+    res.status(401).json({ error: 'Invalid password' });
+  }
+});
+
 // Debug endpoint to check recent file uploads and their URLs
 // ==================== ADMIN SETTINGS API ====================
 // Get admin settings (bio, name, title)
@@ -5626,7 +5645,8 @@ app.get('/api/students', async (req, res) => {
         COUNT(DISTINCT m.id) as makeup_credits,
         GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions,
         (SELECT MAX(created_at) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as last_assessment_date,
-        (SELECT COUNT(*) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as total_assessments
+        (SELECT COUNT(*) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as total_assessments,
+        CASE WHEN EXISTS (SELECT 1 FROM parent_fcm_tokens WHERE parent_email = s.parent_email) THEN true ELSE false END as parent_push_enabled
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available'
       WHERE s.is_active = true
