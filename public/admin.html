@@ -9830,6 +9830,8 @@ async function saveEditedPayment() {
     function populateDemoTimezoneSelects() {
       const defaultTz = 'Asia/Kolkata';
       ['demoTimezone', 'editDemoTimezone', 'convertTimezone', 'convertSummerCampTimezone'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = buildTimezoneOptions(defaultTz);
       });
     }
 
@@ -10325,6 +10327,11 @@ async function saveEditedPayment() {
       const lead = allSummerCampLeads.find(l => l.id === leadId);
       if (!lead) return;
 
+      const editTimezoneSelect = document.getElementById('editSummerCampTimezone');
+      if (editTimezoneSelect && (!editTimezoneSelect.options || editTimezoneSelect.options.length === 0)) {
+        editTimezoneSelect.innerHTML = buildTimezoneOptions('Asia/Kolkata');
+      }
+
       document.getElementById('editSummerCampId').value = leadId;
       document.getElementById('editSummerCampChildName').value = lead.child_name || '';
       document.getElementById('editSummerCampChildAge').value = lead.child_grade || '';
@@ -10401,6 +10408,11 @@ async function saveEditedPayment() {
     function openConvertSummerCampModal(leadId) {
       const lead = allSummerCampLeads.find(l => l.id === leadId);
       if (!lead) return;
+
+      const convertTimezoneSelect = document.getElementById('convertSummerCampTimezone');
+      if (convertTimezoneSelect && (!convertTimezoneSelect.options || convertTimezoneSelect.options.length === 0)) {
+        convertTimezoneSelect.innerHTML = buildTimezoneOptions('Asia/Kolkata');
+      }
 
       document.getElementById('convertSummerCampId').value = leadId;
       document.getElementById('convertSummerCampName').textContent = lead.child_name + ' (' + lead.parent_name + ')';
