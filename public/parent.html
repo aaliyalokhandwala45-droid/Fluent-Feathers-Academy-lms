@@ -5515,8 +5515,20 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         });
 
         if (!response.ok) {
+<<<<<<< HEAD
           const error = await response.json();
           alert('Error: ' + (error.message || 'Failed to start quiz'));
+=======
+          let errorMessage = 'Failed to start quiz';
+          try {
+            const error = await response.json();
+            errorMessage = error.message || error.error || errorMessage;
+          } catch (_) {
+            const errorText = await response.text();
+            if (errorText) errorMessage = errorText;
+          }
+          alert('Error: ' + errorMessage);
+>>>>>>> 55cbbec (initial commit)
           return;
         }
 
