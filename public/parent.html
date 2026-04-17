@@ -1706,8 +1706,12 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       }
     }
 
+    function getAdminParentToken() {
+      return sessionStorage.getItem('adminParentToken');
+    }
+
     function authHeaders() {
-      const adminToken = sessionStorage.getItem('adminParentToken');
+      const adminToken = getAdminParentToken();
       return adminToken ? { 'x-admin-token': adminToken } : {};
     }
 
@@ -1876,6 +1880,16 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const adminTokenFromUrl = urlParams.get('adminParentToken');
+      if (adminTokenFromUrl) {
+        sessionStorage.setItem('adminParentToken', adminTokenFromUrl);
+        urlParams.delete('adminParentToken');
+        const nextQuery = urlParams.toString();
+        const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, '', nextUrl);
+      }
+
       // Load app configuration (logo URL)
       await loadConfig();
       // Initialize Firebase messaging for push notifications
@@ -1884,7 +1898,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       setPortalTimezone(getBrowserTimezone());
       renderUpcomingTimezoneLabel();
 
-      if (adminToken) {
+      if (getAdminParentToken()) {
         fetch('/api/parent/admin-view', { headers: authHeaders() })
         .then(res => {
           if (!res.ok) throw new Error('Invalid Token');
