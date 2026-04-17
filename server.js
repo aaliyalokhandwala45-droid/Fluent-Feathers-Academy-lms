@@ -2716,21 +2716,21 @@ async function runMigrations() {
         ['beginner', 'idioms', '"Piece of cake" means something is:', '["Tasty", "Easy", "Hard", "Small"]', 1, 'Piece of cake means easy'],
         ['beginner', 'proverbs', 'A stitch in time saves:', '["money", "time", "effort", "trouble"]', 3, 'A stitch in time saves trouble'],
         ['beginner', 'proverbs', '"Two heads are better than ...":', '["one", "few", "many", "three"]', 0, 'Two heads are better than one'],
-        ['beginner', 'elaboration', 'Which sentence gives more detail?', '["The bird flew.", "The bird soared above the trees, its wings cutting the cool air."]', 1, 'Elaboration adds more descriptive detail'],
-        ['beginner', 'imagery', 'Which description creates a picture in your mind?', '["The sun was hot.", "The sun poured golden light across the field, making the flowers glow."]', 1, 'Imagery uses vivid description to help readers see the scene'],
+        ['beginner', 'elaboration', 'Which sentence gives more detail?', '["The bird flew.", "The bird soared above the trees, its wings cutting the cool air.", "The bird flew quickly.", "The bird went away."]', 1, 'Elaboration adds more descriptive detail'],
+        ['beginner', 'imagery', 'Which description creates a picture in your mind?', '["The sun was hot.", "The sun poured golden light across the field, making the flowers glow.", "The sun was bright.", "The sun made it warm."]', 1, 'Imagery uses vivid description to help readers see the scene'],
 
         // Intermediate Idioms
         ['intermediate', 'idioms', 'What does "hit the books" mean?', '["Study hard", "Do homework", "Close a book", "Go to the library"]', 0, 'Hit the books means to study hard'],
         ['intermediate', 'proverbs', '"Better late than ..." means:', '["never", "early", "late", "soon"]', 2, 'Better late than never means it is better to do something late than not at all'],
-        ['intermediate', 'elaboration', 'Which sentence elaborates a simple idea?', '["He was excited.", "His heart raced and his eyes sparkled as he opened the letter."]', 1, 'Elaboration adds detail to create interest'],
-        ['intermediate', 'imagery', 'Which phrase uses imagery?', '["The river flowed.", "The river wound like a silver ribbon through the valley."]', 1, 'Imagery paints a picture using descriptive language'],
+        ['intermediate', 'elaboration', 'Which sentence elaborates a simple idea?', '["He was excited.", "His heart raced and his eyes sparkled as he opened the letter.", "He was very happy.", "He jumped up and down."]', 1, 'Elaboration adds detail to create interest'],
+        ['intermediate', 'imagery', 'Which phrase uses imagery?', '["The river flowed.", "The river wound like a silver ribbon through the valley.", "The river moved fast.", "The river was deep."]', 1, 'Imagery paints a picture using descriptive language'],
         ['intermediate', 'proverbs', 'What does "actions speak louder than words" mean?', '["Talking is better", "Doing is more important", "Listening is key", "Writing is stronger"]', 1, 'Actions speak louder than words means what you do is more important than what you say'],
 
         // Advanced Idioms / Proverbs / Elaboration / Imagery
         ['advanced', 'idioms', 'If someone says "spill the beans", they want you to:', '["Cook dinner", "Tell a secret", "Clean up", "Plant beans"]', 1, 'Spill the beans means reveal a secret'],
         ['advanced', 'proverbs', '"A watched pot never boils" means:', '["Being impatient makes time feel slow", "The pot stays cold", "Boiling is faster", "Watching helps"]', 0, 'The proverb means waiting makes time feel longer'],
-        ['advanced', 'elaboration', 'Which sentence is most elaborated?', '["She was nervous.", "She pressed her palms together, took a deep breath, and felt her stomach flutter with nervous energy."]', 1, 'Elaboration adds texture and detail to the narrative'],
-        ['advanced', 'imagery', 'Choose the sentence with the strongest imagery.', '["The garden was nice.", "The garden shimmered with dew, roses blushing under the morning sun."]', 1, 'Imagery uses language that appeals to the senses'],
+        ['advanced', 'elaboration', 'Which sentence is most elaborated?', '["She was nervous.", "She pressed her palms together, took a deep breath, and felt her stomach flutter with nervous energy.", "She was scared.", "She felt worried."]', 1, 'Elaboration adds texture and detail to the narrative'],
+        ['advanced', 'imagery', 'Choose the sentence with the strongest imagery.', '["The garden was nice.", "The garden shimmered with dew, roses blushing under the morning sun.", "The garden looked pretty.", "The garden had flowers."]', 1, 'Imagery uses language that appeals to the senses'],
         ['advanced', 'proverbs', '"The pen is mightier than the sword" means:', '["Writing is smarter than fighting", "Pens are heavy", "Swords are dangerous", "Books are weapons"]', 0, 'This proverb means words and ideas can have more power than force'],
 
         // Intermediate Grammar
@@ -2744,8 +2744,8 @@ async function runMigrations() {
         ['intermediate', 'vocabulary', 'What is the opposite of "generous"?', '["Kind", "Stingy", "Friendly", "Honest"]', 1, 'Stingy means not generous'],
 
         // Intermediate Elaboration & Imagery
-        ['intermediate', 'elaboration', 'Which sentence explains the idea more clearly?', '["The dog barked.", "The dog barked loudly at the stranger by the gate."]', 1, 'Elaboration adds clarity and detail'],
-        ['intermediate', 'imagery', 'Which sentence creates a striking image?', '["The forest was quiet.", "The forest hung heavy with mist and the trees whispered secrets."]', 1, 'Imagery makes scenes vivid'],
+        ['intermediate', 'elaboration', 'Which sentence explains the idea more clearly?', '["The dog barked.", "The dog barked loudly at the stranger by the gate.", "The dog made noise.", "The dog was loud."]', 1, 'Elaboration adds clarity and detail'],
+        ['intermediate', 'imagery', 'Which sentence creates a striking image?', '["The forest was quiet.", "The forest hung heavy with mist and the trees whispered secrets.", "The forest was silent.", "The forest had trees."]', 1, 'Imagery makes scenes vivid'],
 
         // Advanced Grammar
         ['advanced', 'grammar', 'Had I known about the party, I ___ .', '["would come", "would have come", "came", "come"]', 1, 'Third conditional for past hypothetical'],
@@ -2758,8 +2758,8 @@ async function runMigrations() {
         ['advanced', 'vocabulary', 'What is a "quintessential" example?', '["Perfect", "Typical", "Strange", "Modern"]', 0, 'Quintessential means perfect example of a type'],
 
         // Advanced Elaborations & Imagery
-        ['advanced', 'elaboration', 'Which sentence is the best elaboration?', '["The room smelled bad.", "The room smelled of stale bread, damp wood, and old paper."]', 1, 'Elaboration adds rich sensory detail'],
-        ['advanced', 'imagery', 'Choose the sentence with the strongest imagery.', '["The sky was blue.", "The sky was a sapphire bowl dotted with a million sparkling stars."]', 1, 'Imagery enhances writing with vivid sensory language'],
+        ['advanced', 'elaboration', 'Which sentence is the best elaboration?', '["The room smelled bad.", "The room smelled of stale bread, damp wood, and old paper.", "The room had a bad smell.", "The room was stinky."]', 1, 'Elaboration adds rich sensory detail'],
+        ['advanced', 'imagery', 'Choose the sentence with the strongest imagery.', '["The sky was blue.", "The sky was a sapphire bowl dotted with a million sparkling stars.", "The sky looked nice.", "The sky was pretty."]', 1, 'Imagery enhances writing with vivid sensory language'],
         ['advanced', 'idioms', 'What does "jump on the bandwagon" mean?', '["Start a fight", "Follow a trend", "Build a wagon", "Avoid trouble"]', 1, 'Jump on the bandwagon means join others in doing something popular'],
         ['advanced', 'proverbs', '"You can lead a horse to water, but ..."', '["you cannot make it swim", "you cannot make it drink", "you can make it stand", "you can make it jump"]', 1, 'This proverb means you can offer help but not force someone'],
 
@@ -2771,8 +2771,8 @@ async function runMigrations() {
         // Advanced Usage
         ['advanced', 'idioms', 'If someone says "spill the beans", they want you to:', '["Cook dinner", "Tell a secret", "Clean up", "Plant beans"]', 1, 'Spill the beans means reveal a secret'],
         ['advanced', 'proverbs', '"A watched pot never boils" means:', '["Being impatient makes time feel slow", "The pot stays cold", "Boiling is faster", "Watching helps"]', 0, 'The proverb means waiting makes time feel longer'],
-        ['advanced', 'imagery', 'Choose the sentence with the strongest imagery.', '["The sky was blue.", "The sky was a sapphire bowl dotted with a million sparkling stars."]', 1, 'Imagery enhances writing with vivid sensory language'],
-        ['advanced', 'elaboration', 'Which sentence is the most elaborated?', '["She was nervous.", "She pressed her palms together, took a deep breath, and felt her stomach flutter with nervous energy."]', 1, 'Elaboration adds rich sensory detail']
+        ['advanced', 'imagery', 'Choose the sentence with the strongest imagery.', '["The sky was blue.", "The sky was a sapphire bowl dotted with a million sparkling stars.", "The sky looked nice.", "The sky was pretty."]', 1, 'Imagery enhances writing with vivid sensory language'],
+        ['advanced', 'elaboration', 'Which sentence is the most elaborated?', '["She was nervous.", "She pressed her palms together, took a deep breath, and felt her stomach flutter with nervous energy.", "She was scared.", "She felt worried."]', 1, 'Elaboration adds rich sensory detail']
       ];
 
       for (const [level, category, question, options, correct_answer, explanation] of sampleQuestions) {
@@ -6676,6 +6676,20 @@ const DAILY_QUIZ_DURATION_SECONDS = 5 * 60;
 const DAILY_QUIZ_BADGE_TYPE = 'daily_quiz_champion';
 const DAILY_QUIZ_BADGE_NAME = '🏆 Quiz Champion';
 const DAILY_QUIZ_BADGE_DESCRIPTION = 'Scored 10/10 in the daily quiz!';
+
+function getAuthenticatedQuizStudentId(req) {
+  const directStudentId = Number(req.studentId || req.adminStudentId);
+  if (Number.isInteger(directStudentId) && directStudentId > 0) {
+    return directStudentId;
+  }
+
+  const headerStudentId = Number(req.headers['x-student-id']);
+  if (Number.isInteger(headerStudentId) && headerStudentId > 0) {
+    return headerStudentId;
+  }
+
+  return null;
+}
 
 function getQuizLevelColumn(level) {
   if (level === 'intermediate') return 'intermediate_questions';
@@ -14569,7 +14583,7 @@ app.delete('/api/challenges/:id', async (req, res) => {
 // Get quiz status for current student
 app.get('/api/daily-quiz/status', async (req, res) => {
   try {
-    const studentId = req.studentId;
+    const studentId = getAuthenticatedQuizStudentId(req);
     if (!studentId) {
       return res.status(401).json({ error: 'Student authentication required' });
     }
@@ -14625,7 +14639,7 @@ app.get('/api/daily-quiz/status', async (req, res) => {
 // Start daily quiz for current student
 app.post('/api/daily-quiz/start', async (req, res) => {
   try {
-    const studentId = req.studentId;
+    const studentId = getAuthenticatedQuizStudentId(req);
     if (!studentId) {
       return res.status(401).json({ error: 'Student authentication required' });
     }
@@ -14688,7 +14702,7 @@ app.post('/api/daily-quiz/start', async (req, res) => {
 app.post('/api/daily-quiz/submit', async (req, res) => {
   try {
     const { answers, timeSpent, quizToken } = req.body;
-    const studentId = req.studentId;
+    const studentId = getAuthenticatedQuizStudentId(req);
 
     if (!studentId) {
       return res.status(401).json({ error: 'Student authentication required' });
@@ -14809,7 +14823,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
 // Get student's quiz history
 app.get('/api/daily-quiz/history', async (req, res) => {
   try {
-    const studentId = req.studentId;
+    const studentId = getAuthenticatedQuizStudentId(req);
     if (!studentId) {
       return res.status(401).json({ error: 'Student authentication required' });
     }
