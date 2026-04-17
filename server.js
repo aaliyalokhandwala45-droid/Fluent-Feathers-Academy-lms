@@ -2766,7 +2766,6 @@ async function runMigrations() {
         // Pronunciation
         ['beginner', 'pronunciation', 'How do you pronounce "th" in "think"?', '["Like t", "Like z", "Like s", "Like f"]', 0, 'Voiceless "th" sound'],
         ['intermediate', 'pronunciation', 'Which word has the same vowel sound as "boat"?', '["Cat", "Cow", "Car", "Cut"]', 1, 'Cow has the /ou/ diphthong'],
-<<<<<<< HEAD
         ['advanced', 'pronunciation', 'How is "colonel" typically pronounced?', '["KER-nel", "kol-o-NEL", "KUH-nel", "kol-NEL"]', 1, 'Colonel is pronounced kol-o-NEL'],
 
         // Advanced Usage
@@ -2774,9 +2773,6 @@ async function runMigrations() {
         ['advanced', 'proverbs', '"A watched pot never boils" means:', '["Being impatient makes time feel slow", "The pot stays cold", "Boiling is faster", "Watching helps"]', 0, 'The proverb means waiting makes time feel longer'],
         ['advanced', 'imagery', 'Choose the sentence with the strongest imagery.', '["The sky was blue.", "The sky was a sapphire bowl dotted with a million sparkling stars."]', 1, 'Imagery enhances writing with vivid sensory language'],
         ['advanced', 'elaboration', 'Which sentence is the most elaborated?', '["She was nervous.", "She pressed her palms together, took a deep breath, and felt her stomach flutter with nervous energy."]', 1, 'Elaboration adds rich sensory detail']
-=======
-        ['advanced', 'pronunciation', 'How is "colonel" typically pronounced?', '["KER-nel", "kol-o-NEL", "KUH-nel", "kol-NEL"]', 1, 'Colonel is pronounced kol-o-NEL']
->>>>>>> 55cbbec (initial commit)
       ];
 
       for (const [level, category, question, options, correct_answer, explanation] of sampleQuestions) {
@@ -2869,8 +2865,6 @@ async function runMigrations() {
       console.log('Migration 50 note:', err.message);
     }
 
-<<<<<<< HEAD
-=======
     // Migration 51: Hide duplicate quiz questions with identical content
     try {
       const dedupeResult = await client.query(`
@@ -2898,7 +2892,6 @@ async function runMigrations() {
       console.log('Migration 51 note:', err.message);
     }
 
->>>>>>> 55cbbec (initial commit)
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -6695,10 +6688,6 @@ function normalizeQuizQuestion(question) {
   const options = Array.isArray(question.options) ? question.options : [];
   const id = Number(question.id ?? question.question_id);
   const category = String(question.category || '').toLowerCase();
-<<<<<<< HEAD
-
-  if (!Number.isInteger(id) || options.length !== 4 || category === 'phonics') {
-=======
   const correctAnswer = Number(question.correct_answer);
 
   if (
@@ -6708,7 +6697,6 @@ function normalizeQuizQuestion(question) {
     category === 'phonics' ||
     (Number.isInteger(correctAnswer) && (correctAnswer < 0 || correctAnswer >= options.length))
   ) {
->>>>>>> 55cbbec (initial commit)
     return null;
   }
 
@@ -14850,9 +14838,6 @@ app.get('/api/daily-quiz/history', async (req, res) => {
 app.get('/api/admin/quiz-questions', async (req, res) => {
   try {
     const { level, category } = req.query;
-<<<<<<< HEAD
-    let query = "SELECT * FROM quiz_questions WHERE is_active = true AND category != 'phonics'";
-=======
     let query = `
       SELECT DISTINCT ON (
         level,
@@ -14865,7 +14850,6 @@ app.get('/api/admin/quiz-questions', async (req, res) => {
       FROM quiz_questions
       WHERE is_active = true AND category != 'phonics'
     `;
->>>>>>> 55cbbec (initial commit)
     const params = [];
     let paramIndex = 1;
 
@@ -14881,12 +14865,6 @@ app.get('/api/admin/quiz-questions', async (req, res) => {
       paramIndex++;
     }
 
-<<<<<<< HEAD
-    query += ' ORDER BY created_at DESC';
-
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-=======
     query += `
       ORDER BY
         level,
@@ -14900,7 +14878,6 @@ app.get('/api/admin/quiz-questions', async (req, res) => {
 
     const result = await pool.query(query, params);
     res.json(result.rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
->>>>>>> 55cbbec (initial commit)
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -14927,8 +14904,6 @@ app.post('/api/admin/quiz-questions', async (req, res) => {
       return res.status(400).json({ error: 'Correct answer must be 0-3' });
     }
 
-<<<<<<< HEAD
-=======
     const existing = await pool.query(`
       SELECT id
       FROM quiz_questions
@@ -14946,7 +14921,6 @@ app.post('/api/admin/quiz-questions', async (req, res) => {
       return res.status(409).json({ error: 'duplicate', message: 'This quiz question already exists.' });
     }
 
->>>>>>> 55cbbec (initial commit)
     const result = await pool.query(`
       INSERT INTO quiz_questions (level, category, question_text, options, correct_answer, explanation, audio_url, image_url)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
