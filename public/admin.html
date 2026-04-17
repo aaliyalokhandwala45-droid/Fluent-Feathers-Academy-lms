@@ -13412,9 +13412,14 @@ async function saveEditedPayment() {
         const data = await res.json();
 
         if (res.ok && data.token) {
-          // Store the admin token and open parent portal
-          sessionStorage.setItem('adminParentToken', data.token);
-          window.open('parent.html', '_blank');
+          // sessionStorage is tab-scoped, so write the token into the new tab before navigation
+          const learnerWindow = window.open('', '_blank');
+          if (!learnerWindow) {
+            alert('Popup blocked. Please allow popups and try again.');
+            return;
+          }
+          learnerWindow.sessionStorage.setItem('adminParentToken', data.token);
+          learnerWindow.location.href = 'parent.html';
           closeSwitchToLearnerModal();
         } else {
           alert('Failed to generate access token');
