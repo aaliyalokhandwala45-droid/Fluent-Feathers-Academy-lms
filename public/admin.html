@@ -1605,6 +1605,40 @@
           <button onclick="generateTodayQuiz()" class="btn" style="background: white; color: #667eea; font-weight: bold;">⚡ Generate Quiz</button>
         </div>
 
+        <div style="display: grid; gap: 20px; margin-bottom: 25px;">
+          <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+              <div>
+                <h3 style="margin:0 0 8px;">📘 Today's Quiz Attempts</h3>
+                <p style="margin:0; color:#718096;">View which students attempted today and their scores.</p>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <label style="font-weight:700; color:#4a5568;">Date</label>
+                <input id="quizAttemptsDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadQuizAttempts(this.value)">
+              </div>
+            </div>
+            <div id="quizAttemptsList" style="display:grid; gap:12px;">
+              <p style="color:#718096; text-align:center; padding:20px;">Loading attempts...</p>
+            </div>
+          </div>
+
+          <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+              <div>
+                <h3 style="margin:0 0 8px;">📋 Daily Question Usage</h3>
+                <p style="margin:0; color:#718096;">Track the questions that were used for each level each day.</p>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <label style="font-weight:700; color:#4a5568;">Date</label>
+                <input id="quizUsageDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadDailyQuizUsage(this.value)">
+              </div>
+            </div>
+            <div id="quizUsageList" style="display:grid; gap:20px;">
+              <p style="color:#718096; text-align:center; padding:20px;">Loading daily question usage...</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Add Question Form -->
         <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px;">
           <h3 style="color: white; margin-bottom: 20px;">➕ Add New Question</h3>
@@ -4701,6 +4735,10 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
+      if (tabName === 'quiz') {
+        loadQuizQuestions();
+        refreshQuizAdminData();
+      }
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
@@ -14726,6 +14764,85 @@ async function loadQuizStats() {
   } catch (error) {
     console.error('Error loading quiz stats:', error);
   }
+}
+
+// Load quiz attempt records for admin
+async function loadQuizAttempts(date) {
+  try {
+    const selectedDate = date || document.getElementById('quizAttemptsDate').value || new Date().toISOString().split('T')[0];
+    document.getElementById('quizAttemptsDate').value = selectedDate;
+
+    const response = await fetch(`/api/admin/quiz-attempts?date=${selectedDate}`);
+    const attempts = await response.json();
+
+    const container = document.getElementById('quizAttemptsList');
+    if (!Array.isArray(attempts) || attempts.length === 0) {
+      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No quiz attempts found for this date.</p>';
+      return;
+    }
+
+    container.innerHTML = attempts.map(attempt => {
+      const time = new Date(attempt.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const scorePercent = Math.round((attempt.score / 10) * 100);
+      return `
+        <div style="background:#f7fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;">
+          <div>
+            <div style="font-weight:700;color:#2d3748;">${attempt.student_name}</div>
+            <div style="color:#718096;font-size:0.95rem;">Level: ${attempt.level} · Score: ${attempt.score}/10 (${scorePercent}%)</div>
+            <div style="color:#4a5568;font-size:0.85rem;">Points: +${attempt.points_awarded} · Time: ${Math.floor(attempt.time_spent/60)}:${String(attempt.time_spent % 60).padStart(2,'0')}</div>
+          </div>
+          <div style="text-align:right;color:#718096;font-size:0.9rem;">${time}</div>
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading quiz attempts:', error);
+    document.getElementById('quizAttemptsList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading quiz attempts.</p>';
+  }
+}
+
+// Load daily quiz question usage for admin
+async function loadDailyQuizUsage(date) {
+  try {
+    const selectedDate = date || document.getElementById('quizUsageDate').value || new Date().toISOString().split('T')[0];
+    document.getElementById('quizUsageDate').value = selectedDate;
+
+    const response = await fetch(`/api/admin/daily-quiz-usage?date=${selectedDate}`);
+    const usage = await response.json();
+
+    const container = document.getElementById('quizUsageList');
+    const levels = ['beginner', 'intermediate', 'advanced'];
+
+    if (!usage || (!usage.beginner_questions?.length && !usage.intermediate_questions?.length && !usage.advanced_questions?.length)) {
+      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No quiz data available for this date.</p>';
+      return;
+    }
+
+    container.innerHTML = levels.map(level => {
+      const questions = usage[`${level}_questions`] || [];
+      return `
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;">
+          <h4 style="margin:0 0 12px;color:#2d3748;text-transform:capitalize;">${level} questions (${questions.length})</h4>
+          ${questions.length === 0 ? '<p style="color:#718096;margin:0;">No questions selected for this level.</p>' : questions.map(q => `
+            <div style="margin-bottom:12px; padding:12px; border-radius:12px; background:#f7fafc;">
+              <div style="font-weight:700;color:#2d3748;">Q${q.id}: ${q.question_text}</div>
+              <div style="color:#4a5568;font-size:0.9rem;">Category: ${q.category || 'N/A'}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading quiz usage:', error);
+    document.getElementById('quizUsageList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading quiz usage.</p>';
+  }
+}
+
+// helper for admin quiz tab refreshing
+function refreshQuizAdminData() {
+  loadQuizStats();
+  loadQuizAttempts();
+  loadDailyQuizUsage();
 }
 
 // Generate today's quiz

@@ -6599,8 +6599,8 @@ console.log('✅ Demo lead follow-up system initialized - checking every hour');
 
 // ==================== DAILY QUIZ SYSTEM ====================
 
-// Generate daily quiz at midnight
-cron.schedule('0 0 * * *', async () => {
+// Generate daily quiz every day at 05:30 UTC
+cron.schedule('30 5 * * *', async () => {
   try {
     console.log('🎯 Generating daily quiz...');
     await generateDailyQuiz();
@@ -6608,6 +6608,8 @@ cron.schedule('0 0 * * *', async () => {
   } catch (err) {
     console.error('❌ Error generating daily quiz:', err);
   }
+}, {
+  timezone: 'UTC'
 });
 
 // Function to generate daily quiz
@@ -14636,33 +14638,34 @@ app.get('/api/daily-quiz/status', async (req, res) => {
       return res.status(401).json({ error: 'Student authentication required' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-
-    // Check if student already attempted today
-    const attemptResult = await pool.query(
+    const attempts = await pool.query(
       `
         SELECT
           score,
           10 AS total_questions,
           points_awarded AS points_earned,
           completed_at AS created_at,
-          time_taken_seconds AS time_spent
+          time_taken_seconds AS time_spent,
+          level
         FROM quiz_attempts
-        WHERE student_id = $1 AND quiz_date = $2
+        WHERE student_id = $1
         ORDER BY completed_at DESC
         LIMIT 1
       `,
-      [studentId, today]
+      [studentId]
     );
 
-    const lastAttempt = attemptResult.rows[0];
-    const canTakeQuiz = !lastAttempt;
-
-    // Calculate next quiz time (24 hours after last attempt)
+    const lastAttempt = attempts.rows[0];
+    let canTakeQuiz = true;
     let nextQuizTime = null;
+
     if (lastAttempt) {
       const lastAttemptTime = new Date(lastAttempt.created_at);
-      nextQuizTime = new Date(lastAttemptTime.getTime() + 24 * 60 * 60 * 1000);
+      const nextAllowedTime = new Date(lastAttemptTime.getTime() + 24 * 60 * 60 * 1000);
+      if (Date.now() < nextAllowedTime.getTime()) {
+        canTakeQuiz = false;
+        nextQuizTime = nextAllowedTime;
+      }
     }
 
     res.json({
@@ -14673,10 +14676,12 @@ app.get('/api/daily-quiz/status', async (req, res) => {
         points_earned: lastAttempt.points_earned,
         created_at: lastAttempt.created_at,
         time_spent: lastAttempt.time_spent,
+        level: lastAttempt.level,
         perfect_score: Number(lastAttempt.score) === DAILY_QUIZ_QUESTION_COUNT
       } : null,
       nextQuizTime: nextQuizTime ? nextQuizTime.toISOString() : null,
-      maxDurationSeconds: DAILY_QUIZ_DURATION_SECONDS
+      maxDurationSeconds: DAILY_QUIZ_DURATION_SECONDS,
+      availableLevels: ['beginner', 'intermediate', 'advanced']
     });
   } catch (err) {
     console.error('Quiz status error:', err);
@@ -14692,19 +14697,26 @@ app.post('/api/daily-quiz/start', async (req, res) => {
       return res.status(401).json({ error: 'Student authentication required' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-
-    // Check if student already attempted today
-    const attemptResult = await pool.query(
-      'SELECT id FROM quiz_attempts WHERE student_id = $1 AND quiz_date = $2',
-      [studentId, today]
-    );
-
-    if (attemptResult.rows.length > 0) {
-      return res.status(409).json({ error: 'You have already attempted today\'s quiz' });
+    const requestedLevel = req.body?.level ? String(req.body.level).trim().toLowerCase() : null;
+    const allowedLevels = ['beginner', 'intermediate', 'advanced'];
+    if (requestedLevel && !allowedLevels.includes(requestedLevel)) {
+      return res.status(400).json({ error: 'Invalid quiz level selected' });
     }
 
-    // Derive quiz level from fields that exist in the current students schema.
+    const lastAttemptResult = await pool.query(
+      `SELECT completed_at FROM quiz_attempts WHERE student_id = $1 ORDER BY completed_at DESC LIMIT 1`,
+      [studentId]
+    );
+
+    if (lastAttemptResult.rows.length > 0) {
+      const lastAttemptTime = new Date(lastAttemptResult.rows[0].completed_at);
+      if (Date.now() < lastAttemptTime.getTime() + 24 * 60 * 60 * 1000) {
+        return res.status(409).json({ error: 'You can only take one daily quiz every 24 hours' });
+      }
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
     const studentResult = await pool.query(
       'SELECT id, grade, program_name FROM students WHERE id = $1',
       [studentId]
@@ -14713,11 +14725,12 @@ app.post('/api/daily-quiz/start', async (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
     const studentLevel = inferStudentQuizLevel(studentResult.rows[0]);
+    const quizLevel = requestedLevel || studentLevel;
 
-    let questions = await getPreparedDailyQuizQuestions(today, studentLevel);
+    let questions = await getPreparedDailyQuizQuestions(today, quizLevel);
     if (questions.length === 0) {
       await generateDailyQuiz();
-      questions = await getPreparedDailyQuizQuestions(today, studentLevel);
+      questions = await getPreparedDailyQuizQuestions(today, quizLevel);
     }
 
     if (questions.length < DAILY_QUIZ_QUESTION_COUNT) {
@@ -14728,14 +14741,14 @@ app.post('/api/daily-quiz/start', async (req, res) => {
     const quizToken = createDailyQuizToken(
       studentId,
       today,
-      studentLevel,
+      quizLevel,
       questions.map(q => q.id),
       startedAtMs
     );
 
     res.json({
       quiz_date: today,
-      level: studentLevel,
+      level: quizLevel,
       started_at: new Date(startedAtMs).toISOString(),
       max_duration_seconds: DAILY_QUIZ_DURATION_SECONDS,
       quiz_token: quizToken,
@@ -14885,7 +14898,8 @@ app.get('/api/daily-quiz/history', async (req, res) => {
         10 AS total_questions,
         points_awarded AS points_earned,
         time_taken_seconds AS time_spent,
-        completed_at AS created_at
+        completed_at AS created_at,
+        level
       FROM quiz_attempts
       WHERE student_id = $1
       ORDER BY completed_at DESC
@@ -15074,6 +15088,58 @@ app.get('/api/admin/quiz-stats/total-questions', async (req, res) => {
   try {
     const result = await pool.query('SELECT COUNT(*) as count FROM quiz_questions WHERE is_active = true');
     res.json({ count: parseInt(result.rows[0].count) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Get quiz attempts by date
+app.get('/api/admin/quiz-attempts', async (req, res) => {
+  try {
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    const result = await pool.query(`
+      SELECT
+        qa.id,
+        qa.student_id,
+        COALESCE(s.name, 'Unknown student') AS student_name,
+        qa.level,
+        qa.score,
+        qa.points_awarded,
+        qa.time_taken_seconds AS time_spent,
+        qa.completed_at
+      FROM quiz_attempts qa
+      LEFT JOIN students s ON s.id = qa.student_id
+      WHERE qa.quiz_date = $1
+      ORDER BY qa.completed_at DESC
+    `, [date]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Get daily quiz question usage by date
+app.get('/api/admin/daily-quiz-usage', async (req, res) => {
+  try {
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    const result = await pool.query(
+      'SELECT quiz_date, beginner_questions, intermediate_questions, advanced_questions FROM daily_quizzes WHERE quiz_date = $1 LIMIT 1',
+      [date]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ quiz_date: date, beginner_questions: [], intermediate_questions: [], advanced_questions: [] });
+    }
+
+    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

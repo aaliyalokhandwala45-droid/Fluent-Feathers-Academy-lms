@@ -1190,7 +1190,15 @@
           <div id="startQuizContainer" style="text-align: center; padding: 40px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 16px; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);">
               <h3 style="margin-bottom: 15px;">🚀 Ready for Today's Quiz?</h3>
-              <p style="margin-bottom: 25px; opacity: 0.9;">10 questions • Multiple choice • Earn points for correct answers</p>
+              <p style="margin-bottom: 20px; opacity: 0.9;">Choose your level and start one quiz within 24 hours.</p>
+              <div style="margin: 0 auto 20px; max-width: 320px; text-align: left;">
+                <label for="dailyQuizLevelSelect" style="display:block; font-weight:700; margin-bottom:8px;">Choose your quiz level</label>
+                <select id="dailyQuizLevelSelect" style="width:100%; padding:12px; border-radius:12px; border:none; font-size:1rem;">
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
               <button id="startQuizBtn" onclick="startQuiz()" class="btn" style="background: white; color: #667eea; font-size: 1.1rem; padding: 12px 30px; font-weight: bold;">🎯 Start Quiz</button>
               <p id="quizCooldown" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8; display: none;"></p>
             </div>
@@ -5534,9 +5542,11 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     // Start the daily quiz
     async function startQuiz() {
       try {
+        const selectedLevel = document.getElementById('dailyQuizLevelSelect')?.value || 'beginner';
         const response = await fetch('/api/daily-quiz/start', {
           method: 'POST',
-          headers: studentAuthHeaders()
+          headers: studentAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ level: selectedLevel })
         });
 
         if (!response.ok) {
@@ -5729,15 +5739,16 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
           return `
             <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div>
-                  <strong>${date}</strong> - Score: ${attempt.score}/${attempt.total_questions} (${percentage}%)
+                  <strong>${date}</strong> - Level: ${attempt.level || 'N/A'}
                 </div>
                 <div style="text-align: right;">
                   <div style="color: #38a169; font-weight: bold;">+${attempt.points_earned} points</div>
                   <div style="color: #718096; font-size: 0.8rem;">${timeSpent} time</div>
                 </div>
               </div>
+              <div style="color:#4a5568;">Score: ${attempt.score}/${attempt.total_questions} (${percentage}%)</div>
             </div>
           `;
         }).join('');
