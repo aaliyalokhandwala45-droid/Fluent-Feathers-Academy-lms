@@ -6697,6 +6697,26 @@ function getQuizLevelColumn(level) {
   return 'beginner_questions';
 }
 
+function normalizeStudentQuizLevel(value) {
+  const level = String(value || '').trim().toLowerCase();
+  if (level === 'advanced' || level === 'intermediate' || level === 'beginner') {
+    return level;
+  }
+  return 'beginner';
+}
+
+function inferStudentQuizLevel(student) {
+  if (!student || typeof student !== 'object') return 'beginner';
+
+  const explicit = normalizeStudentQuizLevel(student.level);
+  if (student.level && explicit !== 'beginner') return explicit;
+
+  const sourceText = `${student.program_name || ''} ${student.grade || ''}`.toLowerCase();
+  if (sourceText.includes('advanced')) return 'advanced';
+  if (sourceText.includes('intermediate')) return 'intermediate';
+  return 'beginner';
+}
+
 function normalizeQuizQuestion(question) {
   if (!question || typeof question !== 'object') return null;
   const options = Array.isArray(question.options) ? question.options : [];
@@ -14684,9 +14704,15 @@ app.post('/api/daily-quiz/start', async (req, res) => {
       return res.status(409).json({ error: 'You have already attempted today\'s quiz' });
     }
 
-    // Get student level (default to beginner if not set)
-    const studentResult = await pool.query('SELECT level FROM students WHERE id = $1', [studentId]);
-    const studentLevel = studentResult.rows[0]?.level || 'beginner';
+    // Derive quiz level from fields that exist in the current students schema.
+    const studentResult = await pool.query(
+      'SELECT id, grade, program_name FROM students WHERE id = $1',
+      [studentId]
+    );
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    const studentLevel = inferStudentQuizLevel(studentResult.rows[0]);
 
     let questions = await getPreparedDailyQuizQuestions(today, studentLevel);
     if (questions.length === 0) {
@@ -14814,9 +14840,6 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       pointsEarned,
       elapsedSeconds
     ]);
-
-    // Update student points
-    await pool.query('UPDATE students SET points = points + $1 WHERE id = $2', [pointsEarned, studentId]);
 
     let badgeAwarded = false;
     if (perfectScore) {
