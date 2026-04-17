@@ -10998,6 +10998,34 @@ app.post('/api/parent/cancel-class', async (req, res) => {
       }
     }
 
+    try {
+      const adminTimezone = student?.parent_timezone || student?.timezone || 'Asia/Kolkata';
+      const localTime = formatUTCToLocal(session.session_date, session.session_time, adminTimezone);
+      const sessionType = session.session_type || (isGroup ? 'Group' : 'Private');
+      const reason = req.body.reason || 'Parent cancelled';
+
+      await sendAdminPushNotification(
+        `Parent Cancelled Class - ${student?.name || 'Student'}`,
+        `${student?.parent_name || 'A parent'} cancelled ${student?.name || 'a student'}'s ${sessionType} class on ${localTime.date} at ${localTime.time}. Reason: ${reason}. Makeup credit added.`,
+        {
+          type: 'parent_class_cancelled',
+          sessionId: String(session.id),
+          studentId: student?.id ? String(student.id) : String(id),
+          studentName: student?.name || 'Student',
+          parentName: student?.parent_name || 'Parent',
+          sessionType,
+          sessionDate: String(session.session_date || ''),
+          sessionTime: String(session.session_time || ''),
+          isGroup: isGroup ? 'true' : 'false',
+          reason,
+          makeupCreditGranted: 'true',
+          url: `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/admin.html`
+        }
+      );
+    } catch (pushErr) {
+      console.error('Failed to send parent cancellation admin push:', pushErr);
+    }
+
     res.json({ message: 'Class cancelled! Makeup credit added.' });
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (_) {}
