@@ -2721,7 +2721,7 @@ async function runMigrations() {
 
         // Intermediate Idioms
         ['intermediate', 'idioms', 'What does "hit the books" mean?', '["Study hard", "Do homework", "Close a book", "Go to the library"]', 0, 'Hit the books means to study hard'],
-        ['intermediate', 'proverbs', '"Better late than ..." means:', '["never", "early", "late", "soon"]', 2, 'Better late than never means it is better to do something late than not at all'],
+        ['intermediate', 'proverbs', '"Better late than ..." means:', '["never", "early", "late", "soon"]', 0, 'Better late than never means it is better to do something late than not at all'],
         ['intermediate', 'elaboration', 'Which sentence elaborates a simple idea?', '["He was excited.", "His heart raced and his eyes sparkled as he opened the letter.", "He was very happy.", "He jumped up and down."]', 1, 'Elaboration adds detail to create interest'],
         ['intermediate', 'imagery', 'Which phrase uses imagery?', '["The river flowed.", "The river wound like a silver ribbon through the valley.", "The river moved fast.", "The river was deep."]', 1, 'Imagery paints a picture using descriptive language'],
         ['intermediate', 'proverbs', 'What does "actions speak louder than words" mean?', '["Talking is better", "Doing is more important", "Listening is key", "Writing is stronger"]', 1, 'Actions speak louder than words means what you do is more important than what you say'],
@@ -2766,7 +2766,7 @@ async function runMigrations() {
         // Pronunciation
         ['beginner', 'pronunciation', 'How do you pronounce "th" in "think"?', '["Like t", "Like z", "Like s", "Like f"]', 0, 'Voiceless "th" sound'],
         ['intermediate', 'pronunciation', 'Which word has the same vowel sound as "boat"?', '["Cat", "Cow", "Car", "Cut"]', 1, 'Cow has the /ou/ diphthong'],
-        ['advanced', 'pronunciation', 'How is "colonel" typically pronounced?', '["KER-nel", "kol-o-NEL", "KUH-nel", "kol-NEL"]', 1, 'Colonel is pronounced kol-o-NEL'],
+        ['advanced', 'pronunciation', 'How is "colonel" typically pronounced in American English?', '["KER-nel", "kol-o-NEL", "KUH-nel", "kol-NEL"]', 0, 'Colonel is pronounced KER-nel in American English'],
 
         // Advanced Usage
         ['advanced', 'idioms', 'If someone says "spill the beans", they want you to:', '["Cook dinner", "Tell a secret", "Clean up", "Plant beans"]', 1, 'Spill the beans means reveal a secret'],
@@ -2890,6 +2890,36 @@ async function runMigrations() {
       }
     } catch (err) {
       console.log('Migration 51 note:', err.message);
+    }
+
+    // Migration 52: Validate and fix quiz questions with incorrect number of options
+    try {
+      // Find questions that don't have exactly 4 options
+      const invalidQuestions = await client.query(`
+        SELECT id, question_text, options, jsonb_array_length(options) as option_count
+        FROM quiz_questions
+        WHERE is_active = true AND jsonb_array_length(options) != 4
+      `);
+
+      if (invalidQuestions.rows.length > 0) {
+        console.log(`Found ${invalidQuestions.rows.length} questions with incorrect number of options:`);
+        for (const q of invalidQuestions.rows) {
+          console.log(`- ID ${q.id}: "${q.question_text}" has ${q.option_count} options`);
+        }
+
+        // Deactivate questions with wrong number of options
+        await client.query(`
+          UPDATE quiz_questions
+          SET is_active = false, updated_at = CURRENT_TIMESTAMP
+          WHERE is_active = true AND jsonb_array_length(options) != 4
+        `);
+
+        console.log(`✅ Migration 52: Deactivated ${invalidQuestions.rows.length} quiz questions with incorrect number of options`);
+      } else {
+        console.log('✅ Migration 52: All active quiz questions have exactly 4 options');
+      }
+    } catch (err) {
+      console.log('Migration 52 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -15016,6 +15046,22 @@ app.post('/api/admin/quiz-questions', async (req, res) => {
 app.put('/api/admin/quiz-questions/:id', async (req, res) => {
   try {
     const { level, category, question_text, options, correct_answer, explanation, audio_url, image_url, is_active } = req.body;
+
+    if (level && !['beginner', 'intermediate', 'advanced'].includes(level)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+
+    if (category && !['grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery'].includes(category)) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+
+    if (options && (!Array.isArray(options) || options.length !== 4)) {
+      return res.status(400).json({ error: 'Must provide exactly 4 options' });
+    }
+
+    if (correct_answer !== undefined && (typeof correct_answer !== 'number' || correct_answer < 0 || correct_answer > 3)) {
+      return res.status(400).json({ error: 'Correct answer must be 0-3' });
+    }
 
     await pool.query(`
       UPDATE quiz_questions

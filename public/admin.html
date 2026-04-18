@@ -14896,7 +14896,10 @@ async function loadQuizQuestions() {
             <span style="background: ${getLevelColor(q.level)}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;">${q.level.toUpperCase()}</span>
             <span style="background: ${getCategoryColor(q.category)}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; margin-left: 8px;">${q.category.toUpperCase()}</span>
           </div>
-          <button onclick="deleteQuestion(${q.id})" style="background: #e53e3e; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">🗑️ Delete</button>
+          <div>
+            <button onclick="editQuestion(${q.id})" style="background: #3182ce; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin-right: 8px;">✏️ Edit</button>
+            <button onclick="deleteQuestion(${q.id})" style="background: #e53e3e; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">🗑️ Delete</button>
+          </div>
         </div>
         <h4 style="margin-bottom: 10px; color: #2d3748;">${q.question_text}</h4>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
@@ -14937,6 +14940,36 @@ function getCategoryColor(category) {
   return colors[category] || '#a0aec0';
 }
 
+// Edit question
+async function editQuestion(id) {
+  try {
+    const response = await fetch(`/api/admin/quiz-questions/${id}`);
+    const question = await response.json();
+
+    // Populate the add form with existing data
+    document.getElementById('questionLevel').value = question.level;
+    document.getElementById('questionCategory').value = question.category;
+    document.getElementById('questionText').value = question.question_text;
+    document.getElementById('optionA').value = question.options[0];
+    document.getElementById('optionB').value = question.options[1];
+    document.getElementById('optionC').value = question.options[2];
+    document.getElementById('optionD').value = question.options[3];
+    document.getElementById('correctAnswer').value = question.correct_answer;
+    document.getElementById('questionExplanation').value = question.explanation || '';
+
+    // Change form submit behavior to update
+    const form = document.getElementById('addQuestionForm');
+    form.dataset.editId = id;
+    document.querySelector('#addQuestionForm button[type="submit"]').textContent = '✏️ Update Question';
+
+    // Scroll to form
+    document.getElementById('addQuestionForm').scrollIntoView({ behavior: 'smooth' });
+  } catch (error) {
+    console.error('Error loading question for edit:', error);
+    alert('❌ Error loading question for edit');
+  }
+}
+
 // Delete question
 async function deleteQuestion(id) {
   if (!confirm('Are you sure you want to delete this question?')) return;
@@ -14959,7 +14992,7 @@ async function deleteQuestion(id) {
   }
 }
 
-// Handle add question form
+// Handle add/edit question form
 document.getElementById('addQuestionForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -14977,25 +15010,31 @@ document.getElementById('addQuestionForm').addEventListener('submit', async (e) 
     explanation: document.getElementById('questionExplanation').value
   };
 
+  const editId = e.target.dataset.editId;
+  const method = editId ? 'PUT' : 'POST';
+  const url = editId ? `/api/admin/quiz-questions/${editId}` : '/api/admin/quiz-questions';
+
   try {
-    const response = await fetch('/api/admin/quiz-questions', {
-      method: 'POST',
+    const response = await fetch(url, {
+      method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
     });
 
     if (response.ok) {
-      alert('✅ Question added successfully!');
+      alert(`✅ Question ${editId ? 'updated' : 'added'} successfully!`);
       e.target.reset();
+      delete e.target.dataset.editId;
+      document.querySelector('#addQuestionForm button[type="submit"]').textContent = '➕ Add Question';
       loadQuizQuestions();
       loadQuizStats();
     } else {
       const error = await response.json();
-      alert('❌ Error: ' + (error.message || 'Failed to add question'));
+      alert('❌ Error: ' + (error.message || `Failed to ${editId ? 'update' : 'add'} question`));
     }
   } catch (error) {
-    console.error('Error adding question:', error);
-    alert('❌ Error adding question: ' + error.message);
+    console.error(`Error ${editId ? 'updating' : 'adding'} question:`, error);
+    alert(`❌ Error ${editId ? 'updating' : 'adding'} question: ` + error.message);
   }
 });
 
