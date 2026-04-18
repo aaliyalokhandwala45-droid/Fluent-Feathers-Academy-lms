@@ -15829,32 +15829,36 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
 
     const sessionCountResult = await client.query('SELECT COUNT(*) as count FROM sessions WHERE group_id = $1', [groupId]);
     let nextSessionNumber = parseInt(sessionCountResult.rows[0].count || 0, 10) + 1;
+
+    const existingGroupSessions = (await client.query(`
+      SELECT id, session_date, session_time
+      FROM sessions
+      WHERE group_id = $1
+        AND session_type = 'Group'
+        AND status IN ('Pending', 'Scheduled')
+    `, [groupId])).rows;
+    const groupSessionMap = new Map(existingGroupSessions.map(gs => [`${gs.session_date}|${gs.session_time}`, gs.id]));
+
     let mergedSlots = 0;
     let mergedStudents = 0;
     const affectedStudents = new Set();
 
     for (const slotRows of grouped.values()) {
-      if (slotRows.length < 2) continue;
-
       const { session_date, session_time } = slotRows[0];
-      let groupSession = (await client.query(`
-        SELECT id
-        FROM sessions
-        WHERE group_id = $1
-          AND session_type = 'Group'
-          AND session_date = $2
-          AND session_time = $3
-        LIMIT 1
-      `, [groupId, session_date, session_time])).rows[0];
+      const key = `${session_date}|${session_time}`;
+      const existingGroupSessionId = groupSessionMap.get(key);
 
-      if (!groupSession) {
-        groupSession = (await client.query(`
-          INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status)
-          VALUES ($1, 'Group', $2, $3, $4, $5, 'Pending')
-          RETURNING id
-        `, [groupId, nextSessionNumber, session_date, session_time, slotRows[0].class_link || DEFAULT_CLASS])).rows[0];
-        nextSessionNumber++;
-      }
+      if (slotRows.length < 2 && !existingGroupSessionId) continue;
+
+      let groupSession = existingGroupSessionId
+        ? { id: existingGroupSessionId }
+        : (await client.query(`
+            INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status)
+            VALUES ($1, 'Group', $2, $3, $4, $5, 'Pending')
+            RETURNING id
+          `, [groupId, nextSessionNumber, session_date, session_time, slotRows[0].class_link || DEFAULT_CLASS])).rows[0];
+
+      if (!existingGroupSessionId) nextSessionNumber++;
 
       for (const row of slotRows) {
         await client.query(`
