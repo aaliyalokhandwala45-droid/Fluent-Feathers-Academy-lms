@@ -6978,7 +6978,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
             COALESCE((SELECT COUNT(*) FROM monthly_assessments ma WHERE ma.student_id = s.id AND ma.assessment_type = 'monthly'), 0) as total_assessments
           FROM students s WHERE s.is_active = true
         ) sub
-        WHERE (sub.completed - (sub.total_assessments * 7)) >= 7
+        WHERE (sub.completed - (sub.total_assessments * 7)) >= 8
           OR (sub.remaining <= 2 AND (sub.completed - (sub.total_assessments * 7)) >= 3)
       `)
         .then(ar => { pendingAssessments = parseInt(ar.rows[0].count) || 0; })
@@ -7563,7 +7563,7 @@ app.get('/api/students', async (req, res) => {
     `);
 
     // Calculate assessment due status for each student
-    // Due for assessment if: completed 7+ sessions since last assessment (or 7+ total if never assessed)
+    // Due for assessment if: completed 8 sessions since last assessment (or 8 total if never assessed)
     // Also due if remaining_sessions <= 2 and they have sessions since last assessment (end-of-package assessment)
     const studentsWithAssessmentStatus = r.rows.map(student => {
       const completedSessions = student.completed_sessions || 0;
@@ -7576,9 +7576,9 @@ app.get('/api/students', async (req, res) => {
       const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
 
       // Assessment is due if:
-      // 1. Regular cycle: 7+ sessions since last assessment
+      // 1. Regular cycle: 8 sessions since last assessment
       // 2. End-of-package: remaining sessions <= 2 AND at least 3 unassessed sessions
-      const regularDue = sessionsSinceAssessment >= 7;
+      const regularDue = sessionsSinceAssessment >= 8;
       const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 3;
 
       return {
@@ -7595,7 +7595,7 @@ app.get('/api/students', async (req, res) => {
   }
 });
 
-// Get students due for monthly assessment (7+ sessions since last assessment OR remaining <= 2 with unassessed sessions)
+// Get students due for monthly assessment (8 sessions since last assessment OR remaining <= 2 with unassessed sessions)
 app.get('/api/students/due-for-assessment', async (req, res) => {
   try {
     const r = await pool.query(`
@@ -7614,7 +7614,7 @@ app.get('/api/students/due-for-assessment', async (req, res) => {
       const remainingSessions = student.remaining_sessions || 0;
       const sessionsAccountedFor = totalAssessments * 7;
       const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
-      const regularDue = sessionsSinceAssessment >= 7;
+      const regularDue = sessionsSinceAssessment >= 8;
       const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 3;
       return regularDue || endOfPackageDue;
     }).map(student => {

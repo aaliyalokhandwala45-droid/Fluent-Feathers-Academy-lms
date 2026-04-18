@@ -2433,7 +2433,7 @@
         <h3 style="color: #92400e; margin: 0 0 15px; display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 24px;">📊</span> Students Due for Assessment
         </h3>
-        <p style="color: #78350f; margin-bottom: 15px; font-size: 14px;">These students have completed 7+ sessions since their last assessment:</p>
+        <p style="color: #78350f; margin-bottom: 15px; font-size: 14px;">These students have completed 8 sessions since their last assessment:</p>
         <div id="dueAssessmentList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
       </div>
 
@@ -5242,7 +5242,7 @@ if (dueEl) {
       }
 
       tbody.innerHTML = filtered.map(s => {
-        const assessmentReason = s.sessions_since_assessment >= 7 ? `${s.sessions_since_assessment} sessions since last` : `${s.remaining_sessions} classes left`;
+        const assessmentReason = s.sessions_since_assessment >= 8 ? `${s.sessions_since_assessment} sessions since last` : `${s.remaining_sessions} classes left`;
         const assessmentBadge = s.assessment_due
           ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; cursor: pointer;" onclick="showTab('monthlyAssessment', event); setTimeout(() => document.getElementById('assessmentStudent').value = '${s.id}', 100);" title="Due for assessment (${assessmentReason})">📊 Due</span>`
           : '';
