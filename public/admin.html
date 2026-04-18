@@ -2487,7 +2487,7 @@
             </div>
             <div class="form-group" style="flex: 1 1 100%; margin-top: 8px;">
               <p id="assessmentWindowInfo" style="margin:0;font-size:13px;color:#4a5568;">
-                Monthly assessments for the previous month can be filled only between the 1st and 10th of the next month.
+                Monthly assessments can now be filled anytime for any month and year.
               </p>
             </div>
           </div>
@@ -12469,8 +12469,8 @@ async function saveEditedPayment() {
     }
 
     function isMonthlyAssessmentWindowOpen() {
-      const today = new Date();
-      return today.getDate() >= 1 && today.getDate() <= 10;
+      // Removed date restriction - allow filling anytime
+      return true;
     }
 
     function updateMonthlyAssessmentWindow() {
@@ -12487,7 +12487,7 @@ async function saveEditedPayment() {
 
       if (assessmentType === 'demo') {
         if (info) {
-          info.textContent = 'Demo assessments can be filled anytime. Monthly assessments are only allowed from the 1st to the 10th of the next month for the previous month.';
+          info.textContent = 'Demo assessments can be filled anytime. Monthly assessments can also be filled anytime now.';
           info.style.color = '#2f855a';
         }
         if (submitBtn) submitBtn.disabled = false;
@@ -12503,19 +12503,12 @@ async function saveEditedPayment() {
         return;
       }
 
-      if (isMonthlyAssessmentWindowOpen()) {
-        if (info) {
-          info.textContent = `Monthly assessments for ${monthNames[prevMonth - 1]} ${prevYear} may be filled now. This window closes on the 10th.`;
-          info.style.color = '#2f855a';
-        }
-        if (submitBtn) submitBtn.disabled = false;
-      } else {
-        if (info) {
-          info.textContent = 'Monthly assessment window is closed. You may only fill previous-month reports again from the 1st to the 10th of the next month.';
-          info.style.color = '#c53030';
-        }
-        if (submitBtn) submitBtn.disabled = true;
+      // Monthly assessments can now be filled anytime
+      if (info) {
+        info.textContent = 'Monthly assessments can be filled anytime for any month and year.';
+        info.style.color = '#2f855a';
       }
+      if (submitBtn) submitBtn.disabled = false;
     }
 
     function prefillAssessmentForm(studentId, studentName, month, year) {
@@ -12772,11 +12765,13 @@ async function saveEditedPayment() {
         const selectedMonth = parseInt(document.getElementById('assessmentMonth').value, 10);
         const selectedYear = parseInt(document.getElementById('assessmentYear').value, 10);
 
-        if (!isEditing && !isMonthlyAssessmentWindowOpen()) {
-          return alert('Monthly assessments can only be created between the 1st and 10th of the next month for the previous month.');
+        if (!isEditing) {
+          // Removed date and month/year restrictions - allow filling anytime
+          // return alert('Monthly assessments can only be created between the 1st and 10th of the next month for the previous month.');
         }
-        if (!isEditing && (selectedMonth !== allowedMonth || selectedYear !== allowedYear)) {
-          return alert(`Please fill the monthly assessment for ${monthNames[allowedMonth - 1]} ${allowedYear} when using this window.`);
+        if (!isEditing) {
+          // Removed month/year restriction - allow filling for any month/year
+          // return alert(`Please fill the monthly assessment for ${monthNames[allowedMonth - 1]} ${allowedYear} when using this window.`);
         }
       }
 
