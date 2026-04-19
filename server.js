@@ -7084,7 +7084,8 @@ function verifyDailyQuizToken(token, studentId) {
 async function generateQuizQuestionsWithAI(level, count = 10) {
   const groqKey = process.env.GROQ_API_KEY;
   if (!groqKey) {
-    throw new Error('GROQ_API_KEY not configured');
+    console.error('❌ GROQ_API_KEY not configured');
+    throw new Error('GROQ_API_KEY not configured. Add it to your environment variables.');
   }
 
   const levelDescriptions = {
@@ -7115,6 +7116,8 @@ Return your response as a valid JSON array with this exact structure:
 IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer is 0-3 representing A-D.`;
 
   try {
+    console.log(`🤖 Generating ${count} ${level} questions via Groq API...`);
+    
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
@@ -7132,22 +7135,30 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
         headers: {
           'Authorization': `Bearer ${groqKey}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 30000
       }
     );
 
+    console.log(`✅ Groq API response received for ${level} level`);
+
     const content = response.data.choices[0]?.message?.content;
     if (!content) {
+      console.error('❌ No content in AI response');
       throw new Error('No content in AI response');
     }
 
+    console.log(`📝 Parsing response for ${level}...`);
     const questions = JSON.parse(content);
     if (!Array.isArray(questions)) {
+      console.error('❌ AI response is not an array:', typeof questions);
       throw new Error('AI response is not an array');
     }
 
+    console.log(`📊 Parsed ${questions.length} questions for ${level}, validating...`);
+
     // Validate and sanitize questions
-    return questions.slice(0, count).map(q => ({
+    const validated = questions.slice(0, count).map(q => ({
       question_text: String(q.question_text || '').trim(),
       options: Array.isArray(q.options) ? q.options.map(o => String(o).trim()) : [],
       correct_answer: Number(q.correct_answer) || 0,
@@ -7159,8 +7170,14 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
       q.correct_answer >= 0 && 
       q.correct_answer < 4
     );
+
+    console.log(`✅ Validated ${validated.length}/${questions.length} questions for ${level}`);
+    return validated;
   } catch (err) {
-    console.error('AI question generation error:', err.message);
+    console.error(`❌ AI question generation error for ${level}:`, err.message);
+    if (err.response) {
+      console.error('API Error Response:', err.response.status, err.response.data);
+    }
     throw err;
   }
 }
@@ -7174,6 +7191,11 @@ async function generatePendingQuizQuestions(quizDate) {
     try {
       console.log(`⏳ Generating AI questions for ${level} level...`);
       const aiQuestions = await generateQuizQuestionsWithAI(level, 10);
+
+      if (!aiQuestions || aiQuestions.length === 0) {
+        console.warn(`⚠️ No questions generated for ${level} level`);
+        continue;
+      }
 
       // Insert into pending_quiz_questions table
       for (const q of aiQuestions) {
@@ -7193,10 +7215,11 @@ async function generatePendingQuizQuestions(quizDate) {
       }
       console.log(`✅ Generated ${aiQuestions.length} questions for ${level} level`);
     } catch (err) {
-      console.error(`Error generating questions for ${level}:`, err.message);
+      console.error(`❌ Error generating questions for ${level}:`, err.message);
     }
   }
 
+  console.log(`📊 Generation complete: ${totalGenerated} total questions created`);
   return totalGenerated;
 }
 
@@ -15544,6 +15567,14 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     console.log(`🤖 Starting AI generation for ${date}...`);
     const generated = await generatePendingQuizQuestions(date);
 
+    if (generated === 0) {
+      console.error('❌ No questions were generated!');
+      return res.status(500).json({
+        error: 'Failed to generate questions. Check server logs. Common causes: GROQ_API_KEY not set, API rate limit, or API error.',
+        generated: 0
+      });
+    }
+
     res.json({
       success: true,
       message: `Generated ${generated} AI quiz questions for ${date}. Please review and approve them.`,
@@ -15551,7 +15582,10 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     });
   } catch (err) {
     console.error('AI quiz generation error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: 'AI generation failed: ' + err.message,
+      details: err.message
+    });
   }
 });
 
