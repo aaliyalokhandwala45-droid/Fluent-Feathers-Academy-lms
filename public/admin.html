@@ -1605,6 +1605,19 @@
           <button onclick="generateTodayQuiz()" class="btn" style="background: white; color: #667eea; font-weight: bold;">⚡ Generate Quiz</button>
         </div>
 
+        <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 25px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+            <div>
+              <h3 style="margin:0 0 8px;">🗂️ Today's Stored Daily Quiz</h3>
+              <p style="margin:0; color:#718096;">View the questions and correct answers selected for today's quiz.</p>
+            </div>
+            <button onclick="loadTodayQuizQuestions()" class="btn" style="background:#319795; color:white;">🔄 Refresh Today</button>
+          </div>
+          <div id="todayQuizQuestionsList" style="display:grid; gap:20px;">
+            <p style="color:#718096; text-align:center; padding:20px;">Loading today's stored quiz questions...</p>
+          </div>
+        </div>
+
         <div style="display: grid; gap: 20px; margin-bottom: 25px;">
           <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08);">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
@@ -5248,7 +5261,7 @@ if (dueEl) {
           : '';
         const parentAppStatus = s.parent_push_enabled
           ? `<div><span style="display:inline-flex;align-items:center;gap:6px;background:#dcfce7;color:#166534;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;">✅ Active</span></div><div style="font-size:11px;color:#166534;margin-top:4px;">${s.parent_push_device_count || 1} device${Number(s.parent_push_device_count || 1) === 1 ? '' : 's'}</div>`
-          : `<div><span style="display:inline-flex;align-items:center;gap:6px;background:#ffedd5;color:#9a3412;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;">⚠️ Not set up</span></div><div style="font-size:11px;color:#9a3412;margin-top:4px;">Follow up with parent</div>`;
+          : `<div><span onclick="sendParentSetupEmail(${s.id})" style="display:inline-flex;align-items:center;gap:6px;background:#ffedd5;color:#9a3412;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;" title="Click to send setup email">⚠️ Not set up</span></div><div style="font-size:11px;color:#9a3412;margin-top:4px;">Click badge to send setup email</div>`;
         return `<tr><td><strong>${s.name}</strong>${assessmentBadge}<div style="font-size:11px;color:#718096;margin-top:4px;">${s.parent_name || '-'}${s.parent_email ? ` • ${s.parent_email}` : ''}</div></td><td>${getAgeDisplay(s)}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td>${parentAppStatus}</td><td><button onclick="toggleStudentStatus(${s.id}, ${!s.is_active})" class="btn btn-sm" style="background: ${s.is_active ? '#e53e3e' : '#38a169'}; color: white;">${s.is_active ? 'Deactivate' : 'Activate'}</button></td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="askStudentReview(${s.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
       }).join('');
     }
@@ -10769,6 +10782,24 @@ async function saveEditedPayment() {
       }
     }
 
+    async function sendParentSetupEmail(studentId) {
+      if (!confirm('Send a quick email to the parent with app install and notification setup instructions?')) return;
+      try {
+        const res = await fetch(`/api/students/${studentId}/send-parent-setup-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Setup email sent to parent.');
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
     // SUMMER CAMP FUNCTIONS
     let allSummerCampLeads = [];
 
@@ -14796,6 +14827,31 @@ async function loadQuizAttempts(date) {
   }
 }
 
+function renderDailyQuizQuestions(usage) {
+  const levels = ['beginner', 'intermediate', 'advanced'];
+  return levels.map(level => {
+    const questions = usage[`${level}_questions`] || [];
+    return `
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;">
+        <h4 style="margin:0 0 12px;color:#2d3748;text-transform:capitalize;">${level} questions (${questions.length})</h4>
+        ${questions.length === 0 ? '<p style="color:#718096;margin:0;">No questions selected for this level.</p>' : questions.map(q => `
+          <div style="margin-bottom:16px; padding:16px; border-radius:12px; background:#f7fafc;">
+            <div style="font-weight:700;color:#2d3748; margin-bottom:10px;">Q${q.id}: ${q.question_text}</div>
+            <div style="display:grid; gap:8px; margin-bottom:10px;">
+              ${Array.isArray(q.options) ? q.options.map((opt, idx) => `
+                <div style="padding:10px; border-radius:10px; background:${q.correct_answer === idx ? '#c6f6d5' : '#ffffff'}; border:1px solid ${q.correct_answer === idx ? '#38a169' : '#e2e8f0'}; color:${q.correct_answer === idx ? '#2f855a' : '#2d3748'};">
+                  <strong>${String.fromCharCode(65 + idx)}.</strong> ${opt}
+                </div>
+              `).join('') : ''}
+            </div>
+            <div style="font-size:0.85rem; color:#4a5568;">Category: ${q.category || 'N/A'}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
 // Load daily quiz question usage for admin
 async function loadDailyQuizUsage(date) {
   try {
@@ -14806,30 +14862,37 @@ async function loadDailyQuizUsage(date) {
     const usage = await response.json();
 
     const container = document.getElementById('quizUsageList');
-    const levels = ['beginner', 'intermediate', 'advanced'];
-
     if (!usage || (!usage.beginner_questions?.length && !usage.intermediate_questions?.length && !usage.advanced_questions?.length)) {
       container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No quiz data available for this date.</p>';
       return;
     }
 
-    container.innerHTML = levels.map(level => {
-      const questions = usage[`${level}_questions`] || [];
-      return `
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;">
-          <h4 style="margin:0 0 12px;color:#2d3748;text-transform:capitalize;">${level} questions (${questions.length})</h4>
-          ${questions.length === 0 ? '<p style="color:#718096;margin:0;">No questions selected for this level.</p>' : questions.map(q => `
-            <div style="margin-bottom:12px; padding:12px; border-radius:12px; background:#f7fafc;">
-              <div style="font-weight:700;color:#2d3748;">Q${q.id}: ${q.question_text}</div>
-              <div style="color:#4a5568;font-size:0.9rem;">Category: ${q.category || 'N/A'}</div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }).join('');
+    container.innerHTML = renderDailyQuizQuestions(usage);
   } catch (error) {
     console.error('Error loading quiz usage:', error);
     document.getElementById('quizUsageList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading quiz usage.</p>';
+  }
+}
+
+async function loadTodayQuizQuestions(date) {
+  try {
+    const selectedDate = date || new Date().toISOString().split('T')[0];
+    const response = await fetch(`/api/admin/daily-quiz-usage?date=${selectedDate}`);
+    const usage = await response.json();
+
+    const container = document.getElementById('todayQuizQuestionsList');
+    if (!usage || (!usage.beginner_questions?.length && !usage.intermediate_questions?.length && !usage.advanced_questions?.length)) {
+      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No stored quiz data is available for today yet. Generate today&apos;s quiz to view it here.</p>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="font-size:0.95rem; color:#4a5568; margin-bottom:16px;">Date: ${selectedDate}</div>
+      ${renderDailyQuizQuestions(usage)}
+    `;
+  } catch (error) {
+    console.error('Error loading today quiz questions:', error);
+    document.getElementById('todayQuizQuestionsList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading today&apos;s quiz questions.</p>';
   }
 }
 
@@ -14838,6 +14901,7 @@ function refreshQuizAdminData() {
   loadQuizStats();
   loadQuizAttempts();
   loadDailyQuizUsage();
+  loadTodayQuizQuestions();
 }
 
 // Generate today's quiz
@@ -14852,7 +14916,7 @@ async function generateTodayQuiz() {
 
     if (response.ok) {
       alert('✅ Today\'s quiz generated successfully!');
-      loadQuizStats();
+      refreshQuizAdminData();
     } else {
       const error = await response.json();
       alert('❌ Error: ' + (error.message || 'Failed to generate quiz'));
@@ -15037,6 +15101,8 @@ document.getElementById('addQuestionForm').addEventListener('submit', async (e) 
 function initializeQuizTab() {
   loadQuizStats();
   loadQuizQuestions();
+  loadDailyQuizUsage();
+  loadTodayQuizQuestions();
 }
 
   </script>

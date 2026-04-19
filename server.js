@@ -4147,6 +4147,70 @@ function getWelcomeEmail(data) {
 </html>`;
 }
 
+function getParentSetupEmail(data) {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 28px;">📱 Quick Setup: Parent Portal & Notifications</h1>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${data.parent_name}</strong>,</p>
+      <p style="font-size: 16px; color: #4a5568; line-height: 1.8; margin-bottom: 25px;">
+        To ensure smooth communication and stay updated on <strong style="color: #667eea;">${data.student_name}</strong>'s progress, please install our parent portal app and enable notifications. This will take just a few minutes!
+      </p>
+
+      <div style="background: #f7fafc; border-left: 4px solid #667eea; padding: 20px; margin: 25px 0; border-radius: 8px;">
+        <h3 style="color: #667eea; margin-top: 0; margin-bottom: 15px;">📲 How to Install the App</h3>
+        <ol style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
+          <li>Click the "Install App" button below</li>
+          <li>Follow the browser prompts to install</li>
+          <li>The app will appear on your home screen</li>
+        </ol>
+      </div>
+
+      <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
+        <h3 style="color: #38b2ac; margin-top: 0; margin-bottom: 15px;">🔔 Enable Notifications</h3>
+        <ol style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
+          <li>Open the installed app</li>
+          <li>Grant notification permissions when prompted</li>
+          <li>You'll receive updates about classes, homework, and progress</li>
+        </ol>
+      </div>
+
+      <div style="text-align: center; margin: 35px 0;">
+        <a href="${getAppBaseUrl()}/parent.html?install_app=1" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
+  📱 Install Parent Portal App
+</a>
+      </div>
+
+      <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
+        <p style="margin: 0; color: #856404; font-size: 14px;">
+          <strong>💡 Why this matters:</strong> With the app installed and notifications enabled, you'll never miss important updates about ${data.student_name}'s classes, homework deadlines, or assessment results.
+        </p>
+      </div>
+
+      <p style="font-size: 16px; color: #4a5568; margin-top: 30px; line-height: 1.8;">
+        If you encounter any issues or need help, please don't hesitate to contact us. We're here to support you!
+      </p>
+
+      <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
+        Best regards,<br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">
+        Made with ❤️ By Aaliya
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function getScheduleEmail(data) {
   const timezoneLabel = data.timezone_label || 'Your Local Time';
   return `<!DOCTYPE html>
@@ -6653,41 +6717,119 @@ async function generateDailyQuiz() {
     return;
   }
 
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const yesterdayResult = await pool.query(
+    'SELECT beginner_questions, intermediate_questions, advanced_questions FROM daily_quizzes WHERE quiz_date = $1 LIMIT 1',
+    [yesterday]
+  );
+
+  const yesterdayIds = {
+    beginner: [],
+    intermediate: [],
+    advanced: []
+  };
+
+  if (yesterdayResult.rows.length > 0) {
+    const row = yesterdayResult.rows[0];
+    for (const level of ['beginner', 'intermediate', 'advanced']) {
+      const questions = Array.isArray(row[`${level}_questions`]) ? row[`${level}_questions`] : [];
+      yesterdayIds[level] = questions.map(q => Number(q.id)).filter(id => Number.isInteger(id));
+    }
+  }
+
   // Generate questions for each level
   const levels = ['beginner', 'intermediate', 'advanced'];
   const quizData = { quiz_date: today };
+  const categories = ['grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery'];
 
   for (const level of levels) {
     const questions = [];
-    // Get 10 random questions for this level from the supported quiz categories
-    const categories = ['grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery'];
+    const selectedIds = new Set();
+    const excludedIds = yesterdayIds[level].length > 0 ? yesterdayIds[level] : [];
 
     for (const category of categories) {
-      // Get 2 questions per category (12 total, we'll take first 10)
-      const categoryQuestions = await pool.query(
-        'SELECT * FROM quiz_questions WHERE level = $1 AND category = $2 AND is_active = true ORDER BY RANDOM() LIMIT 2',
-        [level, category]
-      );
-      questions.push(...categoryQuestions.rows);
+      const params = [level, category];
+      let query = 'SELECT * FROM quiz_questions WHERE level = $1 AND category = $2 AND is_active = true';
+
+      if (excludedIds.length > 0) {
+        query += ' AND id <> ALL($3::int[])';
+        params.push(excludedIds);
+      }
+
+      query += ' ORDER BY RANDOM() LIMIT 2';
+      const categoryQuestions = await pool.query(query, params);
+      for (const q of categoryQuestions.rows) {
+        if (!selectedIds.has(q.id)) {
+          selectedIds.add(q.id);
+          questions.push(q);
+        }
+      }
     }
 
-    // If there are not enough questions from each category, fill from any available active question in this level
     if (questions.length < 10) {
-      const fallbackResult = await pool.query(
-        "SELECT * FROM quiz_questions WHERE level = $1 AND is_active = true AND category != 'phonics' ORDER BY RANDOM() LIMIT $2",
+      const selectedIdsArray = Array.from(selectedIds);
+      const limitRemaining = 10 - questions.length;
+      const fallbackQuery = excludedIds.length > 0
+        ? `
+          SELECT * FROM quiz_questions
+          WHERE level = $1
+            AND is_active = true
+            AND category != 'phonics'
+            AND id <> ALL($2::int[])
+            AND id <> ALL($3::int[])
+          ORDER BY RANDOM()
+          LIMIT $4
+        `
+        : `
+          SELECT * FROM quiz_questions
+          WHERE level = $1
+            AND is_active = true
+            AND category != 'phonics'
+            AND id <> ALL($2::int[])
+          ORDER BY RANDOM()
+          LIMIT $3
+        `;
+
+      const result = await pool.query(
+        fallbackQuery,
+        excludedIds.length > 0 ? [level, excludedIds, selectedIdsArray, limitRemaining] : [level, selectedIdsArray, limitRemaining]
+      );
+      for (const q of result.rows) {
+        if (!selectedIds.has(q.id)) {
+          selectedIds.add(q.id);
+          questions.push(q);
+        }
+      }
+    }
+
+    if (questions.length < 10) {
+      const secondFallback = await pool.query(
+        `
+          SELECT * FROM quiz_questions
+          WHERE level = $1
+            AND is_active = true
+            AND category != 'phonics'
+          ORDER BY RANDOM()
+          LIMIT $2
+        `,
         [level, 10 - questions.length]
       );
-      questions.push(...fallbackResult.rows);
+      for (const q of secondFallback.rows) {
+        if (!selectedIds.has(q.id)) {
+          selectedIds.add(q.id);
+          questions.push(q);
+        }
+      }
     }
 
-    // Take first 10 questions
     quizData[`${level}_questions`] = questions.slice(0, 10).map(q => ({
       id: q.id,
       question_text: q.question_text,
       options: q.options,
       category: q.category,
       audio_url: q.audio_url,
-      image_url: q.image_url
+      image_url: q.image_url,
+      correct_answer: q.correct_answer
     }));
   }
 
@@ -6978,8 +7120,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
             COALESCE((SELECT COUNT(*) FROM monthly_assessments ma WHERE ma.student_id = s.id AND ma.assessment_type = 'monthly'), 0) as total_assessments
           FROM students s WHERE s.is_active = true
         ) sub
-        WHERE (sub.completed - (sub.total_assessments * 7)) >= 8
-          OR (sub.remaining <= 2 AND (sub.completed - (sub.total_assessments * 7)) >= 3)
+        WHERE (sub.completed - (sub.total_assessments * 8)) >= 8
+          OR (sub.remaining <= 2 AND (sub.completed - (sub.total_assessments * 8)) >= 8)
       `)
         .then(ar => { pendingAssessments = parseInt(ar.rows[0].count) || 0; })
         .catch(e => { console.error('Assessment count error:', e.message); })
@@ -7570,16 +7712,16 @@ app.get('/api/students', async (req, res) => {
       const totalAssessments = parseInt(student.total_assessments) || 0;
       const remainingSessions = student.remaining_sessions || 0;
 
-      // Sessions since last assessment = completed - (assessments * 7)
-      // This assumes each assessment covers ~7 sessions
-      const sessionsAccountedFor = totalAssessments * 7;
+      // Sessions since last assessment = completed - (assessments * 8)
+      // Each assessment is treated as covering 8 sessions before the next due date.
+      const sessionsAccountedFor = totalAssessments * 8;
       const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
 
       // Assessment is due if:
       // 1. Regular cycle: 8 sessions since last assessment
-      // 2. End-of-package: remaining sessions <= 2 AND at least 3 unassessed sessions
+      // 2. End-of-package: remaining sessions <= 2 AND also 8 sessions since last assessment
       const regularDue = sessionsSinceAssessment >= 8;
-      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 3;
+      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 8;
 
       return {
         ...student,
@@ -15321,6 +15463,29 @@ app.post('/api/admin/award-retroactive-badges', async (req, res) => {
   }
 });
 
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10);
+    let query = `
+      SELECT id, title, content, announcement_type, priority, created_at, image_url
+      FROM announcements
+      WHERE COALESCE(is_active, true) = true
+      ORDER BY created_at DESC
+    `;
+    const params = [];
+    if (!Number.isNaN(limit) && limit > 0) {
+      query += ` LIMIT $1`;
+      params.push(limit);
+    }
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Announcements fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/announcements', upload.single('image'), async (req, res) => {
   const { title, content, announcement_type, priority, send_email } = req.body;
   try {
@@ -16124,6 +16289,22 @@ app.post('/api/students/:id/ask-review', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Student review request error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/students/:id/send-parent-setup-email', async (req, res) => {
+  try {
+    const student = await pool.query('SELECT name, parent_email, parent_name FROM students WHERE id = $1', [req.params.id]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    const { name, parent_email, parent_name } = student.rows[0];
+    if (!parent_email) return res.status(400).json({ error: 'No parent email found' });
+
+    const emailHTML = getParentSetupEmail({ parent_name: parent_name || '', student_name: name || '' });
+    await sendEmail(parent_email, 'Quick setup: install the parent portal and enable notifications', emailHTML, parent_name, 'Parent Setup');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Parent setup email error:', err);
     res.status(500).json({ error: err.message });
   }
 });
