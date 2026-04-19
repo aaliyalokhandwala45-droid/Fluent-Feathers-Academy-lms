@@ -1601,8 +1601,28 @@
         <!-- Generate Today's Quiz -->
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
           <h3 style="margin-bottom: 15px;">🎯 Generate Today's Quiz</h3>
-          <p style="margin-bottom: 15px; opacity: 0.9;">Automatically select 10 questions for each level from the question bank.</p>
-          <button onclick="generateTodayQuiz()" class="btn" style="background: white; color: #667eea; font-weight: bold;">⚡ Generate Quiz</button>
+          <p style="margin-bottom: 15px; opacity: 0.9;">Choose how to generate today's quiz: manually select from the question bank, or use AI to generate new questions.</p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button onclick="generateTodayQuiz()" class="btn" style="background: white; color: #667eea; font-weight: bold;">📚 From Question Bank</button>
+            <button onclick="generateAIQuiz()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; font-weight: bold;">🤖 Generate with AI</button>
+          </div>
+        </div>
+
+        <!-- Pending AI Questions (For Approval) -->
+        <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 25px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+            <div>
+              <h3 style="margin:0 0 8px;">⏳ Pending AI Questions</h3>
+              <p style="margin:0; color:#718096;">Review AI-generated questions and approve them for students.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="date" id="pendingQuestionsDate" style="padding: 10px 12px; border-radius: 12px; border: 1px solid #e2e8f0;" onchange="loadPendingQuizQuestions(this.value)">
+              <button onclick="loadPendingQuizQuestions()" class="btn" style="background:#667eea; color:white;">🔄 Refresh</button>
+            </div>
+          </div>
+          <div id="pendingQuizzesContainer" style="display: grid; gap: 16px;">
+            <p style="color: #718096; text-align: center; padding: 20px;">Loading pending questions...</p>
+          </div>
         </div>
 
         <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 25px;">
@@ -14876,7 +14896,7 @@ async function loadDailyQuizUsage(date) {
 
 async function loadTodayQuizQuestions(date) {
   try {
-    const selectedDate = date || new Date().toISOString().split('T')[0];
+    const selectedDate = date || document.getElementById('quizUsageDate')?.value || new Date().toISOString().split('T')[0];
     const response = await fetch(`/api/admin/daily-quiz-usage?date=${selectedDate}`);
     const usage = await response.json();
 
@@ -14902,6 +14922,225 @@ function refreshQuizAdminData() {
   loadQuizAttempts();
   loadDailyQuizUsage();
   loadTodayQuizQuestions();
+  loadPendingQuizQuestions();
+}
+
+// Generate AI-based quiz questions
+async function generateAIQuiz() {
+  const date = document.getElementById('pendingQuestionsDate')?.value || new Date().toISOString().split('T')[0];
+  if (!confirm(`Generate AI quiz questions for ${date}? This will create 30 questions (10 per level) pending your approval.`)) return;
+
+  try {
+    const loadingDiv = document.getElementById('pendingQuizzesContainer');
+    loadingDiv.innerHTML = '<p style="color: #667eea; text-align: center; padding: 20px;">🤖 Generating AI questions... This may take a moment.</p>';
+
+    const response = await fetch('/api/admin/generate-ai-quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate: date })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      alert(`✅ ${result.message}`);
+      loadPendingQuizQuestions(date);
+    } else {
+      const error = await response.json();
+      alert('❌ Error: ' + (error.error || 'Failed to generate AI quiz'));
+    }
+  } catch (error) {
+    console.error('Error generating AI quiz:', error);
+    alert('❌ Error: ' + error.message);
+  }
+}
+
+// Load pending quiz questions for review
+async function loadPendingQuizQuestions(date) {
+  try {
+    const selectedDate = date || document.getElementById('pendingQuestionsDate')?.value || new Date().toISOString().split('T')[0];
+    const response = await fetch(`/api/admin/pending-quiz-questions?quizDate=${selectedDate}`);
+    const grouped = await response.json();
+
+    const container = document.getElementById('pendingQuizzesContainer');
+    
+    // Check if there are any pending questions
+    const hasPending = ['beginner', 'intermediate', 'advanced'].some(level => 
+      grouped[level]?.some(q => q.status === 'pending')
+    );
+
+    if (!hasPending) {
+      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No pending questions for this date. Generate AI questions or they will be auto-generated at 4:00 AM UTC.</p>';
+      return;
+    }
+
+    let html = '';
+
+    for (const level of ['beginner', 'intermediate', 'advanced']) {
+      const questions = grouped[level] || [];
+      const pendingCount = questions.filter(q => q.status === 'pending').length;
+
+      if (pendingCount === 0) {
+        html += `<div style="background: #f0fdf4; border-left: 4px solid #38a169; padding: 16px; border-radius: 8px;">
+          <p style="margin: 0; color: #38a169;">✅ ${level.toUpperCase()}: All 10 questions approved</p>
+        </div>`;
+        continue;
+      }
+
+      html += `<div style="background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h4 style="margin: 0; color: #2d3748;">📋 ${level.toUpperCase()} Level (${pendingCount}/10 Pending)</h4>
+          <div style="display: flex; gap: 8px;">
+            ${pendingCount === 10 ? `<button onclick="approvePendingQuestions('${selectedDate}', '${level}')" style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">✅ Approve All</button>` : ''}
+            <button onclick="rejectPendingQuestions('${selectedDate}', '${level}')" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;">❌ Reject All</button>
+          </div>
+        </div>`;
+
+      // Show each pending question
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (q.status !== 'pending') continue;
+
+        html += `<div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid #667eea;">
+          <div style="font-weight: bold; color: #2d3748; margin-bottom: 8px;">Q${i + 1}. ${escapeHtml(q.question_text.substring(0, 100))}${q.question_text.length > 100 ? '...' : ''}</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">`;
+        
+        for (let j = 0; j < q.options.length; j++) {
+          const isCorrect = j === q.correct_answer;
+          html += `<div style="padding: 8px; background: ${isCorrect ? '#c6f6d5' : '#f7fafc'}; border-radius: 4px; border: 1px solid ${isCorrect ? '#38a169' : '#cbd5e0'}; font-size: 0.85rem;">
+            <strong>${String.fromCharCode(65 + j)})</strong> ${escapeHtml(q.options[j])}
+          </div>`;
+        }
+
+        html += `</div>`;
+        if (q.category) {
+          html += `<div style="font-size: 0.85rem; color: #718096; margin-bottom: 8px;">
+            📂 <strong>${q.category}</strong>
+          </div>`;
+        }
+        if (q.explanation) {
+          html += `<div style="font-size: 0.85rem; color: #718096; margin-bottom: 8px; font-style: italic;">
+            💡 ${escapeHtml(q.explanation)}
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+    }
+
+    // Add approval section at the end
+    html += `<div style="background: linear-gradient(135deg, #38a169 0%, #319795 100%); color: white; padding: 16px; border-radius: 12px; text-align: center;">
+      <p style="margin: 0 0 12px; font-weight: bold;">Ready to approve all pending questions for ${selectedDate}?</p>
+      <button onclick="approvePendingQuestionsForDate('${selectedDate}')" style="background: white; color: #38a169; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 8px;">✅ Approve All for Today</button>
+      <button onclick="rejectPendingQuestionsForDate('${selectedDate}')" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">❌ Reject All</button>
+    </div>`;
+
+    container.innerHTML = html;
+  } catch (error) {
+    console.error('Error loading pending questions:', error);
+    document.getElementById('pendingQuizzesContainer').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading pending questions.</p>';
+  }
+}
+
+// Approve pending questions for a specific level
+async function approvePendingQuestions(date, level) {
+  if (!confirm(`Approve all ${level} level questions for ${date}?`)) return;
+
+  try {
+    const response = await fetch('/api/admin/approve-quiz-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate: date })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      alert(`✅ ${result.message}`);
+      loadPendingQuizQuestions(date);
+      refreshQuizAdminData();
+    } else {
+      const error = await response.json();
+      alert('❌ Error: ' + (error.error || 'Failed to approve questions'));
+    }
+  } catch (error) {
+    console.error('Error approving questions:', error);
+    alert('❌ Error: ' + error.message);
+  }
+}
+
+// Approve all pending questions for the date
+async function approvePendingQuestionsForDate(date) {
+  if (!confirm(`Approve all pending questions for ${date}? This will make them live for students.`)) return;
+
+  try {
+    const response = await fetch('/api/admin/approve-quiz-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate: date })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      alert(`✅ ${result.message}`);
+      loadPendingQuizQuestions(date);
+      refreshQuizAdminData();
+    } else {
+      const error = await response.json();
+      alert('❌ Error: ' + (error.error || 'Failed to approve questions'));
+    }
+  } catch (error) {
+    console.error('Error approving questions:', error);
+    alert('❌ Error: ' + error.message);
+  }
+}
+
+// Reject pending questions for a level
+async function rejectPendingQuestions(date, level) {
+  if (!confirm(`Reject all ${level} level questions for ${date}? You can regenerate them.`)) return;
+
+  try {
+    const response = await fetch('/api/admin/reject-quiz-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate: date, level: level })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      alert(`✅ ${result.message}`);
+      loadPendingQuizQuestions(date);
+    } else {
+      const error = await response.json();
+      alert('❌ Error: ' + (error.error || 'Failed to reject questions'));
+    }
+  } catch (error) {
+    console.error('Error rejecting questions:', error);
+    alert('❌ Error: ' + error.message);
+  }
+}
+
+// Reject all pending questions for the date
+async function rejectPendingQuestionsForDate(date) {
+  if (!confirm(`Reject all pending questions for ${date}?`)) return;
+
+  try {
+    const response = await fetch('/api/admin/reject-quiz-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate: date, level: 'all' })
+    });
+
+    if (response.ok) {
+      alert('✅ Questions rejected. Generate new ones to retry.');
+      loadPendingQuizQuestions(date);
+    } else {
+      const error = await response.json();
+      alert('❌ Error: ' + (error.error || 'Failed to reject questions'));
+    }
+  } catch (error) {
+    console.error('Error rejecting questions:', error);
+    alert('❌ Error: ' + error.message);
+  }
 }
 
 // Generate today's quiz
@@ -15103,6 +15342,14 @@ function initializeQuizTab() {
   loadQuizQuestions();
   loadDailyQuizUsage();
   loadTodayQuizQuestions();
+  loadPendingQuizQuestions();
+  
+  // Set date inputs to today
+  const today = new Date().toISOString().split('T')[0];
+  const dateInputs = document.querySelectorAll('#quizAttemptsDate, #quizUsageDate, #pendingQuestionsDate');
+  dateInputs.forEach(input => {
+    if (input && !input.value) input.value = today;
+  });
 }
 
   </script>

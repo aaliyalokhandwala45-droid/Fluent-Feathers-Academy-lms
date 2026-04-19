@@ -2922,6 +2922,32 @@ async function runMigrations() {
       console.log('Migration 52 note:', err.message);
     }
 
+    // Migration 53: AI-generated pending quiz questions with approval workflow
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS pending_quiz_questions (
+          id SERIAL PRIMARY KEY,
+          quiz_date DATE NOT NULL,
+          level VARCHAR(50) NOT NULL CHECK (level IN ('beginner', 'intermediate', 'advanced')),
+          question_text TEXT NOT NULL,
+          options JSONB NOT NULL,
+          correct_answer INTEGER NOT NULL,
+          category VARCHAR(50),
+          explanation TEXT,
+          status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+          generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          approved_at TIMESTAMP,
+          approved_by_admin BOOLEAN DEFAULT false,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_pending_quiz_date_level ON pending_quiz_questions(quiz_date, level)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_pending_quiz_status ON pending_quiz_questions(status)`);
+      console.log('✅ Migration 53: Created pending_quiz_questions table for AI generation approval workflow');
+    } catch (err) {
+      console.log('Migration 53 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -6706,6 +6732,33 @@ cron.schedule('30 5 * * *', async () => {
   timezone: 'UTC'
 });
 
+// Generate pending AI quiz questions daily at 04:00 UTC (for next day, allowing admin approval time)
+cron.schedule('0 4 * * *', async () => {
+  try {
+    console.log('🤖 Auto-generating AI pending quiz questions for tomorrow...');
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+    
+    // Check if pending questions already exist for tomorrow
+    const existing = await pool.query(
+      'SELECT COUNT(*) as count FROM pending_quiz_questions WHERE quiz_date = $1',
+      [tomorrowDate]
+    );
+    
+    if (existing.rows[0].count === 0) {
+      await generatePendingQuizQuestions(tomorrowDate);
+      console.log('✅ AI questions generated for tomorrow pending approval');
+    } else {
+      console.log('ℹ️ Pending questions already exist for tomorrow');
+    }
+  } catch (err) {
+    console.error('❌ Error generating AI pending quiz questions:', err);
+  }
+}, {
+  timezone: 'UTC'
+});
+
 // Function to generate daily quiz
 async function generateDailyQuiz() {
   const today = new Date().toISOString().split('T')[0];
@@ -7025,6 +7078,126 @@ function verifyDailyQuizToken(token, studentId) {
   } catch (err) {
     return { valid: false, reason: 'Invalid quiz token' };
   }
+}
+
+// AI-based quiz question generation using Groq
+async function generateQuizQuestionsWithAI(level, count = 10) {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    throw new Error('GROQ_API_KEY not configured');
+  }
+
+  const levelDescriptions = {
+    beginner: 'simple vocabulary and basic grammar suitable for English learners at beginner level',
+    intermediate: 'intermediate vocabulary and grammar concepts for English learners',
+    advanced: 'advanced vocabulary, complex grammar, idioms, and nuanced English concepts for advanced learners'
+  };
+
+  const prompt = `You are an English teacher creating a daily quiz. Generate exactly ${count} multiple-choice English quiz questions for ${level} level students.
+
+Each question should be:
+- ${levelDescriptions[level]}
+- Focused on one of these categories: grammar, vocabulary, pronunciation, idioms, proverbs, elaboration, or imagery
+- Clearly written with one correct answer
+- Include 4 options (A, B, C, D)
+
+Return your response as a valid JSON array with this exact structure:
+[
+  {
+    "question_text": "What is the correct form of the verb?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_answer": 0,
+    "category": "grammar",
+    "explanation": "Brief explanation of why this is correct"
+  }
+]
+
+IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer is 0-3 representing A-D.`;
+
+  try {
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'mixtral-8x7b-32768',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const content = response.data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No content in AI response');
+    }
+
+    const questions = JSON.parse(content);
+    if (!Array.isArray(questions)) {
+      throw new Error('AI response is not an array');
+    }
+
+    // Validate and sanitize questions
+    return questions.slice(0, count).map(q => ({
+      question_text: String(q.question_text || '').trim(),
+      options: Array.isArray(q.options) ? q.options.map(o => String(o).trim()) : [],
+      correct_answer: Number(q.correct_answer) || 0,
+      category: String(q.category || 'vocabulary').toLowerCase(),
+      explanation: String(q.explanation || '').trim()
+    })).filter(q => 
+      q.question_text.length > 5 && 
+      q.options.length === 4 && 
+      q.correct_answer >= 0 && 
+      q.correct_answer < 4
+    );
+  } catch (err) {
+    console.error('AI question generation error:', err.message);
+    throw err;
+  }
+}
+
+// Generate and store pending quiz questions for approval
+async function generatePendingQuizQuestions(quizDate) {
+  const levels = ['beginner', 'intermediate', 'advanced'];
+  let totalGenerated = 0;
+
+  for (const level of levels) {
+    try {
+      console.log(`⏳ Generating AI questions for ${level} level...`);
+      const aiQuestions = await generateQuizQuestionsWithAI(level, 10);
+
+      // Insert into pending_quiz_questions table
+      for (const q of aiQuestions) {
+        await pool.query(`
+          INSERT INTO pending_quiz_questions (quiz_date, level, question_text, options, correct_answer, category, explanation, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+        `, [
+          quizDate,
+          level,
+          q.question_text,
+          JSON.stringify(q.options),
+          q.correct_answer,
+          q.category,
+          q.explanation
+        ]);
+        totalGenerated++;
+      }
+      console.log(`✅ Generated ${aiQuestions.length} questions for ${level} level`);
+    } catch (err) {
+      console.error(`Error generating questions for ${level}:`, err.message);
+    }
+  }
+
+  return totalGenerated;
 }
 
 // ==================== API ROUTES ====================
@@ -15341,6 +15514,209 @@ app.get('/api/admin/daily-quiz-usage', async (req, res) => {
     }
 
     res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== AI QUIZ GENERATION API ====================
+
+// Admin: Generate AI quiz questions (creates pending questions for approval)
+app.post('/api/admin/generate-ai-quiz', async (req, res) => {
+  try {
+    const { quizDate } = req.body;
+    const date = quizDate || new Date().toISOString().split('T')[0];
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    // Check if questions for this date already exist (pending or approved)
+    const existingCheck = await pool.query(
+      `SELECT COUNT(*) as count FROM pending_quiz_questions WHERE quiz_date = $1`,
+      [date]
+    );
+
+    if (existingCheck.rows[0].count > 0) {
+      return res.status(400).json({ error: `Questions for ${date} already exist in pending queue` });
+    }
+
+    console.log(`🤖 Starting AI generation for ${date}...`);
+    const generated = await generatePendingQuizQuestions(date);
+
+    res.json({
+      success: true,
+      message: `Generated ${generated} AI quiz questions for ${date}. Please review and approve them.`,
+      generated
+    });
+  } catch (err) {
+    console.error('AI quiz generation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Get pending quiz questions for review
+app.get('/api/admin/pending-quiz-questions', async (req, res) => {
+  try {
+    const { quizDate, level, status } = req.query;
+    const date = quizDate || new Date().toISOString().split('T')[0];
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    let query = 'SELECT * FROM pending_quiz_questions WHERE quiz_date = $1';
+    const params = [date];
+
+    if (level && ['beginner', 'intermediate', 'advanced'].includes(level)) {
+      query += ` AND level = $${params.length + 1}`;
+      params.push(level);
+    }
+
+    if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+      query += ` AND status = $${params.length + 1}`;
+      params.push(status);
+    }
+
+    query += ' ORDER BY level, id';
+
+    const result = await pool.query(query, params);
+
+    // Group by level
+    const grouped = {
+      beginner: result.rows.filter(q => q.level === 'beginner'),
+      intermediate: result.rows.filter(q => q.level === 'intermediate'),
+      advanced: result.rows.filter(q => q.level === 'advanced')
+    };
+
+    res.json(grouped);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Approve pending quiz questions and move to daily_quizzes
+app.post('/api/admin/approve-quiz-questions', async (req, res) => {
+  try {
+    const { quizDate } = req.body;
+    const date = quizDate || new Date().toISOString().split('T')[0];
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    // Get all pending questions for this date
+    const pendingResult = await pool.query(
+      `SELECT * FROM pending_quiz_questions WHERE quiz_date = $1 AND status = 'pending'`,
+      [date]
+    );
+
+    if (pendingResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No pending questions to approve' });
+    }
+
+    // Group by level and ensure we have 10 questions per level
+    const levels = ['beginner', 'intermediate', 'advanced'];
+    const quizData = { quiz_date: date };
+    let approvedCount = 0;
+
+    for (const level of levels) {
+      const levelQuestions = pendingResult.rows
+        .filter(q => q.level === level)
+        .slice(0, 10)
+        .map(q => ({
+          id: q.id,
+          question_text: q.question_text,
+          options: q.options,
+          category: q.category,
+          explanation: q.explanation,
+          correct_answer: q.correct_answer
+        }));
+
+      if (levelQuestions.length < 10) {
+        return res.status(400).json({
+          error: `Not enough approved questions for ${level} level (have ${levelQuestions.length}, need 10)`
+        });
+      }
+
+      quizData[`${level}_questions`] = levelQuestions;
+      approvedCount += levelQuestions.length;
+
+      // Mark these questions as approved in pending table
+      await pool.query(
+        `UPDATE pending_quiz_questions SET status = 'approved', approved_at = CURRENT_TIMESTAMP WHERE quiz_date = $1 AND level = $2 AND id = ANY($3::int[])`,
+        [date, level, levelQuestions.map(q => q.id)]
+      );
+    }
+
+    // Check if daily quiz already exists for this date
+    const existingQuiz = await pool.query('SELECT id FROM daily_quizzes WHERE quiz_date = $1', [date]);
+
+    if (existingQuiz.rows.length > 0) {
+      // Update existing quiz
+      await pool.query(`
+        UPDATE daily_quizzes SET
+          beginner_questions = $1,
+          intermediate_questions = $2,
+          advanced_questions = $3
+        WHERE quiz_date = $4
+      `, [
+        JSON.stringify(quizData.beginner_questions),
+        JSON.stringify(quizData.intermediate_questions),
+        JSON.stringify(quizData.advanced_questions),
+        date
+      ]);
+    } else {
+      // Insert new quiz
+      await pool.query(`
+        INSERT INTO daily_quizzes (quiz_date, beginner_questions, intermediate_questions, advanced_questions)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        date,
+        JSON.stringify(quizData.beginner_questions),
+        JSON.stringify(quizData.intermediate_questions),
+        JSON.stringify(quizData.advanced_questions)
+      ]);
+    }
+
+    res.json({
+      success: true,
+      message: `Approved ${approvedCount} AI-generated questions for ${date}. Quiz is now live!`,
+      approvedCount
+    });
+  } catch (err) {
+    console.error('Approval error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Reject pending quiz questions for a level
+app.post('/api/admin/reject-quiz-questions', async (req, res) => {
+  try {
+    const { quizDate, level, reason } = req.body;
+    const date = quizDate || new Date().toISOString().split('T')[0];
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    if (!['beginner', 'intermediate', 'advanced'].includes(level)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+
+    // Mark as rejected
+    const result = await pool.query(`
+      UPDATE pending_quiz_questions
+      SET status = 'rejected'
+      WHERE quiz_date = $1 AND level = $2 AND status = 'pending'
+      RETURNING id
+    `, [date, level]);
+
+    res.json({
+      success: true,
+      message: `Rejected ${result.rows.length} questions for ${level} level. Regenerate to try again.`,
+      rejectedCount: result.rows.length
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
