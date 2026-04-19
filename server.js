@@ -7121,7 +7121,7 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'mixtral-8x7b-32768',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'user',

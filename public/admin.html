@@ -14791,6 +14791,12 @@ async function aiQuickFill(formType) {
 
 // ==================== QUIZ MANAGEMENT FUNCTIONS ====================
 
+function getLocalDateString() {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offsetMs).toISOString().split('T')[0];
+}
+
 // Load quiz statistics
 async function loadQuizStats() {
   try {
@@ -14815,7 +14821,7 @@ async function loadQuizStats() {
 // Load quiz attempt records for admin
 async function loadQuizAttempts(date) {
   try {
-    const selectedDate = date || document.getElementById('quizAttemptsDate').value || new Date().toISOString().split('T')[0];
+    const selectedDate = date || document.getElementById('quizAttemptsDate').value || getLocalDateString();
     document.getElementById('quizAttemptsDate').value = selectedDate;
 
     const response = await fetch(`/api/admin/quiz-attempts?date=${selectedDate}`);
@@ -14875,7 +14881,7 @@ function renderDailyQuizQuestions(usage) {
 // Load daily quiz question usage for admin
 async function loadDailyQuizUsage(date) {
   try {
-    const selectedDate = date || document.getElementById('quizUsageDate').value || new Date().toISOString().split('T')[0];
+    const selectedDate = date || document.getElementById('quizUsageDate').value || getLocalDateString();
     document.getElementById('quizUsageDate').value = selectedDate;
 
     const response = await fetch(`/api/admin/daily-quiz-usage?date=${selectedDate}`);
@@ -14896,7 +14902,7 @@ async function loadDailyQuizUsage(date) {
 
 async function loadTodayQuizQuestions(date) {
   try {
-    const selectedDate = date || document.getElementById('quizUsageDate')?.value || new Date().toISOString().split('T')[0];
+    const selectedDate = date || document.getElementById('quizUsageDate')?.value || getLocalDateString();
     const response = await fetch(`/api/admin/daily-quiz-usage?date=${selectedDate}`);
     const usage = await response.json();
 
@@ -14927,7 +14933,9 @@ function refreshQuizAdminData() {
 
 // Generate AI-based quiz questions
 async function generateAIQuiz() {
-  const date = document.getElementById('pendingQuestionsDate')?.value || new Date().toISOString().split('T')[0];
+  const dateInput = document.getElementById('pendingQuestionsDate');
+  const date = dateInput?.value || getLocalDateString();
+  if (dateInput) dateInput.value = date;
   if (!confirm(`Generate AI quiz questions for ${date}? This will create 30 questions (10 per level) pending your approval.`)) return;
 
   try {
@@ -14957,9 +14965,14 @@ async function generateAIQuiz() {
 // Load pending quiz questions for review
 async function loadPendingQuizQuestions(date) {
   try {
-    const selectedDate = date || document.getElementById('pendingQuestionsDate')?.value || new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('pendingQuestionsDate');
+    const selectedDate = date || dateInput?.value || getLocalDateString();
+    if (dateInput) dateInput.value = selectedDate;
     const response = await fetch(`/api/admin/pending-quiz-questions?quizDate=${selectedDate}`);
     const grouped = await response.json();
+    if (!response.ok) {
+      throw new Error(grouped.error || 'Failed to load pending questions');
+    }
 
     const container = document.getElementById('pendingQuizzesContainer');
     
@@ -15031,14 +15044,14 @@ async function loadPendingQuizQuestions(date) {
     // Add approval section at the end
     html += `<div style="background: linear-gradient(135deg, #38a169 0%, #319795 100%); color: white; padding: 16px; border-radius: 12px; text-align: center;">
       <p style="margin: 0 0 12px; font-weight: bold;">Ready to approve all pending questions for ${selectedDate}?</p>
-      <button onclick="approvePendingQuestionsForDate('${selectedDate}')" style="background: white; color: #38a169; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 8px;">✅ Approve All for Today</button>
+      <button onclick="approvePendingQuestionsForDate('${selectedDate}')" style="background: white; color: #38a169; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 8px;">✅ Approve All for Selected Date</button>
       <button onclick="rejectPendingQuestionsForDate('${selectedDate}')" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">❌ Reject All</button>
     </div>`;
 
     container.innerHTML = html;
   } catch (error) {
     console.error('Error loading pending questions:', error);
-    document.getElementById('pendingQuizzesContainer').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading pending questions.</p>';
+    document.getElementById('pendingQuizzesContainer').innerHTML = `<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading pending questions: ${escapeHtml(error.message || 'Unknown error')}</p>`;
   }
 }
 
@@ -15345,7 +15358,7 @@ function initializeQuizTab() {
   loadPendingQuizQuestions();
   
   // Set date inputs to today
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const dateInputs = document.querySelectorAll('#quizAttemptsDate, #quizUsageDate, #pendingQuestionsDate');
   dateInputs.forEach(input => {
     if (input && !input.value) input.value = today;
