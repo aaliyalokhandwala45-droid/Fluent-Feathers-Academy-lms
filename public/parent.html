@@ -5690,11 +5690,16 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       overallQuizTimer = null;
 
       try {
+        const normalizedAnswers = Array.from({ length: 10 }, (_, idx) => {
+          const answer = quizAnswers[idx];
+          return Number.isInteger(answer) ? answer : -1;
+        });
+
         const response = await fetch('/api/daily-quiz/submit', {
           method: 'POST',
           headers: studentAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            answers: quizAnswers,
+            answers: normalizedAnswers,
             timeSpent: Math.floor((Date.now() - quizStartTime) / 1000),
             quizToken: quizTimerToken
           })

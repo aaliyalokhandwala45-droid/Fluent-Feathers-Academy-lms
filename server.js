@@ -15182,37 +15182,48 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       return res.status(401).json({ error: 'Student authentication required' });
     }
 
-    if (!Array.isArray(answers) || answers.length !== DAILY_QUIZ_QUESTION_COUNT) {
-      return res.status(400).json({ error: 'Must provide exactly 10 answers' });
+    if (!Array.isArray(answers)) {
+      return res.status(400).json({ error: 'Answers must be an array', message: 'Answers must be an array' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const normalizedAnswers = Array.from({ length: DAILY_QUIZ_QUESTION_COUNT }, (_, idx) => {
+      const raw = answers[idx];
+      return Number.isInteger(Number(raw)) ? Number(raw) : -1;
+    });
+
     const tokenCheck = verifyDailyQuizToken(quizToken, studentId);
     if (!tokenCheck.valid) {
-      return res.status(400).json({ error: tokenCheck.reason });
+      return res.status(400).json({ error: tokenCheck.reason, message: tokenCheck.reason });
     }
 
     const { payload } = tokenCheck;
-    if (payload.quizDate !== today) {
-      return res.status(400).json({ error: 'Quiz token is not valid for today' });
+    const quizDate = String(payload.quizDate || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(quizDate)) {
+      return res.status(400).json({ error: 'Quiz token has invalid date', message: 'Quiz token has invalid date' });
     }
 
     // Check if already attempted today
     const existingAttempt = await pool.query(
       'SELECT id FROM quiz_attempts WHERE student_id = $1 AND quiz_date = $2',
-      [studentId, today]
+      [studentId, quizDate]
     );
 
     if (existingAttempt.rows.length > 0) {
-      return res.status(409).json({ error: 'You have already attempted today\'s quiz' });
+      return res.status(409).json({
+        error: 'You have already attempted today\'s quiz',
+        message: 'You have already attempted today\'s quiz'
+      });
     }
 
     const elapsedSeconds = Math.floor((Date.now() - payload.startedAtMs) / 1000);
     if (elapsedSeconds > DAILY_QUIZ_DURATION_SECONDS) {
-      return res.status(400).json({ error: 'Time is up. The daily quiz must be completed within 5 minutes.' });
+      return res.status(400).json({
+        error: 'Time is up. The daily quiz must be completed within 5 minutes.',
+        message: 'Time is up. The daily quiz must be completed within 5 minutes.'
+      });
     }
     if (elapsedSeconds < 0) {
-      return res.status(400).json({ error: 'Invalid quiz timing data' });
+      return res.status(400).json({ error: 'Invalid quiz timing data', message: 'Invalid quiz timing data' });
     }
 
     const questionsToCheck = await pool.query(
@@ -15227,7 +15238,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
     );
 
     if (questionsToCheck.rows.length !== DAILY_QUIZ_QUESTION_COUNT) {
-      return res.status(404).json({ error: 'Quiz not available' });
+      return res.status(404).json({ error: 'Quiz not available', message: 'Quiz not available' });
     }
 
     const correctAnswerById = new Map(
@@ -15236,7 +15247,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
 
     // Calculate score
     let correctAnswers = 0;
-    answers.forEach((answer, index) => {
+    normalizedAnswers.forEach((answer, index) => {
       const questionId = Number(payload.questionIds[index]);
       if (Number.isInteger(questionId) && Number(answer) === correctAnswerById.get(questionId)) {
         correctAnswers++;
@@ -15253,9 +15264,9 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       studentId,
-      today,
+      quizDate,
       payload.level || 'beginner',
-      JSON.stringify(answers),
+      JSON.stringify(normalizedAnswers),
       correctAnswers,
       pointsEarned,
       elapsedSeconds
@@ -15287,7 +15298,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
     });
   } catch (err) {
     console.error('Quiz submission error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message, message: err.message });
   }
 });
 
