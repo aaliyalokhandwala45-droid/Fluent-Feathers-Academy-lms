@@ -2949,6 +2949,45 @@ async function runMigrations() {
       console.log('Migration 53 note:', err.message);
     }
 
+    // Migration 54: Ensure quiz_attempts has current scoring/time columns
+    try {
+      await client.query(`ALTER TABLE quiz_attempts ADD COLUMN IF NOT EXISTS points_awarded INTEGER NOT NULL DEFAULT 0`);
+      await client.query(`ALTER TABLE quiz_attempts ADD COLUMN IF NOT EXISTS time_taken_seconds INTEGER`);
+
+      // Backfill from legacy columns if they exist in older deployments
+      await client.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'quiz_attempts'
+              AND column_name = 'points_earned'
+          ) THEN
+            EXECUTE 'UPDATE quiz_attempts
+                     SET points_awarded = COALESCE(points_awarded, points_earned, 0)
+                     WHERE points_awarded IS NULL OR points_awarded = 0';
+          END IF;
+
+          IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'quiz_attempts'
+              AND column_name = 'time_spent'
+          ) THEN
+            EXECUTE 'UPDATE quiz_attempts
+                     SET time_taken_seconds = COALESCE(time_taken_seconds, time_spent)
+                     WHERE time_taken_seconds IS NULL';
+          END IF;
+        END $$;
+      `);
+      console.log('✅ Migration 54: Ensured quiz_attempts scoring/time columns');
+    } catch (err) {
+      console.log('Migration 54 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them

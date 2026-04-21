@@ -832,6 +832,7 @@
       <div class="tabs">
         <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
         <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
+        <button class="tab-btn" onclick="showTab('homework', event)">📤 Upload Classwork</button>
         <button class="tab-btn" onclick="showTab('makeup', event)">🎁 Makeup</button>
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
         <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">🎯 Challenges<span class="red-dot" id="dotChallenges"></span></button>
@@ -916,7 +917,7 @@
         </div>
       </div>
 
-      <div id="homeworkTab" class="tab-content" style="display:none !important;">
+      <div id="homeworkTab" class="tab-content">
         <div class="section">
           <h2>📤 Upload Homework</h2>
           <form id="uploadHomeworkForm">
@@ -2244,6 +2245,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       clearRedDot(name);
       if (name === 'upcoming') loadUpcoming(true);
       if (name === 'past') loadPast(true);
+      if (name === 'homework') loadHomeworkSessions();
       if (name === 'challenges') loadStudentChallenges();
       if (name === 'pointsTracker') { loadClassPoints(); loadScoreHistory(); }
       if (name === 'announcements') loadAnnouncements();
@@ -5702,12 +5704,20 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           const result = await response.json();
           showQuizResult(result);
         } else {
-          const error = await response.json();
-          if (isAutoSubmit && error.message && error.message.includes('Time is up')) {
+          let errorMessage = 'Failed to submit quiz';
+          try {
+            const error = await response.json();
+            errorMessage = error.message || error.error || errorMessage;
+          } catch (_) {
+            const errorText = await response.text();
+            if (errorText) errorMessage = errorText;
+          }
+
+          if (isAutoSubmit && errorMessage.includes('Time is up')) {
             checkQuizStatus();
             loadQuizHistory();
           } else {
-            alert('Error: ' + (error.message || 'Failed to submit quiz'));
+            alert('Error: ' + errorMessage);
           }
         }
       } catch (error) {
