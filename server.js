@@ -15649,8 +15649,7 @@ app.put('/api/admin/pending-quiz-questions/:id', async (req, res) => {
            options = $2,
            correct_answer = $3,
            category = $4,
-           explanation = $5,
-           updated_at = CURRENT_TIMESTAMP
+           explanation = $5
        WHERE id = $6 AND status = 'pending'
        RETURNING id`,
       [question_text.trim(), JSON.stringify(options.map(opt => opt.trim())), correct_answer, category || null, explanation || null, questionId]
@@ -15661,6 +15660,76 @@ app.put('/api/admin/pending-quiz-questions/:id', async (req, res) => {
     }
     res.json({ success: true, message: 'Pending question updated successfully' });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Refresh one pending AI question with a newly generated one
+app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
+  try {
+    const questionId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(questionId) || questionId <= 0) {
+      return res.status(400).json({ error: 'Invalid question id' });
+    }
+
+    const existingResult = await pool.query(
+      `SELECT id, quiz_date, level, status
+       FROM pending_quiz_questions
+       WHERE id = $1`,
+      [questionId]
+    );
+    if (existingResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    const existing = existingResult.rows[0];
+    if (existing.status !== 'pending') {
+      return res.status(400).json({ error: 'Only pending questions can be refreshed' });
+    }
+
+    // Generate a few candidates so we can avoid repeating the same text.
+    const generated = await generateQuizQuestionsWithAI(existing.level, 3);
+    if (!Array.isArray(generated) || generated.length === 0) {
+      return res.status(500).json({ error: 'AI could not generate a replacement question' });
+    }
+
+    const siblingResult = await pool.query(
+      `SELECT LOWER(TRIM(question_text)) AS q
+       FROM pending_quiz_questions
+       WHERE quiz_date = $1 AND level = $2 AND id <> $3`,
+      [existing.quiz_date, existing.level, questionId]
+    );
+    const existingTexts = new Set(siblingResult.rows.map(r => String(r.q || '')));
+
+    let replacement = generated.find(q => !existingTexts.has(String(q.question_text || '').trim().toLowerCase()));
+    if (!replacement) replacement = generated[0];
+
+    const updateResult = await pool.query(
+      `UPDATE pending_quiz_questions
+       SET question_text = $1,
+           options = $2,
+           correct_answer = $3,
+           category = $4,
+           explanation = $5
+       WHERE id = $6 AND status = 'pending'
+       RETURNING id`,
+      [
+        String(replacement.question_text || '').trim(),
+        JSON.stringify(Array.isArray(replacement.options) ? replacement.options.map(opt => String(opt || '').trim()) : []),
+        Number.isInteger(Number(replacement.correct_answer)) ? Number(replacement.correct_answer) : 0,
+        String(replacement.category || 'figures_of_speech').toLowerCase(),
+        String(replacement.explanation || '').trim(),
+        questionId
+      ]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Question could not be refreshed' });
+    }
+
+    res.json({ success: true, message: 'Question refreshed successfully' });
+  } catch (err) {
+    console.error('Refresh pending question error:', err);
     res.status(500).json({ error: err.message });
   }
 });

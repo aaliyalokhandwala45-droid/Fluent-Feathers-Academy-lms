@@ -14923,7 +14923,8 @@ async function loadPendingQuizQuestions(date) {
             💡 ${escapeHtml(q.explanation)}
           </div>`;
         }
-        html += `<div style="display:flex; justify-content:flex-end;">
+        html += `<div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button onclick="refreshPendingQuestion(${q.id}, '${selectedDate}')" style="background:#805ad5;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;">🔄 Refresh Question</button>
             <button onclick="savePendingQuestionEdits(${q.id}, '${selectedDate}')" style="background:#3182ce;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;">💾 Save Edit</button>
           </div>
         </div>`;
@@ -15078,6 +15079,25 @@ async function savePendingQuestionEdits(questionId, date) {
   } catch (error) {
     console.error('Error saving pending question edits:', error);
     alert('❌ Error saving edits: ' + error.message);
+  }
+}
+
+async function refreshPendingQuestion(questionId, date) {
+  if (!confirm('Replace this question with a newly generated one?')) return;
+
+  try {
+    const response = await fetch(`/api/admin/pending-quiz-questions/${questionId}/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to refresh question');
+
+    alert('✅ Question refreshed with a new one.');
+    loadPendingQuizQuestions(date);
+  } catch (error) {
+    console.error('Error refreshing pending question:', error);
+    alert('❌ Error refreshing question: ' + error.message);
   }
 }
 
