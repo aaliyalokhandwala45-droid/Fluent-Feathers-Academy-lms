@@ -15226,24 +15226,52 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       return res.status(400).json({ error: 'Invalid quiz timing data', message: 'Invalid quiz timing data' });
     }
 
+    // Use token question IDs as source of truth for a started quiz.
+    // This avoids false "Quiz not available" when admin edits/deactivates questions mid-day.
     const questionsToCheck = await pool.query(
       `
-        SELECT id, correct_answer, category
+        SELECT id, correct_answer
         FROM quiz_questions
         WHERE id = ANY($1::int[])
-          AND is_active = true
-          AND category != 'phonics'
       `,
       [payload.questionIds]
     );
 
-    if (questionsToCheck.rows.length !== DAILY_QUIZ_QUESTION_COUNT) {
-      return res.status(404).json({ error: 'Quiz not available', message: 'Quiz not available' });
-    }
-
     const correctAnswerById = new Map(
       questionsToCheck.rows.map(question => [Number(question.id), Number(question.correct_answer)])
     );
+
+    if (correctAnswerById.size !== DAILY_QUIZ_QUESTION_COUNT) {
+      const dailyQuizResult = await pool.query(
+        `
+          SELECT beginner_questions, intermediate_questions, advanced_questions
+          FROM daily_quizzes
+          WHERE quiz_date = $1
+          LIMIT 1
+        `,
+        [quizDate]
+      );
+
+      if (dailyQuizResult.rows.length > 0) {
+        const quizRow = dailyQuizResult.rows[0];
+        const quizLevelColumn = getQuizLevelColumn(payload.level || 'beginner');
+        const archivedQuestions = Array.isArray(quizRow[quizLevelColumn]) ? quizRow[quizLevelColumn] : [];
+        archivedQuestions.forEach((q) => {
+          const id = Number(q?.id);
+          const correct = Number(q?.correct_answer);
+          if (Number.isInteger(id) && Number.isInteger(correct)) {
+            correctAnswerById.set(id, correct);
+          }
+        });
+      }
+    }
+
+    if (payload.questionIds.some(id => !correctAnswerById.has(Number(id)))) {
+      return res.status(404).json({
+        error: 'Quiz questions are no longer available. Please start today\'s quiz again.',
+        message: 'Quiz questions are no longer available. Please start today\'s quiz again.'
+      });
+    }
 
     // Calculate score
     let correctAnswers = 0;
