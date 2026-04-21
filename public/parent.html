@@ -832,7 +832,6 @@
       <div class="tabs">
         <button class="tab-btn active" onclick="showTab('upcoming', event)">📅 Upcoming</button>
         <button class="tab-btn" onclick="showTab('past', event)">📚 Past Classes</button>
-        <button class="tab-btn" onclick="showTab('homework', event)">📤 Upload Classwork</button>
         <button class="tab-btn" onclick="showTab('makeup', event)">🎁 Makeup</button>
         <button class="tab-btn" onclick="showTab('assessments', event)">📊 Report Cards</button>
         <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">🎯 Challenges<span class="red-dot" id="dotChallenges"></span></button>
@@ -2245,7 +2244,6 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       clearRedDot(name);
       if (name === 'upcoming') loadUpcoming(true);
       if (name === 'past') loadPast(true);
-      if (name === 'homework') loadHomeworkSessions();
       if (name === 'challenges') loadStudentChallenges();
       if (name === 'pointsTracker') { loadClassPoints(); loadScoreHistory(); }
       if (name === 'announcements') loadAnnouncements();
@@ -2332,6 +2330,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       let savedTab = localStorage.getItem('parentActiveTab');
       // Map old tab names to new ones
       if (savedTab === 'updates') savedTab = 'announcements';
+      if (savedTab === 'homework') savedTab = 'past';
       if (savedTab && document.getElementById(savedTab + 'Tab')) {
         showTab(savedTab);
       }
@@ -3649,11 +3648,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           const hwSubs = Array.isArray(s.hw_submissions) ? s.hw_submissions : [];
           if (canSubmitHw) {
             const existingNames = hwSubs.map(f => f.file_name || '').filter(Boolean);
-            if (hwSubs.length > 0) {
-              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', true, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">🔄 Resubmit HW</button>`;
-            } else {
-              materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', false, [])" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Submit HW</button>`;
-            }
+            materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Upload HW</button>`;
+            materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Upload CW</button>`;
             materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)}, 'comment')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">💬 Add Comment/Link</button>`;
           }
           if (!materials) materials = '-';
