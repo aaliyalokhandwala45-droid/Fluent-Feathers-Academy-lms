@@ -3649,8 +3649,6 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           if (canSubmitHw) {
             const existingNames = hwSubs.map(f => f.file_name || '').filter(Boolean);
             materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Upload HW</button>`;
-            materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Upload CW</button>`;
-            materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)}, 'comment')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">💬 Add Comment/Link</button>`;
           }
           if (!materials) materials = '-';
 

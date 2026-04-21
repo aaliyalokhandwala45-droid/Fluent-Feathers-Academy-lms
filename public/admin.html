@@ -1627,6 +1627,23 @@
         <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 25px;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
             <div>
+              <h3 style="margin:0 0 8px;">📝 Quiz Submissions</h3>
+              <p style="margin:0; color:#718096;">See who submitted, when they submitted, score, and time taken.</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <label style="font-weight:700; color:#4a5568;">Date</label>
+              <input id="quizAttemptsDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadQuizAttempts(this.value)">
+              <button onclick="loadQuizAttempts()" class="btn" style="background:#805ad5; color:white;">🔄 Load Submissions</button>
+            </div>
+          </div>
+          <div id="quizAttemptsList" style="display:grid; gap:10px;">
+            <p style="color:#718096; text-align:center; padding:20px;">Loading quiz submissions...</p>
+          </div>
+        </div>
+
+        <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 25px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+            <div>
               <h3 style="margin:0 0 8px;">📚 Quiz History By Date</h3>
               <p style="margin:0; color:#718096;">Change date to see every question asked on that day, grouped by level.</p>
             </div>
@@ -1640,7 +1657,6 @@
             <p style="color:#718096; text-align:center; padding:20px;">Loading quiz history...</p>
           </div>
         </div>
-        <div id="quizAttemptsList" style="display:none;"></div>
         <div id="quizUsageList" style="display:none;"></div>
         <div id="questionsList" style="display:none;"></div>
       </div>
@@ -14711,16 +14727,23 @@ async function loadQuizAttempts(date) {
     }
 
     container.innerHTML = attempts.map(attempt => {
-      const time = new Date(attempt.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const submittedAt = new Date(attempt.completed_at);
+      const submittedLabel = submittedAt.toLocaleString([], {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
       const scorePercent = Math.round((attempt.score / 10) * 100);
       return `
         <div style="background:#f7fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;">
           <div>
             <div style="font-weight:700;color:#2d3748;">${attempt.student_name}</div>
             <div style="color:#718096;font-size:0.95rem;">Level: ${attempt.level} · Score: ${attempt.score}/10 (${scorePercent}%)</div>
-            <div style="color:#4a5568;font-size:0.85rem;">Points: +${attempt.points_awarded} · Time: ${Math.floor(attempt.time_spent/60)}:${String(attempt.time_spent % 60).padStart(2,'0')}</div>
+            <div style="color:#4a5568;font-size:0.85rem;">Points: +${attempt.points_awarded} · Time taken: ${Math.floor((attempt.time_spent || 0)/60)}:${String((attempt.time_spent || 0) % 60).padStart(2,'0')}</div>
           </div>
-          <div style="text-align:right;color:#718096;font-size:0.9rem;">${time}</div>
+          <div style="text-align:right;color:#718096;font-size:0.9rem;">${submittedLabel}</div>
         </div>
       `;
     }).join('');
@@ -14804,6 +14827,7 @@ async function loadTodayQuizQuestions(date) {
 // helper for admin quiz tab refreshing
 function refreshQuizAdminData() {
   loadQuizStats();
+  loadQuizAttempts();
   loadTodayQuizQuestions();
   loadPendingQuizQuestions();
 }
