@@ -2645,12 +2645,12 @@ async function runMigrations() {
         CREATE TABLE IF NOT EXISTS quiz_questions (
           id SERIAL PRIMARY KEY,
           level VARCHAR(20) NOT NULL CHECK (level IN ('beginner', 'intermediate', 'advanced')),
-          category VARCHAR(30) NOT NULL CHECK (category IN ('grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery')),
+          category VARCHAR(30) NOT NULL CHECK (category IN ('grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language')),
           question_text TEXT NOT NULL,
           options JSONB NOT NULL,
           correct_answer INTEGER NOT NULL CHECK (correct_answer >= 0 AND correct_answer <= 3),
           explanation TEXT,
-          audio_url TEXT, -- For listening/pronunciation questions
+          audio_url TEXT, -- Optional media for listening/context clues
           image_url TEXT, -- For visual questions
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -2764,9 +2764,9 @@ async function runMigrations() {
         ['advanced', 'proverbs', '"You can lead a horse to water, but ..."', '["you cannot make it swim", "you cannot make it drink", "you can make it stand", "you can make it jump"]', 1, 'This proverb means you can offer help but not force someone'],
 
         // Pronunciation
-        ['beginner', 'pronunciation', 'How do you pronounce "th" in "think"?', '["Like t", "Like z", "Like s", "Like f"]', 0, 'Voiceless "th" sound'],
-        ['intermediate', 'pronunciation', 'Which word has the same vowel sound as "boat"?', '["Cat", "Cow", "Car", "Cut"]', 1, 'Cow has the /ou/ diphthong'],
-        ['advanced', 'pronunciation', 'How is "colonel" typically pronounced in American English?', '["KER-nel", "kol-o-NEL", "KUH-nel", "kol-NEL"]', 0, 'Colonel is pronounced KER-nel in American English'],
+        ['beginner', 'figures_of_speech', 'Which phrase is a simile?', '["She is a star", "As brave as a lion", "The wind whispered", "Time flew"]', 1, 'A simile compares using "as" or "like".'],
+        ['intermediate', 'contextual_reference_sentences', 'Choose the best meaning of "bright" in this sentence: "She is a bright student."', '["Shiny", "Intelligent", "Loud", "Colorful"]', 1, 'In context, bright means intelligent.'],
+        ['advanced', 'types_of_speeches', 'In the sentence "Wow! That is amazing!", which type is "Wow"?', '["Preposition", "Conjunction", "Interjection", "Pronoun"]', 2, 'Wow is an interjection expressing emotion.'],
 
         // Advanced Usage
         ['advanced', 'idioms', 'If someone says "spill the beans", they want you to:', '["Cook dinner", "Tell a secret", "Clean up", "Plant beans"]', 1, 'Spill the beans means reveal a secret'],
@@ -2849,7 +2849,8 @@ async function runMigrations() {
     // Migration 49: Update quiz question category constraint and remove legacy phonics category from future inserts
     try {
       await client.query(`ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_category_check`);
-      await client.query(`ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_category_check CHECK (category IN ('grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery'))`);
+      await client.query(`UPDATE quiz_questions SET category = 'figures_of_speech' WHERE LOWER(category) = 'pronunciation'`);
+      await client.query(`ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_category_check CHECK (category IN ('grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'))`);
       console.log('✅ Migration 49: Updated quiz questions category constraint');
     } catch (err) {
       console.log('Migration 49 note:', err.message);
@@ -6793,7 +6794,7 @@ async function generateDailyQuiz() {
   // Generate questions for each level
   const levels = ['beginner', 'intermediate', 'advanced'];
   const quizData = { quiz_date: today };
-  const categories = ['grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery'];
+  const categories = ['grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'];
 
   for (const level of levels) {
     const questions = [];
@@ -7089,16 +7090,16 @@ async function generateQuizQuestionsWithAI(level, count = 10) {
   }
 
   const levelDescriptions = {
-    beginner: 'simple vocabulary and basic grammar suitable for English learners at beginner level',
-    intermediate: 'intermediate vocabulary and grammar concepts for English learners',
-    advanced: 'advanced vocabulary, complex grammar, idioms, and nuanced English concepts for advanced learners'
+    beginner: 'simple English suitable for beginner learners with clear sentence choices',
+    intermediate: 'intermediate English concepts with balanced grammar and expression',
+    advanced: 'advanced English concepts, nuanced expression, and deeper language analysis'
   };
 
   const prompt = `You are an English teacher creating a daily quiz. Generate exactly ${count} multiple-choice English quiz questions for ${level} level students.
 
 Each question should be:
 - ${levelDescriptions[level]}
-- Focused on one of these categories: grammar, vocabulary, pronunciation, idioms, proverbs, elaboration, or imagery
+- Focused on one of these categories: grammar, vocabulary, idioms, proverbs, elaboration, imagery, figures_of_speech, contextual_reference_sentences, dressup_sentences, punctuation, spelling, show_dont_tell, types_of_speeches, body_language
 - Clearly written with one correct answer
 - Include 4 options (A, B, C, D)
 
@@ -7162,7 +7163,7 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
       question_text: String(q.question_text || '').trim(),
       options: Array.isArray(q.options) ? q.options.map(o => String(o).trim()) : [],
       correct_answer: Number(q.correct_answer) || 0,
-      category: String(q.category || 'vocabulary').toLowerCase(),
+      category: String(q.category || 'figures_of_speech').toLowerCase(),
       explanation: String(q.explanation || '').trim()
     })).filter(q => 
       q.question_text.length > 5 && 
@@ -9367,6 +9368,12 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
     const session = sessionResult.rows[0];
+    const fallbackDate = session.session_date instanceof Date
+      ? session.session_date.toISOString().split('T')[0]
+      : (typeof session.session_date === 'string' && session.session_date.includes('T')
+        ? session.session_date.split('T')[0]
+        : String(session.session_date || 'N/A'));
+    const fallbackTime = (session.session_time || 'N/A').toString().substring(0, 8);
 
     // Get student details for email
     const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [session.student_id]);
@@ -9402,13 +9409,6 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
         const parentTimezone = student.parent_timezone || student.timezone || 'Asia/Kolkata';
         const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
         const timezoneLabel = getTimezoneLabel(parentTimezone);
-
-        const fallbackDate = session.session_date instanceof Date
-          ? session.session_date.toISOString().split('T')[0]
-          : (typeof session.session_date === 'string' && session.session_date.includes('T')
-            ? session.session_date.split('T')[0]
-            : String(session.session_date || 'N/A'));
-        const fallbackTime = (session.session_time || 'N/A').toString().substring(0, 8);
 
         const safeSessionDate = localTime && localTime.date && localTime.date !== 'Invalid Date'
           ? `${localTime.day ? `${localTime.day}, ` : ''}${localTime.date}`
@@ -15352,7 +15352,7 @@ app.post('/api/admin/quiz-questions', async (req, res) => {
       return res.status(400).json({ error: 'Invalid level' });
     }
 
-    if (!['grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery'].includes(category)) {
+    if (!['grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'].includes(category)) {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
@@ -15402,7 +15402,7 @@ app.put('/api/admin/quiz-questions/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid level' });
     }
 
-    if (category && !['grammar', 'vocabulary', 'pronunciation', 'idioms', 'proverbs', 'elaboration', 'imagery'].includes(category)) {
+    if (category && !['grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'].includes(category)) {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
@@ -15437,14 +15437,9 @@ app.delete('/api/admin/quiz-questions/:id', async (req, res) => {
   }
 });
 
-// Admin: Generate today's quiz manually
+// Admin: Manual question-bank generation is retired (AI-only flow)
 app.post('/api/admin/generate-daily-quiz', async (req, res) => {
-  try {
-    await generateDailyQuiz();
-    res.json({ success: true, message: 'Daily quiz generated successfully' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  res.status(410).json({ error: 'Manual daily quiz generation is disabled. Use AI generation and approval workflow.' });
 });
 
 // Admin: Get quiz stats - today's questions count
@@ -15483,7 +15478,7 @@ app.get('/api/admin/quiz-stats/today-attempts', async (req, res) => {
 // Admin: Get quiz stats - total questions count
 app.get('/api/admin/quiz-stats/total-questions', async (req, res) => {
   try {
-    const result = await pool.query('SELECT COUNT(*) as count FROM quiz_questions WHERE is_active = true');
+    const result = await pool.query(`SELECT COUNT(*) as count FROM pending_quiz_questions WHERE status = 'pending'`);
     res.json({ count: parseInt(result.rows[0].count) });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -15629,20 +15624,66 @@ app.get('/api/admin/pending-quiz-questions', async (req, res) => {
   }
 });
 
+// Admin: Update one pending AI question before approval
+app.put('/api/admin/pending-quiz-questions/:id', async (req, res) => {
+  try {
+    const questionId = parseInt(req.params.id, 10);
+    const { question_text, options, correct_answer, category, explanation } = req.body || {};
+
+    if (!Number.isInteger(questionId) || questionId <= 0) {
+      return res.status(400).json({ error: 'Invalid question id' });
+    }
+    if (!question_text || !Array.isArray(options) || options.length !== 4) {
+      return res.status(400).json({ error: 'Question text and exactly 4 options are required' });
+    }
+    if (!Number.isInteger(correct_answer) || correct_answer < 0 || correct_answer > 3) {
+      return res.status(400).json({ error: 'correct_answer must be 0-3' });
+    }
+    if (options.some(opt => typeof opt !== 'string' || !opt.trim())) {
+      return res.status(400).json({ error: 'All options must be non-empty strings' });
+    }
+
+    const result = await pool.query(
+      `UPDATE pending_quiz_questions
+       SET question_text = $1,
+           options = $2,
+           correct_answer = $3,
+           category = $4,
+           explanation = $5,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6 AND status = 'pending'
+       RETURNING id`,
+      [question_text.trim(), JSON.stringify(options.map(opt => opt.trim())), correct_answer, category || null, explanation || null, questionId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Pending question not found or already finalized' });
+    }
+    res.json({ success: true, message: 'Pending question updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: Approve pending quiz questions and move to daily_quizzes
 app.post('/api/admin/approve-quiz-questions', async (req, res) => {
   try {
-    const { quizDate } = req.body;
+    const { quizDate, level } = req.body;
     const date = quizDate || new Date().toISOString().split('T')[0];
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Invalid date format' });
     }
 
-    // Get all pending questions for this date
+    const validLevels = ['beginner', 'intermediate', 'advanced'];
+    if (level && !validLevels.includes(level)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+
+    // Get all pending questions for this date (optionally scoped to one level)
     const pendingResult = await pool.query(
-      `SELECT * FROM pending_quiz_questions WHERE quiz_date = $1 AND status = 'pending'`,
-      [date]
+      `SELECT * FROM pending_quiz_questions WHERE quiz_date = $1 AND status = 'pending' ${level ? 'AND level = $2' : ''}`,
+      level ? [date, level] : [date]
     );
 
     if (pendingResult.rows.length === 0) {
@@ -15650,7 +15691,7 @@ app.post('/api/admin/approve-quiz-questions', async (req, res) => {
     }
 
     // Group by level and ensure we have 10 questions per level
-    const levels = ['beginner', 'intermediate', 'advanced'];
+    const levels = level ? [level] : ['beginner', 'intermediate', 'advanced'];
     const quizData = { quiz_date: date };
     let approvedCount = 0;
 
@@ -15687,6 +15728,11 @@ app.post('/api/admin/approve-quiz-questions', async (req, res) => {
     const existingQuiz = await pool.query('SELECT id FROM daily_quizzes WHERE quiz_date = $1', [date]);
 
     if (existingQuiz.rows.length > 0) {
+      const existingData = await pool.query(
+        'SELECT beginner_questions, intermediate_questions, advanced_questions FROM daily_quizzes WHERE quiz_date = $1 LIMIT 1',
+        [date]
+      );
+      const existingRow = existingData.rows[0] || {};
       // Update existing quiz
       await pool.query(`
         UPDATE daily_quizzes SET
@@ -15695,9 +15741,9 @@ app.post('/api/admin/approve-quiz-questions', async (req, res) => {
           advanced_questions = $3
         WHERE quiz_date = $4
       `, [
-        JSON.stringify(quizData.beginner_questions),
-        JSON.stringify(quizData.intermediate_questions),
-        JSON.stringify(quizData.advanced_questions),
+        JSON.stringify(quizData.beginner_questions || existingRow.beginner_questions || []),
+        JSON.stringify(quizData.intermediate_questions || existingRow.intermediate_questions || []),
+        JSON.stringify(quizData.advanced_questions || existingRow.advanced_questions || []),
         date
       ]);
     } else {
@@ -15707,9 +15753,9 @@ app.post('/api/admin/approve-quiz-questions', async (req, res) => {
         VALUES ($1, $2, $3, $4)
       `, [
         date,
-        JSON.stringify(quizData.beginner_questions),
-        JSON.stringify(quizData.intermediate_questions),
-        JSON.stringify(quizData.advanced_questions)
+        JSON.stringify(quizData.beginner_questions || []),
+        JSON.stringify(quizData.intermediate_questions || []),
+        JSON.stringify(quizData.advanced_questions || [])
       ]);
     }
 
@@ -15734,7 +15780,7 @@ app.post('/api/admin/reject-quiz-questions', async (req, res) => {
       return res.status(400).json({ error: 'Invalid date format' });
     }
 
-    if (!['beginner', 'intermediate', 'advanced'].includes(level)) {
+    if (!['beginner', 'intermediate', 'advanced', 'all'].includes(level)) {
       return res.status(400).json({ error: 'Invalid level' });
     }
 
@@ -15742,7 +15788,7 @@ app.post('/api/admin/reject-quiz-questions', async (req, res) => {
     const result = await pool.query(`
       UPDATE pending_quiz_questions
       SET status = 'rejected'
-      WHERE quiz_date = $1 AND level = $2 AND status = 'pending'
+      WHERE quiz_date = $1 AND ($2 = 'all' OR level = $2) AND status = 'pending'
       RETURNING id
     `, [date, level]);
 

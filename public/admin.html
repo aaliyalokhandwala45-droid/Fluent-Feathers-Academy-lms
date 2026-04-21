@@ -1593,18 +1593,20 @@
             <div class="value" id="todayAttempts">0</div>
           </div>
           <div class="stat-card" style="border-left-color: #805ad5;">
-            <h3>⭐ Total Questions</h3>
+            <h3>⭐ Pending In Queue</h3>
             <div class="value" id="totalQuestions">0</div>
           </div>
         </div>
 
-        <!-- Generate Today's Quiz -->
+        <!-- AI-only Quiz Generation -->
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-          <h3 style="margin-bottom: 15px;">🎯 Generate Today's Quiz</h3>
-          <p style="margin-bottom: 15px; opacity: 0.9;">Choose how to generate today's quiz: manually select from the question bank, or use AI to generate new questions.</p>
-          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <button onclick="generateTodayQuiz()" class="btn" style="background: white; color: #667eea; font-weight: bold;">📚 From Question Bank</button>
-            <button onclick="generateAIQuiz()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; font-weight: bold;">🤖 Generate with AI</button>
+          <h3 style="margin-bottom: 15px;">🤖 AI Quiz Planner</h3>
+          <p style="margin-bottom: 15px; opacity: 0.9;">Generate tomorrow's quiz in advance, review each question, edit if needed, then approve to publish for students.</p>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <label for="pendingQuestionsDate" style="font-weight: 700;">Quiz Date</label>
+            <input type="date" id="pendingQuestionsDate" style="padding: 10px 12px; border-radius: 12px; border: 1px solid #e2e8f0;" onchange="loadPendingQuizQuestions(this.value)">
+            <button onclick="generateAIQuiz()" class="btn" style="background: white; color: #667eea; font-weight: bold;">✨ Generate with AI</button>
+            <button onclick="loadPendingQuizQuestions()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; font-weight: bold;">🔄 Refresh Review</button>
           </div>
         </div>
 
@@ -1615,10 +1617,7 @@
               <h3 style="margin:0 0 8px;">⏳ Pending AI Questions</h3>
               <p style="margin:0; color:#718096;">Review AI-generated questions and approve them for students.</p>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <input type="date" id="pendingQuestionsDate" style="padding: 10px 12px; border-radius: 12px; border: 1px solid #e2e8f0;" onchange="loadPendingQuizQuestions(this.value)">
-              <button onclick="loadPendingQuizQuestions()" class="btn" style="background:#667eea; color:white;">🔄 Refresh</button>
-            </div>
+            <div style="font-size: 0.9rem; color: #4a5568;">Edit before approving to next day</div>
           </div>
           <div id="pendingQuizzesContainer" style="display: grid; gap: 16px;">
             <p style="color: #718096; text-align: center; padding: 20px;">Loading pending questions...</p>
@@ -1628,141 +1627,22 @@
         <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 25px;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
             <div>
-              <h3 style="margin:0 0 8px;">🗂️ Today's Stored Daily Quiz</h3>
-              <p style="margin:0; color:#718096;">View the questions and correct answers selected for today's quiz.</p>
+              <h3 style="margin:0 0 8px;">📚 Quiz History By Date</h3>
+              <p style="margin:0; color:#718096;">Change date to see every question asked on that day, grouped by level.</p>
             </div>
-            <button onclick="loadTodayQuizQuestions()" class="btn" style="background:#319795; color:white;">🔄 Refresh Today</button>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <label style="font-weight:700; color:#4a5568;">Date</label>
+              <input id="quizUsageDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadTodayQuizQuestions(this.value)">
+              <button onclick="loadTodayQuizQuestions()" class="btn" style="background:#319795; color:white;">🔄 Load Date</button>
+            </div>
           </div>
           <div id="todayQuizQuestionsList" style="display:grid; gap:20px;">
-            <p style="color:#718096; text-align:center; padding:20px;">Loading today's stored quiz questions...</p>
+            <p style="color:#718096; text-align:center; padding:20px;">Loading quiz history...</p>
           </div>
         </div>
-
-        <div style="display: grid; gap: 20px; margin-bottom: 25px;">
-          <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08);">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
-              <div>
-                <h3 style="margin:0 0 8px;">📘 Today's Quiz Attempts</h3>
-                <p style="margin:0; color:#718096;">View which students attempted today and their scores.</p>
-              </div>
-              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                <label style="font-weight:700; color:#4a5568;">Date</label>
-                <input id="quizAttemptsDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadQuizAttempts(this.value)">
-              </div>
-            </div>
-            <div id="quizAttemptsList" style="display:grid; gap:12px;">
-              <p style="color:#718096; text-align:center; padding:20px;">Loading attempts...</p>
-            </div>
-          </div>
-
-          <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08);">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
-              <div>
-                <h3 style="margin:0 0 8px;">📋 Daily Question Usage</h3>
-                <p style="margin:0; color:#718096;">Track the questions that were used for each level each day.</p>
-              </div>
-              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                <label style="font-weight:700; color:#4a5568;">Date</label>
-                <input id="quizUsageDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadDailyQuizUsage(this.value)">
-              </div>
-            </div>
-            <div id="quizUsageList" style="display:grid; gap:20px;">
-              <p style="color:#718096; text-align:center; padding:20px;">Loading daily question usage...</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Add Question Form -->
-        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 25px; border-radius: 12px; margin-bottom: 25px;">
-          <h3 style="color: white; margin-bottom: 20px;">➕ Add New Question</h3>
-          <form id="addQuestionForm" style="display: grid; gap: 15px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Level</label>
-                <select id="questionLevel" required style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </div>
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Category</label>
-                <select id="questionCategory" required style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-                  <option value="grammar">Grammar</option>
-                  <option value="vocabulary">Vocabulary</option>
-                  <option value="pronunciation">Pronunciation</option>
-                  <option value="idioms">Idioms</option>
-                  <option value="proverbs">Proverbs</option>
-                  <option value="elaboration">Elaboration</option>
-                  <option value="imagery">Imagery</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Question</label>
-              <textarea id="questionText" required placeholder="Enter the question..." style="width: 100%; padding: 8px; border-radius: 6px; border: none; min-height: 60px; resize: vertical;"></textarea>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Option A</label>
-                <input type="text" id="optionA" required placeholder="Option A" style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-              </div>
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Option B</label>
-                <input type="text" id="optionB" required placeholder="Option B" style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-              </div>
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Option C</label>
-                <input type="text" id="optionC" required placeholder="Option C" style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-              </div>
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Option D</label>
-                <input type="text" id="optionD" required placeholder="Option D" style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-              </div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Correct Answer</label>
-                <select id="correctAnswer" required style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-                  <option value="0">A</option>
-                  <option value="1">B</option>
-                  <option value="2">C</option>
-                  <option value="3">D</option>
-                </select>
-              </div>
-              <div>
-                <label style="color: white; font-weight: bold; display: block; margin-bottom: 5px;">Explanation (Optional)</label>
-                <input type="text" id="questionExplanation" placeholder="Why is this the correct answer?" style="width: 100%; padding: 8px; border-radius: 6px; border: none;">
-              </div>
-            </div>
-            <button type="submit" class="btn" style="background: white; color: #f5576c; font-weight: bold; justify-self: start;">💾 Save Question</button>
-          </form>
-        </div>
-
-        <!-- Questions List -->
-        <h3 style="margin-bottom: 15px;">📋 Question Bank</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-          <select id="filterLevel" onchange="loadQuizQuestions()" style="padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-            <option value="">All Levels</option>
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-          <select id="filterCategory" onchange="loadQuizQuestions()" style="padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-            <option value="">All Categories</option>
-            <option value="grammar">Grammar</option>
-            <option value="vocabulary">Vocabulary</option>
-            <option value="pronunciation">Pronunciation</option>
-            <option value="idioms">Idioms</option>
-            <option value="proverbs">Proverbs</option>
-            <option value="elaboration">Elaboration</option>
-            <option value="imagery">Imagery</option>
-          </select>
-          <div></div>
-        </div>
-        <div id="questionsList" style="display: grid; gap: 15px;">
-          <p style="color: #718096; text-align: center; padding: 30px;">Loading questions...</p>
-        </div>
+        <div id="quizAttemptsList" style="display:none;"></div>
+        <div id="quizUsageList" style="display:none;"></div>
+        <div id="questionsList" style="display:none;"></div>
       </div>
     </div>
 
@@ -4768,10 +4648,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
-      if (tabName === 'quiz') {
-        loadQuizQuestions();
-        refreshQuizAdminData();
-      }
+      if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
@@ -14903,12 +14780,14 @@ async function loadDailyQuizUsage(date) {
 async function loadTodayQuizQuestions(date) {
   try {
     const selectedDate = date || document.getElementById('quizUsageDate')?.value || getLocalDateString();
+    const usageDateInput = document.getElementById('quizUsageDate');
+    if (usageDateInput) usageDateInput.value = selectedDate;
     const response = await fetch(`/api/admin/daily-quiz-usage?date=${selectedDate}`);
     const usage = await response.json();
 
     const container = document.getElementById('todayQuizQuestionsList');
     if (!usage || (!usage.beginner_questions?.length && !usage.intermediate_questions?.length && !usage.advanced_questions?.length)) {
-      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No stored quiz data is available for today yet. Generate today&apos;s quiz to view it here.</p>';
+      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No approved quiz exists for this date yet.</p>';
       return;
     }
 
@@ -14917,16 +14796,14 @@ async function loadTodayQuizQuestions(date) {
       ${renderDailyQuizQuestions(usage)}
     `;
   } catch (error) {
-    console.error('Error loading today quiz questions:', error);
-    document.getElementById('todayQuizQuestionsList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading today&apos;s quiz questions.</p>';
+    console.error('Error loading quiz history:', error);
+    document.getElementById('todayQuizQuestionsList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading quiz history.</p>';
   }
 }
 
 // helper for admin quiz tab refreshing
 function refreshQuizAdminData() {
   loadQuizStats();
-  loadQuizAttempts();
-  loadDailyQuizUsage();
   loadTodayQuizQuestions();
   loadPendingQuizQuestions();
 }
@@ -14976,13 +14853,12 @@ async function loadPendingQuizQuestions(date) {
 
     const container = document.getElementById('pendingQuizzesContainer');
     
-    // Check if there are any pending questions
-    const hasPending = ['beginner', 'intermediate', 'advanced'].some(level => 
+    const hasPending = ['beginner', 'intermediate', 'advanced'].some(level =>
       grouped[level]?.some(q => q.status === 'pending')
     );
 
     if (!hasPending) {
-      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No pending questions for this date. Generate AI questions or they will be auto-generated at 4:00 AM UTC.</p>';
+      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No pending questions for this date. Generate AI questions for this date and review here.</p>';
       return;
     }
 
@@ -15003,7 +14879,7 @@ async function loadPendingQuizQuestions(date) {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h4 style="margin: 0; color: #2d3748;">📋 ${level.toUpperCase()} Level (${pendingCount}/10 Pending)</h4>
           <div style="display: flex; gap: 8px;">
-            ${pendingCount === 10 ? `<button onclick="approvePendingQuestions('${selectedDate}', '${level}')" style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">✅ Approve All</button>` : ''}
+            ${pendingCount >= 10 ? `<button onclick="approvePendingQuestions('${selectedDate}', '${level}')" style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">✅ Approve Level</button>` : ''}
             <button onclick="rejectPendingQuestions('${selectedDate}', '${level}')" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;">❌ Reject All</button>
           </div>
         </div>`;
@@ -15014,17 +14890,29 @@ async function loadPendingQuizQuestions(date) {
         if (q.status !== 'pending') continue;
 
         html += `<div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid #667eea;">
-          <div style="font-weight: bold; color: #2d3748; margin-bottom: 8px;">Q${i + 1}. ${escapeHtml(q.question_text.substring(0, 100))}${q.question_text.length > 100 ? '...' : ''}</div>
+          <div style="font-weight: bold; color: #2d3748; margin-bottom: 8px;">Q${i + 1}</div>
+          <textarea id="pending-qtext-${q.id}" style="width:100%;min-height:64px;padding:10px;border:1px solid #cbd5e0;border-radius:8px;resize:vertical;margin-bottom:10px;">${escapeHtml(q.question_text)}</textarea>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">`;
         
         for (let j = 0; j < q.options.length; j++) {
           const isCorrect = j === q.correct_answer;
           html += `<div style="padding: 8px; background: ${isCorrect ? '#c6f6d5' : '#f7fafc'}; border-radius: 4px; border: 1px solid ${isCorrect ? '#38a169' : '#cbd5e0'}; font-size: 0.85rem;">
-            <strong>${String.fromCharCode(65 + j)})</strong> ${escapeHtml(q.options[j])}
+            <strong>${String.fromCharCode(65 + j)})</strong>
+            <input id="pending-opt-${q.id}-${j}" type="text" value="${escapeHtml(q.options[j])}" style="width:100%;margin-top:6px;padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
           </div>`;
         }
 
-        html += `</div>`;
+        html += `</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+            <select id="pending-correct-${q.id}" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+              <option value="0" ${q.correct_answer === 0 ? 'selected' : ''}>Correct: A</option>
+              <option value="1" ${q.correct_answer === 1 ? 'selected' : ''}>Correct: B</option>
+              <option value="2" ${q.correct_answer === 2 ? 'selected' : ''}>Correct: C</option>
+              <option value="3" ${q.correct_answer === 3 ? 'selected' : ''}>Correct: D</option>
+            </select>
+            <input id="pending-category-${q.id}" type="text" value="${escapeHtml(q.category || '')}" placeholder="Category" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+          </div>
+          <input id="pending-explanation-${q.id}" type="text" value="${escapeHtml(q.explanation || '')}" placeholder="Explanation (optional)" style="width:100%;padding:8px;border:1px solid #cbd5e0;border-radius:6px;margin-bottom:8px;">`;
         if (q.category) {
           html += `<div style="font-size: 0.85rem; color: #718096; margin-bottom: 8px;">
             📂 <strong>${q.category}</strong>
@@ -15035,7 +14923,10 @@ async function loadPendingQuizQuestions(date) {
             💡 ${escapeHtml(q.explanation)}
           </div>`;
         }
-        html += `</div>`;
+        html += `<div style="display:flex; justify-content:flex-end;">
+            <button onclick="savePendingQuestionEdits(${q.id}, '${selectedDate}')" style="background:#3182ce;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;">💾 Save Edit</button>
+          </div>
+        </div>`;
       }
 
       html += `</div>`;
@@ -15063,7 +14954,7 @@ async function approvePendingQuestions(date, level) {
     const response = await fetch('/api/admin/approve-quiz-questions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quizDate: date })
+      body: JSON.stringify({ quizDate: date, level })
     });
 
     if (response.ok) {
@@ -15156,75 +15047,37 @@ async function rejectPendingQuestionsForDate(date) {
   }
 }
 
-// Generate today's quiz
-async function generateTodayQuiz() {
-  if (!confirm('This will generate a new quiz for today by selecting 10 questions from each level. Continue?')) return;
-
+async function savePendingQuestionEdits(questionId, date) {
   try {
-    const response = await fetch('/api/admin/generate-daily-quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const question_text = document.getElementById(`pending-qtext-${questionId}`)?.value?.trim();
+    const options = [0, 1, 2, 3].map(idx => document.getElementById(`pending-opt-${questionId}-${idx}`)?.value?.trim());
+    const correct_answer = parseInt(document.getElementById(`pending-correct-${questionId}`)?.value, 10);
+    const category = document.getElementById(`pending-category-${questionId}`)?.value?.trim() || null;
+    const explanation = document.getElementById(`pending-explanation-${questionId}`)?.value?.trim() || null;
 
-    if (response.ok) {
-      alert('✅ Today\'s quiz generated successfully!');
-      refreshQuizAdminData();
-    } else {
-      const error = await response.json();
-      alert('❌ Error: ' + (error.message || 'Failed to generate quiz'));
+    if (!question_text || options.some(opt => !opt)) {
+      alert('Question text and all 4 options are required.');
+      return;
     }
-  } catch (error) {
-    console.error('Error generating quiz:', error);
-    alert('❌ Error generating quiz: ' + error.message);
-  }
-}
-
-// Load quiz questions with filters
-async function loadQuizQuestions() {
-  try {
-    const level = document.getElementById('filterLevel').value;
-    const category = document.getElementById('filterCategory').value;
-
-    let url = '/api/admin/quiz-questions';
-    const params = new URLSearchParams();
-    if (level) params.append('level', level);
-    if (category) params.append('category', category);
-    if (params.toString()) url += '?' + params.toString();
-
-    const response = await fetch(url);
-    const questions = await response.json();
-
-    const container = document.getElementById('questionsList');
-    if (questions.length === 0) {
-      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 30px;">No questions found. Add some questions to get started!</p>';
+    if (!Number.isInteger(correct_answer) || correct_answer < 0 || correct_answer > 3) {
+      alert('Please select a valid correct answer.');
       return;
     }
 
-    container.innerHTML = questions.map(q => `
-      <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
-          <div>
-            <span style="background: ${getLevelColor(q.level)}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;">${q.level.toUpperCase()}</span>
-            <span style="background: ${getCategoryColor(q.category)}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; margin-left: 8px;">${q.category.toUpperCase()}</span>
-          </div>
-          <div>
-            <button onclick="editQuestion(${q.id})" style="background: #3182ce; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin-right: 8px;">✏️ Edit</button>
-            <button onclick="deleteQuestion(${q.id})" style="background: #e53e3e; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">🗑️ Delete</button>
-          </div>
-        </div>
-        <h4 style="margin-bottom: 10px; color: #2d3748;">${q.question_text}</h4>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-          <div style="padding: 8px; background: ${q.correct_answer === 0 ? '#c6f6d5' : '#f7fafc'}; border-radius: 6px; border: 2px solid ${q.correct_answer === 0 ? '#38a169' : '#e2e8f0'};">A) ${q.options[0]}</div>
-          <div style="padding: 8px; background: ${q.correct_answer === 1 ? '#c6f6d5' : '#f7fafc'}; border-radius: 6px; border: 2px solid ${q.correct_answer === 1 ? '#38a169' : '#e2e8f0'};">B) ${q.options[1]}</div>
-          <div style="padding: 8px; background: ${q.correct_answer === 2 ? '#c6f6d5' : '#f7fafc'}; border-radius: 6px; border: 2px solid ${q.correct_answer === 2 ? '#38a169' : '#e2e8f0'};">C) ${q.options[2]}</div>
-          <div style="padding: 8px; background: ${q.correct_answer === 3 ? '#c6f6d5' : '#f7fafc'}; border-radius: 6px; border: 2px solid ${q.correct_answer === 3 ? '#38a169' : '#e2e8f0'};">D) ${q.options[3]}</div>
-        </div>
-        ${q.explanation ? `<p style="color: #718096; font-size: 0.9rem; font-style: italic;">💡 ${q.explanation}</p>` : ''}
-      </div>
-    `).join('');
+    const response = await fetch(`/api/admin/pending-quiz-questions/${questionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question_text, options, correct_answer, category, explanation })
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to update question');
+
+    alert('✅ Question updated.');
+    loadPendingQuizQuestions(date);
   } catch (error) {
-    console.error('Error loading questions:', error);
-    document.getElementById('questionsList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 30px;">Error loading questions. Please try again.</p>';
+    console.error('Error saving pending question edits:', error);
+    alert('❌ Error saving edits: ' + error.message);
   }
 }
 
@@ -15242,124 +15095,31 @@ function getCategoryColor(category) {
   const colors = {
     grammar: '#e53e3e',
     vocabulary: '#38a169',
-    pronunciation: '#dd6b20',
     idioms: '#805ad5',
     proverbs: '#d69e2e',
     elaboration: '#48bb78',
-    imagery: '#4299e1'
+    imagery: '#4299e1',
+    figures_of_speech: '#dd6b20',
+    contextual_reference_sentences: '#2f855a',
+    dressup_sentences: '#9f7aea',
+    punctuation: '#ed8936',
+    spelling: '#f56565',
+    show_dont_tell: '#319795',
+    types_of_speeches: '#5a67d8',
+    body_language: '#4a5568'
   };
   return colors[category] || '#a0aec0';
 }
 
-// Edit question
-async function editQuestion(id) {
-  try {
-    const response = await fetch(`/api/admin/quiz-questions/${id}`);
-    const question = await response.json();
-
-    // Populate the add form with existing data
-    document.getElementById('questionLevel').value = question.level;
-    document.getElementById('questionCategory').value = question.category;
-    document.getElementById('questionText').value = question.question_text;
-    document.getElementById('optionA').value = question.options[0];
-    document.getElementById('optionB').value = question.options[1];
-    document.getElementById('optionC').value = question.options[2];
-    document.getElementById('optionD').value = question.options[3];
-    document.getElementById('correctAnswer').value = question.correct_answer;
-    document.getElementById('questionExplanation').value = question.explanation || '';
-
-    // Change form submit behavior to update
-    const form = document.getElementById('addQuestionForm');
-    form.dataset.editId = id;
-    document.querySelector('#addQuestionForm button[type="submit"]').textContent = '✏️ Update Question';
-
-    // Scroll to form
-    document.getElementById('addQuestionForm').scrollIntoView({ behavior: 'smooth' });
-  } catch (error) {
-    console.error('Error loading question for edit:', error);
-    alert('❌ Error loading question for edit');
-  }
-}
-
-// Delete question
-async function deleteQuestion(id) {
-  if (!confirm('Are you sure you want to delete this question?')) return;
-
-  try {
-    const response = await fetch(`/api/admin/quiz-questions/${id}`, {
-      method: 'DELETE'
-    });
-
-    if (response.ok) {
-      alert('✅ Question deleted successfully!');
-      loadQuizQuestions();
-      loadQuizStats();
-    } else {
-      alert('❌ Error deleting question');
-    }
-  } catch (error) {
-    console.error('Error deleting question:', error);
-    alert('❌ Error deleting question: ' + error.message);
-  }
-}
-
-// Handle add/edit question form
-document.getElementById('addQuestionForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const formData = {
-    level: document.getElementById('questionLevel').value,
-    category: document.getElementById('questionCategory').value,
-    question_text: document.getElementById('questionText').value,
-    options: [
-      document.getElementById('optionA').value,
-      document.getElementById('optionB').value,
-      document.getElementById('optionC').value,
-      document.getElementById('optionD').value
-    ],
-    correct_answer: parseInt(document.getElementById('correctAnswer').value),
-    explanation: document.getElementById('questionExplanation').value
-  };
-
-  const editId = e.target.dataset.editId;
-  const method = editId ? 'PUT' : 'POST';
-  const url = editId ? `/api/admin/quiz-questions/${editId}` : '/api/admin/quiz-questions';
-
-  try {
-    const response = await fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-
-    if (response.ok) {
-      alert(`✅ Question ${editId ? 'updated' : 'added'} successfully!`);
-      e.target.reset();
-      delete e.target.dataset.editId;
-      document.querySelector('#addQuestionForm button[type="submit"]').textContent = '➕ Add Question';
-      loadQuizQuestions();
-      loadQuizStats();
-    } else {
-      const error = await response.json();
-      alert('❌ Error: ' + (error.message || `Failed to ${editId ? 'update' : 'add'} question`));
-    }
-  } catch (error) {
-    console.error(`Error ${editId ? 'updating' : 'adding'} question:`, error);
-    alert(`❌ Error ${editId ? 'updating' : 'adding'} question: ` + error.message);
-  }
-});
-
 // Initialize quiz tab when shown
 function initializeQuizTab() {
   loadQuizStats();
-  loadQuizQuestions();
-  loadDailyQuizUsage();
   loadTodayQuizQuestions();
   loadPendingQuizQuestions();
   
   // Set date inputs to today
   const today = getLocalDateString();
-  const dateInputs = document.querySelectorAll('#quizAttemptsDate, #quizUsageDate, #pendingQuestionsDate');
+  const dateInputs = document.querySelectorAll('#quizUsageDate, #pendingQuestionsDate');
   dateInputs.forEach(input => {
     if (input && !input.value) input.value = today;
   });
