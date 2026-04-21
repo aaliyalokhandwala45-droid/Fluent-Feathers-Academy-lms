@@ -2410,6 +2410,27 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }
 
     let allBadges = []; // Store all badges for the modal
+
+    function getBadgeDisplayParts(badgeName) {
+      const fullName = String(badgeName || '').trim();
+      if (!fullName) return { icon: '🏅', label: 'Badge' };
+
+      const parts = fullName.split(/\s+/);
+      const firstToken = parts[0];
+      const hasEmojiPrefix = /\p{Extended_Pictographic}/u.test(firstToken);
+
+      if (hasEmojiPrefix) {
+        return {
+          icon: firstToken,
+          label: parts.slice(1).join(' ') || 'Achievement'
+        };
+      }
+
+      return {
+        icon: '🏅',
+        label: fullName
+      };
+    }
     let allScoreHistory = [];
 
     function formatPortalDateTime(ts) {
@@ -2583,25 +2604,31 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
           // Show award badges prominently at top
           let awardsHTML = '';
           if (awardBadges.length > 0) {
-            awardsHTML = awardBadges.slice(0, 3).map(b => `
+            awardsHTML = awardBadges.slice(0, 3).map(b => {
+              const display = getBadgeDisplayParts(b.badge_name);
+              return `
               <div style="grid-column:1/-1;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:15px;text-align:center;">
-                <div style="font-size:2rem;">${b.badge_name.split(' ')[0]}</div>
-                <div style="font-weight:bold;color:#92400e;font-size:1rem;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
+                <div style="font-size:2rem;">${display.icon}</div>
+                <div style="font-weight:bold;color:#92400e;font-size:1rem;">${display.label}</div>
                 <div style="color:#b45309;font-size:0.75rem;">${b.badge_description}</div>
               </div>
-            `).join('');
+            `;
+            }).join('');
           }
 
           // Show latest 5 regular badges
           const displayBadges = regularBadges.slice(0, 5);
-          container.innerHTML = awardsHTML + displayBadges.map(b => `
+          container.innerHTML = awardsHTML + displayBadges.map(b => {
+            const display = getBadgeDisplayParts(b.badge_name);
+            return `
             <div class="badge-card" style="padding: 12px; font-size: 0.9rem;">
-              <div class="badge-icon" style="font-size: 1.8rem;">${b.badge_name.split(' ')[0]}</div>
-              <div class="badge-name" style="font-size: 0.8rem;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
+              <div class="badge-icon" style="font-size: 1.8rem;">${display.icon}</div>
+              <div class="badge-name" style="font-size: 0.8rem;">${display.label}</div>
               <div class="badge-desc" style="font-size: 0.7rem;">${b.badge_description}</div>
               <div class="badge-date" style="font-size: 0.65rem;">Earned: ${new Date(b.earned_date).toLocaleDateString()}</div>
             </div>
-          `).join('');
+          `;
+          }).join('');
 
           // Show "View All" button if more than 5 badges
           document.getElementById('viewAllBadgesBtn').style.display = badges.length > 5 ? 'block' : 'none';
@@ -2721,14 +2748,17 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             <button onclick="document.getElementById('allBadgesModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer;">✕</button>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
-            ${allBadges.map(b => `
+            ${allBadges.map(b => {
+              const display = getBadgeDisplayParts(b.badge_name);
+              return `
               <div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 12px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 2rem;">${b.badge_name.split(' ')[0]}</div>
-                <div style="font-weight: 600; font-size: 0.85rem; color: #2d3748;">${b.badge_name.substring(b.badge_name.indexOf(' ') + 1)}</div>
+                <div style="font-size: 2rem;">${display.icon}</div>
+                <div style="font-weight: 600; font-size: 0.85rem; color: #2d3748;">${display.label}</div>
                 <div style="font-size: 0.7rem; color: #718096; margin-top: 5px;">${b.badge_description}</div>
                 <div style="font-size: 0.65rem; color: #a0aec0; margin-top: 5px;">${new Date(b.earned_date).toLocaleDateString()}</div>
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
         </div>
       `;
