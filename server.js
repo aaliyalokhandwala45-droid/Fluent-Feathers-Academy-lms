@@ -9681,8 +9681,15 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
         const isMakeupSession = sessionInfo.rows[0]?.notes === 'Makeup Class';
 
         if (!alreadyCounted) {
-          await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1, renewal_reminder_sent = false WHERE id = $1', [studentId]);
-          // Makeup sessions don't affect remaining_sessions
+          await pool.query(
+            `UPDATE students
+             SET completed_sessions = completed_sessions + 1,
+                 remaining_sessions = CASE WHEN $2 THEN remaining_sessions ELSE GREATEST(remaining_sessions - 1, 0) END,
+                 renewal_reminder_sent = false
+             WHERE id = $1`,
+            [studentId, isMakeupSession]
+          );
+          // Makeup sessions should not consume regular session balance
         } else if (prevStatus !== 'Completed') {
           // Was Excused/Missed before, now Present - add to completed
           await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1 WHERE id = $1', [studentId]);
@@ -9842,8 +9849,15 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
       if (record.attendance === 'Present') {
         // If changing TO Present from non-Present
         if (!wasPresent) {
-          await client.query(`UPDATE students SET completed_sessions = completed_sessions + 1, renewal_reminder_sent = false WHERE id = $1`, [record.student_id]);
-          // Makeup sessions don't affect remaining_sessions
+          await client.query(
+            `UPDATE students
+             SET completed_sessions = completed_sessions + 1,
+                 remaining_sessions = CASE WHEN $2 THEN remaining_sessions ELSE GREATEST(remaining_sessions - 1, 0) END,
+                 renewal_reminder_sent = false
+             WHERE id = $1`,
+            [record.student_id, isMakeupSession]
+          );
+          // Makeup sessions should not consume regular session balance
 
           // Award badges for group class attendance
           const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
