@@ -7628,6 +7628,67 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
   }
 }
 
+async function getFallbackPendingQuizQuestions(level, count, options = {}) {
+  if (!count || count <= 0) return [];
+
+  const { quizDate = null, excludeTexts = new Set() } = options;
+  const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate);
+  for (const text of excludeTexts) {
+    const normalized = normalizeQuizQuestionText(text);
+    if (normalized) historicalTexts.add(normalized);
+  }
+
+  const result = await pool.query(
+    `
+      SELECT question_text, options, correct_answer, category, explanation
+      FROM quiz_questions
+      WHERE level = $1
+        AND is_active = true
+        AND LOWER(category) <> ALL($2::text[])
+      ORDER BY RANDOM()
+      LIMIT $3
+    `,
+    [level, QUIZ_EXCLUDED_CATEGORIES, Math.max(count * 4, 20)]
+  );
+
+  const fallbackQuestions = [];
+  const seen = new Set();
+
+  for (const row of result.rows) {
+    const normalized = normalizeQuizQuestionText(row.question_text);
+    if (!normalized || historicalTexts.has(normalized) || seen.has(normalized)) continue;
+
+    const optionsArray = Array.isArray(row.options) ? row.options.map(o => String(o).trim()) : [];
+    const correctAnswer = Number(row.correct_answer);
+    const category = String(row.category || '').toLowerCase();
+
+    if (
+      String(row.question_text || '').trim().length <= 5 ||
+      optionsArray.length !== 4 ||
+      !Number.isInteger(correctAnswer) ||
+      correctAnswer < 0 ||
+      correctAnswer > 3 ||
+      !QUIZ_ALLOWED_CATEGORIES.includes(category) ||
+      QUIZ_EXCLUDED_CATEGORIES.includes(category)
+    ) {
+      continue;
+    }
+
+    seen.add(normalized);
+    fallbackQuestions.push({
+      question_text: String(row.question_text || '').trim(),
+      options: optionsArray,
+      correct_answer: correctAnswer,
+      category,
+      explanation: String(row.explanation || '').trim()
+    });
+
+    if (fallbackQuestions.length >= count) break;
+  }
+
+  return fallbackQuestions;
+}
+
 // Generate and store pending quiz questions for approval
 async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['beginner', 'intermediate', 'advanced']) {
   const levels = Array.isArray(levelsToGenerate) && levelsToGenerate.length > 0
@@ -7646,6 +7707,20 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           excludeTexts: localSeen
         });
         for (const question of batch) {
+          const normalized = normalizeQuizQuestionText(question.question_text);
+          if (!normalized || localSeen.has(normalized)) continue;
+          localSeen.add(normalized);
+          aiQuestions.push(question);
+          if (aiQuestions.length >= 10) break;
+        }
+      }
+
+      if (aiQuestions.length < 10) {
+        const fallbackQuestions = await getFallbackPendingQuizQuestions(level, 10 - aiQuestions.length, {
+          quizDate,
+          excludeTexts: localSeen
+        });
+        for (const question of fallbackQuestions) {
           const normalized = normalizeQuizQuestionText(question.question_text);
           if (!normalized || localSeen.has(normalized)) continue;
           localSeen.add(normalized);
