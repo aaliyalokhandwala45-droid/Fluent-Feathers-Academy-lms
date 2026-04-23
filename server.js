@@ -4231,13 +4231,15 @@ async function sendAdminPushNotification(title, body, data = {}) {
 
     const appUrl = (process.env.APP_URL || process.env.PARENT_PORTAL_URL || 'https://fluent-feathers-academy-lms.onrender.com').replace(/\/$/, '');
     const targetLink = String(data.url || data.link || `${appUrl}/admin.html`);
-    const notificationTag = String(data.notificationTag || data.type || `${String(title || '')}|${String(body || '')}|${targetLink}`).slice(0, 180);
-    const webpush = buildWebpushConfig(targetLink, notificationTag, String(title || APP_DISPLAY_NAME).slice(0, 200), String(body || '').slice(0, 240));
+    const safeTitle = String(title || APP_DISPLAY_NAME).slice(0, 200);
+    const safeBody = String(body || '').slice(0, 240);
+    const notificationTag = String(data.notificationTag || data.type || `${safeTitle}|${safeBody}|${targetLink}`).slice(0, 180);
+    const webpush = buildWebpushConfig(targetLink, notificationTag, safeTitle, safeBody);
     const messageData = Object.fromEntries(
       Object.entries({
         ...data,
-        title,
-        body,
+        title: safeTitle,
+        body: safeBody,
         type: data.type || 'admin_notification',
         url: targetLink,
         link: targetLink,
@@ -4248,9 +4250,9 @@ async function sendAdminPushNotification(title, body, data = {}) {
 
     const firebaseMessaging = getFirebaseAdminMessaging();
     if (firebaseMessaging) {
-      const response = await firebaseMessaging.sendMulticast({
+      const response = await firebaseMessaging.sendEachForMulticast({
         tokens,
-        notification: { title, body },
+        notification: { title: safeTitle, body: safeBody },
         data: messageData,
         webpush
       });
@@ -4269,25 +4271,25 @@ async function sendAdminPushNotification(title, body, data = {}) {
         recipientName: 'Admins',
         recipientEmail: 'admin-push-broadcast',
         emailType: 'Push-Admin',
-        subject: `${String(title || 'Admin Notification').slice(0, 200)} [PUSH]`,
+        subject: `${safeTitle} [PUSH]`,
         status: (response.successCount || 0) > 0 ? 'Sent' : 'Failed',
         payload: {
           type: data.type || 'admin_notification',
-          title: String(title || ''),
-          body: String(body || ''),
+          title: safeTitle,
+          body: safeBody,
           tokenCount: tokens.length,
           sent: response.successCount || 0,
           failed: response.failureCount || 0
         }
       });
-      return true;
+      return (response.successCount || 0) > 0;
     }
 
     const serverKey = process.env.FIREBASE_SERVER_KEY;
     if (serverKey) {
       await axios.post('https://fcm.googleapis.com/fcm/send', {
         registration_ids: tokens,
-        notification: { title, body },
+        notification: { title: safeTitle, body: safeBody },
         data: messageData,
         webpush: {
           headers: webpush.headers,
@@ -4304,12 +4306,12 @@ async function sendAdminPushNotification(title, body, data = {}) {
         recipientName: 'Admins',
         recipientEmail: 'admin-push-broadcast',
         emailType: 'Push-Admin',
-        subject: `${String(title || 'Admin Notification').slice(0, 200)} [PUSH]`,
+        subject: `${safeTitle} [PUSH]`,
         status: 'Sent',
         payload: {
           type: data.type || 'admin_notification',
-          title: String(title || ''),
-          body: String(body || ''),
+          title: safeTitle,
+          body: safeBody,
           tokenCount: tokens.length,
           transport: 'legacy_fcm'
         }
@@ -11277,11 +11279,12 @@ app.post('/api/public/demo-register', async (req, res) => {
     // Send admin push for demo lead form fill
     await sendPushToAdmins(
       `🎯 New Demo Registration: ${child_name}`,
-      `${child_name} (Age: ${student_grade || 'N/A'}) registered for ${program_interest || 'Demo Class'}. Parent: ${parent_name}, Email: ${email}`,
+      `${child_name} (Age: ${child_age || 'N/A'}) registered for ${program_interest || 'Demo Class'}. Parent: ${parent_name}, Email: ${email}`,
       {
         type: 'demo_lead_registration_admin',
         programInterest: program_interest || 'Demo',
         childName: child_name,
+        childAge: String(child_age || ''),
         parentName: parent_name,
         email: email,
         url: `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/admin.html`
@@ -11381,13 +11384,14 @@ app.post('/api/public/summer-camp-register', async (req, res) => {
     // Send admin push for summer camp form fill
     await sendPushToAdmins(
       `☀️ New Summer Camp Registration: ${child_name}`,
-      `${child_name} enrolled in Summer Camp. Parent: ${parent_name}, Email: ${email}${program_interest ? `, Program: ${program_interest}` : ''}`,
+      `${child_name} enrolled in Summer Camp. Parent: ${parent_name}, Email: ${email}, Timezone: ${timezone}`,
       {
         type: 'summer_camp_registration_admin',
         childName: child_name,
+        childAge: String(child_age || ''),
         parentName: parent_name,
         email: email,
-        programInterest: program_interest || '',
+        timezone: String(timezone || ''),
         url: `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/admin.html`
       }
     );
@@ -13637,7 +13641,8 @@ app.post('/api/students/:id/badges/assign', async (req, res) => {
 const HOMEWORK_POINT_VALUE = 10;
 const CHALLENGE_POINT_VALUE = 10;
 const BADGE_POINT_VALUE = 2;
-const QUIZ_POINT_VALUE = 1; // Points per correct answer (max 10 per quiz)
+const LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE = 2; // Flat leaderboard points per completed daily quiz attempt
+const QUIZ_POINT_VALUE = 1; // Quiz result points per correct answer (max 10 per quiz)
 
 function getAwardCertificateTitle(periodType) {
   if (periodType === 'week') return 'Student of the Week';
@@ -13916,7 +13921,7 @@ app.get('/api/leaderboard', async (req, res) => {
         GROUP BY student_id
       ),
       quiz_pts AS (
-        SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts
+        SELECT student_id, COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} as pts
         FROM quiz_attempts
         WHERE 1=1 ${useDateFilter ? `AND completed_at >= $1::timestamp AND completed_at < ($2::timestamp + INTERVAL '1 day')` : ''}
         GROUP BY student_id
@@ -13952,7 +13957,7 @@ app.get('/api/leaderboard', async (req, res) => {
       LEFT JOIN badge_counts bc ON s.id = bc.student_id
       WHERE s.is_active = true
         AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, badge_points DESC, s.name ASC
+      ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, quiz_points DESC, badge_points DESC, s.name ASC
     `, params);
     res.json({ leaderboard: result.rows });
   } catch (err) {
@@ -13989,6 +13994,11 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           WHERE sc.student_id = $1
             AND sc.status = 'Completed'
         ),
+        quiz_scores AS (
+          SELECT COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} AS points
+          FROM quiz_attempts qa
+          WHERE qa.student_id = $1
+        ),
         badge_scores AS (
           SELECT COUNT(*) * ${BADGE_POINT_VALUE} AS points
           FROM student_badges sb
@@ -14008,6 +14018,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
         SELECT
           COALESCE((SELECT points FROM homework_scores), 0) AS homework_points,
           COALESCE((SELECT points FROM challenge_scores), 0) AS challenge_points,
+          COALESCE((SELECT points FROM quiz_scores), 0) AS quiz_points,
           COALESCE((SELECT points FROM badge_scores), 0) AS badge_points,
           COALESCE((SELECT points FROM class_points_total), 0) AS class_points,
           COALESCE((SELECT count FROM pending_challenges), 0) AS pending_challenges
@@ -14067,6 +14078,18 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           WHERE sc.student_id = $1
             AND sc.status = 'Submitted'
         ),
+        quiz_history AS (
+          SELECT
+            'leaderboard'::text AS score_group,
+            'quiz'::text AS score_type,
+            ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE}::int AS points,
+            qa.completed_at AS occurred_at,
+            'Daily quiz attempted'::text AS title,
+            'Quiz date: ' || qa.quiz_date::text || ' • Score: ' || COALESCE(qa.score, 0)::text || '/10' AS detail,
+            'awarded'::text AS status
+          FROM quiz_attempts qa
+          WHERE qa.student_id = $1
+        ),
         badge_history AS (
           SELECT
             'leaderboard'::text AS score_group,
@@ -14099,6 +14122,8 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           UNION ALL
           SELECT * FROM pending_challenge_history
           UNION ALL
+          SELECT * FROM quiz_history
+          UNION ALL
           SELECT * FROM badge_history
           UNION ALL
           SELECT * FROM class_points_history
@@ -14111,14 +14136,16 @@ app.get('/api/students/:id/score-history', async (req, res) => {
     const totalsRow = totalsResult.rows[0] || {};
     const homeworkPoints = parseInt(totalsRow.homework_points) || 0;
     const challengePoints = parseInt(totalsRow.challenge_points) || 0;
+    const quizPoints = parseInt(totalsRow.quiz_points) || 0;
     const badgePoints = parseInt(totalsRow.badge_points) || 0;
     const classPoints = parseInt(totalsRow.class_points) || 0;
 
     res.json({
       totals: {
-        leaderboard_total: homeworkPoints + challengePoints + badgePoints,
+        leaderboard_total: homeworkPoints + challengePoints + quizPoints + badgePoints,
         homework_points: homeworkPoints,
         challenge_points: challengePoints,
+        quiz_points: quizPoints,
         badge_points: badgePoints,
         class_points: classPoints,
         pending_challenges: parseInt(totalsRow.pending_challenges) || 0
@@ -14171,6 +14198,11 @@ app.get('/api/awards/current', async (req, res) => {
         AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
+    quiz_pts AS (
+      SELECT student_id, COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} as pts FROM quiz_attempts
+      WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
+      GROUP BY student_id
+    ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
       WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
@@ -14179,15 +14211,17 @@ app.get('/api/awards/current', async (req, res) => {
     SELECT s.id, s.name,
       COALESCE(h.pts, 0) as homework,
       COALESCE(c.pts, 0) as challenges,
+      COALESCE(q.pts, 0) as quizzes,
       COALESCE(b.pts, 0) as badges,
-      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
+    LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
+    ORDER BY total_score DESC, homework DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
     LIMIT 1
   `, [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]);
   return result.rows[0] || null;
@@ -14212,9 +14246,10 @@ app.get('/api/awards/current', async (req, res) => {
         studentId: winner.id,
         badge: label,
         period: periodLabel,
-        description: `${winner.homework} pts homework, ${winner.challenges} pts challenges, ${winner.badges} pts badges`,
+        description: `${winner.homework} pts homework, ${winner.challenges} pts challenges, ${winner.quizzes || 0} pts daily quiz, ${winner.badges} pts badges`,
         homework: parseInt(winner.homework),
         challenges: parseInt(winner.challenges),
+        quizzes: parseInt(winner.quizzes) || 0,
         badges: parseInt(winner.badges),
         total_score: parseInt(winner.total_score)
       };
@@ -14269,6 +14304,11 @@ app.get('/api/awards/by-period', async (req, res) => {
           AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
         GROUP BY student_id
       ),
+      quiz_pts AS (
+        SELECT student_id, COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} as pts FROM quiz_attempts
+        WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
+        GROUP BY student_id
+      ),
       badge_pts AS (
         SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
         WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
@@ -14277,15 +14317,17 @@ app.get('/api/awards/by-period', async (req, res) => {
       SELECT s.id, s.name,
         COALESCE(h.pts, 0) as homework,
         COALESCE(c.pts, 0) as challenges,
+        COALESCE(q.pts, 0) as quizzes,
         COALESCE(b.pts, 0) as badges,
-        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
       FROM students s
       LEFT JOIN homework_pts h ON s.id = h.student_id
       LEFT JOIN challenge_pts c ON s.id = c.student_id
+      LEFT JOIN quiz_pts q ON s.id = q.student_id
       LEFT JOIN badge_pts b ON s.id = b.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
       LIMIT 1
     `, [start, end]);
     res.json({ winner: result.rows[0] || null });

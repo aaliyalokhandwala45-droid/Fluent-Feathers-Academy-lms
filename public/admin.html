@@ -1484,11 +1484,12 @@
                 <th style="padding: 15px; text-align: center;">Total Points</th>
                 <th style="padding: 15px; text-align: center;">Homework Pts</th>
                 <th style="padding: 15px; text-align: center;">Challenge Pts</th>
+                <th style="padding: 15px; text-align: center;">Daily Quiz Pts</th>
                 <th style="padding: 15px; text-align: center;">Badge Pts</th>
               </tr>
             </thead>
             <tbody id="leaderboardBody">
-              <tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">Loading...</td></tr>
+              <tr><td colspan="7" style="text-align: center; padding: 30px; color: #718096;">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -11501,7 +11502,7 @@ async function saveEditedPayment() {
         // Update table
         const tbody = document.getElementById('leaderboardBody');
         if (students.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">No students with badges yet</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: #718096;">No students on the leaderboard yet</td></tr>';
           return;
         }
 
@@ -11524,13 +11525,14 @@ async function saveEditedPayment() {
               </td>
               <td style="padding: 15px; text-align: center; color: #3182ce; font-weight: 600;">${student.homework_points || 0}</td>
               <td style="padding: 15px; text-align: center; color: #9f7aea; font-weight: 600;">${student.challenge_points || 0}</td>
+              <td style="padding: 15px; text-align: center; color: #d69e2e; font-weight: 600;">${student.quiz_points || 0}</td>
               <td style="padding: 15px; text-align: center; color: #38a169; font-weight: 600;">${student.badge_points || 0}</td>
             </tr>
           `;
         }).join('');
       } catch (err) {
         console.error('Error loading leaderboard:', err);
-        document.getElementById('leaderboardBody').innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e53e3e;">Error loading leaderboard</td></tr>';
+        document.getElementById('leaderboardBody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #e53e3e;">Error loading leaderboard</td></tr>';
       }
     }
 

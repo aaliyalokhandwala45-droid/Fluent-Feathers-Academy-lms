@@ -1092,7 +1092,7 @@
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div>
               <h2 style="color:#6d28d9;margin:0 0 4px;">📈 Score Tracker</h2>
-              <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track homework and challenge points.</p>
+              <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track homework, challenge, badge, and daily quiz leaderboard points.</p>
             </div>
             <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
               <div style="background:linear-gradient(135deg,#6d28d9,#ec4899);color:white;padding:10px 16px;border-radius:12px;text-align:center;min-width:110px;">
@@ -1104,6 +1104,8 @@
           <div id="scoreTrackerBreakdown" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
             <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Homework</div><div id="scoreTrackerHomework" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
             <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Challenges</div><div id="scoreTrackerChallenges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Daily Quiz</div><div id="scoreTrackerQuiz" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
+            <div style="background:white;border:1px solid #ddd6fe;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.75rem;color:#6b7280;">Badges</div><div id="scoreTrackerBadges" style="font-size:1.3rem;font-weight:800;color:#7c3aed;">0</div></div>
           </div>
           <div id="scoreTrackerPending" style="display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;color:#9a3412;font-size:0.82rem;font-weight:600;margin-bottom:14px;"></div>
           <div style="margin-top:2px;">
@@ -2531,6 +2533,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         document.getElementById('scoreTrackerTotal').textContent = totals.leaderboard_total || 0;
         document.getElementById('scoreTrackerHomework').textContent = totals.homework_points || 0;
         document.getElementById('scoreTrackerChallenges').textContent = totals.challenge_points || 0;
+        document.getElementById('scoreTrackerQuiz').textContent = totals.quiz_points || 0;
+        document.getElementById('scoreTrackerBadges').textContent = totals.badge_points || 0;
 
         const pendingEl = document.getElementById('scoreTrackerPending');
         const pendingChallenges = totals.pending_challenges || 0;
@@ -2565,7 +2569,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
       const typeMeta = {
         homework: { icon: '📝', bg: '#eef2ff', color: '#5b21b6' },
-        challenge: { icon: '🎯', bg: '#fef3c7', color: '#92400e' }
+        challenge: { icon: '🎯', bg: '#fef3c7', color: '#92400e' },
+        quiz: { icon: '?', bg: '#fef3c7', color: '#b45309' }
       };
 
       container.innerHTML = history.map(item => {
