@@ -7629,8 +7629,10 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
 }
 
 // Generate and store pending quiz questions for approval
-async function generatePendingQuizQuestions(quizDate) {
-  const levels = ['beginner', 'intermediate', 'advanced'];
+async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['beginner', 'intermediate', 'advanced']) {
+  const levels = Array.isArray(levelsToGenerate) && levelsToGenerate.length > 0
+    ? levelsToGenerate
+    : ['beginner', 'intermediate', 'advanced'];
   let totalGenerated = 0;
 
   for (const level of levels) {
@@ -16095,18 +16097,36 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
       return res.status(400).json({ error: 'Invalid date format' });
     }
 
-    // Check if questions for this date already exist (pending or approved)
+    // Only active rows should block regeneration. Rejected rows can be replaced.
     const existingCheck = await pool.query(
-      `SELECT COUNT(*) as count FROM pending_quiz_questions WHERE quiz_date = $1`,
+      `
+        SELECT level, status, COUNT(*)::int AS count
+        FROM pending_quiz_questions
+        WHERE quiz_date = $1
+        GROUP BY level, status
+      `,
       [date]
     );
 
-    if (existingCheck.rows[0].count > 0) {
+    const quizLevels = ['beginner', 'intermediate', 'advanced'];
+    const levelsToGenerate = quizLevels.filter(level => {
+      const activeCount = existingCheck.rows
+        .filter(row => row.level === level && ['pending', 'approved'].includes(row.status))
+        .reduce((sum, row) => sum + row.count, 0);
+      return activeCount === 0;
+    });
+
+    if (levelsToGenerate.length === 0) {
       return res.status(400).json({ error: `Questions for ${date} already exist in pending queue` });
     }
 
+    await pool.query(
+      `DELETE FROM pending_quiz_questions WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status = 'rejected'`,
+      [date, levelsToGenerate]
+    );
+
     console.log(`🤖 Starting AI generation for ${date}...`);
-    const generated = await generatePendingQuizQuestions(date);
+    const generated = await generatePendingQuizQuestions(date, levelsToGenerate);
 
     if (generated === 0) {
       console.error('❌ No questions were generated!');
@@ -16119,7 +16139,8 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     res.json({
       success: true,
       message: `Generated ${generated} AI quiz questions for ${date}. Please review and approve them.`,
-      generated
+      generated,
+      generatedLevels: levelsToGenerate
     });
   } catch (err) {
     console.error('AI quiz generation error:', err);
