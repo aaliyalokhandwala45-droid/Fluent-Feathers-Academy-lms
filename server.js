@@ -2988,6 +2988,30 @@ async function runMigrations() {
       console.log('Migration 54 note:', err.message);
     }
 
+    // Migration 55: Refresh quiz category set and retire contextual reference questions
+    try {
+      await client.query(`ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_category_check`);
+      const retiredResult = await client.query(`
+        UPDATE quiz_questions
+        SET category = 'vocabulary',
+            is_active = false,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE LOWER(category) = 'contextual_reference_sentences'
+      `);
+      await client.query(`
+        ALTER TABLE quiz_questions
+        ADD CONSTRAINT quiz_questions_category_check
+        CHECK (category IN ('grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language', 'subject_verb_agreement', 'sentence_correction', 'direct_indirect_speech'))
+      `);
+      if ((retiredResult.rowCount || 0) > 0) {
+        console.log(`✅ Migration 55: Retired ${retiredResult.rowCount} contextual reference quiz question(s)`);
+      } else {
+        console.log('✅ Migration 55: Quiz category set refreshed');
+      }
+    } catch (err) {
+      console.log('Migration 55 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -4002,6 +4026,151 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
     sendPushToParentByEmail(to, pushTitleFallback, pushBodyFallback, { emailType: emailType || '', fallback: 'email_failed' }).catch(() => {});
     return false;
   }
+}
+
+async function getStudentPackageSnapshot(studentId, db = pool) {
+  const studentResult = await db.query(`
+    SELECT s.*,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'available'
+      ), 0) AS available_makeup_credits,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+      ), 0) AS scheduled_makeup_credits,
+      COALESCE((
+        SELECT MAX(pr.renewal_date)
+        FROM payment_renewals pr
+        WHERE pr.student_id = s.id
+      ), s.created_at::date, CURRENT_DATE) AS package_anchor_date
+    FROM students s
+    WHERE s.id = $1
+    LIMIT 1
+  `, [studentId]);
+
+  if (studentResult.rows.length === 0) return null;
+
+  const student = studentResult.rows[0];
+  const unresolvedResult = await db.query(`
+    SELECT 1
+    FROM (
+      SELECT s.id
+      FROM sessions s
+      WHERE s.student_id = $1
+        AND s.session_type = 'Private'
+        AND s.status IN ('Pending', 'Scheduled')
+
+      UNION
+
+      SELECT s.id
+      FROM sessions s
+      INNER JOIN session_attendance sa
+        ON sa.session_id = s.id
+       AND sa.student_id = $1
+      WHERE s.session_type = 'Group'
+        AND s.status IN ('Pending', 'Scheduled')
+        AND COALESCE(sa.attendance, 'Pending') = 'Pending'
+    ) unresolved
+    LIMIT 1
+  `, [studentId]);
+
+  const lastSessionResult = await db.query(`
+    SELECT MAX(session_date) AS last_session_date
+    FROM (
+      SELECT s.session_date
+      FROM sessions s
+      WHERE s.student_id = $1
+        AND s.session_type = 'Private'
+        AND s.status IN ('Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+
+      UNION ALL
+
+      SELECT s.session_date
+      FROM sessions s
+      INNER JOIN session_attendance sa
+        ON sa.session_id = s.id
+       AND sa.student_id = $1
+      WHERE s.session_type = 'Group'
+        AND COALESCE(sa.attendance, 'Pending') IN ('Present', 'Absent', 'Excused', 'Unexcused')
+    ) final_sessions
+  `, [studentId]);
+
+  return {
+    ...student,
+    available_makeup_credits: parseInt(student.available_makeup_credits, 10) || 0,
+    scheduled_makeup_credits: parseInt(student.scheduled_makeup_credits, 10) || 0,
+    has_unresolved_sessions: unresolvedResult.rows.length > 0,
+    last_session_date: lastSessionResult.rows[0]?.last_session_date || null
+  };
+}
+
+async function hasPackageEmailBeenSent(studentId, emailType, sinceDate, db = pool) {
+  const result = await db.query(`
+    SELECT 1
+    FROM email_log
+    WHERE student_id = $1
+      AND email_type = $2
+      AND status = 'Sent'
+      AND sent_at::date >= $3::date
+    LIMIT 1
+  `, [studentId, emailType, sinceDate]);
+  return result.rows.length > 0;
+}
+
+async function logStudentPackageEmail(studentId, to, subject, emailType, body, status, db = pool) {
+  await db.query(`
+    INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body)
+    VALUES ($1, '', $2, $3, $4, $5, $6)
+  `, [studentId, to, emailType, subject, status, body || '']);
+}
+
+async function sendStudentPackageEmail(snapshot, { subject, html, emailType }) {
+  if (!snapshot?.parent_email) return false;
+  const sent = await sendEmail(
+    snapshot.parent_email,
+    subject,
+    html,
+    snapshot.parent_name,
+    emailType
+  );
+
+  // sendEmail logs already, but without student_id. Add one student-linked log row for dedupe.
+  await logStudentPackageEmail(snapshot.id, snapshot.parent_email, subject, emailType, html, sent ? 'Sent' : 'Failed');
+  return sent;
+}
+
+async function maybeSendPaidClassesDoneMakeupEmail(studentId, db = pool) {
+  const snapshot = await getStudentPackageSnapshot(studentId, db);
+  if (!snapshot || !snapshot.is_active || !snapshot.parent_email) return false;
+  if (snapshot.remaining_sessions !== 0) return false;
+  if (snapshot.available_makeup_credits <= 0) return false;
+  if (snapshot.has_unresolved_sessions) return false;
+
+  const alreadySent = await hasPackageEmailBeenSent(
+    studentId,
+    'Paid-Classes-Completed-Makeup-Remaining',
+    snapshot.package_anchor_date,
+    db
+  );
+  if (alreadySent) return false;
+
+  const html = getPaidClassesDoneWithMakeupLeftEmail({
+    parentName: snapshot.parent_name,
+    studentName: snapshot.name,
+    programName: snapshot.program_name,
+    makeupCredits: snapshot.available_makeup_credits,
+    perSessionFee: snapshot.per_session_fee,
+    currency: snapshot.currency
+  });
+
+  return sendStudentPackageEmail(snapshot, {
+    subject: `All Paid Classes Used for ${snapshot.name} - ${snapshot.available_makeup_credits} Makeup Credit${snapshot.available_makeup_credits === 1 ? '' : 's'} Left`,
+    html,
+    emailType: 'Paid-Classes-Completed-Makeup-Remaining'
+  });
 }
 
 function getFirebaseWebConfig() {
@@ -5392,6 +5561,121 @@ function getSlotsReleasingEmail(data) {
 </html>`;
 }
 
+function getPaidClassesDoneWithMakeupLeftEmail(data) {
+  const { parentName, studentName, programName, makeupCredits, perSessionFee, currency } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 46px; margin-bottom: 10px;">📚</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">All Paid Classes Used</h1>
+      <p style="color: rgba(255,255,255,0.92); margin: 10px 0 0; font-size: 14px;">Makeup credits are still available</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+
+      <p style="margin: 0 0 20px; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        <strong>${studentName}</strong> has completed all paid classes for
+        <strong style="color: #c05621;">${programName || 'the current program'}</strong>.
+      </p>
+
+      <div style="background: linear-gradient(135deg, #fffaf0 0%, #feebc8 100%); padding: 24px; border-radius: 12px; border-left: 4px solid #dd6b20; margin: 25px 0;">
+        <p style="margin: 0; font-size: 18px; color: #9c4221; font-weight: bold; text-align: center;">
+          ${makeupCredits} makeup credit${makeupCredits === 1 ? '' : 's'} left to schedule
+        </p>
+      </div>
+
+      <div style="background: #faf5ff; padding: 20px; border-radius: 10px; border-left: 4px solid #805ad5; margin: 25px 0;">
+        <p style="margin: 0; font-size: 15px; color: #553c9a; line-height: 1.7;">
+          Please coordinate with the teacher to schedule the remaining makeup class${makeupCredits === 1 ? '' : 'es'}.
+          Once these are also completed, we recommend renewing early to secure ${studentName}'s preferred slot.
+        </p>
+      </div>
+
+      <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 25px 0;">
+        <table style="width: 100%; font-size: 14px; color: #4a5568;">
+          <tr><td style="padding: 8px 0;">Student:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentName}</td></tr>
+          <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
+          <tr><td style="padding: 8px 0;">Paid classes remaining:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e53e3e;">0</td></tr>
+          <tr><td style="padding: 8px 0;">Makeup credits left:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #6b46c1;">${makeupCredits}</td></tr>
+          ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>` : ''}
+        </table>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        Please reply to this email or contact the teacher to book the remaining makeup classes.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getAllClassesAndMakeupUsedEmail(data) {
+  const { parentName, studentName, programName, perSessionFee, currency } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 10px;">🚨</div>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">All Classes Fully Used</h1>
+      <p style="color: rgba(255,255,255,0.92); margin: 10px 0 0; font-size: 14px;">Please secure the slot for the next cycle</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">
+        Dear <strong>${parentName}</strong>,
+      </p>
+
+      <p style="margin: 0 0 20px; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        <strong>${studentName}</strong> has now used all paid classes and all makeup credits for
+        <strong style="color: #c53030;">${programName || 'the current program'}</strong>.
+      </p>
+
+      <div style="background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%); padding: 24px; border-radius: 12px; border-left: 4px solid #c53030; margin: 25px 0;">
+        <p style="margin: 0; font-size: 18px; color: #9b2c2c; font-weight: bold; text-align: center;">
+          Remaining paid classes: 0<br>Remaining makeup credits: 0
+        </p>
+      </div>
+
+      <div style="background: #fffaf0; padding: 20px; border-radius: 10px; border-left: 4px solid #dd6b20; margin: 25px 0;">
+        <p style="margin: 0; font-size: 15px; color: #9c4221; line-height: 1.7;">
+          Please secure ${studentName}'s slot at the earliest so there is no break in learning.
+        </p>
+      </div>
+
+      ${perSessionFee ? `
+      <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 25px 0;">
+        <table style="width: 100%; font-size: 14px; color: #4a5568;">
+          <tr><td style="padding: 8px 0;">Student:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentName}</td></tr>
+          <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
+          <tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>
+        </table>
+      </div>
+      ` : ''}
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.7;">
+        Please reply to this email to renew and confirm the next set of classes.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function getClassCancelledEmail(data) {
   const { parentName, studentName, sessionDate, sessionTime, cancelledBy, reason, hasMakeupCredit } = data;
 
@@ -6516,11 +6800,12 @@ cron.schedule('0 8 * * *', async () => {
 console.log('✅ Birthday reminder system initialized - checking daily at 8:00 AM');
 
 // ==================== PAYMENT RENEWAL REMINDER CRON JOB ====================
-// Runs daily at 9:00 AM UTC to check for students with 2 or fewer sessions remaining
-// Sends reminders at each level: 2 remaining, 1 remaining, and 0 remaining (slots releasing)
+// Runs daily at 9:00 AM UTC, which is 2:30 PM IST.
+// Sends low-balance reminders, paid-classes-complete emails with makeup left,
+// and the next-day slot-secure email after all makeup credits are also used.
 cron.schedule('0 9 * * *', async () => {
   try {
-    console.log('💳 Checking for payment renewal reminders...');
+    console.log('Checking payment renewal reminders and slot follow-ups...');
 
     // Find students with 2 or fewer sessions remaining
     // Send reminder if: never reminded OR remaining count dropped since last reminder
@@ -6540,72 +6825,82 @@ cron.schedule('0 9 * * *', async () => {
     let sentCount = 0;
     for (const student of lowSessionStudents.rows) {
       try {
-        // Skip if already reminded at this exact remaining count
-        const lastReminded = student.last_reminder_remaining;
-        const current = student.remaining_sessions;
-        if (lastReminded !== null && lastReminded !== undefined && lastReminded <= current) {
-          continue; // Already sent reminder at this level or lower
-        }
+        const current = parseInt(student.remaining_sessions, 10) || 0;
+        const makeupCredits = parseInt(student.available_makeup_credits, 10) || 0;
 
-        const makeupCredits = parseInt(student.available_makeup_credits) || 0;
-
-        // "0 remaining" can mean the final class is already scheduled, not actually finished.
-        // Only send the slots-releasing email when the student has no unresolved sessions left.
         if (current === 0) {
-          const unresolvedSessions = await pool.query(`
-            SELECT 1
-            FROM (
-              SELECT s.id
-              FROM sessions s
-              WHERE s.student_id = $1
-                AND s.session_type = 'Private'
-                AND s.status IN ('Pending', 'Scheduled')
-
-              UNION
-
-              SELECT s.id
-              FROM sessions s
-              INNER JOIN session_attendance sa
-                ON sa.session_id = s.id
-               AND sa.student_id = $1
-              WHERE s.session_type = 'Group'
-                AND s.status IN ('Pending', 'Scheduled')
-                AND COALESCE(sa.attendance, 'Pending') = 'Pending'
-            ) unresolved
-            LIMIT 1
-          `, [student.id]);
-
-          if (unresolvedSessions.rows.length > 0) {
-            console.log(`⏭️ Skipping slots-releasing email for ${student.name}: unresolved session(s) still scheduled`);
+          const snapshot = await getStudentPackageSnapshot(student.id);
+          if (!snapshot || snapshot.has_unresolved_sessions) {
+            console.log(`Skipping zero-balance reminder for ${student.name}: unresolved session(s) still scheduled`);
             continue;
           }
+
+          if (snapshot.available_makeup_credits > 0) {
+            const sent = await maybeSendPaidClassesDoneMakeupEmail(student.id);
+            if (sent) {
+              sentCount++;
+              console.log(`Sent paid-classes-completed email to ${student.parent_name} for ${student.name} (${snapshot.available_makeup_credits} makeup credits left)`);
+            }
+            continue;
+          }
+
+          const lastSessionDate = snapshot.last_session_date ? new Date(snapshot.last_session_date) : null;
+          const today = new Date();
+          today.setUTCHours(0, 0, 0, 0);
+          if (lastSessionDate) {
+            lastSessionDate.setUTCHours(0, 0, 0, 0);
+            if (lastSessionDate >= today) {
+              console.log(`Skipping final slot email for ${student.name}: waiting until next day after final class`);
+              continue;
+            }
+          }
+
+          const finalAlreadySent = await hasPackageEmailBeenSent(
+            student.id,
+            'All-Classes-And-Makeup-Used',
+            snapshot.package_anchor_date
+          );
+          if (finalAlreadySent) {
+            continue;
+          }
+
+          const finalHtml = getAllClassesAndMakeupUsedEmail({
+            parentName: snapshot.parent_name,
+            studentName: snapshot.name,
+            programName: snapshot.program_name,
+            perSessionFee: snapshot.per_session_fee,
+            currency: snapshot.currency
+          });
+
+          const finalSent = await sendStudentPackageEmail(snapshot, {
+            subject: `Secure ${snapshot.name}'s Slot - All Classes and Makeup Credits Used`,
+            html: finalHtml,
+            emailType: 'All-Classes-And-Makeup-Used'
+          });
+
+          if (finalSent) {
+            sentCount++;
+            console.log(`Sent final slot-secure email to ${student.parent_name} for ${student.name}`);
+          }
+          continue;
         }
 
-        // Use different email content for 0 remaining (slots releasing)
-        let emailHTML, subject;
-        if (current === 0) {
-          emailHTML = getSlotsReleasingEmail({
-            parentName: student.parent_name,
-            studentName: student.name,
-            programName: student.program_name,
-            perSessionFee: student.per_session_fee,
-            currency: student.currency,
-            makeupCredits: makeupCredits
-          });
-          subject = `🚨 All Sessions Completed - Slots Releasing Soon for ${student.name}`;
-        } else {
-          emailHTML = getRenewalReminderEmail({
-            parentName: student.parent_name,
-            studentName: student.name,
-            remainingSessions: current,
-            programName: student.program_name,
-            perSessionFee: student.per_session_fee,
-            currency: student.currency,
-            makeupCredits: makeupCredits
-          });
-          const sessionWord = current === 1 ? 'Session' : 'Sessions';
-          subject = `⏰ Renewal Reminder - Only ${current} ${sessionWord} Left for ${student.name}`;
+        const lastReminded = student.last_reminder_remaining;
+        if (lastReminded !== null && lastReminded !== undefined && lastReminded <= current) {
+          continue;
         }
+
+        const emailHTML = getRenewalReminderEmail({
+          parentName: student.parent_name,
+          studentName: student.name,
+          remainingSessions: current,
+          programName: student.program_name,
+          perSessionFee: student.per_session_fee,
+          currency: student.currency,
+          makeupCredits: makeupCredits
+        });
+        const sessionWord = current === 1 ? 'Session' : 'Sessions';
+        const subject = `Renewal Reminder - Only ${current} ${sessionWord} Left for ${student.name}`;
 
         await sendEmail(
           student.parent_email,
@@ -6615,23 +6910,22 @@ cron.schedule('0 9 * * *', async () => {
           'Renewal-Reminder'
         );
 
-        // Track which remaining count was last reminded at
         await pool.query('UPDATE students SET renewal_reminder_sent = true, last_reminder_remaining = $2 WHERE id = $1', [student.id, current]);
         sentCount++;
 
-        console.log(`✅ Sent renewal reminder to ${student.parent_name} for ${student.name} (${current} sessions left, ${makeupCredits} makeup credits)`);
+        console.log(`Sent renewal reminder to ${student.parent_name} for ${student.name} (${current} sessions left, ${makeupCredits} makeup credits)`);
       } catch (emailErr) {
         console.error(`Error sending renewal reminder for ${student.name}:`, emailErr);
       }
     }
 
-    console.log(sentCount > 0 ? `💳 Sent ${sentCount} renewal reminders` : 'No renewal reminders needed today');
+    console.log(sentCount > 0 ? `Sent ${sentCount} renewal/slot reminder emails` : 'No renewal reminders needed today');
   } catch (err) {
     console.error('❌ Error in payment renewal cron job:', err);
   }
 });
 
-console.log('✅ Payment renewal reminder system initialized - checking daily at 9:00 AM');
+console.log('Payment renewal reminder system initialized - checking daily at 2:30 PM IST');
 
 // Student of the Week - every Sunday at 10:30 AM IST (5:00 AM UTC)
 cron.schedule('0 5 * * 0', () => awardStudentOfPeriod('week'));
@@ -6833,7 +7127,7 @@ async function generateDailyQuiz() {
   // Generate questions for each level
   const levels = ['beginner', 'intermediate', 'advanced'];
   const quizData = { quiz_date: today };
-  const categories = ['grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'];
+  const categories = QUIZ_ALLOWED_CATEGORIES;
 
   for (const level of levels) {
     const questions = [];
@@ -6867,25 +7161,27 @@ async function generateDailyQuiz() {
           SELECT * FROM quiz_questions
           WHERE level = $1
             AND is_active = true
-            AND category != 'phonics'
-            AND id <> ALL($2::int[])
+            AND LOWER(category) <> ALL($2::text[])
             AND id <> ALL($3::int[])
+            AND id <> ALL($4::int[])
           ORDER BY RANDOM()
-          LIMIT $4
+          LIMIT $5
         `
         : `
           SELECT * FROM quiz_questions
           WHERE level = $1
             AND is_active = true
-            AND category != 'phonics'
-            AND id <> ALL($2::int[])
+            AND LOWER(category) <> ALL($2::text[])
+            AND id <> ALL($3::int[])
           ORDER BY RANDOM()
-          LIMIT $3
+          LIMIT $4
         `;
 
       const result = await pool.query(
         fallbackQuery,
-        excludedIds.length > 0 ? [level, excludedIds, selectedIdsArray, limitRemaining] : [level, selectedIdsArray, limitRemaining]
+        excludedIds.length > 0
+          ? [level, QUIZ_EXCLUDED_CATEGORIES, excludedIds, selectedIdsArray, limitRemaining]
+          : [level, QUIZ_EXCLUDED_CATEGORIES, selectedIdsArray, limitRemaining]
       );
       for (const q of result.rows) {
         if (!selectedIds.has(q.id)) {
@@ -6901,11 +7197,11 @@ async function generateDailyQuiz() {
           SELECT * FROM quiz_questions
           WHERE level = $1
             AND is_active = true
-            AND category != 'phonics'
+            AND LOWER(category) <> ALL($2::text[])
           ORDER BY RANDOM()
-          LIMIT $2
+          LIMIT $3
         `,
-        [level, 10 - questions.length]
+        [level, QUIZ_EXCLUDED_CATEGORIES, 10 - questions.length]
       );
       for (const q of secondFallback.rows) {
         if (!selectedIds.has(q.id)) {
@@ -6943,6 +7239,85 @@ const DAILY_QUIZ_DURATION_SECONDS = 5 * 60;
 const DAILY_QUIZ_BADGE_TYPE = 'daily_quiz_champion';
 const DAILY_QUIZ_BADGE_NAME = '🏆 Quiz Champion';
 const DAILY_QUIZ_BADGE_DESCRIPTION = 'Scored 10/10 in the daily quiz!';
+const QUIZ_ALLOWED_CATEGORIES = [
+  'grammar',
+  'vocabulary',
+  'idioms',
+  'proverbs',
+  'elaboration',
+  'imagery',
+  'figures_of_speech',
+  'dressup_sentences',
+  'punctuation',
+  'spelling',
+  'show_dont_tell',
+  'types_of_speeches',
+  'body_language',
+  'subject_verb_agreement',
+  'sentence_correction',
+  'direct_indirect_speech'
+];
+const QUIZ_EXCLUDED_CATEGORIES = ['phonics', 'contextual_reference_sentences'];
+const QUIZ_AI_CATEGORY_GUIDANCE = {
+  beginner: ['grammar', 'vocabulary', 'subject_verb_agreement', 'punctuation', 'sentence_correction', 'spelling'],
+  intermediate: ['grammar', 'vocabulary', 'subject_verb_agreement', 'punctuation', 'sentence_correction', 'figures_of_speech'],
+  advanced: ['grammar', 'vocabulary', 'direct_indirect_speech', 'sentence_correction', 'punctuation', 'figures_of_speech']
+};
+
+function normalizeQuizQuestionText(text) {
+  return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+async function getHistoricalQuizQuestionTexts(level, quizDate = null, db = pool) {
+  const seen = new Set();
+
+  const dailyResult = await db.query(
+    `SELECT beginner_questions, intermediate_questions, advanced_questions
+     FROM daily_quizzes
+     ${quizDate ? 'WHERE quiz_date < $1' : ''}
+     ORDER BY quiz_date DESC
+     LIMIT 120`,
+    quizDate ? [quizDate] : []
+  );
+
+  for (const row of dailyResult.rows) {
+    const questions = Array.isArray(row[getQuizLevelColumn(level)]) ? row[getQuizLevelColumn(level)] : [];
+    for (const question of questions) {
+      const normalized = normalizeQuizQuestionText(question?.question_text);
+      if (normalized) seen.add(normalized);
+    }
+  }
+
+  const pendingResult = await db.query(
+    `SELECT question_text
+     FROM pending_quiz_questions
+     WHERE level = $1
+       ${quizDate ? 'AND quiz_date <= $2' : ''}
+       AND status IN ('pending', 'approved')`,
+    quizDate ? [level, quizDate] : [level]
+  );
+
+  for (const row of pendingResult.rows) {
+    const normalized = normalizeQuizQuestionText(row.question_text);
+    if (normalized) seen.add(normalized);
+  }
+
+  const bankResult = await db.query(
+    `SELECT question_text
+     FROM quiz_questions
+     WHERE level = $1
+       AND is_active = true
+       AND LOWER(category) = ANY($2::text[])`,
+    [level, QUIZ_EXCLUDED_CATEGORIES]
+  );
+
+  for (const row of bankResult.rows) {
+    const normalized = normalizeQuizQuestionText(row.question_text);
+    if (normalized) seen.add(normalized);
+  }
+
+  return seen;
+}
 
 function getAuthenticatedQuizStudentId(req) {
   const directStudentId = Number(req.studentId || req.adminStudentId);
@@ -6995,7 +7370,7 @@ function normalizeQuizQuestion(question) {
     !Number.isInteger(id) ||
     options.length < 2 ||
     options.length > 4 ||
-    category === 'phonics' ||
+    QUIZ_EXCLUDED_CATEGORIES.includes(category) ||
     (Number.isInteger(correctAnswer) && (correctAnswer < 0 || correctAnswer >= options.length))
   ) {
     return null;
@@ -7043,24 +7418,24 @@ async function getPreparedDailyQuizQuestions(quizDate, level) {
         FROM quiz_questions
         WHERE level = $1
           AND is_active = true
-          AND category != 'phonics'
-          AND id <> ALL($2::int[])
+          AND LOWER(category) <> ALL($2::text[])
+          AND id <> ALL($3::int[])
         ORDER BY RANDOM()
-        LIMIT $3
+        LIMIT $4
       `
       : `
         SELECT id, question_text, options, category, audio_url, image_url
         FROM quiz_questions
         WHERE level = $1
           AND is_active = true
-          AND category != 'phonics'
+          AND LOWER(category) <> ALL($2::text[])
         ORDER BY RANDOM()
-        LIMIT $2
+        LIMIT $3
       `;
 
     const fallbackParams = excludeIds.length > 0
-      ? [level, excludeIds, DAILY_QUIZ_QUESTION_COUNT - deduped.length]
-      : [level, DAILY_QUIZ_QUESTION_COUNT - deduped.length];
+      ? [level, QUIZ_EXCLUDED_CATEGORIES, excludeIds, DAILY_QUIZ_QUESTION_COUNT - deduped.length]
+      : [level, QUIZ_EXCLUDED_CATEGORIES, DAILY_QUIZ_QUESTION_COUNT - deduped.length];
 
     const fallbackResult = await pool.query(fallbackQuery, fallbackParams);
     for (const rowQuestion of fallbackResult.rows) {
@@ -7121,12 +7496,14 @@ function verifyDailyQuizToken(token, studentId) {
 }
 
 // AI-based quiz question generation using Groq
-async function generateQuizQuestionsWithAI(level, count = 10) {
+async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   const groqKey = process.env.GROQ_API_KEY;
   if (!groqKey) {
     console.error('❌ GROQ_API_KEY not configured');
     throw new Error('GROQ_API_KEY not configured. Add it to your environment variables.');
   }
+
+  const { quizDate = null, excludeTexts = new Set() } = options;
 
   const levelDescriptions = {
     beginner: 'simple English suitable for beginner learners with clear sentence choices',
@@ -7134,13 +7511,27 @@ async function generateQuizQuestionsWithAI(level, count = 10) {
     advanced: 'advanced English concepts, nuanced expression, and deeper language analysis'
   };
 
+  const preferredCategories = QUIZ_AI_CATEGORY_GUIDANCE[level] || QUIZ_ALLOWED_CATEGORIES;
+  const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate);
+  for (const text of excludeTexts) {
+    const normalized = normalizeQuizQuestionText(text);
+    if (normalized) historicalTexts.add(normalized);
+  }
+  const bannedExamples = Array.from(historicalTexts).slice(0, 120);
+
   const prompt = `You are an English teacher creating a daily quiz. Generate exactly ${count} multiple-choice English quiz questions for ${level} level students.
 
 Each question should be:
 - ${levelDescriptions[level]}
-- Focused on one of these categories: grammar, vocabulary, idioms, proverbs, elaboration, imagery, figures_of_speech, contextual_reference_sentences, dressup_sentences, punctuation, spelling, show_dont_tell, types_of_speeches, body_language
+- Focused only on one of these categories: ${QUIZ_ALLOWED_CATEGORIES.join(', ')}
+- Prefer these categories for ${level}: ${preferredCategories.join(', ')}
 - Clearly written with one correct answer
 - Include 4 options (A, B, C, D)
+- Never use the category contextual_reference_sentences
+- Do not repeat or closely paraphrase any previously used question
+- Beginner and intermediate sets should include grammar/vocabulary patterns like subject-verb agreement and sentence correction where suitable
+- sentence_correction questions should use tasks like correcting punctuation, capitalization, or grammar in a sentence
+- Advanced level must include direct_indirect_speech questions in the generated set
 
 Return your response as a valid JSON array with this exact structure:
 [
@@ -7152,6 +7543,9 @@ Return your response as a valid JSON array with this exact structure:
     "explanation": "Brief explanation of why this is correct"
   }
 ]
+
+Do not generate anything substantially similar to these previously used questions:
+${bannedExamples.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
 IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer is 0-3 representing A-D.`;
 
@@ -7198,21 +7592,33 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
     console.log(`📊 Parsed ${questions.length} questions for ${level}, validating...`);
 
     // Validate and sanitize questions
-    const validated = questions.slice(0, count).map(q => ({
+    const validated = questions.slice(0, count * 2).map(q => ({
       question_text: String(q.question_text || '').trim(),
       options: Array.isArray(q.options) ? q.options.map(o => String(o).trim()) : [],
       correct_answer: Number(q.correct_answer) || 0,
-      category: String(q.category || 'figures_of_speech').toLowerCase(),
+      category: String(q.category || 'grammar').toLowerCase(),
       explanation: String(q.explanation || '').trim()
     })).filter(q => 
       q.question_text.length > 5 && 
       q.options.length === 4 && 
       q.correct_answer >= 0 && 
-      q.correct_answer < 4
+      q.correct_answer < 4 &&
+      QUIZ_ALLOWED_CATEGORIES.includes(q.category) &&
+      !QUIZ_EXCLUDED_CATEGORIES.includes(q.category)
     );
 
-    console.log(`✅ Validated ${validated.length}/${questions.length} questions for ${level}`);
-    return validated;
+    const deduped = [];
+    const seen = new Set();
+    for (const question of validated) {
+      const normalized = normalizeQuizQuestionText(question.question_text);
+      if (!normalized || historicalTexts.has(normalized) || seen.has(normalized)) continue;
+      seen.add(normalized);
+      deduped.push(question);
+      if (deduped.length >= count) break;
+    }
+
+    console.log(`✅ Validated ${deduped.length}/${questions.length} unique questions for ${level}`);
+    return deduped;
   } catch (err) {
     console.error(`❌ AI question generation error for ${level}:`, err.message);
     if (err.response) {
@@ -7230,7 +7636,21 @@ async function generatePendingQuizQuestions(quizDate) {
   for (const level of levels) {
     try {
       console.log(`⏳ Generating AI questions for ${level} level...`);
-      const aiQuestions = await generateQuizQuestionsWithAI(level, 10);
+      const aiQuestions = [];
+      const localSeen = new Set();
+      for (let attempt = 0; attempt < 3 && aiQuestions.length < 10; attempt++) {
+        const batch = await generateQuizQuestionsWithAI(level, 10 - aiQuestions.length, {
+          quizDate,
+          excludeTexts: localSeen
+        });
+        for (const question of batch) {
+          const normalized = normalizeQuizQuestionText(question.question_text);
+          if (!normalized || localSeen.has(normalized)) continue;
+          localSeen.add(normalized);
+          aiQuestions.push(question);
+          if (aiQuestions.length >= 10) break;
+        }
+      }
 
       if (!aiQuestions || aiQuestions.length === 0) {
         console.warn(`⚠️ No questions generated for ${level} level`);
@@ -9676,25 +10096,28 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
       const alreadyCounted = prevStatus === 'Completed' || prevStatus === 'Excused' || prevStatus === 'Missed';
 
       if (attendance === 'Present') {
-        // Check if this is a makeup session
-        const sessionInfo = await pool.query('SELECT notes FROM sessions WHERE id = $1', [sessionId]);
-        const isMakeupSession = sessionInfo.rows[0]?.notes === 'Makeup Class';
-
         if (!alreadyCounted) {
           await pool.query(
             `UPDATE students
              SET completed_sessions = completed_sessions + 1,
-                 remaining_sessions = CASE WHEN $2 THEN remaining_sessions ELSE GREATEST(remaining_sessions - 1, 0) END,
+                 remaining_sessions = GREATEST(remaining_sessions - 1, 0),
                  renewal_reminder_sent = false
              WHERE id = $1`,
-            [studentId, isMakeupSession]
+            [studentId]
           );
-          // Makeup sessions should not consume regular session balance
         } else if (prevStatus !== 'Completed') {
           // Was Excused/Missed before, now Present - add to completed
           await pool.query('UPDATE students SET completed_sessions = completed_sessions + 1 WHERE id = $1', [studentId]);
-          // Makeup sessions don't affect remaining_sessions
         }
+
+        await pool.query(
+          `UPDATE makeup_classes
+           SET status = 'Used', used_date = CURRENT_DATE
+           WHERE student_id = $1
+             AND scheduled_session_id = $2
+             AND status = 'Scheduled'`,
+          [studentId, sessionId]
+        );
 
         // Award attendance badges
         const student = await pool.query('SELECT completed_sessions FROM students WHERE id = $1', [studentId]);
@@ -9729,6 +10152,12 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
     const message = attendance === 'Present' ? 'Marked as Present' :
                     attendance === 'Excused' ? 'Marked as Excused (makeup credit granted)' :
                     'Marked as Unexcused (no makeup credit)';
+
+    if (session.rows[0]?.student_id) {
+      maybeSendPaidClassesDoneMakeupEmail(session.rows[0].student_id).catch(err =>
+        console.error('Failed to send paid-classes-complete makeup email:', err)
+      );
+    }
 
     res.json({ success: true, message });
   } catch (err) {
@@ -9825,10 +10254,6 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Check if this is a makeup session
-    const sessionInfo = await client.query('SELECT notes FROM sessions WHERE id = $1', [sessionId]);
-    const isMakeupSession = sessionInfo.rows[0]?.notes === 'Makeup Class';
-
     for (const record of attendanceData) {
       const prev = await client.query('SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2', [sessionId, record.student_id]);
       const prevAttendance = prev.rows[0]?.attendance;
@@ -9852,12 +10277,20 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
           await client.query(
             `UPDATE students
              SET completed_sessions = completed_sessions + 1,
-                 remaining_sessions = CASE WHEN $2 THEN remaining_sessions ELSE GREATEST(remaining_sessions - 1, 0) END,
+                 remaining_sessions = GREATEST(remaining_sessions - 1, 0),
                  renewal_reminder_sent = false
              WHERE id = $1`,
-            [record.student_id, isMakeupSession]
+            [record.student_id]
           );
-          // Makeup sessions should not consume regular session balance
+
+          await client.query(
+            `UPDATE makeup_classes
+             SET status = 'Used', used_date = CURRENT_DATE
+             WHERE student_id = $1
+               AND scheduled_session_id = $2
+               AND status = 'Scheduled'`,
+            [record.student_id, sessionId]
+          );
 
           // Award badges for group class attendance
           const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
@@ -9898,6 +10331,17 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
     await client.query('UPDATE sessions SET status = $1 WHERE id = $2', ['Completed', sessionId]);
     await client.query('COMMIT');
+
+    if (Array.isArray(attendanceData)) {
+      for (const record of attendanceData) {
+        if (record?.student_id) {
+          maybeSendPaidClassesDoneMakeupEmail(record.student_id).catch(err =>
+            console.error('Failed to send paid-classes-complete makeup email:', err)
+          );
+        }
+      }
+    }
+
     res.json({ message: 'Group attendance marked successfully!' });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -11256,6 +11700,10 @@ app.post('/api/sessions/:sessionId/group-cancel-student', async (req, res) => {
 
     await client.query('COMMIT');
 
+    maybeSendPaidClassesDoneMakeupEmail(student_id).catch(err =>
+      console.error('Failed to send paid-classes-complete makeup email:', err)
+    );
+
     // Send cancellation email to parent
     try {
       const sessionResult = await client.query('SELECT * FROM sessions WHERE id = $1', [sessionId]);
@@ -11411,6 +11859,10 @@ app.post('/api/parent/cancel-class', async (req, res) => {
     }
 
     await client.query('COMMIT');
+
+    maybeSendPaidClassesDoneMakeupEmail(id).catch(err =>
+      console.error('Failed to send paid-classes-complete makeup email:', err)
+    );
 
     // Send cancellation confirmation email to parent
     if (student && student.parent_email) {
@@ -11808,7 +12260,9 @@ app.post('/api/parent/check-email', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
     const s = (await pool.query(`
-      SELECT s.*, pc.timezone as credential_timezone
+      SELECT s.*,
+        pc.timezone as credential_timezone,
+        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
       FROM students s
       LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
       WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
@@ -15444,7 +15898,7 @@ app.post('/api/admin/quiz-questions', async (req, res) => {
       return res.status(400).json({ error: 'Invalid level' });
     }
 
-    if (!['grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'].includes(category)) {
+    if (!QUIZ_ALLOWED_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
@@ -15494,7 +15948,7 @@ app.put('/api/admin/quiz-questions/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid level' });
     }
 
-    if (category && !['grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'].includes(category)) {
+    if (category && !QUIZ_ALLOWED_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
@@ -15779,12 +16233,6 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
       return res.status(400).json({ error: 'Only pending questions can be refreshed' });
     }
 
-    // Generate a few candidates so we can avoid repeating the same text.
-    const generated = await generateQuizQuestionsWithAI(existing.level, 3);
-    if (!Array.isArray(generated) || generated.length === 0) {
-      return res.status(500).json({ error: 'AI could not generate a replacement question' });
-    }
-
     const siblingResult = await pool.query(
       `SELECT LOWER(TRIM(question_text)) AS q
        FROM pending_quiz_questions
@@ -15793,8 +16241,17 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
     );
     const existingTexts = new Set(siblingResult.rows.map(r => String(r.q || '')));
 
-    let replacement = generated.find(q => !existingTexts.has(String(q.question_text || '').trim().toLowerCase()));
-    if (!replacement) replacement = generated[0];
+    let replacement = null;
+    for (let attempt = 0; attempt < 3 && !replacement; attempt++) {
+      const generated = await generateQuizQuestionsWithAI(existing.level, 3, {
+        quizDate: existing.quiz_date,
+        excludeTexts: existingTexts
+      });
+      replacement = generated.find(q => !existingTexts.has(normalizeQuizQuestionText(q.question_text))) || generated[0] || null;
+    }
+    if (!replacement) {
+      return res.status(500).json({ error: 'AI could not generate a replacement question' });
+    }
 
     const updateResult = await pool.query(
       `UPDATE pending_quiz_questions

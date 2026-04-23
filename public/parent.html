@@ -2213,6 +2213,54 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       }
     }
 
+    function renderDashboardSummary() {
+      if (!currentStudent) return;
+      document.getElementById('displayName').textContent = currentStudent.name;
+      document.getElementById('displayGrade').textContent = getAgeDisplay(currentStudent);
+      document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
+      document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions || 0;
+      document.getElementById('displayMissed').textContent = currentStudent.missed_sessions || 0;
+      document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions || 0;
+
+      if (allMyStudents && allMyStudents.length > 1) {
+        document.getElementById('currentChildBadge').style.display = 'inline-block';
+        document.getElementById('currentChildName').textContent = currentStudent.name;
+      }
+    }
+
+    async function refreshCurrentStudentSnapshot() {
+      try {
+        const parentEmail = (
+          sessionStorage.getItem('parentEmail') ||
+          (currentStudent && currentStudent.parent_email) ||
+          document.getElementById('parentEmail')?.value ||
+          ''
+        ).trim();
+        if (!parentEmail || !currentStudent) return;
+
+        const res = await fetch('/api/parent/check-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: parentEmail, timezone: getBrowserTimezone() })
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (!data || !Array.isArray(data.students)) return;
+
+        allMyStudents = data.students;
+        const latest = data.students.find(s => s.id === currentStudent.id);
+        if (!latest) return;
+        currentStudent = latest;
+        renderDashboardSummary();
+        if (allMyStudents.length > 1 && document.getElementById('studentSelector').style.display !== 'none') {
+          showChildSelector();
+        }
+      } catch (e) {
+        console.warn('Failed to refresh current student snapshot:', e.message);
+      }
+    }
+
     async function sendOTP() {
       const email = document.getElementById('parentEmail').value.trim();
       try {
@@ -2252,18 +2300,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     function showDashboard() {
       syncPortalTimezoneFromStudent();
       resetSessionsCache();
-      document.getElementById('displayName').textContent = currentStudent.name;
-      document.getElementById('displayGrade').textContent = getAgeDisplay(currentStudent);
-      document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
-      document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions || 0;
-      document.getElementById('displayMissed').textContent = currentStudent.missed_sessions || 0;
-      document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions;
-
-      // Update current child badge in header (for siblings)
-      if (allMyStudents && allMyStudents.length > 1) {
-        document.getElementById('currentChildBadge').style.display = 'inline-block';
-        document.getElementById('currentChildName').textContent = currentStudent.name;
-      }
+      renderDashboardSummary();
+      refreshCurrentStudentSnapshot();
 
       // Load critical data immediately
       loadMakeupCredits();
@@ -4163,6 +4201,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
     async function loadPayments() {
       try {
+        await refreshCurrentStudentSnapshot();
+
         // Load session progress - use actual data from student object
         const totalSessions = parseInt(currentStudent.total_sessions) || 0;
         const completedSessions = parseInt(currentStudent.completed_sessions) || 0;
