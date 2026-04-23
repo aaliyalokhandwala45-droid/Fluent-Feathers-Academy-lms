@@ -14877,24 +14877,48 @@ async function loadPendingQuizQuestions(date) {
 
     const container = document.getElementById('pendingQuizzesContainer');
     
-    const hasPending = ['beginner', 'intermediate', 'advanced'].some(level =>
+    const levels = ['beginner', 'intermediate', 'advanced'];
+    const hasAnyQuestions = levels.some(level => (grouped[level] || []).length > 0);
+    const hasPending = levels.some(level =>
       grouped[level]?.some(q => q.status === 'pending')
     );
 
-    if (!hasPending) {
-      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No pending questions for this date. Generate AI questions for this date and review here.</p>';
+    if (!hasAnyQuestions) {
+      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No generated questions for this date yet. Generate AI questions for this date and review here.</p>';
       return;
     }
 
     let html = '';
 
-    for (const level of ['beginner', 'intermediate', 'advanced']) {
+    for (const level of levels) {
       const questions = grouped[level] || [];
+      const approvedCount = questions.filter(q => q.status === 'approved').length;
       const pendingCount = questions.filter(q => q.status === 'pending').length;
+      const rejectedCount = questions.filter(q => q.status === 'rejected').length;
+
+      if (questions.length === 0) {
+        html += `<div style="background: #fffaf0; border-left: 4px solid #dd6b20; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+          <p style="margin: 0; color: #c05621; font-weight: 600;">⚠️ ${level.toUpperCase()}: No questions generated yet</p>
+          <p style="margin: 6px 0 0; color: #9c4221;">This level has not been generated for ${selectedDate}, so it is not approved.</p>
+        </div>`;
+        continue;
+      }
 
       if (pendingCount === 0) {
-        html += `<div style="background: #f0fdf4; border-left: 4px solid #38a169; padding: 16px; border-radius: 8px;">
-          <p style="margin: 0; color: #38a169;">✅ ${level.toUpperCase()}: All 10 questions approved</p>
+        const isFullyApproved = approvedCount >= 10;
+        const statusBg = isFullyApproved ? '#f0fdf4' : '#fffaf0';
+        const statusBorder = isFullyApproved ? '#38a169' : '#dd6b20';
+        const statusColor = isFullyApproved ? '#38a169' : '#c05621';
+        const statusText = isFullyApproved
+          ? `✅ ${level.toUpperCase()}: All ${approvedCount} questions approved`
+          : `⚠️ ${level.toUpperCase()}: No editable pending questions`;
+        const detailText = isFullyApproved
+          ? ''
+          : `<p style="margin: 6px 0 0; color: #9c4221;">Approved: ${approvedCount}, Rejected: ${rejectedCount}. Generate or refresh this level to continue editing.</p>`;
+
+        html += `<div style="background: ${statusBg}; border-left: 4px solid ${statusBorder}; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+          <p style="margin: 0; color: ${statusColor}; font-weight: 600;">${statusText}</p>
+          ${detailText}
         </div>`;
         continue;
       }
@@ -14957,12 +14981,13 @@ async function loadPendingQuizQuestions(date) {
       html += `</div>`;
     }
 
-    // Add approval section at the end
-    html += `<div style="background: linear-gradient(135deg, #38a169 0%, #319795 100%); color: white; padding: 16px; border-radius: 12px; text-align: center;">
-      <p style="margin: 0 0 12px; font-weight: bold;">Ready to approve all pending questions for ${selectedDate}?</p>
-      <button onclick="approvePendingQuestionsForDate('${selectedDate}')" style="background: white; color: #38a169; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 8px;">✅ Approve All for Selected Date</button>
-      <button onclick="rejectPendingQuestionsForDate('${selectedDate}')" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">❌ Reject All</button>
-    </div>`;
+    if (hasPending) {
+      html += `<div style="background: linear-gradient(135deg, #38a169 0%, #319795 100%); color: white; padding: 16px; border-radius: 12px; text-align: center;">
+        <p style="margin: 0 0 12px; font-weight: bold;">Ready to approve all pending questions for ${selectedDate}?</p>
+        <button onclick="approvePendingQuestionsForDate('${selectedDate}')" style="background: white; color: #38a169; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 8px;">✅ Approve All for Selected Date</button>
+        <button onclick="rejectPendingQuestionsForDate('${selectedDate}')" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">❌ Reject All</button>
+      </div>`;
+    }
 
     container.innerHTML = html;
   } catch (error) {
