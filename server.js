@@ -2578,26 +2578,42 @@ async function runMigrations() {
     // Migration 43: One-time fix - increment remaining_sessions for existing students who have
     // upcoming scheduled makeup classes that were scheduled before the fix (remaining was never incremented)
     try {
-      const fixResult = await client.query(`
-        UPDATE students s
-        SET remaining_sessions = remaining_sessions + sub.makeup_pending
-        FROM (
-          SELECT sess.student_id, COUNT(*) AS makeup_pending
-          FROM sessions sess
-          INNER JOIN makeup_classes mc ON mc.scheduled_session_id = sess.id AND mc.status = 'Scheduled'
-          WHERE sess.notes = 'Makeup Class'
-            AND sess.status IN ('Scheduled', 'Pending')
-            AND sess.session_date >= CURRENT_DATE
-          GROUP BY sess.student_id
-        ) sub
-        WHERE s.id = sub.student_id
-        RETURNING s.id, s.name, sub.makeup_pending
-      `);
-      if (fixResult.rows.length > 0) {
-        fixResult.rows.forEach(r => console.log(`  ✅ ${r.name}: remaining_sessions +${r.makeup_pending} (makeup backfill)`));
-        console.log(`✅ Migration 43: Fixed remaining_sessions for ${fixResult.rows.length} student(s) with existing scheduled makeup classes`);
+      const migration43State = await client.query(
+        `SELECT setting_value FROM admin_settings WHERE setting_key = 'migration_43_makeup_backfill_done' LIMIT 1`
+      );
+      const alreadyRanMigration43 = String(migration43State.rows[0]?.setting_value || '').toLowerCase() === 'true';
+
+      if (!alreadyRanMigration43) {
+        const fixResult = await client.query(`
+          UPDATE students s
+          SET remaining_sessions = remaining_sessions + sub.makeup_pending
+          FROM (
+            SELECT sess.student_id, COUNT(*) AS makeup_pending
+            FROM sessions sess
+            INNER JOIN makeup_classes mc ON mc.scheduled_session_id = sess.id AND mc.status = 'Scheduled'
+            WHERE sess.notes = 'Makeup Class'
+              AND sess.status IN ('Scheduled', 'Pending')
+              AND sess.session_date >= CURRENT_DATE
+            GROUP BY sess.student_id
+          ) sub
+          WHERE s.id = sub.student_id
+          RETURNING s.id, s.name, sub.makeup_pending
+        `);
+        if (fixResult.rows.length > 0) {
+          fixResult.rows.forEach(r => console.log(`  ✅ ${r.name}: remaining_sessions +${r.makeup_pending} (makeup backfill)`));
+          console.log(`✅ Migration 43: Fixed remaining_sessions for ${fixResult.rows.length} student(s) with existing scheduled makeup classes`);
+        } else {
+          console.log('✅ Migration 43: No students needed remaining_sessions makeup backfill');
+        }
+
+        await client.query(`
+          INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+          VALUES ('migration_43_makeup_backfill_done', 'true', CURRENT_TIMESTAMP)
+          ON CONFLICT (setting_key)
+          DO UPDATE SET setting_value = 'true', updated_at = CURRENT_TIMESTAMP
+        `);
       } else {
-        console.log('✅ Migration 43: No students needed remaining_sessions makeup backfill');
+        console.log('✅ Migration 43: Already applied, skipping makeup backfill');
       }
     } catch (err) {
       console.log('Migration 43 note:', err.message);
@@ -12343,7 +12359,42 @@ app.post('/api/parent/check-email', async (req, res) => {
     const s = (await pool.query(`
       SELECT s.*,
         pc.timezone as credential_timezone,
-        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
+        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM makeup_classes mc
+          WHERE mc.student_id = s.id AND LOWER(mc.status) = 'available'
+        ), 0) as available_makeup_credits,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM makeup_classes mc
+          WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+        ), 0) as scheduled_makeup_credits,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM sessions sess
+          WHERE sess.student_id = s.id
+            AND sess.status IN ('Pending', 'Scheduled', 'Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+            AND NOT EXISTS (
+              SELECT 1
+              FROM makeup_classes mc
+              WHERE mc.student_id = s.id
+                AND mc.scheduled_session_id = sess.id
+            )
+        ), 0) as regular_private_sessions_used,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM session_attendance sa
+          INNER JOIN sessions gs ON gs.id = sa.session_id
+          WHERE sa.student_id = s.id
+            AND COALESCE(sa.attendance, 'Pending') IN ('Pending', 'Present', 'Absent', 'Excused', 'Unexcused')
+            AND NOT EXISTS (
+              SELECT 1
+              FROM makeup_classes mc
+              WHERE mc.student_id = s.id
+                AND mc.scheduled_session_id = sa.session_id
+            )
+        ), 0) as regular_group_sessions_used
       FROM students s
       LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
       WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
@@ -12351,7 +12402,17 @@ app.post('/api/parent/check-email', async (req, res) => {
     if(s.length===0) return res.status(404).json({ error: 'No student found.' });
     const students = s.map(st => ({
       ...st,
-      parent_timezone: st.parent_timezone || st.credential_timezone || st.timezone || 'Asia/Kolkata'
+      parent_timezone: st.parent_timezone || st.credential_timezone || st.timezone || 'Asia/Kolkata',
+      paid_remaining_sessions: Math.max(
+        (parseInt(st.total_sessions, 10) || 0) -
+        ((parseInt(st.regular_private_sessions_used, 10) || 0) + (parseInt(st.regular_group_sessions_used, 10) || 0)),
+        0
+      ),
+      remaining_sessions: Math.max(
+        (parseInt(st.total_sessions, 10) || 0) -
+        ((parseInt(st.regular_private_sessions_used, 10) || 0) + (parseInt(st.regular_group_sessions_used, 10) || 0)),
+        0
+      ) + (parseInt(st.scheduled_makeup_credits, 10) || 0)
     }));
     const c = (await pool.query('SELECT password FROM parent_credentials WHERE LOWER(parent_email) = LOWER($1)', [parentEmail])).rows[0];
     // Include students list for session restoration (persistent login)
