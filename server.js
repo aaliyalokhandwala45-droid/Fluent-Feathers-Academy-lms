@@ -8627,7 +8627,34 @@ app.get('/api/students', async (req, res) => {
     const r = await executeQuery(`
       SELECT s.*,
         COUNT(DISTINCT m.id) as makeup_credits,
-        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions,
+        (
+          COALESCE((
+            SELECT COUNT(*)
+            FROM sessions sess
+            WHERE sess.student_id = s.id
+              AND sess.status IN ('Missed', 'Unexcused')
+              AND NOT EXISTS (
+                SELECT 1
+                FROM makeup_classes mc
+                WHERE mc.student_id = s.id
+                  AND mc.original_session_id = sess.id
+              )
+          ), 0)
+          +
+          COALESCE((
+            SELECT COUNT(*)
+            FROM session_attendance sa
+            INNER JOIN sessions gs ON gs.id = sa.session_id
+            WHERE sa.student_id = s.id
+              AND COALESCE(sa.attendance, 'Pending') = 'Unexcused'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM makeup_classes mc
+                WHERE mc.student_id = s.id
+                  AND mc.original_session_id = sa.session_id
+              )
+          ), 0)
+        ) as missed_sessions,
         (SELECT MAX(created_at) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as last_assessment_date,
         (SELECT COUNT(*) FROM monthly_assessments WHERE student_id = s.id AND assessment_type = 'monthly') as total_assessments,
         CASE

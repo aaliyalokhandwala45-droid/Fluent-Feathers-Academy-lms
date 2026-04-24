@@ -2242,7 +2242,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
 
         const res = await fetch('/api/parent/check-email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: parentEmail, timezone: getBrowserTimezone() })
         });
         if (!res.ok) return;
