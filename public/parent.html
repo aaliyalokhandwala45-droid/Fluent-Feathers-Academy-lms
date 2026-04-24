@@ -3080,6 +3080,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             </div>
           `;
         }).join('');
+        enforceChallengeAttachments();
       } catch(e) {
         console.error('Error loading challenges:', e);
         document.getElementById('studentChallenges').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading challenges</p>';
@@ -3131,6 +3132,116 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
       } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
+      }
+    }
+
+    function updateChallengeSubmitState(challengeId) {
+      const fileInput = document.getElementById(`challengeFile-${challengeId}`);
+      const file = fileInput ? fileInput.files[0] : null;
+      const btn = document.getElementById(`challengeSubmitBtn-${challengeId}`);
+      const hint = document.getElementById(`challengeFileHint-${challengeId}`);
+      const isValid = !!(file && file.type && (file.type.startsWith('image/') || file.type.startsWith('video/')));
+
+      if (btn) {
+        btn.disabled = !isValid;
+        btn.style.cursor = isValid ? 'pointer' : 'not-allowed';
+        btn.style.opacity = isValid ? '1' : '0.6';
+      }
+
+      if (hint) {
+        if (!file) {
+          hint.textContent = 'Attach an image or video to enable submission.';
+          hint.style.color = '#c53030';
+        } else if (!isValid) {
+          hint.textContent = 'Only image or video files are allowed.';
+          hint.style.color = '#c53030';
+        } else {
+          hint.textContent = `Ready to submit: ${file.name}`;
+          hint.style.color = '#2f855a';
+        }
+      }
+    }
+
+    function enforceChallengeAttachments() {
+      document.querySelectorAll('#studentChallenges input[type="file"][id^="challengeFile-"]').forEach((input) => {
+        const challengeId = input.id.replace('challengeFile-', '');
+        const wrapper = input.parentElement;
+        const label = wrapper ? wrapper.querySelector('label') : null;
+        const oldButton = wrapper ? wrapper.querySelector('button') : null;
+        let hint = document.getElementById(`challengeFileHint-${challengeId}`);
+
+        input.setAttribute('accept', 'image/*,video/*');
+        input.onchange = () => updateChallengeSubmitState(challengeId);
+
+        if (label) {
+          label.textContent = 'Attach your work (image or video only):';
+        }
+
+        if (!hint && wrapper) {
+          hint = document.createElement('div');
+          hint.id = `challengeFileHint-${challengeId}`;
+          hint.style.fontSize = '0.8rem';
+          hint.style.color = '#c53030';
+          hint.style.marginBottom = '8px';
+          hint.textContent = 'Attach an image or video to enable submission.';
+          input.insertAdjacentElement('afterend', hint);
+        }
+
+        if (oldButton) {
+          const inlineHandler = oldButton.getAttribute('onclick') || '';
+          const titleMatch = inlineHandler.match(/submitChallenge\(\d+,\s*'((?:\\'|[^'])*)'/);
+          const challengeTitle = titleMatch ? titleMatch[1].replace(/\\'/g, "'") : '';
+
+          oldButton.id = `challengeSubmitBtn-${challengeId}`;
+          oldButton.textContent = 'Submit for Review';
+          oldButton.disabled = true;
+          oldButton.style.cursor = 'not-allowed';
+          oldButton.style.opacity = '0.6';
+          oldButton.onclick = () => submitChallenge(Number(challengeId), challengeTitle, oldButton);
+        }
+
+        updateChallengeSubmitState(challengeId);
+      });
+    }
+
+    async function submitChallenge(challengeId, challengeTitle, btn) {
+      const fileInput = document.getElementById(`challengeFile-${challengeId}`);
+      const file = fileInput ? fileInput.files[0] : null;
+
+      if (!file || !file.type || (!file.type.startsWith('image/') && !file.type.startsWith('video/'))) {
+        alert('Please attach an image or video before submitting this challenge.');
+        updateChallengeSubmitState(challengeId);
+        return;
+      }
+
+      if (!confirm(`Submit "${challengeTitle}" as completed?\n\nFile: ${file.name}\n\nYour teacher will review and approve it.`)) return;
+
+      const originalText = btn.innerHTML;
+      btn.innerHTML = 'Uploading...';
+      btn.disabled = true;
+
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('uploadType', 'homework');
+        const res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: fd
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('Challenge submitted! Your teacher will review and award your badge soon.');
+          loadStudentChallenges();
+          loadScoreHistory();
+        } else {
+          alert('Error: ' + result.error);
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.innerHTML = originalText;
+        updateChallengeSubmitState(challengeId);
       }
     }
 

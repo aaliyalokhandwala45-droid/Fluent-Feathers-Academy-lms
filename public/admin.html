@@ -6287,6 +6287,8 @@ if (dueEl) {
     let annotAiCorrections = [];
     let annotAiMeta = { grade: '', summary: '' };
     let annotAiIntegrity = null;
+    let annotZoom = 1;
+    let annotPlacementCorrectionId = null;
 
     function openAnnotationEditor(materialId, fileUrl, fileType, studentName) {
       // Remove existing
@@ -6322,6 +6324,13 @@ if (dueEl) {
           <div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);">
             <span style="color:#cbd5e1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;">Text Size</span>
             ${[{s:12,l:'S'},{s:18,l:'M'},{s:26,l:'L'},{s:38,l:'XL'}].map(p => `<button onclick="annotTextSize=${p.s};this.parentElement.querySelectorAll('button').forEach(b=>b.style.background='rgba(71,85,105,0.92)');this.style.background='#3182ce'" style="padding:6px 10px;border:none;border-radius:9px;background:${p.s===18?'#3182ce':'rgba(71,85,105,0.92)'};color:white;cursor:pointer;font-size:12px;font-weight:700;">${p.l}</button>`).join('')}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);">
+            <span style="color:#cbd5e1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;">Zoom</span>
+            <button onclick="adjustAnnotationZoom(-0.2)" style="padding:6px 10px;border:none;border-radius:9px;background:rgba(71,85,105,0.92);color:white;cursor:pointer;font-size:12px;font-weight:700;">−</button>
+            <button onclick="setAnnotationZoom(1)" style="padding:6px 10px;border:none;border-radius:9px;background:#0f766e;color:white;cursor:pointer;font-size:12px;font-weight:700;">Reset</button>
+            <button onclick="adjustAnnotationZoom(0.2)" style="padding:6px 10px;border:none;border-radius:9px;background:rgba(71,85,105,0.92);color:white;cursor:pointer;font-size:12px;font-weight:700;">+</button>
+            <span id="annotZoomLabel" style="color:white;font-size:12px;font-weight:800;min-width:52px;text-align:center;">100%</span>
           </div>
           <button onclick="annotUndo()" style="padding:7px 12px;border:none;border-radius:10px;background:#f59e0b;color:white;cursor:pointer;font-weight:700;">↩️ Undo</button>
           <button onclick="annotClear()" style="padding:7px 12px;border:none;border-radius:10px;background:#64748b;color:white;cursor:pointer;font-weight:700;">🗑️ Clear</button>
@@ -6379,6 +6388,8 @@ if (dueEl) {
       annotAiCorrections = [];
       annotAiMeta = { grade: '', summary: '' };
       annotAiIntegrity = null;
+      annotZoom = 1;
+      annotPlacementCorrectionId = null;
       updateAiCorrectionsUI();
 
       // Load image
@@ -6400,6 +6411,7 @@ if (dueEl) {
           cropAnnotationCanvasWhitespace();
           annotBgImage = annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height);
           annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+          setAnnotationZoom(1);
         };
         img.onerror = function() { alert('Could not load image. Try downloading and re-uploading.'); };
         img.src = fileUrl;
@@ -6416,14 +6428,20 @@ if (dueEl) {
 
       // Text tool click
       annotCanvas.addEventListener('click', function(e) {
+        if (annotPlacementCorrectionId) {
+          const point = getAnnotCanvasPoint(e);
+          placeAiCorrectionAtPoint(annotPlacementCorrectionId, point.x, point.y);
+          stopAiCorrectionPlacement();
+          return;
+        }
         if (annotTool !== 'text') return;
         // Remove any existing popup
         const oldPop = document.getElementById('annotTextPopup');
         if (oldPop) oldPop.remove();
 
-        const rect = annotCanvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const point = getAnnotCanvasPoint(e);
+        const x = point.x;
+        const y = point.y;
 
         // Build floating popup positioned near the click
         let left = e.clientX + 12;
@@ -6607,7 +6625,7 @@ if (dueEl) {
         if (!gradeEl.value && grade) gradeEl.value = grade;
         if (!commentsEl.value && summary) commentsEl.value = summary;
 
-        alert(`🤖 AI found ${corrections.length} correction(s).\n\nThey are now listed in the corner. Drag each note to the correct place, resize it, and edit the text before saving.`);
+        alert(`🤖 AI found ${corrections.length} correction(s).\n\nThe corrections are now placed on the homework. You can zoom in, drag them, and edit the text before saving.`);
       } catch (err) {
         alert('AI Error: ' + err.message + '\n\nMake sure GROQ_API_KEY is set in your Render environment variables.\nGet a free key at console.groq.com');
       }
@@ -6617,9 +6635,9 @@ if (dueEl) {
     function annotStart(e) {
       if (annotTool === 'text') return;
       annotDrawing = true;
-      const rect = annotCanvas.getBoundingClientRect();
+      const point = getAnnotCanvasPoint(e);
       annotCtx.beginPath();
-      annotCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+      annotCtx.moveTo(point.x, point.y);
       annotCtx.strokeStyle = annotTool === 'eraser' ? '#ffffff' : annotColor;
       annotCtx.lineWidth = annotTool === 'eraser' ? annotSize * 4 : annotSize;
       annotCtx.lineCap = 'round';
@@ -6628,8 +6646,8 @@ if (dueEl) {
 
     function annotMove(e) {
       if (!annotDrawing) return;
-      const rect = annotCanvas.getBoundingClientRect();
-      annotCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      const point = getAnnotCanvasPoint(e);
+      annotCtx.lineTo(point.x, point.y);
       annotCtx.stroke();
     }
 
@@ -6676,10 +6694,87 @@ if (dueEl) {
         cropAnnotationCanvasWhitespace();
         annotBgImage = annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height);
         annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+        setAnnotationZoom(1);
       } catch (err) {
         console.error('PDF load error:', err);
         alert('Could not load PDF for annotation. Try with an image file instead.');
       }
+    }
+
+    function getAnnotCanvasPoint(e) {
+      const rect = annotCanvas.getBoundingClientRect();
+      const scaleX = annotCanvas.width / Math.max(rect.width, 1);
+      const scaleY = annotCanvas.height / Math.max(rect.height, 1);
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    }
+
+    function setAnnotationZoom(nextZoom) {
+      annotZoom = Math.max(0.6, Math.min(3, Number(nextZoom) || 1));
+      const stage = document.getElementById('annotStage');
+      const overlay = document.getElementById('annotOverlayLayer');
+      const zoomLabel = document.getElementById('annotZoomLabel');
+      if (!stage || !annotCanvas || !overlay) {
+        if (zoomLabel) zoomLabel.textContent = `${Math.round(annotZoom * 100)}%`;
+        return;
+      }
+
+      const scaledWidth = Math.round((annotCanvas.width || 0) * annotZoom);
+      const scaledHeight = Math.round((annotCanvas.height || 0) * annotZoom);
+      annotCanvas.style.width = `${scaledWidth}px`;
+      annotCanvas.style.height = `${scaledHeight}px`;
+      overlay.style.width = `${scaledWidth}px`;
+      overlay.style.height = `${scaledHeight}px`;
+      stage.style.width = `${scaledWidth}px`;
+      stage.style.height = `${scaledHeight}px`;
+      if (zoomLabel) zoomLabel.textContent = `${Math.round(annotZoom * 100)}%`;
+    }
+
+    function adjustAnnotationZoom(delta) {
+      setAnnotationZoom((annotZoom || 1) + delta);
+    }
+
+    function getAiCorrectionPlacement(item) {
+      const W = annotCanvas.width || 1;
+      const H = annotCanvas.height || 1;
+      const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+      const preferredLeft = item.renderMode === 'inline'
+        ? item.anchorX - (item.width / 2)
+        : (item.anchorX > W * 0.58 ? item.anchorX - item.width - 18 : item.anchorX + 18);
+      const left = clamp(preferredLeft, 0, Math.max(0, W - item.width));
+      const top = clamp(
+        item.renderMode === 'inline' ? item.anchorY - (item.minHeight / 2) : item.anchorY - 22,
+        0,
+        Math.max(0, H - item.minHeight)
+      );
+      return { left, top };
+    }
+
+    function startAiCorrectionPlacement(id) {
+      annotPlacementCorrectionId = id;
+      const wrap = document.getElementById('annotCanvasWrap');
+      if (wrap) wrap.style.cursor = 'crosshair';
+      updateAiCorrectionsUI();
+    }
+
+    function stopAiCorrectionPlacement() {
+      annotPlacementCorrectionId = null;
+      const wrap = document.getElementById('annotCanvasWrap');
+      if (wrap) wrap.style.cursor = '';
+      updateAiCorrectionsUI();
+    }
+
+    function placeAiCorrectionAtPoint(id, x, y) {
+      const item = annotAiCorrections.find(entry => entry.id === id);
+      if (!item) return;
+      item.anchorX = Math.max(0, Math.min(annotCanvas.width, x));
+      item.anchorY = Math.max(0, Math.min(annotCanvas.height, y));
+      const placement = getAiCorrectionPlacement(item);
+      item.left = placement.left;
+      item.top = placement.top;
+      updateAiCorrectionsUI();
     }
 
     function getCanvasWhitespaceBounds(source, padding = 20, threshold = 244) {
@@ -7045,22 +7140,41 @@ if (dueEl) {
         const anchorX = clamp(Math.round(((Number(c.x) || 0) / 100) * W), 10, Math.max(10, W - 10));
         const anchorY = clamp(Math.round(((Number(c.y) || 0) / 100) * H), 10, Math.max(10, H - 10));
         const text = String(c.correct || c.note || '').trim() || 'Correction';
-        const markerSize = 26;
-        const preferredLeft = anchorX > W * 0.64 ? anchorX - markerSize - 8 : anchorX + 8;
-        const left = clamp(preferredLeft + ((idx % 2) * 6), 0, Math.max(0, W - markerSize));
-        const top = clamp(anchorY - (markerSize / 2) + ((idx % 3) * 10), 0, Math.max(0, H - markerSize));
+        const wrong = String(c.wrong || '').trim();
+        const type = String(c.type || '').trim();
+        const isInlineMark = (
+          (type === 'punctuation' && text.length <= 3) ||
+          (type === 'capitalization' && text.length <= 2 && !wrong)
+        );
+        const lineOne = wrong ? `${wrong} -> ${text}` : text;
+        const lineTwo = String(c.note || '').trim();
+        const longestLine = Math.max(lineOne.length, lineTwo.length, isInlineMark ? 2 : 12);
+        const cardWidth = isInlineMark
+          ? clamp(Math.round((Math.max(text.length, 1) * 18) + 20), 36, 76)
+          : clamp(Math.round((longestLine * 7.2) + 52), 170, Math.min(280, Math.max(170, W - 20)));
+        const estimatedHeight = isInlineMark ? 42 : (lineTwo ? 88 : 72);
+        const preferredLeft = isInlineMark
+          ? anchorX - (cardWidth / 2)
+          : (anchorX > W * 0.58 ? anchorX - cardWidth - 18 : anchorX + 18);
+        const left = clamp(preferredLeft + ((idx % 2) * 10), 0, Math.max(0, W - cardWidth));
+        const top = clamp(
+          (isInlineMark ? anchorY - (estimatedHeight / 2) : anchorY - 22) + ((idx % 3) * (isInlineMark ? 4 : 14)),
+          0,
+          Math.max(0, H - estimatedHeight)
+        );
         return {
           id: `ai-correction-${Date.now()}-${idx}`,
-          wrong: String(c.wrong || '').trim(),
+          wrong,
           text,
           note: String(c.note || '').trim(),
-          type: String(c.type || '').trim(),
+          type,
+          renderMode: isInlineMark ? 'inline' : 'callout',
           anchorX,
           anchorY,
           left,
           top,
-          width: markerSize,
-          minHeight: 116
+          width: cardWidth,
+          minHeight: estimatedHeight
         };
       });
     }
@@ -7130,7 +7244,11 @@ if (dueEl) {
                   ${item.wrong ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px;line-height:1.35;"><strong>Wrong:</strong> ${escapeHtml(item.wrong)}</div>` : ''}
                   <div style="font-size:10px;color:#64748b;margin-bottom:4px;font-weight:700;">Replace with:</div>
                   <textarea oninput="updateAiCorrectionText('${item.id}', this.value)" style="width:100%;min-height:58px;border:1px solid ${appearance.softBorder};border-radius:10px;padding:7px 8px;font-size:11px;line-height:1.35;color:#1f2937;resize:vertical;outline:none;background:#ffffff;">${escapeHtml(item.text)}</textarea>
-                  ${item.note ? `<div style=\"font-size:10px;color:#64748b;margin-top:5px;line-height:1.35;\">${escapeHtml(item.note)}</div>` : ''}
+                  <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button type="button" onclick="${annotPlacementCorrectionId === item.id ? `stopAiCorrectionPlacement()` : `startAiCorrectionPlacement('${item.id}')`}" style="border:none;background:${annotPlacementCorrectionId === item.id ? '#0f766e' : '#e2e8f0'};color:${annotPlacementCorrectionId === item.id ? 'white' : '#334155'};padding:6px 10px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;">
+                      ${annotPlacementCorrectionId === item.id ? 'Click homework to place' : 'Place on Homework'}
+                    </button>
+                  </div>
                 </div>
               </div>
             `;
@@ -7139,12 +7257,32 @@ if (dueEl) {
 
       overlay.innerHTML = annotAiCorrections.map((item, index) => {
         const appearance = getAiCorrectionAppearance(item.type);
+        const summaryLine = item.wrong ? `${item.wrong} -> ${item.text}` : item.text;
+        if (item.renderMode === 'inline') {
+          return `
+            <div id="${item.id}" data-correction-id="${item.id}" class="annot-ai-card"
+              style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;min-height:${item.minHeight}px;pointer-events:auto;display:flex;align-items:center;justify-content:center;">
+              <div class="annot-ai-drag" title="Drag punctuation mark"
+                style="position:absolute;top:-10px;right:-10px;width:22px;height:22px;border-radius:999px;background:${appearance.color};color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;cursor:grab;box-shadow:${appearance.shadow};user-select:none;">✥</div>
+              <textarea data-overlay-text="${item.id}" oninput="updateAiCorrectionText('${item.id}', this.value)"
+                style="width:100%;min-height:${item.minHeight}px;border:none;background:transparent;color:#dc2626;font-size:${Math.max(28, Math.min(40, annotTextSize + 10))}px;font-weight:900;line-height:1;text-align:center;resize:none;outline:none;overflow:hidden;text-shadow:0 1px 0 rgba(255,255,255,0.92), 0 0 6px rgba(255,255,255,0.82);padding:2px 4px;">${escapeHtml(item.text)}</textarea>
+            </div>
+          `;
+        }
         return `
-          <button id="${item.id}" data-correction-id="${item.id}" class="annot-ai-card"
-            onclick="focusAiCorrection('${item.id}')"
-            style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;height:${item.width}px;pointer-events:auto;border:none;border-radius:999px;background:${appearance.color};color:white;cursor:pointer;font-size:12px;font-weight:800;box-shadow:${appearance.shadow};display:flex;align-items:center;justify-content:center;line-height:1;">
-            ${index + 1}
-          </button>
+          <div id="${item.id}" data-correction-id="${item.id}" class="annot-ai-card"
+            style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;min-height:${item.minHeight}px;pointer-events:auto;border:1px solid ${appearance.softBorder};border-radius:14px;background:rgba(255,255,255,0.96);color:#0f172a;box-shadow:${appearance.shadow};overflow:hidden;">
+            <div class="annot-ai-drag" onclick="focusAiCorrection('${item.id}')"
+              style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${appearance.tint};border-bottom:1px solid ${appearance.softBorder};cursor:grab;user-select:none;">
+              <span style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:${appearance.color};color:white;font-size:11px;font-weight:800;flex-shrink:0;">${index + 1}</span>
+              <span style="font-size:11px;font-weight:800;color:${appearance.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${appearance.icon} ${appearance.label}</span>
+            </div>
+            <div style="padding:9px 10px 10px;line-height:1.35;">
+              ${item.wrong ? `<div style="font-size:10px;color:#64748b;margin-bottom:4px;word-break:break-word;"><strong>Wrong:</strong> ${escapeHtml(item.wrong)}</div>` : ''}
+              <textarea data-overlay-text="${item.id}" oninput="updateAiCorrectionText('${item.id}', this.value)"
+                style="width:100%;min-height:46px;border:1px solid ${appearance.softBorder};border-radius:10px;background:#ffffff;color:#0f172a;font-size:12px;font-weight:800;line-height:1.35;padding:7px 8px;resize:vertical;outline:none;">${escapeHtml(item.text)}</textarea>
+            </div>
+          </div>
         `;
       }).join('');
 
@@ -7176,6 +7314,7 @@ if (dueEl) {
       const onUp = () => {
         if (!dragging) return;
         dragging = false;
+        handle.style.cursor = 'grab';
         const item = annotAiCorrections.find(x => x.id === id);
         if (item) {
           item.left = parseFloat(card.style.left) || 0;
@@ -7190,13 +7329,13 @@ if (dueEl) {
       };
 
       const onDown = (ev) => {
-        if (ev.target.closest('button') || ev.target.closest('textarea')) return;
         dragging = true;
         const point = ev.touches ? ev.touches[0] : ev;
         startX = point.clientX;
         startY = point.clientY;
         startLeft = parseFloat(card.style.left) || 0;
         startTop = parseFloat(card.style.top) || 0;
+        handle.style.cursor = 'grabbing';
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
         window.addEventListener('touchmove', onMove, { passive: false });
@@ -7220,6 +7359,12 @@ if (dueEl) {
       const item = annotAiCorrections.find(x => x.id === id);
       if (!item) return;
       item.text = value;
+      document.querySelectorAll(`[data-overlay-text="${id}"]`).forEach((el) => {
+        if (el !== document.activeElement) el.value = value;
+      });
+      document.querySelectorAll(`[data-correction-panel="${id}"] textarea`).forEach((el) => {
+        if (el !== document.activeElement) el.value = value;
+      });
     }
 
     function focusAiCorrection(id) {
@@ -7240,7 +7385,7 @@ if (dueEl) {
           if (panel) panel.style.boxShadow = '';
         }, 1200);
       }
-      const input = panel ? panel.querySelector('textarea') : null;
+      const input = marker?.querySelector('[data-overlay-text]') || (panel ? panel.querySelector('textarea') : null);
       if (input) input.focus();
     }
 
@@ -7249,42 +7394,83 @@ if (dueEl) {
       return Math.max(96, panel ? panel.offsetHeight : item.minHeight);
     }
 
-    function getMarkerCenter(item, cropBounds = { left: 0, top: 0 }) {
+    function getCalloutAnchor(item, cropBounds = { left: 0, top: 0 }) {
       return {
-        x: (item.left + (item.width / 2)) - (cropBounds.left || 0),
-        y: (item.top + (item.width / 2)) - (cropBounds.top || 0)
+        x: item.left - (cropBounds.left || 0),
+        y: item.top - (cropBounds.top || 0),
+        width: item.width,
+        height: item.minHeight
       };
     }
 
-    function drawCorrectionMarker(ctx, item, index, cropBounds = { left: 0, top: 0 }) {
+    function drawCorrectionCallout(ctx, item, index, cropBounds = { left: 0, top: 0 }) {
       const appearance = getAiCorrectionAppearance(item.type);
-      const center = getMarkerCenter(item, cropBounds);
+      if (item.renderMode === 'inline') {
+        const anchorX = item.anchorX - (cropBounds.left || 0);
+        const anchorY = item.anchorY - (cropBounds.top || 0);
+        ctx.save();
+        ctx.fillStyle = '#dc2626';
+        ctx.font = `900 ${Math.max(28, Math.min(40, annotTextSize + 10))}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(255,255,255,0.95)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(item.text || '', anchorX, anchorY);
+        ctx.restore();
+        return;
+      }
+      const box = getCalloutAnchor(item, cropBounds);
       const anchorX = item.anchorX - (cropBounds.left || 0);
       const anchorY = item.anchorY - (cropBounds.top || 0);
+      const cardX = box.x;
+      const cardY = box.y;
+      const cardW = box.width;
+      const cardH = box.height;
+      const attachX = anchorX < cardX ? cardX : Math.min(cardX + cardW, Math.max(cardX, anchorX));
+      const attachY = anchorY < cardY ? cardY + 24 : Math.min(cardY + cardH - 16, Math.max(cardY + 24, anchorY));
+      const summaryLine = item.wrong ? `${item.wrong} -> ${item.text}` : item.text;
 
       ctx.save();
       ctx.strokeStyle = appearance.color;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([3, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(anchorX, anchorY);
-      ctx.lineTo(center.x, center.y);
+      ctx.lineTo(attachX, attachY);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = appearance.color;
-      ctx.beginPath();
-      ctx.arc(center.x, center.y, 11, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.96)';
+      roundRect(ctx, cardX, cardY, cardW, cardH, 14);
       ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = appearance.softBorder;
+      ctx.lineWidth = 1.1;
       ctx.stroke();
 
+      ctx.fillStyle = appearance.tint;
+      roundRect(ctx, cardX, cardY, cardW, 30, 14);
+      ctx.fill();
+      ctx.strokeStyle = appearance.softBorder;
+      ctx.stroke();
+
+      ctx.fillStyle = appearance.color;
+      ctx.beginPath();
+      ctx.arc(cardX + 18, cardY + 15, 11, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px Arial';
+      ctx.font = 'bold 11px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(index + 1), center.x, center.y + 0.5);
+      ctx.fillText(String(index + 1), cardX + 18, cardY + 15.5);
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = appearance.color;
+      ctx.font = 'bold 11px Arial';
+      ctx.fillText(`${appearance.label}`, cardX + 34, cardY + 16);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 12px Arial';
+      wrapCanvasText(ctx, item.text || summaryLine, cardX + 12, cardY + 44, cardW - 24, 16, 2);
 
       ctx.fillStyle = appearance.color;
       ctx.beginPath();
@@ -7301,6 +7487,7 @@ if (dueEl) {
     function clearAiCorrections() {
       annotAiCorrections = [];
       annotAiIntegrity = null;
+      annotPlacementCorrectionId = null;
       updateAiCorrectionsUI();
     }
 
@@ -7352,7 +7539,7 @@ if (dueEl) {
     }
 
     function drawAiCorrectionsOnCanvas(ctx, cropBounds = { left: 0, top: 0 }) {
-      annotAiCorrections.forEach((item, index) => drawCorrectionMarker(ctx, item, index, cropBounds));
+      annotAiCorrections.forEach((item, index) => drawCorrectionCallout(ctx, item, index, cropBounds));
     }
 
     function getExportPanelWidth() {
@@ -14880,15 +15067,9 @@ async function loadPendingQuizQuestions(date) {
     const container = document.getElementById('pendingQuizzesContainer');
     
     const levels = ['beginner', 'intermediate', 'advanced'];
-    const hasAnyQuestions = levels.some(level => (grouped[level] || []).length > 0);
     const hasPending = levels.some(level =>
       grouped[level]?.some(q => q.status === 'pending')
     );
-
-    if (!hasAnyQuestions) {
-      container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No generated questions for this date yet. Generate AI questions for this date and review here.</p>';
-      return;
-    }
 
     let html = '';
 
@@ -14897,40 +15078,44 @@ async function loadPendingQuizQuestions(date) {
       const approvedCount = questions.filter(q => q.status === 'approved').length;
       const pendingCount = questions.filter(q => q.status === 'pending').length;
       const rejectedCount = questions.filter(q => q.status === 'rejected').length;
-
-      if (questions.length === 0) {
-        html += `<div style="background: #fffaf0; border-left: 4px solid #dd6b20; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-          <p style="margin: 0; color: #c05621; font-weight: 600;">⚠️ ${level.toUpperCase()}: No questions generated yet</p>
-          <p style="margin: 6px 0 0; color: #9c4221;">This level has not been generated for ${selectedDate}, so it is not approved.</p>
-        </div>`;
-        continue;
-      }
-
-      if (pendingCount === 0) {
-        const isFullyApproved = approvedCount >= 10;
-        const statusBg = isFullyApproved ? '#f0fdf4' : '#fffaf0';
-        const statusBorder = isFullyApproved ? '#38a169' : '#dd6b20';
-        const statusColor = isFullyApproved ? '#38a169' : '#c05621';
-        const statusText = isFullyApproved
-          ? `✅ ${level.toUpperCase()}: All ${approvedCount} questions approved`
-          : `⚠️ ${level.toUpperCase()}: No editable pending questions`;
-        const detailText = isFullyApproved
-          ? ''
-          : `<p style="margin: 6px 0 0; color: #9c4221;">Approved: ${approvedCount}, Rejected: ${rejectedCount}. Generate or refresh this level to continue editing.</p>`;
-
-        html += `<div style="background: ${statusBg}; border-left: 4px solid ${statusBorder}; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-          <p style="margin: 0; color: ${statusColor}; font-weight: 600;">${statusText}</p>
-          ${detailText}
-        </div>`;
-        continue;
-      }
+      const remainingSlots = Math.max(0, 10 - pendingCount);
 
       html += `<div style="background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h4 style="margin: 0; color: #2d3748;">📋 ${level.toUpperCase()} Level (${pendingCount}/10 Pending)</h4>
           <div style="display: flex; gap: 8px;">
             ${pendingCount >= 10 ? `<button onclick="approvePendingQuestions('${selectedDate}', '${level}')" style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">✅ Approve Level</button>` : ''}
-            <button onclick="rejectPendingQuestions('${selectedDate}', '${level}')" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;">❌ Reject All</button>
+            ${pendingCount > 0 ? `<button onclick="rejectPendingQuestions('${selectedDate}', '${level}')" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;">❌ Reject All</button>` : ''}
+          </div>
+        </div>
+        <div style="background:${pendingCount === 0 ? '#fffaf0' : '#f7fafc'}; border:1px solid ${pendingCount === 0 ? '#fbd38d' : '#e2e8f0'}; border-radius:10px; padding:12px; margin-bottom:14px;">
+          <div style="font-weight:700; color:#2d3748; margin-bottom:6px;">✍️ Add Manual Question</div>
+          <div style="font-size:0.9rem; color:#4a5568; margin-bottom:10px;">
+            ${questions.length === 0
+              ? `No questions exist for this level on ${selectedDate} yet. You can add them manually or generate with AI.`
+              : `Use manual entry if you do not want an AI-generated question. Remaining pending slots: ${remainingSlots}. Approved: ${approvedCount}. Rejected: ${rejectedCount}.`}
+          </div>
+          <textarea id="manual-qtext-${level}" placeholder="Enter question text" style="width:100%;min-height:64px;padding:10px;border:1px solid #cbd5e0;border-radius:8px;resize:vertical;margin-bottom:10px;"></textarea>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <input id="manual-opt-${level}-0" type="text" placeholder="Option A" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+            <input id="manual-opt-${level}-1" type="text" placeholder="Option B" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+            <input id="manual-opt-${level}-2" type="text" placeholder="Option C" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+            <input id="manual-opt-${level}-3" type="text" placeholder="Option D" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <select id="manual-correct-${level}" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+              <option value="0">Correct: A</option>
+              <option value="1">Correct: B</option>
+              <option value="2">Correct: C</option>
+              <option value="3">Correct: D</option>
+            </select>
+            <select id="manual-category-${level}" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+              ${QUIZ_ALLOWED_CATEGORIES.map(category => `<option value="${category}">${formatQuizCategoryLabel(category)}</option>`).join('')}
+            </select>
+          </div>
+          <input id="manual-explanation-${level}" type="text" placeholder="Explanation (optional)" style="width:100%;padding:8px;border:1px solid #cbd5e0;border-radius:6px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:flex-end;">
+            <button onclick="addManualPendingQuestion('${selectedDate}', '${level}')" style="background:${remainingSlots > 0 ? getLevelColor(level) : '#a0aec0'};color:white;border:none;padding:8px 14px;border-radius:6px;cursor:${remainingSlots > 0 ? 'pointer' : 'not-allowed'};font-weight:600;" ${remainingSlots > 0 ? '' : 'disabled'}>➕ Add Manual Question</button>
           </div>
         </div>`;
 
@@ -15152,7 +15337,71 @@ async function refreshPendingQuestion(questionId, date) {
   }
 }
 
+async function addManualPendingQuestion(date, level) {
+  try {
+    const question_text = document.getElementById(`manual-qtext-${level}`)?.value?.trim();
+    const options = [0, 1, 2, 3].map(idx => document.getElementById(`manual-opt-${level}-${idx}`)?.value?.trim());
+    const correct_answer = parseInt(document.getElementById(`manual-correct-${level}`)?.value, 10);
+    const category = document.getElementById(`manual-category-${level}`)?.value?.trim();
+    const explanation = document.getElementById(`manual-explanation-${level}`)?.value?.trim() || null;
+
+    if (!question_text || options.some(opt => !opt)) {
+      alert('Question text and all 4 options are required.');
+      return;
+    }
+    if (!Number.isInteger(correct_answer) || correct_answer < 0 || correct_answer > 3) {
+      alert('Please select a valid correct answer.');
+      return;
+    }
+    if (!category) {
+      alert('Please choose a category.');
+      return;
+    }
+
+    const response = await fetch('/api/admin/pending-quiz-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate: date, level, question_text, options, correct_answer, category, explanation })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to add manual question');
+
+    alert('✅ Manual question added.');
+    loadPendingQuizQuestions(date);
+  } catch (error) {
+    console.error('Error adding manual pending question:', error);
+    alert('❌ Error adding manual question: ' + error.message);
+  }
+}
+
+function formatQuizCategoryLabel(category) {
+  return String(category || '')
+    .split('_')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 // Helper functions for colors
+const QUIZ_ALLOWED_CATEGORIES = [
+  'grammar',
+  'vocabulary',
+  'idioms',
+  'proverbs',
+  'elaboration',
+  'imagery',
+  'figures_of_speech',
+  'dressup_sentences',
+  'punctuation',
+  'spelling',
+  'show_dont_tell',
+  'types_of_speeches',
+  'body_language',
+  'subject_verb_agreement',
+  'sentence_correction',
+  'direct_indirect_speech'
+];
+
 function getLevelColor(level) {
   switch(level) {
     case 'beginner': return '#38a169';

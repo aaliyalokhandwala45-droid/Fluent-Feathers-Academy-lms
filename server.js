@@ -14793,9 +14793,11 @@ Find every spelling mistake, grammar error, punctuation error, and capitalisatio
 
 For each correction, you MUST:
 - Set "type" to one of: spelling, grammar, punctuation, capitalization (choose the most specific).
-- Set "note" to a short, student-friendly explanation (e.g. "Spelling mistake", "Needs a capital letter", "Check your punctuation").
 - For "correct", return only the smallest correction needed near the mistake (prefer a single word or token, do NOT rewrite the whole sentence).
 - Do NOT return long explanations in "correct".
+- Keep "wrong" to the exact wrong word, token, or very short phrase visible in the homework.
+- Estimate x and y as accurately as possible for the CENTER of the wrong word/token on the page, not the sentence overall.
+- If the same line has multiple mistakes, return separate correction objects with different coordinates.
 ${minimalMode ? '- Keep every "correct" answer as short as possible, usually just one word or one punctuation mark.' : ''}
 
 Examples:
@@ -14811,7 +14813,6 @@ Return ONLY a valid JSON object in this exact format (no other text before or af
       "wrong": "the exact wrong word or phrase as written by student",
       "correct": "the corrected word/token only",
       "type": "spelling|grammar|punctuation|capitalization",
-      "note": "short student-friendly explanation",
       "x": 45,
       "y": 30
     }
@@ -14860,12 +14861,6 @@ Return ONLY the JSON. No markdown. No explanation.`;
       catch (e2) { return res.status(500).json({ error: 'AI returned malformed JSON', raw: jsonStr.slice(0, 300) }); }
     }
     const allowedTypes = new Set(['spelling', 'grammar', 'punctuation', 'capitalization']);
-    const defaultNotes = {
-      spelling: 'Spelling mistake',
-      grammar: 'Grammar correction',
-      punctuation: 'Check your punctuation',
-      capitalization: 'Needs a capital letter'
-    };
     const clampPercent = (value) => {
       const num = Number(value);
       if (!Number.isFinite(num)) return 50;
@@ -14880,7 +14875,7 @@ Return ONLY the JSON. No markdown. No explanation.`;
             wrong: String(item?.wrong || '').trim().slice(0, 120),
             correct: String(item?.correct || '').trim().slice(0, 120),
             type,
-            note: String(item?.note || defaultNotes[type]).trim().slice(0, 140) || defaultNotes[type],
+            note: '',
             x: clampPercent(item?.x),
             y: clampPercent(item?.y)
           };
@@ -15391,10 +15386,19 @@ app.get('/api/challenges/:id/students', async (req, res) => {
 });
 
 // Parent submits challenge as done (awaiting teacher approval)
-// Challenge submission with optional file upload
+// Challenge submission requires an image or video attachment
 app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload('file'), async (req, res) => {
   try {
     const { challengeId, studentId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Please attach an image or video before submitting this challenge.' });
+    }
+
+    const mimeType = (req.file.mimetype || '').toLowerCase();
+    if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
+      return res.status(400).json({ error: 'Only image or video files are allowed for challenge submissions.' });
+    }
 
     // Get file path if file was uploaded
     let filePath = null;
@@ -15436,31 +15440,9 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
   }
 });
 
-// Keep old PUT endpoint for backwards compatibility (no file)
+// Keep old PUT endpoint but reject fileless challenge submissions
 app.put('/api/challenges/:challengeId/student/:studentId/submit', async (req, res) => {
-  try {
-    const { challengeId, studentId } = req.params;
-    const existing = await pool.query(
-      'SELECT id FROM student_challenges WHERE challenge_id = $1 AND student_id = $2',
-      [challengeId, studentId]
-    );
-    if (existing.rows.length > 0) {
-      await pool.query(
-        `UPDATE student_challenges SET status = 'Submitted', submitted_at = CURRENT_TIMESTAMP, notes = 'Submitted by parent on ' || CURRENT_DATE WHERE challenge_id = $1 AND student_id = $2`,
-        [challengeId, studentId]
-      );
-    } else {
-      await pool.query(
-        `INSERT INTO student_challenges (challenge_id, student_id, status, submitted_at, notes) VALUES ($1, $2, 'Submitted', CURRENT_TIMESTAMP, 'Submitted by parent on ' || CURRENT_DATE)`,
-        [challengeId, studentId]
-      );
-    }
-
-    await notifyAdminsOfChallengeSubmission(challengeId, studentId);
-    res.json({ success: true, message: 'Challenge submitted for review!' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  return res.status(400).json({ error: 'Challenge submissions require an image or video attachment.' });
 });
 
 // Mark student challenge as completed (teacher approval)
@@ -16343,6 +16325,89 @@ app.put('/api/admin/pending-quiz-questions/:id', async (req, res) => {
       return res.status(404).json({ error: 'Pending question not found or already finalized' });
     }
     res.json({ success: true, message: 'Pending question updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Add one manual pending quiz question for review/approval
+app.post('/api/admin/pending-quiz-questions', async (req, res) => {
+  try {
+    const { quizDate, level, question_text, options, correct_answer, category, explanation } = req.body || {};
+    const date = quizDate || new Date().toISOString().split('T')[0];
+    const validLevels = ['beginner', 'intermediate', 'advanced'];
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+    if (!validLevels.includes(level)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+    if (!question_text || !Array.isArray(options) || options.length !== 4) {
+      return res.status(400).json({ error: 'Question text and exactly 4 options are required' });
+    }
+    if (!Number.isInteger(correct_answer) || correct_answer < 0 || correct_answer > 3) {
+      return res.status(400).json({ error: 'correct_answer must be 0-3' });
+    }
+
+    const trimmedQuestion = String(question_text || '').trim();
+    const trimmedOptions = options.map(opt => String(opt || '').trim());
+    const normalizedCategory = String(category || '').trim().toLowerCase();
+    const normalizedExplanation = String(explanation || '').trim();
+
+    if (!trimmedQuestion || trimmedOptions.some(opt => !opt)) {
+      return res.status(400).json({ error: 'Question text and all options are required' });
+    }
+    if (!QUIZ_ALLOWED_CATEGORIES.includes(normalizedCategory)) {
+      return res.status(400).json({ error: 'Invalid quiz category' });
+    }
+
+    const existingPendingCountResult = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM pending_quiz_questions
+       WHERE quiz_date = $1 AND level = $2 AND status = 'pending'`,
+      [date, level]
+    );
+    const pendingCount = existingPendingCountResult.rows[0]?.count || 0;
+    if (pendingCount >= DAILY_QUIZ_QUESTION_COUNT) {
+      return res.status(400).json({ error: `This level already has ${DAILY_QUIZ_QUESTION_COUNT} pending questions` });
+    }
+
+    const duplicateResult = await pool.query(
+      `SELECT id
+       FROM pending_quiz_questions
+       WHERE quiz_date = $1
+         AND level = $2
+         AND LOWER(TRIM(question_text)) = $3
+         AND status IN ('pending', 'approved')
+       LIMIT 1`,
+      [date, level, normalizeQuizQuestionText(trimmedQuestion)]
+    );
+    if (duplicateResult.rows.length > 0) {
+      return res.status(400).json({ error: 'A question with the same text already exists for this level and date' });
+    }
+
+    const insertResult = await pool.query(
+      `INSERT INTO pending_quiz_questions (
+        quiz_date, level, question_text, options, correct_answer, category, explanation, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+      RETURNING id`,
+      [
+        date,
+        level,
+        trimmedQuestion,
+        JSON.stringify(trimmedOptions),
+        correct_answer,
+        normalizedCategory,
+        normalizedExplanation || null
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: 'Manual question added to pending review',
+      id: insertResult.rows[0]?.id || null
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
