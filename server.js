@@ -4300,20 +4300,28 @@ function mapParentPortalStudentSnapshot(studentRow) {
   const regularPrivateUsed = parseInt(studentRow.regular_private_sessions_used, 10) || 0;
   const regularGroupUsed = parseInt(studentRow.regular_group_sessions_used, 10) || 0;
   const scheduledMakeupCredits = parseInt(studentRow.scheduled_makeup_credits, 10) || 0;
-  const completedSessions =
+  const computedCompletedSessions =
     (parseInt(studentRow.completed_private_sessions, 10) || 0) +
     (parseInt(studentRow.completed_group_sessions, 10) || 0);
-  const missedSessions =
+  const computedMissedSessions =
     (parseInt(studentRow.unresolved_private_missed_sessions, 10) || 0) +
     (parseInt(studentRow.unresolved_group_missed_sessions, 10) || 0);
-  const paidRemainingSessions = Math.max(totalSessions - regularPrivateUsed - regularGroupUsed, 0);
+  const storedCompletedSessions = parseInt(studentRow.completed_sessions, 10);
+  const storedMissedSessions = parseInt(studentRow.missed_sessions, 10);
+  const storedRemainingSessions = parseInt(studentRow.remaining_sessions, 10);
+  const completedSessions = Number.isFinite(storedCompletedSessions) ? storedCompletedSessions : computedCompletedSessions;
+  const missedSessions = Number.isFinite(storedMissedSessions) ? storedMissedSessions : computedMissedSessions;
+  const remainingSessions = Number.isFinite(storedRemainingSessions)
+    ? storedRemainingSessions
+    : Math.max(totalSessions - regularPrivateUsed - regularGroupUsed, 0);
+  const paidRemainingSessions = Math.max(remainingSessions - scheduledMakeupCredits, 0);
 
   return {
     ...studentRow,
     completed_sessions: completedSessions,
     missed_sessions: missedSessions,
     paid_remaining_sessions: paidRemainingSessions,
-    remaining_sessions: paidRemainingSessions + scheduledMakeupCredits,
+    remaining_sessions: remainingSessions,
     parent_timezone: studentRow.parent_timezone || studentRow.credential_timezone || studentRow.timezone || 'Asia/Kolkata'
   };
 }
