@@ -7150,15 +7150,15 @@ if (dueEl) {
         const lineTwo = String(c.note || '').trim();
         const longestLine = Math.max(lineOne.length, lineTwo.length, isInlineMark ? 2 : 12);
         const cardWidth = isInlineMark
-          ? clamp(Math.round((Math.max(text.length, 1) * 18) + 20), 36, 76)
-          : clamp(Math.round((longestLine * 7.2) + 52), 170, Math.min(280, Math.max(170, W - 20)));
-        const estimatedHeight = isInlineMark ? 42 : (lineTwo ? 88 : 72);
+          ? clamp(Math.round((Math.max(text.length, 1) * 14) + 10), 28, 60)
+          : clamp(Math.round((longestLine * 5.8) + 34), 120, Math.min(220, Math.max(120, W - 16)));
+        const estimatedHeight = isInlineMark ? 32 : (lineTwo ? 74 : 58);
         const preferredLeft = isInlineMark
           ? anchorX - (cardWidth / 2)
-          : (anchorX > W * 0.58 ? anchorX - cardWidth - 18 : anchorX + 18);
-        const left = clamp(preferredLeft + ((idx % 2) * 10), 0, Math.max(0, W - cardWidth));
+          : (anchorX > W * 0.58 ? anchorX - cardWidth - 14 : anchorX + 14);
+        const left = clamp(preferredLeft + ((idx % 2) * 6), 0, Math.max(0, W - cardWidth));
         const top = clamp(
-          (isInlineMark ? anchorY - (estimatedHeight / 2) : anchorY - 22) + ((idx % 3) * (isInlineMark ? 4 : 14)),
+          (isInlineMark ? anchorY - (estimatedHeight / 2) : anchorY - 18) + ((idx % 3) * (isInlineMark ? 3 : 10)),
           0,
           Math.max(0, H - estimatedHeight)
         );
@@ -7188,6 +7188,26 @@ if (dueEl) {
         capitalization: { label: 'Capitalization', icon: '🔠', color: '#10b981', tint: 'rgba(16,185,129,0.14)', softBorder: 'rgba(16,185,129,0.28)', shadow: '0 12px 28px rgba(16,185,129,0.18)' }
       };
       return appearances[normalized] || { label: 'Correction', icon: '📝', color: '#64748b', tint: 'rgba(100,116,139,0.12)', softBorder: 'rgba(100,116,139,0.24)', shadow: '0 12px 28px rgba(15,23,42,0.16)' };
+    }
+
+    function keepAiCorrectionInBounds(item) {
+      if (!item || !annotCanvas) return item;
+      const maxWidth = Math.max(item.renderMode === 'inline' ? 60 : 120, (annotCanvas.width || 1) - 8);
+      item.width = Math.max(item.renderMode === 'inline' ? 28 : 120, Math.min(item.width || maxWidth, maxWidth));
+      item.minHeight = Math.max(item.renderMode === 'inline' ? 28 : 48, Math.min(item.minHeight || 48, Math.max(28, (annotCanvas.height || 1) - 8)));
+      item.left = Math.max(0, Math.min(item.left || 0, Math.max(0, (annotCanvas.width || 1) - item.width)));
+      item.top = Math.max(0, Math.min(item.top || 0, Math.max(0, (annotCanvas.height || 1) - item.minHeight)));
+      return item;
+    }
+
+    function adjustAiCorrectionSize(id, deltaWidth = 0, deltaHeight = 0) {
+      const item = annotAiCorrections.find(x => x.id === id);
+      if (!item) return;
+      item.width = (item.width || 0) + deltaWidth;
+      item.minHeight = (item.minHeight || 0) + (deltaHeight || Math.round(deltaWidth * 0.45));
+      keepAiCorrectionInBounds(item);
+      updateAiCorrectionsUI();
+      focusAiCorrection(id);
     }
 
     function updateAiCorrectionsUI() {
@@ -7244,7 +7264,13 @@ if (dueEl) {
                   ${item.wrong ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px;line-height:1.35;"><strong>Wrong:</strong> ${escapeHtml(item.wrong)}</div>` : ''}
                   <div style="font-size:10px;color:#64748b;margin-bottom:4px;font-weight:700;">Replace with:</div>
                   <textarea oninput="updateAiCorrectionText('${item.id}', this.value)" style="width:100%;min-height:58px;border:1px solid ${appearance.softBorder};border-radius:10px;padding:7px 8px;font-size:11px;line-height:1.35;color:#1f2937;resize:vertical;outline:none;background:#ffffff;">${escapeHtml(item.text)}</textarea>
-                  <div style="display:flex;gap:8px;margin-top:8px;">
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+                    <button type="button" onclick="adjustAiCorrectionSize('${item.id}', -24, -10)" style="border:none;background:#f1f5f9;color:#334155;padding:6px 10px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;">
+                      Smaller
+                    </button>
+                    <button type="button" onclick="adjustAiCorrectionSize('${item.id}', 24, 10)" style="border:none;background:#f1f5f9;color:#334155;padding:6px 10px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;">
+                      Bigger
+                    </button>
                     <button type="button" onclick="${annotPlacementCorrectionId === item.id ? `stopAiCorrectionPlacement()` : `startAiCorrectionPlacement('${item.id}')`}" style="border:none;background:${annotPlacementCorrectionId === item.id ? '#0f766e' : '#e2e8f0'};color:${annotPlacementCorrectionId === item.id ? 'white' : '#334155'};padding:6px 10px;border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;">
                       ${annotPlacementCorrectionId === item.id ? 'Click homework to place' : 'Place on Homework'}
                     </button>
@@ -7265,23 +7291,27 @@ if (dueEl) {
               <div class="annot-ai-drag" title="Drag punctuation mark"
                 style="position:absolute;top:-10px;right:-10px;width:22px;height:22px;border-radius:999px;background:${appearance.color};color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;cursor:grab;box-shadow:${appearance.shadow};user-select:none;">✥</div>
               <textarea data-overlay-text="${item.id}" oninput="updateAiCorrectionText('${item.id}', this.value)"
-                style="width:100%;min-height:${item.minHeight}px;border:none;background:transparent;color:#dc2626;font-size:${Math.max(28, Math.min(40, annotTextSize + 10))}px;font-weight:900;line-height:1;text-align:center;resize:none;outline:none;overflow:hidden;text-shadow:0 1px 0 rgba(255,255,255,0.92), 0 0 6px rgba(255,255,255,0.82);padding:2px 4px;">${escapeHtml(item.text)}</textarea>
+                style="width:100%;min-height:${item.minHeight}px;border:none;background:transparent;color:#dc2626;font-size:${Math.max(18, Math.min(30, annotTextSize + 2))}px;font-weight:900;line-height:1;text-align:center;resize:none;outline:none;overflow:hidden;text-shadow:0 1px 0 rgba(255,255,255,0.92), 0 0 6px rgba(255,255,255,0.82);padding:2px 4px;">${escapeHtml(item.text)}</textarea>
+              <div class="annot-ai-resize" title="Resize mark"
+                style="position:absolute;right:-6px;bottom:-6px;width:16px;height:16px;border-radius:999px;background:#ffffff;border:2px solid ${appearance.color};box-shadow:${appearance.shadow};cursor:nwse-resize;"></div>
             </div>
           `;
         }
         return `
           <div id="${item.id}" data-correction-id="${item.id}" class="annot-ai-card"
-            style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;min-height:${item.minHeight}px;pointer-events:auto;border:1px solid ${appearance.softBorder};border-radius:14px;background:rgba(255,255,255,0.96);color:#0f172a;box-shadow:${appearance.shadow};overflow:hidden;">
+            style="position:absolute;left:${item.left}px;top:${item.top}px;width:${item.width}px;min-height:${item.minHeight}px;pointer-events:auto;border:1px solid ${appearance.softBorder};border-radius:14px;background:rgba(255,255,255,0.96);color:#0f172a;box-shadow:${appearance.shadow};overflow:visible;">
             <div class="annot-ai-drag" onclick="focusAiCorrection('${item.id}')"
-              style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${appearance.tint};border-bottom:1px solid ${appearance.softBorder};cursor:grab;user-select:none;">
-              <span style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:${appearance.color};color:white;font-size:11px;font-weight:800;flex-shrink:0;">${index + 1}</span>
-              <span style="font-size:11px;font-weight:800;color:${appearance.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${appearance.icon} ${appearance.label}</span>
+              style="display:flex;align-items:center;gap:7px;padding:6px 8px;background:${appearance.tint};border-bottom:1px solid ${appearance.softBorder};cursor:grab;user-select:none;border-radius:14px 14px 0 0;">
+              <span style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:${appearance.color};color:white;font-size:10px;font-weight:800;flex-shrink:0;">${index + 1}</span>
+              <span style="font-size:10px;font-weight:800;color:${appearance.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${appearance.icon} ${appearance.label}</span>
             </div>
-            <div style="padding:9px 10px 10px;line-height:1.35;">
-              ${item.wrong ? `<div style="font-size:10px;color:#64748b;margin-bottom:4px;word-break:break-word;"><strong>Wrong:</strong> ${escapeHtml(item.wrong)}</div>` : ''}
+            <div style="padding:7px 8px 8px;line-height:1.35;background:rgba(255,255,255,0.96);border-radius:0 0 14px 14px;overflow:hidden;">
+              ${item.wrong ? `<div style="font-size:9px;color:#64748b;margin-bottom:4px;word-break:break-word;"><strong>Wrong:</strong> ${escapeHtml(item.wrong)}</div>` : ''}
               <textarea data-overlay-text="${item.id}" oninput="updateAiCorrectionText('${item.id}', this.value)"
-                style="width:100%;min-height:46px;border:1px solid ${appearance.softBorder};border-radius:10px;background:#ffffff;color:#0f172a;font-size:12px;font-weight:800;line-height:1.35;padding:7px 8px;resize:vertical;outline:none;">${escapeHtml(item.text)}</textarea>
+                style="width:100%;min-height:34px;border:1px solid ${appearance.softBorder};border-radius:10px;background:#ffffff;color:#0f172a;font-size:11px;font-weight:800;line-height:1.3;padding:6px 7px;resize:vertical;outline:none;">${escapeHtml(item.text)}</textarea>
             </div>
+            <div class="annot-ai-resize" title="Resize note"
+              style="position:absolute;right:-6px;bottom:-6px;width:16px;height:16px;border-radius:999px;background:#ffffff;border:2px solid ${appearance.color};box-shadow:${appearance.shadow};cursor:nwse-resize;"></div>
           </div>
         `;
       }).join('');
@@ -7293,34 +7323,56 @@ if (dueEl) {
       const card = document.getElementById(id);
       if (!card || card.dataset.bound === '1') return;
       const handle = card.querySelector('.annot-ai-drag');
+      const resizeHandle = card.querySelector('.annot-ai-resize');
       if (!handle) return;
       card.dataset.bound = '1';
       card.dataset.baseShadow = card.style.boxShadow;
 
-      let startX = 0, startY = 0, startLeft = 0, startTop = 0, dragging = false;
+      let startX = 0, startY = 0, startLeft = 0, startTop = 0, startWidth = 0, startHeight = 0, dragging = false, resizing = false;
 
       const onMove = (ev) => {
-        if (!dragging) return;
+        if (!dragging && !resizing) return;
         const point = ev.touches ? ev.touches[0] : ev;
         const stage = document.getElementById('annotStage');
         if (!stage) return;
         const rect = stage.getBoundingClientRect();
-        const nextLeft = Math.max(0, Math.min(startLeft + (point.clientX - startX), rect.width - card.offsetWidth));
-        const nextTop = Math.max(0, Math.min(startTop + (point.clientY - startY), rect.height - card.offsetHeight));
-        card.style.left = `${nextLeft}px`;
-        card.style.top = `${nextTop}px`;
+        if (dragging) {
+          const nextLeft = Math.max(0, Math.min(startLeft + (point.clientX - startX), rect.width - card.offsetWidth));
+          const nextTop = Math.max(0, Math.min(startTop + (point.clientY - startY), rect.height - card.offsetHeight));
+          card.style.left = `${nextLeft}px`;
+          card.style.top = `${nextTop}px`;
+        } else if (resizing) {
+          const item = annotAiCorrections.find(x => x.id === id);
+          if (!item) return;
+          const minWidth = item.renderMode === 'inline' ? 28 : 120;
+          const maxWidth = Math.max(minWidth, rect.width - startLeft);
+          const minHeight = item.renderMode === 'inline' ? 28 : 48;
+          const maxHeight = Math.max(minHeight, rect.height - startTop);
+          const nextWidth = Math.max(minWidth, Math.min(startWidth + (point.clientX - startX), maxWidth));
+          const nextHeight = Math.max(minHeight, Math.min(startHeight + (point.clientY - startY), maxHeight));
+          card.style.width = `${nextWidth}px`;
+          card.style.minHeight = `${nextHeight}px`;
+        }
+        ev.preventDefault();
       };
 
       const onUp = () => {
-        if (!dragging) return;
+        if (!dragging && !resizing) return;
         dragging = false;
+        resizing = false;
         handle.style.cursor = 'grab';
+        if (resizeHandle) resizeHandle.style.cursor = 'nwse-resize';
         const item = annotAiCorrections.find(x => x.id === id);
         if (item) {
           item.left = parseFloat(card.style.left) || 0;
           item.top = parseFloat(card.style.top) || 0;
           item.width = card.offsetWidth || item.width;
           item.minHeight = card.offsetHeight || item.minHeight;
+          keepAiCorrectionInBounds(item);
+          card.style.left = `${item.left}px`;
+          card.style.top = `${item.top}px`;
+          card.style.width = `${item.width}px`;
+          card.style.minHeight = `${item.minHeight}px`;
         }
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
@@ -7330,6 +7382,7 @@ if (dueEl) {
 
       const onDown = (ev) => {
         dragging = true;
+        resizing = false;
         const point = ev.touches ? ev.touches[0] : ev;
         startX = point.clientX;
         startY = point.clientY;
@@ -7346,11 +7399,35 @@ if (dueEl) {
       handle.addEventListener('mousedown', onDown);
       handle.addEventListener('touchstart', onDown, { passive: false });
 
+      const onResizeDown = (ev) => {
+        resizing = true;
+        dragging = false;
+        const point = ev.touches ? ev.touches[0] : ev;
+        startX = point.clientX;
+        startY = point.clientY;
+        startLeft = parseFloat(card.style.left) || 0;
+        startTop = parseFloat(card.style.top) || 0;
+        startWidth = card.offsetWidth || parseFloat(card.style.width) || 0;
+        startHeight = card.offsetHeight || parseFloat(card.style.minHeight) || 0;
+        if (resizeHandle) resizeHandle.style.cursor = 'nwse-resize';
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onUp);
+        ev.preventDefault();
+      };
+
+      if (resizeHandle) {
+        resizeHandle.addEventListener('mousedown', onResizeDown);
+        resizeHandle.addEventListener('touchstart', onResizeDown, { passive: false });
+      }
+
       const ro = new ResizeObserver(() => {
         const item = annotAiCorrections.find(x => x.id === id);
         if (!item) return;
         item.width = card.offsetWidth || item.width;
         item.minHeight = card.offsetHeight || item.minHeight;
+        keepAiCorrectionInBounds(item);
       });
       ro.observe(card);
     }
@@ -7359,6 +7436,13 @@ if (dueEl) {
       const item = annotAiCorrections.find(x => x.id === id);
       if (!item) return;
       item.text = value;
+      const card = document.getElementById(id);
+      if (card && item.renderMode !== 'inline') {
+        const nextHeight = Math.max(48, card.scrollHeight);
+        item.minHeight = nextHeight;
+        keepAiCorrectionInBounds(item);
+        card.style.minHeight = `${item.minHeight}px`;
+      }
       document.querySelectorAll(`[data-overlay-text="${id}"]`).forEach((el) => {
         if (el !== document.activeElement) el.value = value;
       });
@@ -7410,7 +7494,7 @@ if (dueEl) {
         const anchorY = item.anchorY - (cropBounds.top || 0);
         ctx.save();
         ctx.fillStyle = '#dc2626';
-        ctx.font = `900 ${Math.max(28, Math.min(40, annotTextSize + 10))}px Arial`;
+        ctx.font = `900 ${Math.max(18, Math.min(30, annotTextSize + 2))}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(255,255,255,0.95)';
