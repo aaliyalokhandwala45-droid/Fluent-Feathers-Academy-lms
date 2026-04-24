@@ -4123,6 +4123,201 @@ async function getStudentPackageSnapshot(studentId, db = pool) {
   };
 }
 
+async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
+  if (!parentEmail) return [];
+
+  const result = await db.query(`
+    SELECT s.*,
+      pc.timezone as credential_timezone,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status = 'Completed'
+      ), 0) as completed_private_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') = 'Present'
+      ), 0) as completed_group_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'available'
+      ), 0) as available_makeup_credits,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+      ), 0) as scheduled_makeup_credits,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status IN ('Pending', 'Scheduled', 'Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sess.id
+          )
+      ), 0) as regular_private_sessions_used,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') IN ('Pending', 'Present', 'Absent', 'Excused', 'Unexcused')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sa.session_id
+          )
+      ), 0) as regular_group_sessions_used,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status IN ('Missed', 'Unexcused')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.original_session_id = sess.id
+          )
+      ), 0) as unresolved_private_missed_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') = 'Unexcused'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.original_session_id = sa.session_id
+          )
+      ), 0) as unresolved_group_missed_sessions
+    FROM students s
+    LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
+    WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
+  `, [parentEmail]);
+
+  return result.rows.map(mapParentPortalStudentSnapshot);
+}
+
+async function getParentPortalStudentById(studentId, db = pool) {
+  const result = await db.query(`
+    SELECT s.*,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status = 'Completed'
+      ), 0) as completed_private_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') = 'Present'
+      ), 0) as completed_group_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'available'
+      ), 0) as available_makeup_credits,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+      ), 0) as scheduled_makeup_credits,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status IN ('Pending', 'Scheduled', 'Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sess.id
+          )
+      ), 0) as regular_private_sessions_used,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') IN ('Pending', 'Present', 'Absent', 'Excused', 'Unexcused')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sa.session_id
+          )
+      ), 0) as regular_group_sessions_used,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status IN ('Missed', 'Unexcused')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.original_session_id = sess.id
+          )
+      ), 0) as unresolved_private_missed_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') = 'Unexcused'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.original_session_id = sa.session_id
+          )
+      ), 0) as unresolved_group_missed_sessions
+    FROM students s
+    WHERE s.id = $1 AND s.is_active = true
+    LIMIT 1
+  `, [studentId]);
+
+  if (result.rows.length === 0) return null;
+  return mapParentPortalStudentSnapshot(result.rows[0]);
+}
+
+function mapParentPortalStudentSnapshot(studentRow) {
+  const totalSessions = parseInt(studentRow.total_sessions, 10) || 0;
+  const regularPrivateUsed = parseInt(studentRow.regular_private_sessions_used, 10) || 0;
+  const regularGroupUsed = parseInt(studentRow.regular_group_sessions_used, 10) || 0;
+  const scheduledMakeupCredits = parseInt(studentRow.scheduled_makeup_credits, 10) || 0;
+  const completedSessions =
+    (parseInt(studentRow.completed_private_sessions, 10) || 0) +
+    (parseInt(studentRow.completed_group_sessions, 10) || 0);
+  const missedSessions =
+    (parseInt(studentRow.unresolved_private_missed_sessions, 10) || 0) +
+    (parseInt(studentRow.unresolved_group_missed_sessions, 10) || 0);
+  const paidRemainingSessions = Math.max(totalSessions - regularPrivateUsed - regularGroupUsed, 0);
+
+  return {
+    ...studentRow,
+    completed_sessions: completedSessions,
+    missed_sessions: missedSessions,
+    paid_remaining_sessions: paidRemainingSessions,
+    remaining_sessions: paidRemainingSessions + scheduledMakeupCredits,
+    parent_timezone: studentRow.parent_timezone || studentRow.credential_timezone || studentRow.timezone || 'Asia/Kolkata'
+  };
+}
+
 async function hasPackageEmailBeenSent(studentId, emailType, sinceDate, db = pool) {
   const result = await db.query(`
     SELECT 1
@@ -10094,13 +10289,8 @@ app.get('/api/parent/admin-view', async (req, res) => {
   const studentId = req.adminStudentId;
   if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const student = await pool.query(`
-      SELECT s.*,
-        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
-      FROM students s
-      WHERE s.id = $1 AND s.is_active = true
-    `, [studentId]);
-    res.json({ student: student.rows[0] });
+    const student = await getParentPortalStudentById(studentId);
+    res.json({ student });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -12356,64 +12546,8 @@ app.post('/api/sessions/:sessionId/add-student-makeup', async (req, res) => {
 app.post('/api/parent/check-email', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    const s = (await pool.query(`
-      SELECT s.*,
-        pc.timezone as credential_timezone,
-        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions,
-        COALESCE((
-          SELECT COUNT(*)
-          FROM makeup_classes mc
-          WHERE mc.student_id = s.id AND LOWER(mc.status) = 'available'
-        ), 0) as available_makeup_credits,
-        COALESCE((
-          SELECT COUNT(*)
-          FROM makeup_classes mc
-          WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
-        ), 0) as scheduled_makeup_credits,
-        COALESCE((
-          SELECT COUNT(*)
-          FROM sessions sess
-          WHERE sess.student_id = s.id
-            AND sess.status IN ('Pending', 'Scheduled', 'Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
-            AND NOT EXISTS (
-              SELECT 1
-              FROM makeup_classes mc
-              WHERE mc.student_id = s.id
-                AND mc.scheduled_session_id = sess.id
-            )
-        ), 0) as regular_private_sessions_used,
-        COALESCE((
-          SELECT COUNT(*)
-          FROM session_attendance sa
-          INNER JOIN sessions gs ON gs.id = sa.session_id
-          WHERE sa.student_id = s.id
-            AND COALESCE(sa.attendance, 'Pending') IN ('Pending', 'Present', 'Absent', 'Excused', 'Unexcused')
-            AND NOT EXISTS (
-              SELECT 1
-              FROM makeup_classes mc
-              WHERE mc.student_id = s.id
-                AND mc.scheduled_session_id = sa.session_id
-            )
-        ), 0) as regular_group_sessions_used
-      FROM students s
-      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
-      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
-    `, [parentEmail])).rows;
-    if(s.length===0) return res.status(404).json({ error: 'No student found.' });
-    const students = s.map(st => ({
-      ...st,
-      parent_timezone: st.parent_timezone || st.credential_timezone || st.timezone || 'Asia/Kolkata',
-      paid_remaining_sessions: Math.max(
-        (parseInt(st.total_sessions, 10) || 0) -
-        ((parseInt(st.regular_private_sessions_used, 10) || 0) + (parseInt(st.regular_group_sessions_used, 10) || 0)),
-        0
-      ),
-      remaining_sessions: Math.max(
-        (parseInt(st.total_sessions, 10) || 0) -
-        ((parseInt(st.regular_private_sessions_used, 10) || 0) + (parseInt(st.regular_group_sessions_used, 10) || 0)),
-        0
-      ) + (parseInt(st.scheduled_makeup_credits, 10) || 0)
-    }));
+    const students = await getParentPortalStudentsByEmail(parentEmail);
+    if(students.length===0) return res.status(404).json({ error: 'No student found.' });
     const c = (await pool.query('SELECT password FROM parent_credentials WHERE LOWER(parent_email) = LOWER($1)', [parentEmail])).rows[0];
     // Include students list for session restoration (persistent login)
     res.json({ hasPassword: c && c.password ? true : false, students });
@@ -12425,18 +12559,9 @@ app.post('/api/parent/check-email', async (req, res) => {
 app.post('/api/parent/setup-password', async (req, res) => {
   try {
     const parentEmail = (req.body.email || '').toString().trim();
-    const s = (await pool.query(`
-      SELECT s.*, pc.timezone as credential_timezone
-      FROM students s
-      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
-      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
-    `, [parentEmail])).rows;
+    const students = await getParentPortalStudentsByEmail(parentEmail);
     const h = await bcrypt.hash(req.body.password, 10);
     await pool.query(`INSERT INTO parent_credentials (parent_email, password) VALUES ($1, $2) ON CONFLICT(parent_email) DO UPDATE SET password = $2`, [parentEmail, h]);
-    const students = s.map(st => ({
-      ...st,
-      parent_timezone: st.parent_timezone || st.credential_timezone || st.timezone || 'Asia/Kolkata'
-    }));
     res.json({ students });
   } catch(e) {
     res.status(500).json({error:e.message});
@@ -12450,18 +12575,7 @@ app.post('/api/parent/login-password', async (req, res) => {
     if(!c || !(await bcrypt.compare(req.body.password, c.password))) {
       return res.status(401).json({ error: 'Incorrect password' });
     }
-    const s = (await pool.query(`
-      SELECT s.*,
-        pc.timezone as credential_timezone,
-        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
-      FROM students s
-      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
-      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
-    `, [parentEmail])).rows;
-    const students = s.map(st => ({
-      ...st,
-      parent_timezone: st.parent_timezone || st.credential_timezone || st.timezone || 'Asia/Kolkata'
-    }));
+    const students = await getParentPortalStudentsByEmail(parentEmail);
     res.json({ students });
   } catch(e) {
     res.status(500).json({error:e.message});
@@ -12524,19 +12638,8 @@ app.post('/api/parent/verify-otp', async (req, res) => {
       await pool.query('UPDATE parent_credentials SET otp_attempts = COALESCE(otp_attempts, 0) + 1 WHERE parent_email = $1', [parentEmail]);
       return res.status(401).json({ error: 'Invalid or Expired OTP' });
     }
-    const s = (await pool.query(`
-      SELECT s.*,
-        pc.timezone as credential_timezone,
-        GREATEST(COALESCE(s.missed_sessions, 0), COALESCE((SELECT COUNT(*) FROM sessions WHERE student_id = s.id AND status IN ('Missed', 'Excused', 'Unexcused')), 0)) as missed_sessions
-      FROM students s
-      LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email) = LOWER(s.parent_email)
-      WHERE LOWER(s.parent_email) = LOWER($1) AND s.is_active = true
-    `, [parentEmail])).rows;
+    const students = await getParentPortalStudentsByEmail(parentEmail);
     await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE LOWER(parent_email) = LOWER($1)', [parentEmail]);
-    const students = s.map(st => ({
-      ...st,
-      parent_timezone: st.parent_timezone || st.credential_timezone || st.timezone || 'Asia/Kolkata'
-    }));
     res.json({ students });
   } catch(e) {
     res.status(500).json({error:e.message});

@@ -4330,15 +4330,8 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         document.getElementById('paymentMissedSessions').textContent = missedSessions;
         document.getElementById('paymentRemainingSessions').textContent = remainingSessions;
 
-        // Load makeup credits count
-        try {
-          const makeupRes = await fetch('/api/students/' + currentStudent.id + '/makeup-history', { headers: authHeaders() });
-          const makeupHistory = await makeupRes.json();
-          const availableMakeup = makeupHistory.filter(c => c.status && c.status.toLowerCase() === 'available').length;
-          document.getElementById('paymentMakeupCredits').textContent = availableMakeup;
-        } catch (e) {
-          document.getElementById('paymentMakeupCredits').textContent = '0';
-        }
+        const availableMakeup = parseInt(currentStudent.available_makeup_credits) || 0;
+        document.getElementById('paymentMakeupCredits').textContent = availableMakeup;
 
         // Show renewal warning if 2 or fewer sessions remaining
         if (remainingSessions <= 2 && remainingSessions >= 0) {
