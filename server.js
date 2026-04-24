@@ -10435,7 +10435,7 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
            SET status = 'Used', used_date = CURRENT_DATE
            WHERE student_id = $1
              AND scheduled_session_id = $2
-             AND status = 'Scheduled'`,
+             AND LOWER(COALESCE(status, '')) = 'scheduled'`,
           [studentId, sessionId]
         );
 
@@ -10608,7 +10608,7 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
              SET status = 'Used', used_date = CURRENT_DATE
              WHERE student_id = $1
                AND scheduled_session_id = $2
-               AND status = 'Scheduled'`,
+               AND LOWER(COALESCE(status, '')) = 'scheduled'`,
             [record.student_id, sessionId]
           );
 
@@ -12265,10 +12265,54 @@ app.get('/api/students/:studentId/makeup-credits', async (req, res) => {
 app.get('/api/students/:studentId/makeup-history', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
   try {
+    await pool.query(`
+      UPDATE makeup_classes m
+      SET status = 'Used',
+          used_date = COALESCE(m.used_date, CURRENT_DATE)
+      WHERE m.student_id = $1
+        AND LOWER(COALESCE(m.status, '')) = 'scheduled'
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM sessions s
+            WHERE s.id = m.scheduled_session_id
+              AND s.session_type = 'Private'
+              AND s.status = 'Completed'
+          )
+          OR
+          EXISTS (
+            SELECT 1
+            FROM sessions s
+            INNER JOIN session_attendance sa
+              ON sa.session_id = s.id
+             AND sa.student_id = m.student_id
+            WHERE s.id = m.scheduled_session_id
+              AND s.session_type = 'Group'
+              AND COALESCE(sa.attendance, '') = 'Present'
+          )
+        )
+    `, [id]);
+
     const result = await pool.query(`
-      SELECT m.*, s.session_date as scheduled_session_date, s.session_time as scheduled_session_time
+      SELECT
+        m.*,
+        CASE
+          WHEN LOWER(COALESCE(m.status, '')) = 'scheduled'
+            AND (
+              (s.session_type = 'Private' AND s.status = 'Completed')
+              OR
+              (s.session_type = 'Group' AND COALESCE(sa.attendance, '') = 'Present')
+            )
+          THEN 'Used'
+          ELSE m.status
+        END as status,
+        s.session_date as scheduled_session_date,
+        s.session_time as scheduled_session_time
       FROM makeup_classes m
       LEFT JOIN sessions s ON m.scheduled_session_id = s.id
+      LEFT JOIN session_attendance sa
+        ON sa.session_id = m.scheduled_session_id
+       AND sa.student_id = m.student_id
       WHERE m.student_id = $1
       ORDER BY m.created_at DESC
     `, [id]);
