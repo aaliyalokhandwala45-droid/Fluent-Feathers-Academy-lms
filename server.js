@@ -4352,6 +4352,7 @@ function mapStudentSessionBalance(studentRow) {
     Math.min(paidCompletedSessions + missedSessions, totalSessions)
   );
   const paidRemainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0);
+  const visibleRemainingSessions = paidRemainingSessions + scheduledMakeupCredits;
   const bookablePaidSessions = Math.max(
     totalSessions - paidFinalizedSessions - regularPrivatePending - regularGroupPending,
     0
@@ -4361,7 +4362,7 @@ function mapStudentSessionBalance(studentRow) {
     completed_sessions: completedSessions,
     missed_sessions: missedSessions,
     paid_remaining_sessions: paidRemainingSessions,
-    remaining_sessions: paidRemainingSessions,
+    remaining_sessions: visibleRemainingSessions,
     bookable_paid_sessions: bookablePaidSessions,
     scheduled_makeup_credits: scheduledMakeupCredits
   };
@@ -8920,7 +8921,7 @@ app.get('/api/students', async (req, res) => {
         finalizedRegularSessions,
         Math.min(paidCompletedSessions + missedSessions, totalSessions)
       );
-      const remainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0);
+      const remainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0) + scheduledMakeupCredits;
       student.remaining_sessions = remainingSessions;
 
       // Sessions since last assessment = completed - (assessments * 8)
