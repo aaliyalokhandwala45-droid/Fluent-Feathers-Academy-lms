@@ -4154,9 +4154,16 @@ async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
       ), 0) as scheduled_makeup_credits,
       COALESCE((
         SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id
+          AND LOWER(mc.status) = 'used'
+          AND mc.scheduled_session_id IS NOT NULL
+      ), 0) as completed_makeup_sessions,
+      COALESCE((
+        SELECT COUNT(*)
         FROM sessions sess
         WHERE sess.student_id = s.id
-          AND sess.status IN ('Pending', 'Scheduled', 'Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+          AND sess.status IN ('Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
           AND NOT EXISTS (
             SELECT 1
             FROM makeup_classes mc
@@ -4169,7 +4176,7 @@ async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
         FROM session_attendance sa
         INNER JOIN sessions gs ON gs.id = sa.session_id
         WHERE sa.student_id = s.id
-          AND COALESCE(sa.attendance, 'Pending') IN ('Pending', 'Present', 'Absent', 'Excused', 'Unexcused')
+          AND COALESCE(sa.attendance, 'Pending') IN ('Present', 'Absent', 'Excused', 'Unexcused')
           AND NOT EXISTS (
             SELECT 1
             FROM makeup_classes mc
@@ -4238,9 +4245,16 @@ async function getParentPortalStudentById(studentId, db = pool) {
       ), 0) as scheduled_makeup_credits,
       COALESCE((
         SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id
+          AND LOWER(mc.status) = 'used'
+          AND mc.scheduled_session_id IS NOT NULL
+      ), 0) as completed_makeup_sessions,
+      COALESCE((
+        SELECT COUNT(*)
         FROM sessions sess
         WHERE sess.student_id = s.id
-          AND sess.status IN ('Pending', 'Scheduled', 'Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+          AND sess.status IN ('Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
           AND NOT EXISTS (
             SELECT 1
             FROM makeup_classes mc
@@ -4253,7 +4267,7 @@ async function getParentPortalStudentById(studentId, db = pool) {
         FROM session_attendance sa
         INNER JOIN sessions gs ON gs.id = sa.session_id
         WHERE sa.student_id = s.id
-          AND COALESCE(sa.attendance, 'Pending') IN ('Pending', 'Present', 'Absent', 'Excused', 'Unexcused')
+          AND COALESCE(sa.attendance, 'Pending') IN ('Present', 'Absent', 'Excused', 'Unexcused')
           AND NOT EXISTS (
             SELECT 1
             FROM makeup_classes mc
@@ -4300,6 +4314,7 @@ function mapParentPortalStudentSnapshot(studentRow) {
   const regularPrivateUsed = parseInt(studentRow.regular_private_sessions_used, 10) || 0;
   const regularGroupUsed = parseInt(studentRow.regular_group_sessions_used, 10) || 0;
   const scheduledMakeupCredits = parseInt(studentRow.scheduled_makeup_credits, 10) || 0;
+  const completedMakeupSessions = parseInt(studentRow.completed_makeup_sessions, 10) || 0;
   const computedCompletedSessions =
     (parseInt(studentRow.completed_private_sessions, 10) || 0) +
     (parseInt(studentRow.completed_group_sessions, 10) || 0);
@@ -4308,12 +4323,21 @@ function mapParentPortalStudentSnapshot(studentRow) {
     (parseInt(studentRow.unresolved_group_missed_sessions, 10) || 0);
   const storedCompletedSessions = parseInt(studentRow.completed_sessions, 10);
   const storedMissedSessions = parseInt(studentRow.missed_sessions, 10);
-  const storedRemainingSessions = parseInt(studentRow.remaining_sessions, 10);
-  const completedSessions = Number.isFinite(storedCompletedSessions) ? storedCompletedSessions : computedCompletedSessions;
-  const missedSessions = Number.isFinite(storedMissedSessions) ? storedMissedSessions : computedMissedSessions;
-  const remainingSessions = Number.isFinite(storedRemainingSessions)
-    ? storedRemainingSessions
-    : Math.max(totalSessions - regularPrivateUsed - regularGroupUsed, 0);
+  const completedSessions = Math.max(
+    Number.isFinite(storedCompletedSessions) ? storedCompletedSessions : 0,
+    computedCompletedSessions
+  );
+  const missedSessions = Math.max(
+    Number.isFinite(storedMissedSessions) ? storedMissedSessions : 0,
+    computedMissedSessions
+  );
+  const finalizedRegularSessions = regularPrivateUsed + regularGroupUsed;
+  const paidCompletedSessions = Math.max(completedSessions - completedMakeupSessions, 0);
+  const paidFinalizedSessions = Math.max(
+    finalizedRegularSessions,
+    Math.min(paidCompletedSessions + missedSessions, totalSessions)
+  );
+  const remainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0) + scheduledMakeupCredits;
   const paidRemainingSessions = Math.max(remainingSessions - scheduledMakeupCredits, 0);
 
   return {
@@ -8635,6 +8659,43 @@ app.get('/api/students', async (req, res) => {
     const r = await executeQuery(`
       SELECT s.*,
         COUNT(DISTINCT m.id) as makeup_credits,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM makeup_classes mc
+          WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+        ), 0) as scheduled_makeup_credits,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM makeup_classes mc
+          WHERE mc.student_id = s.id
+            AND LOWER(mc.status) = 'used'
+            AND mc.scheduled_session_id IS NOT NULL
+        ), 0) as completed_makeup_sessions,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM sessions sess
+          WHERE sess.student_id = s.id
+            AND sess.status IN ('Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+            AND NOT EXISTS (
+              SELECT 1
+              FROM makeup_classes mc
+              WHERE mc.student_id = s.id
+                AND mc.scheduled_session_id = sess.id
+            )
+        ), 0) as regular_private_sessions_used,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM session_attendance sa
+          INNER JOIN sessions gs ON gs.id = sa.session_id
+          WHERE sa.student_id = s.id
+            AND COALESCE(sa.attendance, 'Pending') IN ('Present', 'Absent', 'Excused', 'Unexcused')
+            AND NOT EXISTS (
+              SELECT 1
+              FROM makeup_classes mc
+              WHERE mc.student_id = s.id
+                AND mc.scheduled_session_id = sa.session_id
+            )
+        ), 0) as regular_group_sessions_used,
         (
           COALESCE((
             SELECT COUNT(*)
@@ -8691,7 +8752,20 @@ app.get('/api/students', async (req, res) => {
     const studentsWithAssessmentStatus = r.rows.map(student => {
       const completedSessions = student.completed_sessions || 0;
       const totalAssessments = parseInt(student.total_assessments) || 0;
-      const remainingSessions = student.remaining_sessions || 0;
+      const totalSessions = parseInt(student.total_sessions, 10) || 0;
+      const missedSessions = parseInt(student.missed_sessions, 10) || 0;
+      const scheduledMakeupCredits = parseInt(student.scheduled_makeup_credits, 10) || 0;
+      const completedMakeupSessions = parseInt(student.completed_makeup_sessions, 10) || 0;
+      const regularPrivateUsed = parseInt(student.regular_private_sessions_used, 10) || 0;
+      const regularGroupUsed = parseInt(student.regular_group_sessions_used, 10) || 0;
+      const finalizedRegularSessions = regularPrivateUsed + regularGroupUsed;
+      const paidCompletedSessions = Math.max((parseInt(completedSessions, 10) || 0) - completedMakeupSessions, 0);
+      const paidFinalizedSessions = Math.max(
+        finalizedRegularSessions,
+        Math.min(paidCompletedSessions + missedSessions, totalSessions)
+      );
+      const remainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0) + scheduledMakeupCredits;
+      student.remaining_sessions = remainingSessions;
 
       // Sessions since last assessment = completed - (assessments * 8)
       // Each assessment is treated as covering 8 sessions before the next due date.
