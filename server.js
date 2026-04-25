@@ -4055,7 +4055,29 @@ async function getStudentPackageSnapshot(studentId, db = pool) {
       COALESCE((
         SELECT COUNT(*)
         FROM makeup_classes mc
-        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+        WHERE mc.student_id = s.id
+          AND LOWER(mc.status) = 'scheduled'
+          AND mc.scheduled_session_id IS NOT NULL
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM sessions ms
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Private'
+                AND ms.status IN ('Pending', 'Scheduled')
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              INNER JOIN session_attendance msa
+                ON msa.session_id = ms.id
+               AND msa.student_id = mc.student_id
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Group'
+                AND ms.status IN ('Pending', 'Scheduled')
+                AND COALESCE(msa.attendance, 'Pending') = 'Pending'
+            )
+          )
       ), 0) AS scheduled_makeup_credits,
       COALESCE((
         SELECT MAX(pr.renewal_date)
@@ -4153,14 +4175,55 @@ async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
       COALESCE((
         SELECT COUNT(*)
         FROM makeup_classes mc
-        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+        WHERE mc.student_id = s.id
+          AND LOWER(mc.status) = 'scheduled'
+          AND mc.scheduled_session_id IS NOT NULL
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM sessions ms
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Private'
+                AND ms.status IN ('Pending', 'Scheduled')
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              INNER JOIN session_attendance msa
+                ON msa.session_id = ms.id
+               AND msa.student_id = mc.student_id
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Group'
+                AND ms.status IN ('Pending', 'Scheduled')
+                AND COALESCE(msa.attendance, 'Pending') = 'Pending'
+            )
+          )
       ), 0) as scheduled_makeup_credits,
       COALESCE((
         SELECT COUNT(*)
         FROM makeup_classes mc
         WHERE mc.student_id = s.id
-          AND LOWER(mc.status) = 'used'
           AND mc.scheduled_session_id IS NOT NULL
+          AND (
+            LOWER(mc.status) = 'used'
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Private'
+                AND ms.status = 'Completed'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              INNER JOIN session_attendance msa
+                ON msa.session_id = ms.id
+               AND msa.student_id = mc.student_id
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Group'
+                AND COALESCE(msa.attendance, 'Pending') = 'Present'
+            )
+          )
       ), 0) as completed_makeup_sessions,
       COALESCE((
         SELECT COUNT(*)
@@ -4244,14 +4307,55 @@ async function getParentPortalStudentById(studentId, db = pool) {
       COALESCE((
         SELECT COUNT(*)
         FROM makeup_classes mc
-        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+        WHERE mc.student_id = s.id
+          AND LOWER(mc.status) = 'scheduled'
+          AND mc.scheduled_session_id IS NOT NULL
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM sessions ms
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Private'
+                AND ms.status IN ('Pending', 'Scheduled')
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              INNER JOIN session_attendance msa
+                ON msa.session_id = ms.id
+               AND msa.student_id = mc.student_id
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Group'
+                AND ms.status IN ('Pending', 'Scheduled')
+                AND COALESCE(msa.attendance, 'Pending') = 'Pending'
+            )
+          )
       ), 0) as scheduled_makeup_credits,
       COALESCE((
         SELECT COUNT(*)
         FROM makeup_classes mc
         WHERE mc.student_id = s.id
-          AND LOWER(mc.status) = 'used'
           AND mc.scheduled_session_id IS NOT NULL
+          AND (
+            LOWER(mc.status) = 'used'
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Private'
+                AND ms.status = 'Completed'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              INNER JOIN session_attendance msa
+                ON msa.session_id = ms.id
+               AND msa.student_id = mc.student_id
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Group'
+                AND COALESCE(msa.attendance, 'Pending') = 'Present'
+            )
+          )
       ), 0) as completed_makeup_sessions,
       COALESCE((
         SELECT COUNT(*)
@@ -4387,7 +4491,29 @@ async function getStudentSessionBalance(studentId, db = pool) {
       COALESCE((
         SELECT COUNT(*)
         FROM makeup_classes mc
-        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+        WHERE mc.student_id = s.id
+          AND LOWER(mc.status) = 'scheduled'
+          AND mc.scheduled_session_id IS NOT NULL
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM sessions ms
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Private'
+                AND ms.status IN ('Pending', 'Scheduled')
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              INNER JOIN session_attendance msa
+                ON msa.session_id = ms.id
+               AND msa.student_id = mc.student_id
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Group'
+                AND ms.status IN ('Pending', 'Scheduled')
+                AND COALESCE(msa.attendance, 'Pending') = 'Pending'
+            )
+          )
       ), 0) as scheduled_makeup_credits,
       COALESCE((
         SELECT COUNT(*)
@@ -4421,8 +4547,27 @@ async function getStudentSessionBalance(studentId, db = pool) {
         SELECT COUNT(*)
         FROM makeup_classes mc
         WHERE mc.student_id = s.id
-          AND LOWER(mc.status) = 'used'
           AND mc.scheduled_session_id IS NOT NULL
+          AND (
+            LOWER(mc.status) = 'used'
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Private'
+                AND ms.status = 'Completed'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM sessions ms
+              INNER JOIN session_attendance msa
+                ON msa.session_id = ms.id
+               AND msa.student_id = mc.student_id
+              WHERE ms.id = mc.scheduled_session_id
+                AND ms.session_type = 'Group'
+                AND COALESCE(msa.attendance, 'Pending') = 'Present'
+            )
+          )
       ), 0) as completed_makeup_sessions,
       COALESCE((
         SELECT COUNT(*)
@@ -8819,14 +8964,55 @@ app.get('/api/students', async (req, res) => {
         COALESCE((
           SELECT COUNT(*)
           FROM makeup_classes mc
-          WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+          WHERE mc.student_id = s.id
+            AND LOWER(mc.status) = 'scheduled'
+            AND mc.scheduled_session_id IS NOT NULL
+            AND (
+              EXISTS (
+                SELECT 1
+                FROM sessions ms
+                WHERE ms.id = mc.scheduled_session_id
+                  AND ms.session_type = 'Private'
+                  AND ms.status IN ('Pending', 'Scheduled')
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM sessions ms
+                INNER JOIN session_attendance msa
+                  ON msa.session_id = ms.id
+                 AND msa.student_id = mc.student_id
+                WHERE ms.id = mc.scheduled_session_id
+                  AND ms.session_type = 'Group'
+                  AND ms.status IN ('Pending', 'Scheduled')
+                  AND COALESCE(msa.attendance, 'Pending') = 'Pending'
+              )
+            )
         ), 0) as scheduled_makeup_credits,
         COALESCE((
           SELECT COUNT(*)
           FROM makeup_classes mc
           WHERE mc.student_id = s.id
-            AND LOWER(mc.status) = 'used'
             AND mc.scheduled_session_id IS NOT NULL
+            AND (
+              LOWER(mc.status) = 'used'
+              OR EXISTS (
+                SELECT 1
+                FROM sessions ms
+                WHERE ms.id = mc.scheduled_session_id
+                  AND ms.session_type = 'Private'
+                  AND ms.status = 'Completed'
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM sessions ms
+                INNER JOIN session_attendance msa
+                  ON msa.session_id = ms.id
+                 AND msa.student_id = mc.student_id
+                WHERE ms.id = mc.scheduled_session_id
+                  AND ms.session_type = 'Group'
+                  AND COALESCE(msa.attendance, 'Pending') = 'Present'
+              )
+            )
         ), 0) as completed_makeup_sessions,
         COALESCE((
           SELECT COUNT(*)
