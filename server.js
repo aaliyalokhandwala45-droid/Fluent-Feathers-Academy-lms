@@ -4114,10 +4114,13 @@ async function getStudentPackageSnapshot(studentId, db = pool) {
     ) final_sessions
   `, [studentId]);
 
+  const balance = await getStudentSessionBalance(studentId, db);
+
   return {
     ...student,
+    ...(balance || {}),
     available_makeup_credits: parseInt(student.available_makeup_credits, 10) || 0,
-    scheduled_makeup_credits: parseInt(student.scheduled_makeup_credits, 10) || 0,
+    scheduled_makeup_credits: balance?.scheduled_makeup_credits ?? (parseInt(student.scheduled_makeup_credits, 10) || 0),
     has_unresolved_sessions: unresolvedResult.rows.length > 0,
     last_session_date: lastSessionResult.rows[0]?.last_session_date || null
   };
@@ -4310,9 +4313,20 @@ async function getParentPortalStudentById(studentId, db = pool) {
 }
 
 function mapParentPortalStudentSnapshot(studentRow) {
+  const sessionBalance = mapStudentSessionBalance(studentRow);
+  return {
+    ...studentRow,
+    ...sessionBalance,
+    parent_timezone: studentRow.parent_timezone || studentRow.credential_timezone || studentRow.timezone || 'Asia/Kolkata'
+  };
+}
+
+function mapStudentSessionBalance(studentRow) {
   const totalSessions = parseInt(studentRow.total_sessions, 10) || 0;
   const regularPrivateUsed = parseInt(studentRow.regular_private_sessions_used, 10) || 0;
   const regularGroupUsed = parseInt(studentRow.regular_group_sessions_used, 10) || 0;
+  const regularPrivatePending = parseInt(studentRow.regular_private_sessions_pending, 10) || 0;
+  const regularGroupPending = parseInt(studentRow.regular_group_sessions_pending, 10) || 0;
   const scheduledMakeupCredits = parseInt(studentRow.scheduled_makeup_credits, 10) || 0;
   const completedMakeupSessions = parseInt(studentRow.completed_makeup_sessions, 10) || 0;
   const computedCompletedSessions =
@@ -4337,17 +4351,135 @@ function mapParentPortalStudentSnapshot(studentRow) {
     finalizedRegularSessions,
     Math.min(paidCompletedSessions + missedSessions, totalSessions)
   );
-  const remainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0) + scheduledMakeupCredits;
-  const paidRemainingSessions = Math.max(remainingSessions - scheduledMakeupCredits, 0);
+  const paidRemainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0);
+  const bookablePaidSessions = Math.max(
+    totalSessions - paidFinalizedSessions - regularPrivatePending - regularGroupPending,
+    0
+  );
 
   return {
-    ...studentRow,
     completed_sessions: completedSessions,
     missed_sessions: missedSessions,
     paid_remaining_sessions: paidRemainingSessions,
-    remaining_sessions: remainingSessions,
-    parent_timezone: studentRow.parent_timezone || studentRow.credential_timezone || studentRow.timezone || 'Asia/Kolkata'
+    remaining_sessions: paidRemainingSessions,
+    bookable_paid_sessions: bookablePaidSessions,
+    scheduled_makeup_credits: scheduledMakeupCredits
   };
+}
+
+async function getStudentSessionBalance(studentId, db = pool) {
+  const result = await db.query(`
+    SELECT s.id, s.total_sessions, s.completed_sessions, s.missed_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status = 'Completed'
+      ), 0) as completed_private_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') = 'Present'
+      ), 0) as completed_group_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id AND LOWER(mc.status) = 'scheduled'
+      ), 0) as scheduled_makeup_credits,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.session_type = 'Private'
+          AND sess.status IN ('Pending', 'Scheduled')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sess.id
+          )
+      ), 0) as regular_private_sessions_pending,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND gs.session_type = 'Group'
+          AND gs.status IN ('Pending', 'Scheduled')
+          AND COALESCE(sa.attendance, 'Pending') = 'Pending'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sa.session_id
+          )
+      ), 0) as regular_group_sessions_pending,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM makeup_classes mc
+        WHERE mc.student_id = s.id
+          AND LOWER(mc.status) = 'used'
+          AND mc.scheduled_session_id IS NOT NULL
+      ), 0) as completed_makeup_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status IN ('Completed', 'Missed', 'Excused', 'Unexcused', 'Cancelled', 'Cancelled by Parent')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sess.id
+          )
+      ), 0) as regular_private_sessions_used,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') IN ('Present', 'Absent', 'Excused', 'Unexcused')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.scheduled_session_id = sa.session_id
+          )
+      ), 0) as regular_group_sessions_used,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = s.id
+          AND sess.status IN ('Missed', 'Unexcused')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.original_session_id = sess.id
+          )
+      ), 0) as unresolved_private_missed_sessions,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions gs ON gs.id = sa.session_id
+        WHERE sa.student_id = s.id
+          AND COALESCE(sa.attendance, 'Pending') = 'Unexcused'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = s.id
+              AND mc.original_session_id = sa.session_id
+          )
+      ), 0) as unresolved_group_missed_sessions
+    FROM students s
+    WHERE s.id = $1
+    LIMIT 1
+  `, [studentId]);
+
+  if (result.rows.length === 0) return null;
+  return mapStudentSessionBalance(result.rows[0]);
 }
 
 async function hasPackageEmailBeenSent(studentId, emailType, sinceDate, db = pool) {
@@ -7052,7 +7184,8 @@ cron.schedule('0 9 * * *', async () => {
   try {
     console.log('Checking payment renewal reminders and slot follow-ups...');
 
-    // Find students with 2 or fewer sessions remaining
+    // Find students for renewal reminders. Remaining sessions are derived from
+    // actual paid sessions consumed, not the drift-prone stored column.
     // Send reminder if: never reminded OR remaining count dropped since last reminder
     const lowSessionStudents = await pool.query(`
       SELECT s.id, s.name, s.parent_email, s.parent_name, s.remaining_sessions, s.program_name, s.per_session_fee, s.currency,
@@ -7061,7 +7194,6 @@ cron.schedule('0 9 * * *', async () => {
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND LOWER(m.status) = 'available'
       WHERE s.is_active = true
-        AND s.remaining_sessions <= 2
         AND s.parent_email IS NOT NULL
         AND s.parent_email != ''
       GROUP BY s.id
@@ -7070,7 +7202,9 @@ cron.schedule('0 9 * * *', async () => {
     let sentCount = 0;
     for (const student of lowSessionStudents.rows) {
       try {
-        const current = parseInt(student.remaining_sessions, 10) || 0;
+        const balance = await getStudentSessionBalance(student.id);
+        const current = balance?.paid_remaining_sessions ?? (parseInt(student.remaining_sessions, 10) || 0);
+        if (current > 2) continue;
         const makeupCredits = parseInt(student.available_makeup_credits, 10) || 0;
 
         if (current === 0) {
@@ -8105,6 +8239,28 @@ app.get('/api/dashboard/stats', async (req, res) => {
         .catch(e => { console.error('Assessment count error:', e.message); })
     ]);
 
+    try {
+      const assessmentStudents = await executeQuery(`
+        SELECT s.id, s.completed_sessions,
+          COALESCE((SELECT COUNT(*) FROM monthly_assessments ma WHERE ma.student_id = s.id AND ma.assessment_type = 'monthly'), 0) as total_assessments
+        FROM students s
+        WHERE s.is_active = true
+      `);
+      const rowsWithBalances = await Promise.all(assessmentStudents.rows.map(async student => {
+        const balance = await getStudentSessionBalance(student.id);
+        return { ...student, ...(balance || {}) };
+      }));
+      pendingAssessments = rowsWithBalances.filter(student => {
+        const completedSessions = parseInt(student.completed_sessions, 10) || 0;
+        const totalAssessments = parseInt(student.total_assessments, 10) || 0;
+        const remainingSessions = parseInt(student.remaining_sessions, 10) || 0;
+        const sessionsSinceAssessment = Math.max(0, completedSessions - (totalAssessments * 8));
+        return sessionsSinceAssessment >= 8 || (remainingSessions <= 2 && sessionsSinceAssessment >= 8);
+      }).length;
+    } catch (e) {
+      console.error('Derived assessment count error:', e.message);
+    }
+
     res.json({
       totalStudents: parseInt(countResult.rows[0].total)||0,
       totalRevenue: Math.round(totalRevenueINR),
@@ -8764,7 +8920,7 @@ app.get('/api/students', async (req, res) => {
         finalizedRegularSessions,
         Math.min(paidCompletedSessions + missedSessions, totalSessions)
       );
-      const remainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0) + scheduledMakeupCredits;
+      const remainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0);
       student.remaining_sessions = remainingSessions;
 
       // Sessions since last assessment = completed - (assessments * 8)
@@ -8804,8 +8960,13 @@ app.get('/api/students/due-for-assessment', async (req, res) => {
       ORDER BY s.completed_sessions DESC
     `);
 
+    const studentsWithBalances = await Promise.all(r.rows.map(async student => {
+      const balance = await getStudentSessionBalance(student.id);
+      return { ...student, ...(balance || {}) };
+    }));
+
     // Filter to only students due for assessment
-    const dueStudents = r.rows.filter(student => {
+    const dueStudents = studentsWithBalances.filter(student => {
       const completedSessions = student.completed_sessions || 0;
       const totalAssessments = parseInt(student.total_assessments) || 0;
       const remainingSessions = student.remaining_sessions || 0;
@@ -9073,7 +9234,11 @@ app.get('/api/groups/:groupId/students', async (req, res) => {
       GROUP BY s.id
       ORDER BY s.name
     `, [req.params.groupId]);
-    res.json(students.rows);
+    const rows = await Promise.all(students.rows.map(async student => {
+      const balance = await getStudentSessionBalance(student.id);
+      return { ...student, ...(balance || {}) };
+    }));
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -9139,8 +9304,12 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
     let makeupNum = parseInt(makeup_count) || 0;
     let regularCount = sessionsToAdd.length - makeupNum;
 
-    // If student has no remaining sessions, force all sessions to be makeup
-    if (student.rows[0].remaining_sessions <= 0 && regularCount > 0) {
+    const studentBalance = await getStudentSessionBalance(student_id, client);
+    const paidRemainingSessions = studentBalance?.paid_remaining_sessions ?? (parseInt(student.rows[0].remaining_sessions, 10) || 0);
+    const bookablePaidSessions = studentBalance?.bookable_paid_sessions ?? paidRemainingSessions;
+
+    // If student has no paid remaining sessions, force all sessions to be makeup
+    if (bookablePaidSessions <= 0 && regularCount > 0) {
       makeupNum = sessionsToAdd.length;
       regularCount = 0;
     }
@@ -9165,9 +9334,9 @@ app.post('/api/groups/:groupId/add-to-sessions', async (req, res) => {
     }
 
     // Check remaining sessions for regular (non-makeup) sessions
-    if (regularCount > 0 && student.rows[0].remaining_sessions < regularCount) {
+    if (regularCount > 0 && bookablePaidSessions < regularCount) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Not enough remaining sessions. Need ${regularCount} regular but only ${student.rows[0].remaining_sessions} remaining. Try using more makeup credits.` });
+      return res.status(400).json({ error: `Not enough remaining sessions. Need ${regularCount} regular but only ${bookablePaidSessions} available to book. Try using more makeup credits.` });
     }
 
     // Add attendance records for upcoming sessions
@@ -9234,14 +9403,17 @@ app.post('/api/schedule/private-classes', async (req, res) => {
     const { student_id, classes, send_email } = req.body;
     const student = (await client.query('SELECT * FROM students WHERE id = $1', [student_id])).rows[0];
     if(!student) return res.status(404).json({ error: 'Student not found' });
+    const studentBalance = await getStudentSessionBalance(student_id, client);
+    const paidRemainingSessions = studentBalance?.paid_remaining_sessions ?? (parseInt(student.remaining_sessions, 10) || 0);
+    const bookablePaidSessions = studentBalance?.bookable_paid_sessions ?? paidRemainingSessions;
 
     // Separate regular and makeup classes
     const regularClasses = classes.filter(c => !c.use_makeup);
     const makeupClasses = classes.filter(c => c.use_makeup);
 
     // Validate remaining_sessions only against regular classes
-    if(student.remaining_sessions < regularClasses.length) {
-      return res.status(400).json({ error: `Not enough sessions. Need ${regularClasses.length} regular sessions but only ${student.remaining_sessions} remaining.` });
+    if(bookablePaidSessions < regularClasses.length) {
+      return res.status(400).json({ error: `Not enough sessions. Need ${regularClasses.length} regular sessions but only ${bookablePaidSessions} available to book.` });
     }
 
     // Validate available makeup credits
@@ -13007,13 +13179,16 @@ app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
 
     const student = (await client.query('SELECT * FROM students WHERE id = $1', [studentId])).rows[0];
     if (!student) return res.status(404).json({ error: 'Student not found' });
+    const studentBalance = await getStudentSessionBalance(studentId, client);
+    const paidRemainingSessions = studentBalance?.paid_remaining_sessions ?? (parseInt(student.remaining_sessions, 10) || 0);
+    const bookablePaidSessions = studentBalance?.bookable_paid_sessions ?? paidRemainingSessions;
 
     if (!classes || classes.length === 0) return res.status(400).json({ error: 'No sessions provided' });
 
     // Validate based on deduction type
     if (deduct_from === 'remaining') {
-      if (student.remaining_sessions < classes.length) {
-        return res.status(400).json({ error: `Not enough remaining sessions. Need ${classes.length} but only ${student.remaining_sessions} available.` });
+      if (bookablePaidSessions < classes.length) {
+        return res.status(400).json({ error: `Not enough remaining sessions. Need ${classes.length} but only ${bookablePaidSessions} available to book.` });
       }
     } else if (deduct_from === 'makeup') {
       const available = await client.query(
@@ -13718,7 +13893,8 @@ app.get('/api/students/:id/full', async (req, res) => {
   try {
     const student = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
-    res.json(student.rows[0]);
+    const balance = await getStudentSessionBalance(req.params.id);
+    res.json({ ...student.rows[0], ...(balance || {}) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
