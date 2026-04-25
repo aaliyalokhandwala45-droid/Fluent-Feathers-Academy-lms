@@ -4432,7 +4432,6 @@ function mapStudentSessionBalance(studentRow) {
   const regularPrivatePending = parseInt(studentRow.regular_private_sessions_pending, 10) || 0;
   const regularGroupPending = parseInt(studentRow.regular_group_sessions_pending, 10) || 0;
   const scheduledMakeupCredits = parseInt(studentRow.scheduled_makeup_credits, 10) || 0;
-  const completedMakeupSessions = parseInt(studentRow.completed_makeup_sessions, 10) || 0;
   const computedCompletedSessions =
     (parseInt(studentRow.completed_private_sessions, 10) || 0) +
     (parseInt(studentRow.completed_group_sessions, 10) || 0);
@@ -4450,7 +4449,7 @@ function mapStudentSessionBalance(studentRow) {
     computedMissedSessions
   );
   const finalizedRegularSessions = regularPrivateUsed + regularGroupUsed;
-  const paidCompletedSessions = Math.max(completedSessions - completedMakeupSessions, 0);
+  const paidCompletedSessions = completedSessions;
   const paidFinalizedSessions = Math.max(
     finalizedRegularSessions,
     Math.min(paidCompletedSessions + missedSessions, totalSessions)
@@ -9098,11 +9097,10 @@ app.get('/api/students', async (req, res) => {
       const totalSessions = parseInt(student.total_sessions, 10) || 0;
       const missedSessions = parseInt(student.missed_sessions, 10) || 0;
       const scheduledMakeupCredits = parseInt(student.scheduled_makeup_credits, 10) || 0;
-      const completedMakeupSessions = parseInt(student.completed_makeup_sessions, 10) || 0;
       const regularPrivateUsed = parseInt(student.regular_private_sessions_used, 10) || 0;
       const regularGroupUsed = parseInt(student.regular_group_sessions_used, 10) || 0;
       const finalizedRegularSessions = regularPrivateUsed + regularGroupUsed;
-      const paidCompletedSessions = Math.max((parseInt(completedSessions, 10) || 0) - completedMakeupSessions, 0);
+      const paidCompletedSessions = parseInt(completedSessions, 10) || 0;
       const paidFinalizedSessions = Math.max(
         finalizedRegularSessions,
         Math.min(paidCompletedSessions + missedSessions, totalSessions)
