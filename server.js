@@ -3028,6 +3028,34 @@ async function runMigrations() {
       console.log('Migration 55 note:', err.message);
     }
 
+    // Migration 56: Recalculate historical quiz attempt scores and stored points
+    try {
+      const repairSetting = await client.query(
+        `SELECT setting_value
+         FROM admin_settings
+         WHERE setting_key = 'migration_56_quiz_attempt_repair_done'
+         LIMIT 1`
+      );
+
+      if (repairSetting.rows[0]?.setting_value !== 'true') {
+        const repairSummary = await repairHistoricalQuizAttempts(client, { syncBadges: true });
+        await client.query(
+          `INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+           VALUES ('migration_56_quiz_attempt_repair_done', 'true', CURRENT_TIMESTAMP)
+           ON CONFLICT (setting_key)
+           DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP`
+        );
+        console.log(
+          `✅ Migration 56: Repaired ${repairSummary.repaired}/${repairSummary.scanned} historical quiz attempt(s), ` +
+          `skipped ${repairSummary.skipped}, awarded ${repairSummary.badges_awarded} missing quiz badge(s)`
+        );
+      } else {
+        console.log('✅ Migration 56: Historical quiz attempt repair already applied');
+      }
+    } catch (err) {
+      console.log('Migration 56 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -7790,6 +7818,180 @@ const QUIZ_AI_CATEGORY_GUIDANCE = {
 
 function normalizeQuizQuestionText(text) {
   return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function parseStoredQuizAnswers(rawAnswers) {
+  if (Array.isArray(rawAnswers)) {
+    return rawAnswers.map(value => (Number.isInteger(Number(value)) ? Number(value) : -1));
+  }
+
+  if (typeof rawAnswers === 'string' && rawAnswers.trim()) {
+    try {
+      const parsed = JSON.parse(rawAnswers);
+      if (Array.isArray(parsed)) {
+        return parsed.map(value => (Number.isInteger(Number(value)) ? Number(value) : -1));
+      }
+    } catch (_) {}
+  }
+
+  return [];
+}
+
+async function loadQuizAnswerKeysByQuestionIds(questionIds, db = pool) {
+  const normalizedIds = Array.from(
+    new Set(
+      (Array.isArray(questionIds) ? questionIds : [])
+        .map(id => Number(id))
+        .filter(id => Number.isInteger(id) && id > 0)
+    )
+  );
+
+  const correctAnswerById = new Map();
+  if (normalizedIds.length === 0) {
+    return correctAnswerById;
+  }
+
+  const pendingResult = await db.query(
+    `SELECT id, correct_answer
+     FROM pending_quiz_questions
+     WHERE id = ANY($1::int[])`,
+    [normalizedIds]
+  );
+  pendingResult.rows.forEach((row) => {
+    correctAnswerById.set(Number(row.id), Number(row.correct_answer));
+  });
+
+  const unresolvedIds = normalizedIds.filter(id => !correctAnswerById.has(id));
+  if (unresolvedIds.length > 0) {
+    const bankResult = await db.query(
+      `SELECT id, correct_answer
+       FROM quiz_questions
+       WHERE id = ANY($1::int[])`,
+      [unresolvedIds]
+    );
+    bankResult.rows.forEach((row) => {
+      correctAnswerById.set(Number(row.id), Number(row.correct_answer));
+    });
+  }
+
+  return correctAnswerById;
+}
+
+async function repairHistoricalQuizAttempts(db = pool, options = {}) {
+  const syncBadges = options.syncBadges !== false;
+  const attemptsResult = await db.query(`
+    SELECT id, student_id, quiz_date, level, answers, score, points_awarded
+    FROM quiz_attempts
+    ORDER BY quiz_date ASC, id ASC
+  `);
+
+  const quizCache = new Map();
+  const summary = {
+    scanned: attemptsResult.rows.length,
+    repaired: 0,
+    unchanged: 0,
+    skipped: 0,
+    badges_awarded: 0
+  };
+
+  for (const attempt of attemptsResult.rows) {
+    const quizDate = String(attempt.quiz_date || '').split('T')[0];
+    const level = normalizeStudentQuizLevel(attempt.level);
+    const cacheKey = `${quizDate}:${level}`;
+
+    if (!quizCache.has(cacheKey)) {
+      const quizResult = await db.query(
+        `SELECT beginner_questions, intermediate_questions, advanced_questions
+         FROM daily_quizzes
+         WHERE quiz_date = $1
+         LIMIT 1`,
+        [quizDate]
+      );
+
+      if (quizResult.rows.length === 0) {
+        quizCache.set(cacheKey, null);
+      } else {
+        const quizRow = quizResult.rows[0];
+        const archivedQuestions = Array.isArray(quizRow[getQuizLevelColumn(level)])
+          ? quizRow[getQuizLevelColumn(level)]
+          : [];
+        quizCache.set(cacheKey, archivedQuestions);
+      }
+    }
+
+    const archivedQuestions = quizCache.get(cacheKey);
+    if (!Array.isArray(archivedQuestions) || archivedQuestions.length < DAILY_QUIZ_QUESTION_COUNT) {
+      summary.skipped++;
+      continue;
+    }
+
+    const answers = parseStoredQuizAnswers(attempt.answers);
+    const archivedQuestionIds = archivedQuestions.map(question => Number(question?.id));
+    const fallbackAnswerKeys = await loadQuizAnswerKeysByQuestionIds(archivedQuestionIds, db);
+    let correctedScore = 0;
+    let repairable = true;
+
+    for (let index = 0; index < DAILY_QUIZ_QUESTION_COUNT; index++) {
+      const question = archivedQuestions[index];
+      const questionId = Number(question?.id);
+      const fallbackCorrectAnswer = Number.isInteger(questionId) ? fallbackAnswerKeys.get(questionId) : null;
+      const correctAnswer = Number.isInteger(Number(question?.correct_answer))
+        ? Number(question.correct_answer)
+        : fallbackCorrectAnswer;
+      if (!Number.isInteger(correctAnswer)) {
+        repairable = false;
+        break;
+      }
+
+      const answer = Number.isInteger(Number(answers[index])) ? Number(answers[index]) : -1;
+      if (answer === correctAnswer) {
+        correctedScore++;
+      }
+    }
+
+    if (!repairable) {
+      summary.skipped++;
+      continue;
+    }
+
+    const correctedPoints = correctedScore * QUIZ_POINT_VALUE;
+    const previousScore = Number(attempt.score) || 0;
+    const previousPoints = Number(attempt.points_awarded) || 0;
+
+    if (previousScore !== correctedScore || previousPoints !== correctedPoints) {
+      await db.query(
+        `UPDATE quiz_attempts
+         SET score = $1,
+             points_awarded = $2
+         WHERE id = $3`,
+        [correctedScore, correctedPoints, attempt.id]
+      );
+      summary.repaired++;
+    } else {
+      summary.unchanged++;
+    }
+
+    if (syncBadges && correctedScore === DAILY_QUIZ_QUESTION_COUNT) {
+      const badgeResult = await db.query(
+        `SELECT id
+         FROM student_badges
+         WHERE student_id = $1 AND badge_type = $2
+         LIMIT 1`,
+        [attempt.student_id, DAILY_QUIZ_BADGE_TYPE]
+      );
+
+      if (badgeResult.rows.length === 0) {
+        await db.query(
+          `INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
+           VALUES ($1, $2, $3, $4)`,
+          [attempt.student_id, DAILY_QUIZ_BADGE_TYPE, DAILY_QUIZ_BADGE_NAME, DAILY_QUIZ_BADGE_DESCRIPTION]
+        );
+        summary.badges_awarded++;
+      }
+    }
+  }
+
+  return summary;
 }
 
 async function getHistoricalQuizQuestionTexts(level, quizDate = null, db = pool) {
@@ -16516,17 +16718,9 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       .filter(id => Number.isInteger(id) && !correctAnswerById.has(id));
 
     if (missingQuestionIds.length > 0) {
-      const questionsToCheck = await pool.query(
-        `
-          SELECT id, correct_answer
-          FROM quiz_questions
-          WHERE id = ANY($1::int[])
-        `,
-        [missingQuestionIds]
-      );
-
-      questionsToCheck.rows.forEach((question) => {
-        correctAnswerById.set(Number(question.id), Number(question.correct_answer));
+      const fallbackAnswerKeys = await loadQuizAnswerKeysByQuestionIds(missingQuestionIds, pool);
+      fallbackAnswerKeys.forEach((correctAnswer, questionId) => {
+        correctAnswerById.set(Number(questionId), Number(correctAnswer));
       });
     }
 
@@ -16852,6 +17046,21 @@ app.get('/api/admin/quiz-attempts', async (req, res) => {
     `, [date]);
     res.json(result.rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Repair historical quiz attempt scores and stored points
+app.post('/api/admin/repair-quiz-attempts', async (req, res) => {
+  try {
+    const repairSummary = await repairHistoricalQuizAttempts(pool, { syncBadges: true });
+    res.json({
+      success: true,
+      message: `Repaired ${repairSummary.repaired} quiz attempt(s)`,
+      ...repairSummary
+    });
+  } catch (err) {
+    console.error('Quiz attempt repair error:', err);
     res.status(500).json({ error: err.message });
   }
 });
