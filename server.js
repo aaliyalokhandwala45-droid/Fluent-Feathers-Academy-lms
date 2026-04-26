@@ -14319,7 +14319,6 @@ app.post('/api/students/:id/badges/assign', async (req, res) => {
 const HOMEWORK_POINT_VALUE = 10;
 const CHALLENGE_POINT_VALUE = 10;
 const BADGE_POINT_VALUE = 2;
-const LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE = 2; // Flat leaderboard points per completed daily quiz attempt
 const QUIZ_POINT_VALUE = 1; // Quiz result points per correct answer (max 10 per quiz)
 
 function getAwardCertificateTitle(periodType) {
@@ -14346,6 +14345,7 @@ function getPodiumEmail(studentName, rank, periodLabel, totalScore, breakdown) {
       <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:18px 0;">
         <p style="margin:0 0 8px;color:#4a5568;">Homework: <strong>${breakdown.homework} pts</strong></p>
         <p style="margin:0 0 8px;color:#4a5568;">Challenges: <strong>${breakdown.challenges} pts</strong></p>
+        <p style="margin:0 0 8px;color:#4a5568;">Daily Quiz: <strong>${breakdown.quizzes || 0} pts</strong></p>
         <p style="margin:0;color:#4a5568;">Badges: <strong>${breakdown.badges} pts</strong></p>
         <p style="margin:10px 0 0;font-size:18px;color:#553c9a;font-weight:700;">Total: ${totalScore} points</p>
       </div>
@@ -14379,6 +14379,12 @@ async function calculateStudentScores(startDate, endDate) {
         AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
+    quiz_pts AS (
+      SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts
+      FROM quiz_attempts
+      WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
+      GROUP BY student_id
+    ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
       FROM student_badges
@@ -14392,15 +14398,17 @@ async function calculateStudentScores(startDate, endDate) {
       s.parent_name,
       COALESCE(h.pts, 0) as homework_score,
       COALESCE(c.pts, 0) as challenge_score,
+      COALESCE(q.pts, 0) as quiz_score,
       COALESCE(b.pts, 0) as badge_score,
-      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
+    LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, homework_score DESC, challenge_score DESC, badge_score DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
+    ORDER BY total_score DESC, homework_score DESC, challenge_score DESC, quiz_score DESC, badge_score DESC, s.name ASC
   `, [startDate, endDate]);
   return result.rows;
 }
@@ -14426,6 +14434,7 @@ function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, 
         <p style="margin:4px 0;color:#4a5568;">📝 Homework Submitted: <strong>${breakdown.homework} pts</strong></p>
         <p style="margin:4px 0;color:#4a5568;">🎯 Challenges Completed: <strong>${breakdown.challenges} pts</strong></p>
         <p style="margin:4px 0;color:#4a5568;">🏅 Badges Earned: <strong>${breakdown.badges} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">Daily Quiz: <strong>${breakdown.quizzes || 0} pts</strong></p>
         <p style="margin:10px 0 0;font-size:18px;font-weight:700;color:#B05D9E;">Total: ${totalScore} points</p>
       </div>
       <p style="font-size:15px;color:#4a5568;line-height:1.6;">Keep up the amazing work! We're so proud of ${studentName}'s dedication and progress at Fluent Feathers Academy. 💜</p>
@@ -14531,6 +14540,7 @@ async function awardStudentOfPeriod(periodType) {
       const winnerEmailHTML = getStudentAwardEmail(winner.name, awardTitle, periodLabel, winner.total_score, {
         homework: winner.homework_score,
         challenges: winner.challenge_score,
+        quizzes: winner.quiz_score,
         badges: winner.badge_score
       }, certificateUrl);
       await sendEmail(winner.parent_email, `${awardTitle} - ${winner.name} | Fluent Feathers Academy`, winnerEmailHTML, winner.parent_name, 'Student Award');
@@ -14548,6 +14558,7 @@ async function awardStudentOfPeriod(periodType) {
         {
           homework: podiumStudent.homework_score,
           challenges: podiumStudent.challenge_score,
+          quizzes: podiumStudent.quiz_score,
           badges: podiumStudent.badge_score
         }
       );
@@ -14599,7 +14610,7 @@ app.get('/api/leaderboard', async (req, res) => {
         GROUP BY student_id
       ),
       quiz_pts AS (
-        SELECT student_id, COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} as pts
+        SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts
         FROM quiz_attempts
         WHERE 1=1 ${useDateFilter ? `AND completed_at >= $1::timestamp AND completed_at < ($2::timestamp + INTERVAL '1 day')` : ''}
         GROUP BY student_id
@@ -14673,7 +14684,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             AND sc.status = 'Completed'
         ),
         quiz_scores AS (
-          SELECT COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} AS points
+          SELECT COALESCE(SUM(qa.points_awarded), 0) AS points
           FROM quiz_attempts qa
           WHERE qa.student_id = $1
         ),
@@ -14760,7 +14771,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           SELECT
             'leaderboard'::text AS score_group,
             'quiz'::text AS score_type,
-            ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE}::int AS points,
+            COALESCE(qa.points_awarded, 0)::int AS points,
             qa.completed_at AS occurred_at,
             'Daily quiz attempted'::text AS title,
             'Quiz date: ' || qa.quiz_date::text || ' • Score: ' || COALESCE(qa.score, 0)::text || '/10' AS detail,
@@ -14877,7 +14888,7 @@ app.get('/api/awards/current', async (req, res) => {
       GROUP BY student_id
     ),
     quiz_pts AS (
-      SELECT student_id, COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} as pts FROM quiz_attempts
+      SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts FROM quiz_attempts
       WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
@@ -14983,7 +14994,7 @@ app.get('/api/awards/by-period', async (req, res) => {
         GROUP BY student_id
       ),
       quiz_pts AS (
-        SELECT student_id, COUNT(*) * ${LEADERBOARD_QUIZ_ATTEMPT_POINT_VALUE} as pts FROM quiz_attempts
+        SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts FROM quiz_attempts
         WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
         GROUP BY student_id
       ),
@@ -15086,6 +15097,7 @@ app.post('/api/admin/resend-award-email', async (req, res) => {
         breakdown = {
           homework: studentScore.homework_score,
           challenges: studentScore.challenge_score,
+          quizzes: studentScore.quiz_score,
           badges: studentScore.badge_score
         };
       }
@@ -16473,44 +16485,49 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       return res.status(400).json({ error: 'Invalid quiz timing data', message: 'Invalid quiz timing data' });
     }
 
-    // Use token question IDs as source of truth for a started quiz.
-    // This avoids false "Quiz not available" when admin edits/deactivates questions mid-day.
-    const questionsToCheck = await pool.query(
+    // Use the archived daily quiz first. Approved AI questions live in
+    // pending_quiz_questions, so their IDs can overlap with quiz_questions IDs.
+    const correctAnswerById = new Map();
+    const dailyQuizResult = await pool.query(
       `
-        SELECT id, correct_answer
-        FROM quiz_questions
-        WHERE id = ANY($1::int[])
+        SELECT beginner_questions, intermediate_questions, advanced_questions
+        FROM daily_quizzes
+        WHERE quiz_date = $1
+        LIMIT 1
       `,
-      [payload.questionIds]
+      [quizDate]
     );
 
-    const correctAnswerById = new Map(
-      questionsToCheck.rows.map(question => [Number(question.id), Number(question.correct_answer)])
-    );
+    if (dailyQuizResult.rows.length > 0) {
+      const quizRow = dailyQuizResult.rows[0];
+      const quizLevelColumn = getQuizLevelColumn(payload.level || 'beginner');
+      const archivedQuestions = Array.isArray(quizRow[quizLevelColumn]) ? quizRow[quizLevelColumn] : [];
+      archivedQuestions.forEach((q) => {
+        const id = Number(q?.id);
+        const correct = Number(q?.correct_answer);
+        if (Number.isInteger(id) && Number.isInteger(correct)) {
+          correctAnswerById.set(id, correct);
+        }
+      });
+    }
 
-    if (correctAnswerById.size !== DAILY_QUIZ_QUESTION_COUNT) {
-      const dailyQuizResult = await pool.query(
+    const missingQuestionIds = payload.questionIds
+      .map(id => Number(id))
+      .filter(id => Number.isInteger(id) && !correctAnswerById.has(id));
+
+    if (missingQuestionIds.length > 0) {
+      const questionsToCheck = await pool.query(
         `
-          SELECT beginner_questions, intermediate_questions, advanced_questions
-          FROM daily_quizzes
-          WHERE quiz_date = $1
-          LIMIT 1
+          SELECT id, correct_answer
+          FROM quiz_questions
+          WHERE id = ANY($1::int[])
         `,
-        [quizDate]
+        [missingQuestionIds]
       );
 
-      if (dailyQuizResult.rows.length > 0) {
-        const quizRow = dailyQuizResult.rows[0];
-        const quizLevelColumn = getQuizLevelColumn(payload.level || 'beginner');
-        const archivedQuestions = Array.isArray(quizRow[quizLevelColumn]) ? quizRow[quizLevelColumn] : [];
-        archivedQuestions.forEach((q) => {
-          const id = Number(q?.id);
-          const correct = Number(q?.correct_answer);
-          if (Number.isInteger(id) && Number.isInteger(correct)) {
-            correctAnswerById.set(id, correct);
-          }
-        });
-      }
+      questionsToCheck.rows.forEach((question) => {
+        correctAnswerById.set(Number(question.id), Number(question.correct_answer));
+      });
     }
 
     if (payload.questionIds.some(id => !correctAnswerById.has(Number(id)))) {
@@ -16858,6 +16875,69 @@ app.get('/api/admin/daily-quiz-usage', async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Copy one day's approved quiz into the next day
+app.post('/api/admin/repeat-daily-quiz', async (req, res) => {
+  try {
+    const { sourceDate, targetDate } = req.body || {};
+    const fromDate = String(sourceDate || '').trim();
+    const toDate = String(targetDate || '').trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(toDate)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+    if (fromDate === toDate) {
+      return res.status(400).json({ error: 'Source date and target date must be different' });
+    }
+
+    const sourceResult = await pool.query(
+      `SELECT beginner_questions, intermediate_questions, advanced_questions
+       FROM daily_quizzes
+       WHERE quiz_date = $1
+       LIMIT 1`,
+      [fromDate]
+    );
+
+    if (sourceResult.rows.length === 0) {
+      return res.status(404).json({ error: `No approved quiz found for ${fromDate}` });
+    }
+
+    const sourceQuiz = sourceResult.rows[0];
+    const copiedLevels = ['beginner', 'intermediate', 'advanced'].filter(level => {
+      const questions = sourceQuiz[`${level}_questions`];
+      return Array.isArray(questions) && questions.length > 0;
+    });
+
+    await pool.query(
+      `
+        INSERT INTO daily_quizzes (quiz_date, beginner_questions, intermediate_questions, advanced_questions)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (quiz_date)
+        DO UPDATE SET
+          beginner_questions = EXCLUDED.beginner_questions,
+          intermediate_questions = EXCLUDED.intermediate_questions,
+          advanced_questions = EXCLUDED.advanced_questions
+      `,
+      [
+        toDate,
+        JSON.stringify(Array.isArray(sourceQuiz.beginner_questions) ? sourceQuiz.beginner_questions : []),
+        JSON.stringify(Array.isArray(sourceQuiz.intermediate_questions) ? sourceQuiz.intermediate_questions : []),
+        JSON.stringify(Array.isArray(sourceQuiz.advanced_questions) ? sourceQuiz.advanced_questions : [])
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: `Copied quiz from ${fromDate} to ${toDate}`,
+      sourceDate: fromDate,
+      targetDate: toDate,
+      copiedLevels
+    });
+  } catch (err) {
+    console.error('Repeat daily quiz error:', err);
     res.status(500).json({ error: err.message });
   }
 });

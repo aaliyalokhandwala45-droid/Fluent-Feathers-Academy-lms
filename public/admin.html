@@ -1652,6 +1652,7 @@
               <label style="font-weight:700; color:#4a5568;">Date</label>
               <input id="quizUsageDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadTodayQuizQuestions(this.value)">
               <button onclick="loadTodayQuizQuestions()" class="btn" style="background:#319795; color:white;">🔄 Load Date</button>
+              <button onclick="repeatQuizToTomorrow()" class="btn" style="background:#dd6b20; color:white;">📅 Repeat To Tomorrow</button>
             </div>
           </div>
           <div id="todayQuizQuestionsList" style="display:grid; gap:20px;">
@@ -14923,6 +14924,13 @@ function getLocalDateString() {
   return new Date(now.getTime() - offsetMs).toISOString().split('T')[0];
 }
 
+function addDaysToDateString(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().split('T')[0];
+}
+
 // Load quiz statistics
 async function loadQuizStats() {
   try {
@@ -15378,6 +15386,39 @@ async function refreshPendingQuestion(questionId, date) {
   } catch (error) {
     console.error('Error refreshing pending question:', error);
     alert('❌ Error refreshing question: ' + error.message);
+  }
+}
+
+async function repeatQuizToTomorrow() {
+  const sourceDate = document.getElementById('quizUsageDate')?.value || getLocalDateString();
+  const targetDate = addDaysToDateString(sourceDate, 1);
+
+  if (!confirm(`Repeat the approved quiz from ${sourceDate} to ${targetDate}? This will replace any quiz already saved for ${targetDate}.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/admin/repeat-daily-quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceDate, targetDate })
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to repeat quiz');
+    }
+
+    alert(`✅ ${result.message}`);
+
+    const pendingDateInput = document.getElementById('pendingQuestionsDate');
+    if (pendingDateInput) pendingDateInput.value = targetDate;
+
+    loadTodayQuizQuestions(sourceDate);
+    loadPendingQuizQuestions(targetDate);
+  } catch (error) {
+    console.error('Error repeating quiz:', error);
+    alert('❌ Error: ' + error.message);
   }
 }
 
