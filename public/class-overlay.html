@@ -548,13 +548,14 @@ function renderList() {
   list.innerHTML = '';
   if (!students.length) { list.innerHTML = '<div class="empty">No students found</div>'; return; }
   students.forEach(function(s) {
+    var safeName = String(s.name || 'Student').trim() || 'Student';
     var card = document.createElement('div');
     card.className = 's-card';
     card.id = 'card-' + s.id;
     var bc = s.badgeCount || 0;
     card.innerHTML =
-      '<div class="av">' + esc(s.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div class="s-name" title="' + esc(s.name) + '">' + esc(s.name.split(' ')[0]) + '</div>' +
+      '<div class="av">' + esc(safeName.charAt(0).toUpperCase()) + '</div>' +
+      '<div class="s-name" title="' + esc(safeName) + '">' + esc(safeName.split(/\s+/)[0]) + '</div>' +
       '<div class="badge-wrap" id="bwrap-' + s.id + '">' +
         '<button class="badge-count-btn" id="bcnt-' + s.id + '" onclick="toggleBadgeMenu(' + s.id + ', event)" title="Award a badge">🏅 ' + bc + ' ▾</button>' +
         '<div class="badge-menu" id="bmenu-' + s.id + '">' + buildBadgeMenuHTML(s.id) + '</div>' +
@@ -717,12 +718,13 @@ function _renderPiP() {
     if (!body) return;
     body.innerHTML = '';
     students.forEach(function(s) {
+      var safeName = String(s.name || 'Student').trim() || 'Student';
       var d = _pipWin.document.createElement('div');
       d.className = 'sc';
       d.id = 'pip-card-' + s.id;
       d.innerHTML =
-        '<div class="av">' + s.name.charAt(0).toUpperCase() + '</div>' +
-        '<div class="sn" title="' + s.name + '">' + s.name.split(' ')[0] + '</div>' +
+        '<div class="av">' + safeName.charAt(0).toUpperCase() + '</div>' +
+        '<div class="sn" title="' + safeName + '">' + safeName.split(/\s+/)[0] + '</div>' +
         '<div class="sp" id="pip-pts-' + s.id + '">' + s.points + '</div>' +
         '<div class="br">' +
           '<button class="pb p1" onclick="_pipGive(' + s.id + ',1)">+1</button>' +
@@ -862,12 +864,13 @@ function _renderZoomCards() {
   if (!container) return;
   container.innerHTML = '';
   students.forEach(function(s) {
+    var safeName = String(s.name || 'Student').trim() || 'Student';
     var card = document.createElement('div');
     card.className = 'zo-card';
     card.id = 'zo-card-' + s.id;
     card.innerHTML =
-      '<div class="zo-av">' + esc(s.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div class="zo-name" title="' + esc(s.name) + '">' + esc(s.name.split(' ')[0]) + '</div>' +
+      '<div class="zo-av">' + esc(safeName.charAt(0).toUpperCase()) + '</div>' +
+      '<div class="zo-name" title="' + esc(safeName) + '">' + esc(safeName.split(/\s+/)[0]) + '</div>' +
       '<div class="zo-pts" id="zo-pts-' + s.id + '">' + s.points + '</div>' +
       '<div class="zo-btns">' +
         '<button class="pb p1" onclick="give(' + s.id + ',1)">+1</button>' +

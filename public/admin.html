@@ -7926,7 +7926,12 @@ if (dueEl) {
 
         let content = `<h3>Currently Enrolled (${enrolledStudents.length}/${group.max_students})</h3>`;
         if (enrolledStudents.length > 0) {
-          content += `<ul style="list-style: none; padding: 0;">` + enrolledStudents.map(s => `<li style="padding: 10px; background: #f7fafc; margin-bottom: 5px; border-radius: 5px;">👤 ${s.name} (${getAgeDisplay(s)})</li>`).join('') + `</ul>`;
+          content += `<div style="display: grid; gap: 8px;">` + enrolledStudents.map(s => `
+            <div style="padding: 10px; background: #f7fafc; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+              <span>👤 ${s.name} (${getAgeDisplay(s)})</span>
+              <button onclick="removeStudentFromGroup(${groupId}, ${s.id})" class="btn btn-sm btn-danger">Remove</button>
+            </div>
+          `).join('') + `</div>`;
         } else {
           content += `<p style="color: #718096;">No students enrolled yet</p>`;
         }
@@ -7965,6 +7970,27 @@ if (dueEl) {
           openEnrollModal(groupId);
         } else {
           alert('❌ ' + result.error);
+        }
+      } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    async function removeStudentFromGroup(groupId, studentId) {
+      if (!confirm('Remove this child from the group?')) return;
+
+      try {
+        const res = await fetch(`/api/groups/${groupId}/students/${studentId}`, {
+          method: 'DELETE'
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          await loadStudents();
+          await loadGroups();
+          openEnrollModal(groupId);
+        } else {
+          alert('❌ ' + (result.error || 'Failed to remove student'));
         }
       } catch(err) {
         alert('❌ Error: ' + err.message);

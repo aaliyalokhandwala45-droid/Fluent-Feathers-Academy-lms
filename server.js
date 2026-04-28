@@ -9628,6 +9628,53 @@ app.post('/api/groups/:groupId/enroll', async (req, res) => {
   }
 });
 
+app.delete('/api/groups/:groupId/students/:studentId', async (req, res) => {
+  const groupId = req.params.groupId;
+  const studentId = req.params.studentId;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const group = await client.query('SELECT id, group_name FROM groups WHERE id = $1 FOR UPDATE', [groupId]);
+    if (group.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    const student = await client.query(
+      'SELECT id, name, group_id FROM students WHERE id = $1 FOR UPDATE',
+      [studentId]
+    );
+    if (student.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (String(student.rows[0].group_id || '') !== String(groupId)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Student is not enrolled in this group' });
+    }
+
+    await client.query(
+      'UPDATE students SET group_id = NULL, group_name = NULL WHERE id = $1',
+      [studentId]
+    );
+    await client.query(
+      'UPDATE groups SET current_students = GREATEST(current_students - 1, 0) WHERE id = $1',
+      [groupId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: `${student.rows[0].name} removed from ${group.rows[0].group_name}` });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // Get students in a group
 app.get('/api/groups/:groupId/students', async (req, res) => {
   try {
@@ -19864,7 +19911,7 @@ app.get('/api/live-points/today-sessions', async (req, res) => {
 app.get('/api/live-points/group/:groupId/students', async (req, res) => {
   try {
     const result = await executeQuery(
-      `SELECT id, name FROM students WHERE group_id = $1 AND is_active = true ORDER BY name ASC`,
+      `SELECT id, TRIM(name) AS name FROM students WHERE group_id = $1 AND is_active = true ORDER BY TRIM(name) ASC`,
       [req.params.groupId]
     );
     res.json(result.rows);
@@ -19877,7 +19924,7 @@ app.get('/api/live-points/group/:groupId/students', async (req, res) => {
 app.get('/api/live-points/all-students', async (req, res) => {
   try {
     const result = await executeQuery(
-      `SELECT id, name, class_type, group_name FROM students WHERE is_active = true ORDER BY name ASC`
+      `SELECT id, TRIM(name) AS name, class_type, group_name FROM students WHERE is_active = true ORDER BY TRIM(name) ASC`
     );
     res.json(result.rows);
   } catch (err) {

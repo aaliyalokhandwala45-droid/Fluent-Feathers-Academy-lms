@@ -619,14 +619,15 @@ function renderList() {
   list.innerHTML = '';
   if (!students.length) { list.innerHTML = '<div class="empty">No students found</div>'; return; }
   students.forEach(function(s) {
+    var safeName = String(s.name || 'Student').trim() || 'Student';
     var card = document.createElement('div');
     card.className = 's-card';
     card.id = 'card-' + s.id;
     var badgeCount = (s.badges && s.badges.length) ? s.badges.length : 0;
     var cntStyle = badgeCount > 0 ? '' : 'display:none;';
     card.innerHTML =
-      '<div class="av">' + esc(s.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div class="s-name" title="' + esc(s.name) + '">' + esc(s.name.split(' ')[0]) + '</div>' +
+      '<div class="av">' + esc(safeName.charAt(0).toUpperCase()) + '</div>' +
+      '<div class="s-name" title="' + esc(safeName) + '">' + esc(safeName.split(/\s+/)[0]) + '</div>' +
       '<div class="badge-wrap">' +
         '<button class="badge-count-btn" id="bcnt-' + s.id + '" onclick="toggleBadgeMenu(' + s.id + ',event)" title="Award a badge">🏅 ' + badgeCount + ' ▾</button>' +
         '<div class="badge-menu" id="bmenu-' + s.id + '">' + buildBadgeMenuHTML(s.id) + '</div>' +
