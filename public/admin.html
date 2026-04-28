@@ -5996,6 +5996,7 @@ if (dueEl) {
             <td>${gradeDisplay}${feedbackDisplay}${approvalDisplay}${buildIntegrityMiniBadge(hw)}</td>
             <td>
               <button onclick="openGradeHomeworkModal(${hw.id})" class="btn btn-sm btn-primary">Grade</button>
+              ${hw.comment_only_submission && !hw.homework_points_approved ? `<button onclick="approveHomeworkPoints(${hw.id})" class="btn btn-sm" style="background:#38a169;color:white;">Approve Points</button>` : ''}
               ${(isImage || isPdf) && fileUrl ? `<button onclick="openAnnotationEditor(${hw.id}, decodeURIComponent('${encodeURIComponent(fileUrl)}'), '${isPdf ? 'pdf' : 'image'}', decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'))" class="btn btn-sm" style="background:#e53e3e;color:white;">✏️ Annotate</button>` : ''}
               ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Corrected - ${hw.file_name || 'File'}')" class="btn btn-sm" style="background:#f59e0b;color:white;">📝 View Corrected</button>` : ''}
               ${previewBtn}
@@ -6070,6 +6071,49 @@ if (dueEl) {
       currentHwIntegrity = null;
       renderHwIntegrityPanel(null);
       document.getElementById('hwFeedbackModal').style.display = 'none';
+    }
+
+    async function approveHomeworkPoints(homeworkId) {
+      const hw = homeworkSubmissionCache[homeworkId];
+      if (!hw) {
+        alert('Could not load submission details. Please refresh and try again.');
+        return;
+      }
+
+      const existingGrade = String(hw.feedback_grade || '').trim();
+      const existingComments = String(hw.feedback_comments || '').trim();
+
+      if (!existingGrade || !existingComments) {
+        openGradeHomeworkModal(homeworkId);
+        const approvalInput = document.getElementById('hwApproveCommentPoints');
+        if (approvalInput) approvalInput.checked = true;
+        alert('Add the grade and feedback, then click Save Grade & Feedback to approve the homework points.');
+        return;
+      }
+
+      if (!confirm('Approve homework points for this comment/link submission?')) return;
+
+      try {
+        const res = await fetch(`/api/materials/${homeworkId}/grade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grade: existingGrade,
+            comments: existingComments,
+            approve_homework_points: true
+          })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ Homework points approved.');
+          loadHomeworkSubmissions();
+        } else {
+          alert('❌ ' + (result.error || 'Failed to approve homework points'));
+        }
+      } catch (err) {
+        console.error('Error approving homework points:', err);
+        alert('❌ Error approving homework points');
+      }
     }
 
     async function analyzeHwIntegrity() {
@@ -11309,7 +11353,7 @@ async function saveEditedPayment() {
       }
     }
 
-    async function gradeHomework(materialId, gradeParam, commentsParam) {
+    async function gradeHomework(materialId, gradeParam, commentsParam, approveHomeworkPoints = false) {
       // If grade and comments are passed, use them; otherwise prompt
       let grade = gradeParam;
       let comments = commentsParam;
@@ -11324,7 +11368,7 @@ async function saveEditedPayment() {
         const res = await fetch(`/api/materials/${materialId}/grade`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ grade, comments })
+          body: JSON.stringify({ grade, comments, approve_homework_points: approveHomeworkPoints })
         });
         const result = await res.json();
         if(res.ok) {
