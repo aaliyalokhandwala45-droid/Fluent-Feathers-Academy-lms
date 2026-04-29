@@ -17641,7 +17641,11 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     );
 
     console.log(`🤖 Starting AI generation for ${date}...`);
-    const generated = await generatePendingQuizQuestions(date, levelsToGenerate, { targetCountByLevel });
+    const generated = await generatePendingQuizQuestions(date, levelsToGenerate, {
+      targetCountByLevel,
+      allowQuestionBankFallback: true,
+      allowLocalFallback: true
+    });
 
     if (generated === 0) {
       console.error('❌ No questions were generated!');

@@ -15161,6 +15161,16 @@ function refreshQuizAdminData() {
 }
 
 // Generate AI-based quiz questions
+async function readApiResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { error: text };
+  }
+}
+
 async function generateAIQuiz() {
   const dateInput = document.getElementById('pendingQuestionsDate');
   const date = dateInput?.value || getLocalDateString();
@@ -15177,13 +15187,12 @@ async function generateAIQuiz() {
       body: JSON.stringify({ quizDate: date })
     });
 
+    const result = await readApiResponse(response);
     if (response.ok) {
-      const result = await response.json();
       alert(`✅ ${result.message}`);
       loadPendingQuizQuestions(date);
     } else {
-      const error = await response.json();
-      alert('❌ Error: ' + (error.error || 'Failed to generate AI quiz'));
+      alert('❌ Error: ' + (result.error || 'Failed to generate AI quiz'));
     }
   } catch (error) {
     console.error('Error generating AI quiz:', error);
@@ -15198,7 +15207,7 @@ async function loadPendingQuizQuestions(date) {
     const selectedDate = date || dateInput?.value || getLocalDateString();
     if (dateInput) dateInput.value = selectedDate;
     const response = await fetch(`/api/admin/pending-quiz-questions?quizDate=${selectedDate}`);
-    const grouped = await response.json();
+    const grouped = await readApiResponse(response);
     if (!response.ok) {
       throw new Error(grouped.error || 'Failed to load pending questions');
     }
