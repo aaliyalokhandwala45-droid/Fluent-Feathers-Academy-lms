@@ -15047,14 +15047,31 @@ async function loadQuizAttempts(date) {
         minute: '2-digit'
       });
       const scorePercent = Math.round((attempt.score / 10) * 100);
+      const reviewHtml = Array.isArray(attempt.review) && attempt.review.length > 0
+        ? `<details style="grid-column:1 / -1; margin-top:8px;">
+            <summary style="cursor:pointer; font-weight:700; color:#805ad5;">View question-by-question result</summary>
+            <div style="display:grid; gap:10px; margin-top:12px;">
+              ${attempt.review.map(item => `
+                <div style="background:${item.is_correct ? '#f0fff4' : '#fff5f5'}; border:1px solid ${item.is_correct ? '#9ae6b4' : '#feb2b2'}; border-radius:10px; padding:12px;">
+                  <div style="font-weight:700; color:#2d3748; margin-bottom:6px;">Q${item.question_number}. ${escapeHtml(item.question_text || '')}</div>
+                  <div style="font-weight:700; color:${item.is_correct ? '#2f855a' : '#c53030'}; margin-bottom:6px;">${item.is_correct ? 'Correct' : 'Wrong'}</div>
+                  <div style="color:#4a5568; font-size:0.9rem;">Student answer: <strong>${item.selected_answer >= 0 ? String.fromCharCode(65 + item.selected_answer) : 'Not answered'}</strong>${item.selected_option ? ` - ${escapeHtml(item.selected_option)}` : ''}</div>
+                  <div style="color:#4a5568; font-size:0.9rem;">Correct answer: <strong>${item.correct_answer >= 0 ? String.fromCharCode(65 + item.correct_answer) : 'N/A'}</strong>${item.correct_option ? ` - ${escapeHtml(item.correct_option)}` : ''}</div>
+                  ${item.explanation ? `<div style="color:#718096; font-size:0.85rem; margin-top:6px;">${escapeHtml(item.explanation)}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </details>`
+        : '';
       return `
         <div style="background:#f7fafc;border-radius:12px;padding:16px;border:1px solid #e2e8f0;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;">
           <div>
-            <div style="font-weight:700;color:#2d3748;">${attempt.student_name}</div>
+            <div style="font-weight:700;color:#2d3748;">${escapeHtml(attempt.student_name)}</div>
             <div style="color:#718096;font-size:0.95rem;">Level: ${attempt.level} · Score: ${attempt.score}/10 (${scorePercent}%)</div>
             <div style="color:#4a5568;font-size:0.85rem;">Points: +${attempt.points_awarded} · Time taken: ${Math.floor((attempt.time_spent || 0)/60)}:${String((attempt.time_spent || 0) % 60).padStart(2,'0')}</div>
           </div>
           <div style="text-align:right;color:#718096;font-size:0.9rem;">${submittedLabel}</div>
+          ${reviewHtml}
         </div>
       `;
     }).join('');

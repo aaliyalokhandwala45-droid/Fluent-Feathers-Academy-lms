@@ -7855,6 +7855,18 @@ function parseStoredQuizAnswers(rawAnswers) {
   return [];
 }
 
+function formatQuizDateValue(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().split('T')[0];
+  }
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10);
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().split('T')[0];
+}
+
 async function loadQuizAnswerKeysByQuestionIds(questionIds, db = pool) {
   const normalizedIds = Array.from(
     new Set(
@@ -7913,7 +7925,7 @@ async function repairHistoricalQuizAttempts(db = pool, options = {}) {
   };
 
   for (const attempt of attemptsResult.rows) {
-    const quizDate = String(attempt.quiz_date || '').split('T')[0];
+    const quizDate = formatQuizDateValue(attempt.quiz_date);
     const level = normalizeStudentQuizLevel(attempt.level);
     const cacheKey = `${quizDate}:${level}`;
 
@@ -8012,8 +8024,9 @@ async function repairHistoricalQuizAttempts(db = pool, options = {}) {
   return summary;
 }
 
-async function getHistoricalQuizQuestionTexts(level, quizDate = null, db = pool) {
+async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db = pool) {
   const seen = new Set();
+  const normalizedLevel = level ? normalizeStudentQuizLevel(level) : null;
 
   const dailyResult = await db.query(
     `SELECT beginner_questions, intermediate_questions, advanced_questions
@@ -8025,7 +8038,10 @@ async function getHistoricalQuizQuestionTexts(level, quizDate = null, db = pool)
   );
 
   for (const row of dailyResult.rows) {
-    const questions = Array.isArray(row[getQuizLevelColumn(level)]) ? row[getQuizLevelColumn(level)] : [];
+    const columns = normalizedLevel
+      ? [getQuizLevelColumn(normalizedLevel)]
+      : ['beginner_questions', 'intermediate_questions', 'advanced_questions'];
+    const questions = columns.flatMap(column => Array.isArray(row[column]) ? row[column] : []);
     for (const question of questions) {
       const normalized = normalizeQuizQuestionText(question?.question_text);
       if (normalized) seen.add(normalized);
@@ -8035,10 +8051,10 @@ async function getHistoricalQuizQuestionTexts(level, quizDate = null, db = pool)
   const pendingResult = await db.query(
     `SELECT question_text
      FROM pending_quiz_questions
-     WHERE level = $1
+     WHERE ($1::text IS NULL OR level = $1)
        ${quizDate ? 'AND quiz_date <= $2' : ''}
        AND status IN ('pending', 'approved')`,
-    quizDate ? [level, quizDate] : [level]
+    quizDate ? [normalizedLevel, quizDate] : [normalizedLevel]
   );
 
   for (const row of pendingResult.rows) {
@@ -8049,10 +8065,10 @@ async function getHistoricalQuizQuestionTexts(level, quizDate = null, db = pool)
   const bankResult = await db.query(
     `SELECT question_text
      FROM quiz_questions
-     WHERE level = $1
+     WHERE ($1::text IS NULL OR level = $1)
        AND is_active = true
        AND LOWER(category) = ANY($2::text[])`,
-    [level, QUIZ_EXCLUDED_CATEGORIES]
+    [normalizedLevel, QUIZ_EXCLUDED_CATEGORIES]
   );
 
   for (const row of bankResult.rows) {
@@ -8061,6 +8077,87 @@ async function getHistoricalQuizQuestionTexts(level, quizDate = null, db = pool)
   }
 
   return seen;
+}
+
+async function loadQuizQuestionDetailsByIds(questionIds, db = pool) {
+  const normalizedIds = Array.from(new Set(
+    (Array.isArray(questionIds) ? questionIds : [])
+      .map(id => Number(id))
+      .filter(id => Number.isInteger(id) && id > 0)
+  ));
+  const questionById = new Map();
+  if (normalizedIds.length === 0) return questionById;
+
+  const pendingResult = await db.query(
+    `SELECT id, question_text, options, correct_answer, category, explanation
+     FROM pending_quiz_questions
+     WHERE id = ANY($1::int[])`,
+    [normalizedIds]
+  );
+  pendingResult.rows.forEach(row => questionById.set(Number(row.id), row));
+
+  const unresolvedIds = normalizedIds.filter(id => !questionById.has(id));
+  if (unresolvedIds.length > 0) {
+    const bankResult = await db.query(
+      `SELECT id, question_text, options, correct_answer, category, explanation
+       FROM quiz_questions
+       WHERE id = ANY($1::int[])`,
+      [unresolvedIds]
+    );
+    bankResult.rows.forEach(row => questionById.set(Number(row.id), row));
+  }
+
+  return questionById;
+}
+
+async function buildQuizAttemptReview(attempt, db = pool) {
+  if (!attempt) return [];
+
+  const quizDate = formatQuizDateValue(attempt.quiz_date);
+  const level = normalizeStudentQuizLevel(attempt.level);
+  const answers = parseStoredQuizAnswers(attempt.answers);
+  const quizResult = await db.query(
+    `SELECT beginner_questions, intermediate_questions, advanced_questions
+     FROM daily_quizzes
+     WHERE quiz_date = $1
+     LIMIT 1`,
+    [quizDate]
+  );
+
+  let questions = [];
+  if (quizResult.rows.length > 0) {
+    const quizRow = quizResult.rows[0];
+    questions = Array.isArray(quizRow[getQuizLevelColumn(level)])
+      ? quizRow[getQuizLevelColumn(level)]
+      : [];
+  }
+
+  if (questions.length < DAILY_QUIZ_QUESTION_COUNT) {
+    const knownIds = new Set(questions.map(q => Number(q?.id)).filter(id => Number.isInteger(id)));
+    const fallbackIds = questions.map(q => Number(q?.id)).filter(id => Number.isInteger(id));
+    const detailById = await loadQuizQuestionDetailsByIds(fallbackIds, db);
+    questions = questions.map(q => detailById.get(Number(q?.id)) || q);
+    if (knownIds.size === 0) return [];
+  }
+
+  return questions.slice(0, DAILY_QUIZ_QUESTION_COUNT).map((question, index) => {
+    const options = Array.isArray(question.options) ? question.options : [];
+    const selectedAnswer = Number.isInteger(Number(answers[index])) ? Number(answers[index]) : -1;
+    const correctAnswer = Number.isInteger(Number(question.correct_answer)) ? Number(question.correct_answer) : -1;
+    return {
+      question_number: index + 1,
+      question_id: Number(question.id),
+      question_text: question.question_text || '',
+      options,
+      selected_answer: selectedAnswer,
+      selected_option: selectedAnswer >= 0 ? (options[selectedAnswer] || null) : null,
+      correct_answer: correctAnswer,
+      correct_option: correctAnswer >= 0 ? (options[correctAnswer] || null) : null,
+      is_correct: selectedAnswer === correctAnswer,
+      explanation: question.explanation || '',
+      category: question.category || ''
+    };
+  });
 }
 
 function getAuthenticatedQuizStudentId(req) {
@@ -8256,7 +8353,7 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   };
 
   const preferredCategories = QUIZ_AI_CATEGORY_GUIDANCE[level] || QUIZ_ALLOWED_CATEGORIES;
-  const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate);
+  const historicalTexts = await getHistoricalQuizQuestionTexts(null, quizDate);
   for (const text of excludeTexts) {
     const normalized = normalizeQuizQuestionText(text);
     if (normalized) historicalTexts.add(normalized);
@@ -8307,7 +8404,7 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 6000
       },
       {
         headers: {
@@ -8376,7 +8473,7 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
   if (!count || count <= 0) return [];
 
   const { quizDate = null, excludeTexts = new Set() } = options;
-  const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate);
+  const historicalTexts = await getHistoricalQuizQuestionTexts(null, quizDate);
   for (const text of excludeTexts) {
     const normalized = normalizeQuizQuestionText(text);
     if (normalized) historicalTexts.add(normalized);
@@ -8434,19 +8531,37 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
 }
 
 // Generate and store pending quiz questions for approval
-async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['beginner', 'intermediate', 'advanced']) {
+async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['beginner', 'intermediate', 'advanced'], options = {}) {
   const levels = Array.isArray(levelsToGenerate) && levelsToGenerate.length > 0
     ? levelsToGenerate
     : ['beginner', 'intermediate', 'advanced'];
+  const targetCountByLevel = options.targetCountByLevel || {};
   let totalGenerated = 0;
 
   for (const level of levels) {
     try {
+      const existingResult = await pool.query(
+        `SELECT question_text
+         FROM pending_quiz_questions
+         WHERE quiz_date = $1 AND level = $2 AND status IN ('pending', 'approved')
+         ORDER BY id`,
+        [quizDate, level]
+      );
+      const existingCount = existingResult.rows.length;
+      const neededCount = Number.isInteger(targetCountByLevel[level])
+        ? Math.max(0, targetCountByLevel[level])
+        : Math.max(0, DAILY_QUIZ_QUESTION_COUNT - existingCount);
+
+      if (neededCount === 0) {
+        console.log(`Daily quiz pending queue already has ${existingCount} ${level} questions for ${quizDate}`);
+        continue;
+      }
+
       console.log(`⏳ Generating AI questions for ${level} level...`);
       const aiQuestions = [];
-      const localSeen = new Set();
-      for (let attempt = 0; attempt < 3 && aiQuestions.length < 10; attempt++) {
-        const batch = await generateQuizQuestionsWithAI(level, 10 - aiQuestions.length, {
+      const localSeen = new Set(existingResult.rows.map(row => normalizeQuizQuestionText(row.question_text)).filter(Boolean));
+      for (let attempt = 0; attempt < 4 && aiQuestions.length < neededCount; attempt++) {
+        const batch = await generateQuizQuestionsWithAI(level, neededCount - aiQuestions.length, {
           quizDate,
           excludeTexts: localSeen
         });
@@ -8455,12 +8570,12 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           if (!normalized || localSeen.has(normalized)) continue;
           localSeen.add(normalized);
           aiQuestions.push(question);
-          if (aiQuestions.length >= 10) break;
+          if (aiQuestions.length >= neededCount) break;
         }
       }
 
-      if (aiQuestions.length < 10) {
-        const fallbackQuestions = await getFallbackPendingQuizQuestions(level, 10 - aiQuestions.length, {
+      if (aiQuestions.length < neededCount) {
+        const fallbackQuestions = await getFallbackPendingQuizQuestions(level, neededCount - aiQuestions.length, {
           quizDate,
           excludeTexts: localSeen
         });
@@ -8469,7 +8584,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           if (!normalized || localSeen.has(normalized)) continue;
           localSeen.add(normalized);
           aiQuestions.push(question);
-          if (aiQuestions.length >= 10) break;
+          if (aiQuestions.length >= neededCount) break;
         }
       }
 
@@ -16574,12 +16689,14 @@ app.get('/api/daily-quiz/status', async (req, res) => {
     const attempts = await pool.query(
       `
         SELECT
+          quiz_date,
           score,
           10 AS total_questions,
           points_awarded AS points_earned,
           completed_at AS created_at,
           time_taken_seconds AS time_spent,
-          level
+          level,
+          answers
         FROM quiz_attempts
         WHERE student_id = $1
         ORDER BY completed_at DESC
@@ -16601,6 +16718,8 @@ app.get('/api/daily-quiz/status', async (req, res) => {
       }
     }
 
+    const attemptReview = lastAttempt ? await buildQuizAttemptReview(lastAttempt) : [];
+
     res.json({
       canTakeQuiz,
       lastAttempt: lastAttempt ? {
@@ -16610,7 +16729,8 @@ app.get('/api/daily-quiz/status', async (req, res) => {
         created_at: lastAttempt.created_at,
         time_spent: lastAttempt.time_spent,
         level: lastAttempt.level,
-        perfect_score: Number(lastAttempt.score) === DAILY_QUIZ_QUESTION_COUNT
+        perfect_score: Number(lastAttempt.score) === DAILY_QUIZ_QUESTION_COUNT,
+        review: attemptReview
       } : null,
       nextQuizTime: nextQuizTime ? nextQuizTime.toISOString() : null,
       maxDurationSeconds: DAILY_QUIZ_DURATION_SECONDS,
@@ -16796,6 +16916,46 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       });
     }
 
+    const questionDetailsById = new Map();
+    if (dailyQuizResult.rows.length > 0) {
+      const quizRow = dailyQuizResult.rows[0];
+      const quizLevelColumn = getQuizLevelColumn(payload.level || 'beginner');
+      const archivedQuestions = Array.isArray(quizRow[quizLevelColumn]) ? quizRow[quizLevelColumn] : [];
+      archivedQuestions.forEach((q) => {
+        const id = Number(q?.id);
+        if (Number.isInteger(id)) questionDetailsById.set(id, q);
+      });
+    }
+    const missingDetailIds = payload.questionIds
+      .map(id => Number(id))
+      .filter(id => Number.isInteger(id) && !questionDetailsById.has(id));
+    if (missingDetailIds.length > 0) {
+      const fallbackDetails = await loadQuizQuestionDetailsByIds(missingDetailIds, pool);
+      fallbackDetails.forEach((question, questionId) => {
+        questionDetailsById.set(Number(questionId), question);
+      });
+    }
+
+    const review = payload.questionIds.map((questionId, index) => {
+      const question = questionDetailsById.get(Number(questionId)) || {};
+      const options = Array.isArray(question.options) ? question.options : [];
+      const selectedAnswer = normalizedAnswers[index];
+      const correctAnswer = correctAnswerById.get(Number(questionId));
+      return {
+        question_number: index + 1,
+        question_id: Number(questionId),
+        question_text: question.question_text || '',
+        options,
+        selected_answer: selectedAnswer,
+        selected_option: selectedAnswer >= 0 ? (options[selectedAnswer] || null) : null,
+        correct_answer: Number.isInteger(correctAnswer) ? correctAnswer : -1,
+        correct_option: Number.isInteger(correctAnswer) ? (options[correctAnswer] || null) : null,
+        is_correct: selectedAnswer === correctAnswer,
+        explanation: question.explanation || '',
+        category: question.category || ''
+      };
+    });
+
     // Calculate score
     let correctAnswers = 0;
     normalizedAnswers.forEach((answer, index) => {
@@ -16843,6 +17003,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       badge_name: perfectScore ? DAILY_QUIZ_BADGE_NAME : null,
       perfect_score: perfectScore,
       time_spent: elapsedSeconds,
+      review,
       message: perfectScore
         ? `Perfect score! You earned ${pointsEarned} points and unlocked ${DAILY_QUIZ_BADGE_NAME}.`
         : `Great job! You scored ${correctAnswers}/10 and earned ${pointsEarned} points!`
@@ -16863,19 +17024,30 @@ app.get('/api/daily-quiz/history', async (req, res) => {
 
     const result = await pool.query(`
       SELECT
+        id,
+        quiz_date,
         score,
         10 AS total_questions,
         points_awarded AS points_earned,
         time_taken_seconds AS time_spent,
         completed_at AS created_at,
-        level
+        level,
+        answers
       FROM quiz_attempts
       WHERE student_id = $1
       ORDER BY completed_at DESC
       LIMIT 30
     `, [studentId]);
 
-    res.json(result.rows);
+    const rows = [];
+    for (const row of result.rows) {
+      rows.push({
+        ...row,
+        review: await buildQuizAttemptReview(row)
+      });
+    }
+
+    res.json(rows);
   } catch (err) {
     console.error('Quiz history error:', err);
     res.status(500).json({ error: err.message });
@@ -17099,7 +17271,9 @@ app.get('/api/admin/quiz-attempts', async (req, res) => {
         qa.id,
         qa.student_id,
         COALESCE(s.name, 'Unknown student') AS student_name,
+        qa.quiz_date,
         qa.level,
+        qa.answers,
         qa.score,
         qa.points_awarded,
         qa.time_taken_seconds AS time_spent,
@@ -17109,7 +17283,14 @@ app.get('/api/admin/quiz-attempts', async (req, res) => {
       WHERE qa.quiz_date = $1
       ORDER BY qa.completed_at DESC
     `, [date]);
-    res.json(result.rows);
+    const rows = [];
+    for (const row of result.rows) {
+      rows.push({
+        ...row,
+        review: await buildQuizAttemptReview(row)
+      });
+    }
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -17240,15 +17421,18 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     );
 
     const quizLevels = ['beginner', 'intermediate', 'advanced'];
+    const targetCountByLevel = {};
     const levelsToGenerate = quizLevels.filter(level => {
       const activeCount = existingCheck.rows
         .filter(row => row.level === level && ['pending', 'approved'].includes(row.status))
         .reduce((sum, row) => sum + row.count, 0);
-      return activeCount === 0;
+      const remaining = DAILY_QUIZ_QUESTION_COUNT - activeCount;
+      targetCountByLevel[level] = Math.max(0, remaining);
+      return remaining > 0;
     });
 
     if (levelsToGenerate.length === 0) {
-      return res.status(400).json({ error: `Questions for ${date} already exist in pending queue` });
+      return res.status(400).json({ error: `Questions for ${date} already have 10 active questions per level in the pending queue` });
     }
 
     await pool.query(
@@ -17257,7 +17441,7 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     );
 
     console.log(`🤖 Starting AI generation for ${date}...`);
-    const generated = await generatePendingQuizQuestions(date, levelsToGenerate);
+    const generated = await generatePendingQuizQuestions(date, levelsToGenerate, { targetCountByLevel });
 
     if (generated === 0) {
       console.error('❌ No questions were generated!');
@@ -17533,14 +17717,15 @@ app.post('/api/admin/approve-quiz-questions', async (req, res) => {
       return res.status(400).json({ error: 'Invalid level' });
     }
 
-    // Get all pending questions for this date (optionally scoped to one level)
+    // Get all active questions for this date (optionally scoped to one level).
+    // This allows a previously partial approved set to be topped up and approved.
     const pendingResult = await pool.query(
-      `SELECT * FROM pending_quiz_questions WHERE quiz_date = $1 AND status = 'pending' ${level ? 'AND level = $2' : ''}`,
+      `SELECT * FROM pending_quiz_questions WHERE quiz_date = $1 AND status IN ('pending', 'approved') ${level ? 'AND level = $2' : ''}`,
       level ? [date, level] : [date]
     );
 
     if (pendingResult.rows.length === 0) {
-      return res.status(404).json({ error: 'No pending questions to approve' });
+      return res.status(404).json({ error: 'No active questions to approve' });
     }
 
     // Group by level and ensure we have 10 questions per level
@@ -17551,6 +17736,10 @@ app.post('/api/admin/approve-quiz-questions', async (req, res) => {
     for (const level of levels) {
       const levelQuestions = pendingResult.rows
         .filter(q => q.level === level)
+        .sort((a, b) => {
+          if (a.status === b.status) return Number(a.id) - Number(b.id);
+          return a.status === 'approved' ? -1 : 1;
+        })
         .slice(0, 10)
         .map(q => ({
           id: q.id,
