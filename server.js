@@ -8358,7 +8358,7 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     const normalized = normalizeQuizQuestionText(text);
     if (normalized) historicalTexts.add(normalized);
   }
-  const bannedExamples = Array.from(historicalTexts).slice(0, 120);
+  const bannedExamples = Array.from(historicalTexts).slice(0, 35);
 
   const prompt = `You are an English teacher creating a daily quiz. Generate exactly ${count} multiple-choice English quiz questions for ${level} level students.
 
@@ -8404,7 +8404,7 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
           }
         ],
         temperature: 0.7,
-        max_tokens: 6000
+        max_tokens: Math.min(3500, Math.max(1200, count * 450 + 500))
       },
       {
         headers: {
@@ -8560,8 +8560,9 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       console.log(`⏳ Generating AI questions for ${level} level...`);
       const aiQuestions = [];
       const localSeen = new Set(existingResult.rows.map(row => normalizeQuizQuestionText(row.question_text)).filter(Boolean));
-      for (let attempt = 0; attempt < 4 && aiQuestions.length < neededCount; attempt++) {
-        const batch = await generateQuizQuestionsWithAI(level, neededCount - aiQuestions.length, {
+      for (let attempt = 0; attempt < 5 && aiQuestions.length < neededCount; attempt++) {
+        const requestCount = Math.min(3, neededCount - aiQuestions.length);
+        const batch = await generateQuizQuestionsWithAI(level, requestCount, {
           quizDate,
           excludeTexts: localSeen
         });
