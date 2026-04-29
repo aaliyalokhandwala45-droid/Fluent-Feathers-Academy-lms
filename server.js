@@ -7835,7 +7835,44 @@ const QUIZ_AI_CATEGORY_GUIDANCE = {
 };
 
 function normalizeQuizQuestionText(text) {
-  return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getQuizQuestionSimilarityKey(text) {
+  return normalizeQuizQuestionText(text)
+    .replace(/\b(a|an|the|is|are|was|were|do|does|did|to|of|in|on|for|with|and|or|this|that|these|those|choose|select|correct|best|answer|option)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isQuizQuestionTooSimilar(questionText, existingTexts) {
+  const key = getQuizQuestionSimilarityKey(questionText);
+  if (!key) return true;
+  if (existingTexts.has(normalizeQuizQuestionText(questionText)) || existingTexts.has(key)) return true;
+
+  const words = new Set(key.split(' ').filter(word => word.length > 2));
+  if (words.size < 4) return false;
+
+  for (const existing of existingTexts) {
+    const existingKey = getQuizQuestionSimilarityKey(existing);
+    if (!existingKey) continue;
+    if (existingKey.includes(key) || key.includes(existingKey)) return true;
+
+    const existingWords = new Set(existingKey.split(' ').filter(word => word.length > 2));
+    if (existingWords.size < 4) continue;
+    let overlap = 0;
+    for (const word of words) {
+      if (existingWords.has(word)) overlap++;
+    }
+    const similarity = overlap / Math.max(words.size, existingWords.size);
+    if (similarity >= 0.72) return true;
+  }
+
+  return false;
 }
 
 function parseStoredQuizAnswers(rawAnswers) {
@@ -8053,7 +8090,7 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
      FROM pending_quiz_questions
      WHERE ($1::text IS NULL OR level = $1)
        ${quizDate ? 'AND quiz_date <= $2' : ''}
-       AND status IN ('pending', 'approved')`,
+       AND status IN ('pending', 'approved', 'rejected')`,
     quizDate ? [normalizedLevel, quizDate] : [normalizedLevel]
   );
 
@@ -8067,7 +8104,7 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
      FROM quiz_questions
      WHERE ($1::text IS NULL OR level = $1)
        AND is_active = true
-       AND LOWER(category) = ANY($2::text[])`,
+       AND LOWER(category) <> ALL($2::text[])`,
     [normalizedLevel, QUIZ_EXCLUDED_CATEGORIES]
   );
 
@@ -8452,8 +8489,10 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
     const seen = new Set();
     for (const question of validated) {
       const normalized = normalizeQuizQuestionText(question.question_text);
-      if (!normalized || historicalTexts.has(normalized) || seen.has(normalized)) continue;
+      const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+      if (!normalized || seen.has(normalized) || seen.has(similarityKey) || isQuizQuestionTooSimilar(question.question_text, historicalTexts)) continue;
       seen.add(normalized);
+      if (similarityKey) seen.add(similarityKey);
       deduped.push(question);
       if (deduped.length >= count) break;
     }
@@ -8497,7 +8536,8 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
 
   for (const row of result.rows) {
     const normalized = normalizeQuizQuestionText(row.question_text);
-    if (!normalized || historicalTexts.has(normalized) || seen.has(normalized)) continue;
+    const similarityKey = getQuizQuestionSimilarityKey(row.question_text);
+    if (!normalized || seen.has(normalized) || seen.has(similarityKey) || isQuizQuestionTooSimilar(row.question_text, historicalTexts)) continue;
 
     const optionsArray = Array.isArray(row.options) ? row.options.map(o => String(o).trim()) : [];
     const correctAnswer = Number(row.correct_answer);
@@ -8516,6 +8556,7 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
     }
 
     seen.add(normalized);
+    if (similarityKey) seen.add(similarityKey);
     fallbackQuestions.push({
       question_text: String(row.question_text || '').trim(),
       options: optionsArray,
@@ -8568,8 +8609,10 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         });
         for (const question of batch) {
           const normalized = normalizeQuizQuestionText(question.question_text);
-          if (!normalized || localSeen.has(normalized)) continue;
+          const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+          if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) continue;
           localSeen.add(normalized);
+          if (similarityKey) localSeen.add(similarityKey);
           aiQuestions.push(question);
           if (aiQuestions.length >= neededCount) break;
         }
@@ -8582,8 +8625,10 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         });
         for (const question of fallbackQuestions) {
           const normalized = normalizeQuizQuestionText(question.question_text);
-          if (!normalized || localSeen.has(normalized)) continue;
+          const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+          if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) continue;
           localSeen.add(normalized);
+          if (similarityKey) localSeen.add(similarityKey);
           aiQuestions.push(question);
           if (aiQuestions.length >= neededCount) break;
         }
@@ -17639,7 +17684,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
     }
 
     const existingResult = await pool.query(
-      `SELECT id, quiz_date, level, status
+      `SELECT id, quiz_date, level, status, question_text
        FROM pending_quiz_questions
        WHERE id = $1`,
       [questionId]
@@ -17653,24 +17698,45 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
       return res.status(400).json({ error: 'Only pending questions can be refreshed' });
     }
 
+    const quizDate = formatQuizDateValue(existing.quiz_date);
     const siblingResult = await pool.query(
-      `SELECT LOWER(TRIM(question_text)) AS q
+      `SELECT question_text
        FROM pending_quiz_questions
        WHERE quiz_date = $1 AND level = $2 AND id <> $3`,
-      [existing.quiz_date, existing.level, questionId]
+      [quizDate, existing.level, questionId]
     );
-    const existingTexts = new Set(siblingResult.rows.map(r => String(r.q || '')));
+    const existingTexts = await getHistoricalQuizQuestionTexts(null, quizDate);
+    existingTexts.add(normalizeQuizQuestionText(existing.question_text));
+    const currentSimilarityKey = getQuizQuestionSimilarityKey(existing.question_text);
+    if (currentSimilarityKey) existingTexts.add(currentSimilarityKey);
+    siblingResult.rows.forEach((row) => {
+      const normalized = normalizeQuizQuestionText(row.question_text);
+      const similarityKey = getQuizQuestionSimilarityKey(row.question_text);
+      if (normalized) existingTexts.add(normalized);
+      if (similarityKey) existingTexts.add(similarityKey);
+    });
 
     let replacement = null;
-    for (let attempt = 0; attempt < 3 && !replacement; attempt++) {
+    for (let attempt = 0; attempt < 5 && !replacement; attempt++) {
       const generated = await generateQuizQuestionsWithAI(existing.level, 3, {
-        quizDate: existing.quiz_date,
+        quizDate,
         excludeTexts: existingTexts
       });
-      replacement = generated.find(q => !existingTexts.has(normalizeQuizQuestionText(q.question_text))) || generated[0] || null;
+      replacement = generated.find((q) => {
+        const normalized = normalizeQuizQuestionText(q.question_text);
+        const similarityKey = getQuizQuestionSimilarityKey(q.question_text);
+        return normalized && !existingTexts.has(normalized) && !existingTexts.has(similarityKey) && !isQuizQuestionTooSimilar(q.question_text, existingTexts);
+      }) || null;
+
+      for (const q of generated) {
+        const normalized = normalizeQuizQuestionText(q.question_text);
+        const similarityKey = getQuizQuestionSimilarityKey(q.question_text);
+        if (normalized) existingTexts.add(normalized);
+        if (similarityKey) existingTexts.add(similarityKey);
+      }
     }
     if (!replacement) {
-      return res.status(500).json({ error: 'AI could not generate a replacement question' });
+      return res.status(500).json({ error: 'AI could not generate a fresh replacement question. Please try again after a few seconds.' });
     }
 
     const updateResult = await pool.query(
