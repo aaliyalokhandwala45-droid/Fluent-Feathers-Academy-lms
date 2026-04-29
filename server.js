@@ -8061,9 +8061,10 @@ async function repairHistoricalQuizAttempts(db = pool, options = {}) {
   return summary;
 }
 
-async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db = pool) {
+async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db = pool, options = {}) {
   const seen = new Set();
   const normalizedLevel = level ? normalizeStudentQuizLevel(level) : null;
+  const includeQuestionBank = options.includeQuestionBank === true;
 
   const dailyResult = await db.query(
     `SELECT beginner_questions, intermediate_questions, advanced_questions
@@ -8099,18 +8100,20 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
     if (normalized) seen.add(normalized);
   }
 
-  const bankResult = await db.query(
-    `SELECT question_text
-     FROM quiz_questions
-     WHERE ($1::text IS NULL OR level = $1)
-       AND is_active = true
-       AND LOWER(category) <> ALL($2::text[])`,
-    [normalizedLevel, QUIZ_EXCLUDED_CATEGORIES]
-  );
+  if (includeQuestionBank) {
+    const bankResult = await db.query(
+      `SELECT question_text
+       FROM quiz_questions
+       WHERE ($1::text IS NULL OR level = $1)
+         AND is_active = true
+         AND LOWER(category) <> ALL($2::text[])`,
+      [normalizedLevel, QUIZ_EXCLUDED_CATEGORIES]
+    );
 
-  for (const row of bankResult.rows) {
-    const normalized = normalizeQuizQuestionText(row.question_text);
-    if (normalized) seen.add(normalized);
+    for (const row of bankResult.rows) {
+      const normalized = normalizeQuizQuestionText(row.question_text);
+      if (normalized) seen.add(normalized);
+    }
   }
 
   return seen;
@@ -8571,6 +8574,10 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
   return fallbackQuestions;
 }
 
+function isGroqRateLimitError(err) {
+  return Number(err?.response?.status) === 429 || String(err?.message || '').includes('status code 429');
+}
+
 // Generate and store pending quiz questions for approval
 async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['beginner', 'intermediate', 'advanced'], options = {}) {
   const levels = Array.isArray(levelsToGenerate) && levelsToGenerate.length > 0
@@ -8603,10 +8610,19 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       const localSeen = new Set(existingResult.rows.map(row => normalizeQuizQuestionText(row.question_text)).filter(Boolean));
       for (let attempt = 0; attempt < 5 && aiQuestions.length < neededCount; attempt++) {
         const requestCount = Math.min(3, neededCount - aiQuestions.length);
-        const batch = await generateQuizQuestionsWithAI(level, requestCount, {
-          quizDate,
-          excludeTexts: localSeen
-        });
+        let batch = [];
+        try {
+          batch = await generateQuizQuestionsWithAI(level, requestCount, {
+            quizDate,
+            excludeTexts: localSeen
+          });
+        } catch (err) {
+          if (isGroqRateLimitError(err)) {
+            console.warn(`Groq rate limit reached for ${level}; using unused question-bank fallback.`);
+            break;
+          }
+          throw err;
+        }
         for (const question of batch) {
           const normalized = normalizeQuizQuestionText(question.question_text);
           const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
