@@ -7812,6 +7812,8 @@ const DAILY_QUIZ_BADGE_DESCRIPTION = 'Scored 10/10 in the daily quiz!';
 const QUIZ_ALLOWED_CATEGORIES = [
   'grammar',
   'vocabulary',
+  'adjectives',
+  'adverbs',
   'idioms',
   'proverbs',
   'elaboration',
@@ -7829,9 +7831,9 @@ const QUIZ_ALLOWED_CATEGORIES = [
 ];
 const QUIZ_EXCLUDED_CATEGORIES = ['phonics', 'contextual_reference_sentences'];
 const QUIZ_AI_CATEGORY_GUIDANCE = {
-  beginner: ['grammar', 'vocabulary', 'subject_verb_agreement', 'punctuation', 'sentence_correction', 'spelling'],
-  intermediate: ['grammar', 'vocabulary', 'subject_verb_agreement', 'punctuation', 'sentence_correction', 'figures_of_speech'],
-  advanced: ['grammar', 'vocabulary', 'direct_indirect_speech', 'sentence_correction', 'punctuation', 'figures_of_speech']
+  beginner: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery'],
+  intermediate: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery'],
+  advanced: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery']
 };
 
 function normalizeQuizQuestionText(text) {
@@ -8578,6 +8580,124 @@ function isGroqRateLimitError(err) {
   return Number(err?.response?.status) === 429 || String(err?.message || '').includes('status code 429');
 }
 
+function getGroqRetryDelayMs(err, fallbackMs = 6000) {
+  const message = String(err?.response?.data?.error?.message || err?.message || '');
+  const match = message.match(/try again in\s+([0-9.]+)s/i);
+  if (!match) return fallbackMs;
+  const seconds = Number(match[1]);
+  if (!Number.isFinite(seconds)) return fallbackMs;
+  return Math.min(Math.max(Math.ceil(seconds * 1000) + 500, 1500), 15000);
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function createLocalQuizQuestion(level, category, seed) {
+  const levelText = {
+    beginner: 'simple',
+    intermediate: 'clear and expressive',
+    advanced: 'precise and polished'
+  }[level] || 'clear';
+
+  const sets = {
+    vocabulary: {
+      question_text: `Which word best means "careful and exact" in this ${levelText} sentence?`,
+      options: ['Precise', 'Noisy', 'Brief', 'Dull'],
+      correct_answer: 0,
+      explanation: 'Precise means careful, exact, and accurate.'
+    },
+    grammar: {
+      question_text: `Choose the grammatically correct sentence for item ${seed}.`,
+      options: ['She go to class daily.', 'She goes to class daily.', 'She going to class daily.', 'She gone to class daily.'],
+      correct_answer: 1,
+      explanation: 'Use goes with she in the simple present tense.'
+    },
+    imagery: {
+      question_text: `Which sentence creates the strongest image for the reader?`,
+      options: ['The room was nice.', 'The room glowed with soft yellow light and smelled of fresh paper.', 'The room was big.', 'The room had things.'],
+      correct_answer: 1,
+      explanation: 'Imagery uses sensory details to help the reader picture the scene.'
+    },
+    idioms: {
+      question_text: `What does the idiom "under the weather" mean?`,
+      options: ['Feeling sick', 'Standing outside', 'Enjoying rain', 'Feeling excited'],
+      correct_answer: 0,
+      explanation: 'Under the weather means feeling unwell.'
+    },
+    proverbs: {
+      question_text: `What does the proverb "Practice makes perfect" mean?`,
+      options: ['Trying often helps you improve', 'Perfection is impossible', 'Practice is boring', 'Perfect work needs no effort'],
+      correct_answer: 0,
+      explanation: 'The proverb means repeated practice builds skill.'
+    },
+    sentence_correction: {
+      question_text: `Which option correctly fixes the sentence: "my friend and i visited dubai"?`,
+      options: ['My friend and I visited Dubai.', 'my friend and I visited dubai.', 'My friend and i visited Dubai.', 'My Friend and I visited dubai.'],
+      correct_answer: 0,
+      explanation: 'Capitalize the first word, I, and proper nouns like Dubai.'
+    },
+    adjectives: {
+      question_text: `Which word is an adjective in this sentence: "The bright lantern lit the path"?`,
+      options: ['bright', 'lit', 'path', 'the'],
+      correct_answer: 0,
+      explanation: 'Bright describes the noun lantern, so it is an adjective.'
+    },
+    adverbs: {
+      question_text: `Which word is an adverb in this sentence: "Maya answered politely"?`,
+      options: ['Maya', 'answered', 'politely', 'answer'],
+      correct_answer: 2,
+      explanation: 'Politely describes how Maya answered, so it is an adverb.'
+    },
+    punctuation: {
+      question_text: `Choose the sentence with correct punctuation.`,
+      options: ['Where are you going.', 'Where are you going?', 'Where are you going!', 'Where are you going,'],
+      correct_answer: 1,
+      explanation: 'A direct question should end with a question mark.'
+    }
+  };
+
+  const base = sets[category] || sets.grammar;
+  return {
+    question_text: `${base.question_text} (${level} set ${seed})`,
+    options: base.options,
+    correct_answer: base.correct_answer,
+    category,
+    explanation: base.explanation
+  };
+}
+
+async function getLocalGeneratedQuizQuestions(level, count, options = {}) {
+  if (!count || count <= 0) return [];
+  const { quizDate = null, excludeTexts = new Set() } = options;
+  const historicalTexts = await getHistoricalQuizQuestionTexts(null, quizDate);
+  for (const text of excludeTexts) {
+    const normalized = normalizeQuizQuestionText(text);
+    const similarityKey = getQuizQuestionSimilarityKey(text);
+    if (normalized) historicalTexts.add(normalized);
+    if (similarityKey) historicalTexts.add(similarityKey);
+  }
+
+  const categoryCycle = ['vocabulary', 'grammar', 'imagery', 'idioms', 'proverbs', 'sentence_correction', 'adjectives', 'adverbs', 'punctuation'];
+  const generated = [];
+  const seedBase = Math.abs(String(`${quizDate || ''}:${level}`).split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0));
+
+  for (let i = 0; generated.length < count && i < 80; i++) {
+    const category = categoryCycle[(seedBase + i) % categoryCycle.length];
+    const candidate = createLocalQuizQuestion(level, category, seedBase + i + 1);
+    const normalized = normalizeQuizQuestionText(candidate.question_text);
+    const similarityKey = getQuizQuestionSimilarityKey(candidate.question_text);
+    if (!normalized || historicalTexts.has(normalized) || historicalTexts.has(similarityKey) || isQuizQuestionTooSimilar(candidate.question_text, historicalTexts)) {
+      continue;
+    }
+    historicalTexts.add(normalized);
+    if (similarityKey) historicalTexts.add(similarityKey);
+    generated.push(candidate);
+  }
+
+  return generated;
+}
+
 // Generate and store pending quiz questions for approval
 async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['beginner', 'intermediate', 'advanced'], options = {}) {
   const levels = Array.isArray(levelsToGenerate) && levelsToGenerate.length > 0
@@ -8608,7 +8728,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       console.log(`⏳ Generating AI questions for ${level} level...`);
       const aiQuestions = [];
       const localSeen = new Set(existingResult.rows.map(row => normalizeQuizQuestionText(row.question_text)).filter(Boolean));
-      for (let attempt = 0; attempt < 5 && aiQuestions.length < neededCount; attempt++) {
+      for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
         const requestCount = Math.min(3, neededCount - aiQuestions.length);
         let batch = [];
         try {
@@ -8618,8 +8738,10 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           });
         } catch (err) {
           if (isGroqRateLimitError(err)) {
-            console.warn(`Groq rate limit reached for ${level}; using unused question-bank fallback.`);
-            break;
+            const delayMs = getGroqRetryDelayMs(err);
+            console.warn(`Groq rate limit reached for ${level}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
+            await wait(delayMs);
+            continue;
           }
           throw err;
         }
@@ -8634,12 +8756,28 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         }
       }
 
-      if (aiQuestions.length < neededCount) {
+      if (aiQuestions.length < neededCount && options.allowQuestionBankFallback === true) {
         const fallbackQuestions = await getFallbackPendingQuizQuestions(level, neededCount - aiQuestions.length, {
           quizDate,
           excludeTexts: localSeen
         });
         for (const question of fallbackQuestions) {
+          const normalized = normalizeQuizQuestionText(question.question_text);
+          const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+          if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) continue;
+          localSeen.add(normalized);
+          if (similarityKey) localSeen.add(similarityKey);
+          aiQuestions.push(question);
+          if (aiQuestions.length >= neededCount) break;
+        }
+      }
+
+      if (aiQuestions.length < neededCount && options.allowLocalFallback === true) {
+        const localQuestions = await getLocalGeneratedQuizQuestions(level, neededCount - aiQuestions.length, {
+          quizDate,
+          excludeTexts: localSeen
+        });
+        for (const question of localQuestions) {
           const normalized = normalizeQuizQuestionText(question.question_text);
           const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
           if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) continue;
@@ -17507,8 +17645,8 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
 
     if (generated === 0) {
       console.error('❌ No questions were generated!');
-      return res.status(500).json({
-        error: 'Failed to generate questions. Check server logs. Common causes: GROQ_API_KEY not set, API rate limit, or API error.',
+      return res.status(429).json({
+        error: 'Groq is rate-limited right now and could not create fresh AI questions after retries. Please wait a minute and generate again.',
         generated: 0
       });
     }
@@ -17733,11 +17871,22 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
     });
 
     let replacement = null;
-    for (let attempt = 0; attempt < 5 && !replacement; attempt++) {
-      const generated = await generateQuizQuestionsWithAI(existing.level, 3, {
-        quizDate,
-        excludeTexts: existingTexts
-      });
+    for (let attempt = 0; attempt < 8 && !replacement; attempt++) {
+      let generated = [];
+      try {
+        generated = await generateQuizQuestionsWithAI(existing.level, 3, {
+          quizDate,
+          excludeTexts: existingTexts
+        });
+      } catch (err) {
+        if (isGroqRateLimitError(err)) {
+          const delayMs = getGroqRetryDelayMs(err);
+          console.warn(`Groq rate limit reached while refreshing ${existing.level}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
+          await wait(delayMs);
+          continue;
+        }
+        throw err;
+      }
       replacement = generated.find((q) => {
         const normalized = normalizeQuizQuestionText(q.question_text);
         const similarityKey = getQuizQuestionSimilarityKey(q.question_text);
@@ -17751,8 +17900,22 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
         if (similarityKey) existingTexts.add(similarityKey);
       }
     }
+    if (!replacement && req.body?.allowQuestionBankFallback === true) {
+      const fallbackQuestions = await getFallbackPendingQuizQuestions(existing.level, 1, {
+        quizDate,
+        excludeTexts: existingTexts
+      });
+      replacement = fallbackQuestions[0] || null;
+    }
+    if (!replacement && req.body?.allowLocalFallback === true) {
+      const localQuestions = await getLocalGeneratedQuizQuestions(existing.level, 1, {
+        quizDate,
+        excludeTexts: existingTexts
+      });
+      replacement = localQuestions[0] || null;
+    }
     if (!replacement) {
-      return res.status(500).json({ error: 'AI could not generate a fresh replacement question. Please try again after a few seconds.' });
+      return res.status(429).json({ error: 'Groq is rate-limited right now and could not return a fresh AI question after retries. Please try refresh again in a minute.' });
     }
 
     const updateResult = await pool.query(
