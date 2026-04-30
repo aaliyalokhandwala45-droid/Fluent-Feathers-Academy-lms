@@ -8386,7 +8386,7 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     throw new Error('GROQ_API_KEY not configured. Add it to your environment variables.');
   }
 
-  const { quizDate = null, excludeTexts = new Set() } = options;
+  const { quizDate = null, excludeTexts = new Set(), theme = null } = options;
 
   const levelDescriptions = {
     beginner: 'simple English suitable for beginner learners with clear sentence choices',
@@ -8402,7 +8402,11 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   }
   const bannedExamples = Array.from(historicalTexts).slice(0, 35);
 
-  const prompt = `You are an English teacher creating a daily quiz. Generate exactly ${count} multiple-choice English quiz questions for ${level} level students.
+  const themeInstruction = theme 
+    ? `\n\nTheme/Context: ${theme}\nAll questions should relate to or incorporate this theme where possible. Make questions engaging and relevant to this topic.`
+    : '';
+
+  const prompt = `You are an English teacher creating a daily quiz. Generate exactly ${count} multiple-choice English quiz questions for ${level} level students.${themeInstruction}
 
 Each question should be:
 - ${levelDescriptions[level]}
@@ -8433,7 +8437,8 @@ ${bannedExamples.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer is 0-3 representing A-D.`;
 
   try {
-    console.log(`🤖 Generating ${count} ${level} questions via Groq API...`);
+    const themeLog = theme ? ` with theme: ${theme}` : '';
+    console.log(`🤖 Generating ${count} ${level} questions via Groq API${themeLog}...`);
     
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
@@ -8580,13 +8585,21 @@ function isGroqRateLimitError(err) {
   return Number(err?.response?.status) === 429 || String(err?.message || '').includes('status code 429');
 }
 
-function getGroqRetryDelayMs(err, fallbackMs = 6000) {
+function getGroqRetryDelayMs(err, attemptNumber = 0, fallbackMs = 6000) {
+  // Try to extract retry-after header or message
   const message = String(err?.response?.data?.error?.message || err?.message || '');
   const match = message.match(/try again in\s+([0-9.]+)s/i);
-  if (!match) return fallbackMs;
-  const seconds = Number(match[1]);
-  if (!Number.isFinite(seconds)) return fallbackMs;
-  return Math.min(Math.max(Math.ceil(seconds * 1000) + 500, 1500), 15000);
+  if (match) {
+    const seconds = Number(match[1]);
+    if (Number.isFinite(seconds)) {
+      return Math.min(Math.max(Math.ceil(seconds * 1000) + 500, 1500), 15000);
+    }
+  }
+  
+  // Exponential backoff: 2s, 4s, 8s, 16s, 30s, 30s...
+  const baseDelay = 2000;
+  const exponentialDelay = Math.min(baseDelay * Math.pow(2, attemptNumber), 30000);
+  return exponentialDelay + Math.random() * 1000; // Add jitter
 }
 
 function wait(ms) {
@@ -8704,6 +8717,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
     ? levelsToGenerate
     : ['beginner', 'intermediate', 'advanced'];
   const targetCountByLevel = options.targetCountByLevel || {};
+  const theme = options.theme || null;
   let totalGenerated = 0;
 
   for (const level of levels) {
@@ -8725,7 +8739,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         continue;
       }
 
-      console.log(`⏳ Generating AI questions for ${level} level...`);
+      console.log(`⏳ Generating AI questions for ${level} level${theme ? ' with theme: ' + theme : ''}...`);
       const aiQuestions = [];
       const localSeen = new Set(existingResult.rows.map(row => normalizeQuizQuestionText(row.question_text)).filter(Boolean));
       for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
@@ -8734,12 +8748,13 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         try {
           batch = await generateQuizQuestionsWithAI(level, requestCount, {
             quizDate,
-            excludeTexts: localSeen
+            excludeTexts: localSeen,
+            theme: theme
           });
         } catch (err) {
           if (isGroqRateLimitError(err)) {
-            const delayMs = getGroqRetryDelayMs(err);
-            console.warn(`Groq rate limit reached for ${level}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
+            const delayMs = getGroqRetryDelayMs(err, attempt);
+            console.warn(`⏱️ Groq rate limit reached for ${level}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
             await wait(delayMs);
             continue;
           }
@@ -17602,8 +17617,9 @@ app.post('/api/admin/repeat-daily-quiz', async (req, res) => {
 // Admin: Generate AI quiz questions (creates pending questions for approval)
 app.post('/api/admin/generate-ai-quiz', async (req, res) => {
   try {
-    const { quizDate } = req.body;
+    const { quizDate, prompt } = req.body;
     const date = quizDate || new Date().toISOString().split('T')[0];
+    const theme = String(prompt || '').trim();
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Invalid date format' });
@@ -17640,11 +17656,12 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
       [date, levelsToGenerate]
     );
 
-    console.log(`🤖 Starting AI generation for ${date}...`);
+    console.log(`🤖 Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
     const generated = await generatePendingQuizQuestions(date, levelsToGenerate, {
       targetCountByLevel,
       allowQuestionBankFallback: true,
-      allowLocalFallback: true
+      allowLocalFallback: true,
+      theme: theme || null
     });
 
     if (generated === 0) {
@@ -17657,9 +17674,10 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Generated ${generated} AI quiz questions for ${date}. Please review and approve them.`,
+      message: `Generated ${generated} AI quiz questions for ${date}${theme ? ` with theme: ${theme}` : ''}. Please review and approve them.`,
       generated,
-      generatedLevels: levelsToGenerate
+      generatedLevels: levelsToGenerate,
+      theme: theme || null
     });
   } catch (err) {
     console.error('AI quiz generation error:', err);

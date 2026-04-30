@@ -1603,6 +1603,11 @@
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
           <h3 style="margin-bottom: 15px;">🤖 AI Quiz Planner</h3>
           <p style="margin-bottom: 15px; opacity: 0.9;">Generate tomorrow's quiz in advance, review each question, edit if needed, then approve to publish for students.</p>
+          <div style="margin-bottom: 15px; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;">
+            <label for="quizPrompt" style="font-weight: 700; display: block; margin-bottom: 8px;">📌 Theme/Prompt (Optional)</label>
+            <input type="text" id="quizPrompt" placeholder="e.g., Teacher's Day, Vocabulary Focus, Spring Theme, Grammar Rules, etc." style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; color: #2d3748; font-size: 0.95rem;">
+            <small style="display: block; margin-top: 6px; opacity: 0.9;">Leave blank for general English questions, or enter a theme to generate questions related to that topic for all difficulty levels.</small>
+          </div>
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <label for="pendingQuestionsDate" style="font-weight: 700;">Quiz Date</label>
             <input type="date" id="pendingQuestionsDate" style="padding: 10px 12px; border-radius: 12px; border: 1px solid #e2e8f0;" onchange="loadPendingQuizQuestions(this.value)">
@@ -15174,17 +15179,21 @@ async function readApiResponse(response) {
 async function generateAIQuiz() {
   const dateInput = document.getElementById('pendingQuestionsDate');
   const date = dateInput?.value || getLocalDateString();
+  const prompt = document.getElementById('quizPrompt')?.value?.trim() || '';
   if (dateInput) dateInput.value = date;
-  if (!confirm(`Generate AI quiz questions for ${date}? This will create 30 questions (10 per level) pending your approval.`)) return;
+  
+  const promptDisplay = prompt ? ` with theme: "${prompt}"` : '';
+  if (!confirm(`Generate AI quiz questions for ${date}${promptDisplay}? This will create 30 questions (10 per level) pending your approval.`)) return;
 
   try {
     const loadingDiv = document.getElementById('pendingQuizzesContainer');
-    loadingDiv.innerHTML = '<p style="color: #667eea; text-align: center; padding: 20px;">🤖 Generating AI questions... This may take a moment.</p>';
+    const promptInfo = prompt ? `<p style="color: #667eea; margin: 10px 0;">📌 Theme: ${prompt}</p>` : '';
+    loadingDiv.innerHTML = `<p style="color: #667eea; text-align: center; padding: 20px;">🤖 Generating AI questions... This may take a moment.${promptInfo}</p>`;
 
     const response = await fetch('/api/admin/generate-ai-quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quizDate: date })
+      body: JSON.stringify({ quizDate: date, prompt: prompt })
     });
 
     const result = await readApiResponse(response);
