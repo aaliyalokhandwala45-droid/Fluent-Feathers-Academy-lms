@@ -7862,6 +7862,7 @@ function isQuizQuestionTooSimilar(questionText, existingTexts) {
   for (const existing of existingTexts) {
     const existingKey = getQuizQuestionSimilarityKey(existing);
     if (!existingKey) continue;
+    // Only consider it too similar if one is contained in the other (very high similarity)
     if (existingKey.includes(key) || key.includes(existingKey)) return true;
 
     const existingWords = new Set(existingKey.split(' ').filter(word => word.length > 2));
@@ -7871,7 +7872,9 @@ function isQuizQuestionTooSimilar(questionText, existingTexts) {
       if (existingWords.has(word)) overlap++;
     }
     const similarity = overlap / Math.max(words.size, existingWords.size);
-    if (similarity >= 0.72) return true;
+    // Increased threshold from 0.72 to 0.88 - only reject if VERY similar (88% match)
+    // This allows more variety while still preventing exact duplicates
+    if (similarity >= 0.88) return true;
   }
 
   return false;
@@ -8406,39 +8409,34 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     ? `\n\nTheme/Context: ${theme}\nAll questions should relate to or incorporate this theme where possible. Make questions engaging and relevant to this topic.`
     : '';
 
-  const prompt = `You are an English teacher creating a daily quiz. Generate exactly ${count} multiple-choice English quiz questions for ${level} level students.${themeInstruction}
+  const prompt = `Generate exactly ${count} UNIQUE English quiz questions for ${level} level.${themeInstruction}
 
-Each question should be:
+Requirements:
+- Each question MUST be completely different from others
 - ${levelDescriptions[level]}
-- Focused only on one of these categories: ${QUIZ_ALLOWED_CATEGORIES.join(', ')}
-- Prefer these categories for ${level}: ${preferredCategories.join(', ')}
-- Clearly written with one correct answer
-- Include 4 options (A, B, C, D)
-- Never use the category contextual_reference_sentences
-- Do not repeat or closely paraphrase any previously used question
-- Beginner and intermediate sets should include grammar/vocabulary patterns like subject-verb agreement and sentence correction where suitable
-- sentence_correction questions should use tasks like correcting punctuation, capitalization, or grammar in a sentence
-- Advanced level must include direct_indirect_speech questions in the generated set
+- Category: ${preferredCategories.join(', ')} (only these categories)
+- 4 options (A, B, C, D), one correct answer
+- Advanced must include direct_indirect_speech questions
+- Never use contextual_reference_sentences
+- Vary question types, vocabulary, contexts
 
-Return your response as a valid JSON array with this exact structure:
-[
-  {
-    "question_text": "What is the correct form of the verb?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct_answer": 0,
-    "category": "grammar",
-    "explanation": "Brief explanation of why this is correct"
-  }
-]
+Format as JSON array:
+[{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"category":"...","explanation":"..."}]
 
-Do not generate anything substantially similar to these previously used questions:
-${bannedExamples.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+Avoid repeating:
+${bannedExamples.slice(0, 5).map((q, i) => `${i + 1}. ${q.substring(0, 60)}`).join('\n')}
 
-IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer is 0-3 representing A-D.`;
+Return ONLY JSON, no other text. Each question 100% unique.`;
 
   try {
     const themeLog = theme ? ` with theme: ${theme}` : '';
     console.log(`🤖 Generating ${count} ${level} questions via Groq API${themeLog}...`);
+    
+    // Track API usage to avoid daily limits
+    groqUsageTracker.recordCall();
+    if (groqUsageTracker.isLimitApproaching()) {
+      console.warn(`⚠️ WARNING: Only ${groqUsageTracker.getRemainingRequests()} Groq API calls remaining today!`);
+    }
     
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
@@ -8450,7 +8448,7 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
             content: prompt
           }
         ],
-        temperature: 0.7,
+        temperature: 0.8,
         max_tokens: Math.min(3500, Math.max(1200, count * 450 + 500))
       },
       {
@@ -8486,24 +8484,57 @@ IMPORTANT: Return ONLY the JSON array, no other text. Make sure correct_answer i
       correct_answer: Number(q.correct_answer) || 0,
       category: String(q.category || 'grammar').toLowerCase(),
       explanation: String(q.explanation || '').trim()
-    })).filter(q => 
-      q.question_text.length > 5 && 
-      q.options.length === 4 && 
-      q.correct_answer >= 0 && 
-      q.correct_answer < 4 &&
-      QUIZ_ALLOWED_CATEGORIES.includes(q.category) &&
-      !QUIZ_EXCLUDED_CATEGORIES.includes(q.category)
-    );
+    })).filter(q => {
+      if (q.question_text.length <= 5) {
+        console.log(`⏭️ Question too short: "${q.question_text}"`);
+        return false;
+      }
+      if (q.options.length !== 4) {
+        console.log(`⏭️ Wrong number of options (${q.options.length}): "${q.question_text.substring(0, 40)}..."`);
+        return false;
+      }
+      if (q.correct_answer < 0 || q.correct_answer > 3) {
+        console.log(`⏭️ Invalid correct_answer (${q.correct_answer}): "${q.question_text.substring(0, 40)}..."`);
+        return false;
+      }
+      if (!QUIZ_ALLOWED_CATEGORIES.includes(q.category)) {
+        console.log(`⏭️ Invalid category "${q.category}": "${q.question_text.substring(0, 40)}..."`);
+        return false;
+      }
+      if (QUIZ_EXCLUDED_CATEGORIES.includes(q.category)) {
+        console.log(`⏭️ Category in excluded list "${q.category}": "${q.question_text.substring(0, 40)}..."`);
+        return false;
+      }
+      return true;
+    });
+
+    console.log(`✅ Validated ${validated.length}/${questions.length} questions passed basic checks`);
 
     const deduped = [];
     const seen = new Set();
     for (const question of validated) {
       const normalized = normalizeQuizQuestionText(question.question_text);
       const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-      if (!normalized || seen.has(normalized) || seen.has(similarityKey) || isQuizQuestionTooSimilar(question.question_text, historicalTexts)) continue;
+      if (!normalized) {
+        console.log(`⏭️ Could not normalize question text`);
+        continue;
+      }
+      if (seen.has(normalized)) {
+        console.log(`⏭️ Already seen exact match: "${question.question_text.substring(0, 40)}..."`);
+        continue;
+      }
+      if (seen.has(similarityKey)) {
+        console.log(`⏭️ Already seen similar: "${question.question_text.substring(0, 40)}..."`);
+        continue;
+      }
+      if (isQuizQuestionTooSimilar(question.question_text, historicalTexts)) {
+        console.log(`⏭️ Too similar to historical questions: "${question.question_text.substring(0, 40)}..."`);
+        continue;
+      }
       seen.add(normalized);
       if (similarityKey) seen.add(similarityKey);
       deduped.push(question);
+      console.log(`✔️ Added question: "${question.question_text.substring(0, 50)}..."`);
       if (deduped.length >= count) break;
     }
 
@@ -8584,6 +8615,36 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
 function isGroqRateLimitError(err) {
   return Number(err?.response?.status) === 429 || String(err?.message || '').includes('status code 429');
 }
+
+// Track Groq API calls to prevent exceeding daily limits
+const groqUsageTracker = {
+  dailyCount: 0,
+  lastResetDate: new Date().toISOString().split('T')[0],
+  maxDailyRequests: 480, // Conservative limit: ~10 requests/min × 60 min × 8 hours
+  
+  recordCall() {
+    const today = new Date().toISOString().split('T')[0];
+    if (today !== this.lastResetDate) {
+      this.dailyCount = 0;
+      this.lastResetDate = today;
+    }
+    this.dailyCount++;
+    console.log(`📊 Groq API call #${this.dailyCount}/${this.maxDailyRequests} today`);
+    return this.dailyCount;
+  },
+  
+  getRemainingRequests() {
+    const today = new Date().toISOString().split('T')[0];
+    if (today !== this.lastResetDate) {
+      return this.maxDailyRequests;
+    }
+    return Math.max(0, this.maxDailyRequests - this.dailyCount);
+  },
+  
+  isLimitApproaching() {
+    return this.getRemainingRequests() < 10;
+  }
+};
 
 function getGroqRetryDelayMs(err, attemptNumber = 0, fallbackMs = 6000) {
   // Try to extract retry-after header or message
@@ -8722,28 +8783,44 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
 
   for (const level of levels) {
     try {
+      // Get ALL existing questions including rejected ones to avoid duplicating them
       const existingResult = await pool.query(
-        `SELECT question_text
+        `SELECT question_text, status
          FROM pending_quiz_questions
-         WHERE quiz_date = $1 AND level = $2 AND status IN ('pending', 'approved')
+         WHERE quiz_date = $1 AND level = $2
          ORDER BY id`,
         [quizDate, level]
       );
-      const existingCount = existingResult.rows.length;
+      
+      // Count only pending/approved for actual queue
+      const activeCount = existingResult.rows
+        .filter(r => ['pending', 'approved'].includes(r.status))
+        .length;
       const neededCount = Number.isInteger(targetCountByLevel[level])
         ? Math.max(0, targetCountByLevel[level])
-        : Math.max(0, DAILY_QUIZ_QUESTION_COUNT - existingCount);
+        : Math.max(0, DAILY_QUIZ_QUESTION_COUNT - activeCount);
 
       if (neededCount === 0) {
-        console.log(`Daily quiz pending queue already has ${existingCount} ${level} questions for ${quizDate}`);
+        console.log(`Daily quiz pending queue already has ${activeCount} active ${level} questions for ${quizDate}`);
         continue;
       }
 
-      console.log(`⏳ Generating AI questions for ${level} level${theme ? ' with theme: ' + theme : ''}...`);
+      console.log(`⏳ Generating AI questions for ${level} level${theme ? ' with theme: ' + theme : ''}... (need ${neededCount})`);
       const aiQuestions = [];
+      // Exclude ALL existing questions (including rejected) to prevent duplication
       const localSeen = new Set(existingResult.rows.map(row => normalizeQuizQuestionText(row.question_text)).filter(Boolean));
+      
+      if (localSeen.size > 0) {
+        console.log(`📝 Already have ${localSeen.size} existing question text(s) for ${level} to avoid duplicating`);
+      }
+      
+      let consecutiveRateLimits = 0;
+      const maxConsecutiveRateLimits = 3;
       for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
-        const requestCount = Math.min(3, neededCount - aiQuestions.length);
+        // Cap request at 10 to avoid exceeding Groq token limits
+        // Only request what we actually need, not 1.5x
+        const remaining = neededCount - aiQuestions.length;
+        const requestCount = Math.min(10, Math.max(2, remaining));
         let batch = [];
         try {
           batch = await generateQuizQuestionsWithAI(level, requestCount, {
@@ -8751,56 +8828,66 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             excludeTexts: localSeen,
             theme: theme
           });
+          // Reset rate limit counter on success
+          consecutiveRateLimits = 0;
         } catch (err) {
           if (isGroqRateLimitError(err)) {
+            consecutiveRateLimits++;
+            if (consecutiveRateLimits >= maxConsecutiveRateLimits) {
+              console.error(`❌ Hit Groq rate limit ${maxConsecutiveRateLimits} times consecutively. Stopping to avoid API spam.`);
+              break;
+            }
             const delayMs = getGroqRetryDelayMs(err, attempt);
-            console.warn(`⏱️ Groq rate limit reached for ${level}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
+            console.warn(`⏱️ Groq rate limit #${consecutiveRateLimits}/${maxConsecutiveRateLimits}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
             await wait(delayMs);
             continue;
           }
           throw err;
         }
+        
+        if (batch.length === 0) {
+          console.log(`⚠️ Groq returned no questions on attempt ${attempt + 1}/12 for ${level}`);
+          continue;
+        }
+        
+        console.log(`📦 Attempt ${attempt + 1}: Got ${batch.length} questions from Groq, deduplicating...`);
+        let addedThisBatch = 0;
+        
         for (const question of batch) {
           const normalized = normalizeQuizQuestionText(question.question_text);
           const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-          if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) continue;
+          
+          // Skip if empty or already seen
+          if (!normalized) {
+            console.log(`⏭️ Skipping question with empty text`);
+            continue;
+          }
+          if (localSeen.has(normalized)) {
+            console.log(`⏭️ Skipping duplicate (exact match): "${question.question_text.substring(0, 50)}..."`);
+            continue;
+          }
+          if (localSeen.has(similarityKey)) {
+            console.log(`⏭️ Skipping similar question: "${question.question_text.substring(0, 50)}..."`);
+            continue;
+          }
+          
+          // Add this question
           localSeen.add(normalized);
           if (similarityKey) localSeen.add(similarityKey);
           aiQuestions.push(question);
-          if (aiQuestions.length >= neededCount) break;
+          addedThisBatch++;
+          
+          if (aiQuestions.length >= neededCount) {
+            console.log(`✅ Reached target of ${neededCount} questions`);
+            break;
+          }
         }
+        
+        console.log(`✔️ Added ${addedThisBatch}/${batch.length} from attempt ${attempt + 1} (total: ${aiQuestions.length}/${neededCount})`);
       }
 
-      if (aiQuestions.length < neededCount && options.allowQuestionBankFallback === true) {
-        const fallbackQuestions = await getFallbackPendingQuizQuestions(level, neededCount - aiQuestions.length, {
-          quizDate,
-          excludeTexts: localSeen
-        });
-        for (const question of fallbackQuestions) {
-          const normalized = normalizeQuizQuestionText(question.question_text);
-          const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-          if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) continue;
-          localSeen.add(normalized);
-          if (similarityKey) localSeen.add(similarityKey);
-          aiQuestions.push(question);
-          if (aiQuestions.length >= neededCount) break;
-        }
-      }
-
-      if (aiQuestions.length < neededCount && options.allowLocalFallback === true) {
-        const localQuestions = await getLocalGeneratedQuizQuestions(level, neededCount - aiQuestions.length, {
-          quizDate,
-          excludeTexts: localSeen
-        });
-        for (const question of localQuestions) {
-          const normalized = normalizeQuizQuestionText(question.question_text);
-          const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-          if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) continue;
-          localSeen.add(normalized);
-          if (similarityKey) localSeen.add(similarityKey);
-          aiQuestions.push(question);
-          if (aiQuestions.length >= neededCount) break;
-        }
+      if (aiQuestions.length < neededCount) {
+        console.warn(`⚠️ Could only generate ${aiQuestions.length}/${neededCount} questions for ${level} after 12 attempts. No fallback enabled - will return partial set.`);
       }
 
       if (!aiQuestions || aiQuestions.length === 0) {
@@ -8827,6 +8914,15 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       console.log(`✅ Generated ${aiQuestions.length} questions for ${level} level`);
     } catch (err) {
       console.error(`❌ Error generating questions for ${level}:`, err.message);
+    }
+    
+    // Wait before processing next level to avoid hammering Groq API
+    // This spaces out requests and helps avoid rate limits
+    const levels_index = levels.indexOf(level);
+    if (levels_index < levels.length - 1) {
+      const spacingMs = 2000;
+      console.log(`⏸️  Waiting ${spacingMs}ms before next level to avoid rate limits...`);
+      await wait(spacingMs);
     }
   }
 
@@ -17659,8 +17755,8 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     console.log(`🤖 Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
     const generated = await generatePendingQuizQuestions(date, levelsToGenerate, {
       targetCountByLevel,
-      allowQuestionBankFallback: true,
-      allowLocalFallback: true,
+      allowQuestionBankFallback: false,
+      allowLocalFallback: false,
       theme: theme || null
     });
 
