@@ -1396,9 +1396,24 @@
   ];
   
   let messageIndex = 0;
+  let bootMessageInterval = null;
   
+  function revealParentPortal() {
+    const container = document.querySelector('.container');
+    if (container) container.classList.add('ready');
+    if (!loadingScreen) return;
+    loadingScreen.style.opacity = '0';
+    loadingScreen.style.transition = 'opacity 0.5s ease';
+    setTimeout(() => {
+      loadingScreen.style.display = 'none';
+    }, 500);
+  }
+
+  window.__revealParentPortal = revealParentPortal;
+
   // Show loading screen immediately
   function showLoadingScreen() {
+    if (!loadingScreen) return null;
     loadingScreen.style.display = 'flex';
     
     // Rotate messages every 3 seconds
@@ -1412,15 +1427,8 @@
   
   // Hide loading screen and show content
   function hideLoadingScreen(messageInterval) {
-    clearInterval(messageInterval);
-    // Show the main content
-    document.querySelector('.container').classList.add('ready');
-    // Fade out loading screen
-    loadingScreen.style.opacity = '0';
-    loadingScreen.style.transition = 'opacity 0.5s ease';
-    setTimeout(() => {
-      loadingScreen.style.display = 'none';
-    }, 500);
+    if (messageInterval) clearInterval(messageInterval);
+    revealParentPortal();
   }
   
   // Check if server is ready
@@ -1450,6 +1458,7 @@
   // Main loading logic
   async function initializeApp() {
     const messageInterval = showLoadingScreen();
+    bootMessageInterval = messageInterval;
     
     // Check server health
     while (!serverReady && checkAttempts < maxAttempts) {
@@ -1480,6 +1489,16 @@
   } else {
     initializeApp();
   }
+
+  window.addEventListener('error', () => {
+    hideLoadingScreen();
+  });
+  window.addEventListener('unhandledrejection', () => {
+    hideLoadingScreen();
+  });
+  setTimeout(() => {
+    hideLoadingScreen(bootMessageInterval);
+  }, 12000);
 })();
 
 let portalDbLoadingCounter = 0;
@@ -1513,6 +1532,13 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
     }, 220);
   }
 }
+
+setTimeout(() => {
+  if (portalDbLoadingCounter > 0) {
+    portalDbLoadingCounter = 0;
+    if (typeof window.__revealParentPortal === 'function') window.__revealParentPortal();
+  }
+}, 20000);
 
     // Calculate age from date of birth
     function getAge(dob) {
@@ -3573,6 +3599,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${ClassButton}${CancelButton}</div></td>
           </tr>`;
         }).join('');
+      } catch(e) {
         _upcomingRetryCount++;
         console.error(`Error loading upcoming (attempt ${_upcomingRetryCount}):`, e);
         const tbody = document.getElementById('upcomingBody');
