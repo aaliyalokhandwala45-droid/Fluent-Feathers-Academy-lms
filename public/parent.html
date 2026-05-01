@@ -3563,11 +3563,13 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
               : `<button disabled title="Cannot cancel less than 1 hr before class"
                   style="background:#f7fafc; color:#a0aec0; border:2px solid #e2e8f0; border-radius:6px; padding:8px 16px; cursor:not-allowed; font-size:0.85rem; font-weight:600;">🔒 Cancel</button>`;
 
+          const programName = currentStudent?.program_name || 'N/A';
+
           return `<tr>
             <td>#${getSerial(s)}</td>
             <td>${dayName}, ${t.date}</td>
             <td><strong style="color:#B05D9E">${t.time}</strong></td>
-            <td>${s.program_name || 'N/A'}</td>
+            <td>${programName}</td>
             <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${ClassButton}${CancelButton}</div></td>
           </tr>`;
         }).join('');

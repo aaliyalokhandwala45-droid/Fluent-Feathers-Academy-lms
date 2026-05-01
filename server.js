@@ -11006,19 +11006,15 @@ app.get('/api/sessions/:studentId', async (req, res) => {
             NULL::text as homework_grade,
             NULL::text as homework_feedback,
             false as has_feedback,
-            COALESCE(s.class_link, $2) as class_link,
-            st.program_name
+            COALESCE(s.class_link, $2) as class_link
           FROM sessions s
-          LEFT JOIN students st ON st.id = s.student_id
           WHERE s.student_id = $1 AND s.session_type = 'Private'
         `, [id, DEFAULT_CLASS])
       : executeQuery(`
           SELECT s.*, 'Private' as source_type,
             COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
-            CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
-            st.program_name
+            CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
           FROM sessions s
-          LEFT JOIN students st ON st.id = s.student_id
           LEFT JOIN LATERAL (
             SELECT json_agg(
               json_build_object(
@@ -11059,22 +11055,18 @@ app.get('/api/sessions/:studentId', async (req, res) => {
               NULL::text as homework_feedback,
               false as has_feedback,
               COALESCE(sa.attendance, 'Pending') as student_attendance,
-              COALESCE(s.class_link, $3) as class_link,
-              g.program_name
+              COALESCE(s.class_link, $3) as class_link
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
-            LEFT JOIN groups g ON g.id = s.group_id
             WHERE s.group_id = $2 AND s.session_type = 'Group'
           `, [id, groupId, DEFAULT_CLASS])
         : await executeQuery(`
             SELECT s.*, 'Group' as source_type,
               COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
               CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
-              COALESCE(sa.attendance, 'Pending') as student_attendance,
-              g.program_name
+              COALESCE(sa.attendance, 'Pending') as student_attendance
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
-            LEFT JOIN groups g ON g.id = s.group_id
             LEFT JOIN LATERAL (
               SELECT json_agg(
                 json_build_object(
