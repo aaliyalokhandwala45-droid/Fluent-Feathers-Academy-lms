@@ -880,8 +880,8 @@
           <p style="color: #718096; font-size: 0.82rem; margin-bottom: 14px;">⚠️ Classes cannot be cancelled less than 1 hour before start.</p>
           <div class="table-responsive">
             <table id="upcomingTable">
-              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Actions</th></tr></thead>
-              <tbody id="upcomingBody"><tr><td colspan="4">Loading...</td></tr></tbody>
+              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Program</th><th>Actions</th></tr></thead>
+              <tbody id="upcomingBody"><tr><td colspan="5">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -3520,7 +3520,7 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
         if (upcoming.length === 0) {
           _upcomingRetryCount = 0; // genuine empty — reset counter
           startParentNextClassTimer(null);
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
           return;
         }
 
@@ -3567,19 +3567,19 @@ function setPortalDbLoading(isLoading, message = 'Loading classes from database.
             <td>#${getSerial(s)}</td>
             <td>${dayName}, ${t.date}</td>
             <td><strong style="color:#B05D9E">${t.time}</strong></td>
+            <td>${s.program_name || 'N/A'}</td>
             <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${ClassButton}${CancelButton}</div></td>
           </tr>`;
         }).join('');
-      } catch(e) {
         _upcomingRetryCount++;
         console.error(`Error loading upcoming (attempt ${_upcomingRetryCount}):`, e);
         const tbody = document.getElementById('upcomingBody');
         if (_upcomingRetryCount <= 3) {
-          if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#718096; padding:20px;">⏳ Database warming up… retrying (${_upcomingRetryCount}/3) 🔄</td></tr>`;
+          if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#718096; padding:20px;">⏳ Database warming up… retrying (${_upcomingRetryCount}/3) 🔄</td></tr>`;
           setTimeout(() => loadUpcoming(false), 5000);
         } else {
           _upcomingRetryCount = 0;
-          if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#e53e3e; padding:20px;">Could not load classes. <a href="javascript:void(0);" onclick="_upcomingRetryCount=0; loadUpcoming()" style="color:#B05D9E;">Tap to retry</a></td></tr>';
+          if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#e53e3e; padding:20px;">Could not load classes. <a href="javascript:void(0);" onclick="_upcomingRetryCount=0; loadUpcoming()" style="color:#B05D9E;">Tap to retry</a></td></tr>';
         }
       } finally {
         if (showLoadingOverlay) setPortalDbLoading(false);

@@ -9137,6 +9137,11 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     return res.json(adminUpcomingCache.data);
   }
   try {
+    // Get pagination params
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '9', 10);
+    const offset = (page - 1) * limit;
+
     // Fire all 4 independent queries in parallel
     const [priv, grp, events, demos] = await Promise.all([
       executeQuery(`
@@ -9249,10 +9254,17 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
         console.error('Error sorting sessions:', e);
         return 0;
       }
-    }).slice(0, 9); // Show 9 upcoming classes
+    });
+
+    // Calculate total and hasMore before pagination
+    const totalClasses = upcoming.length;
+    const hasMore = offset + limit < totalClasses;
+
+    // Apply pagination
+    const paginatedClasses = upcoming.slice(offset, offset + limit);
 
    // For group sessions, fetch enrolled students with their attendance/cancellation status
-   const groupSessionIds = upcoming.filter(s => s.display_type === 'Group').map(s => s.id);
+   const groupSessionIds = paginatedClasses.filter(s => s.display_type === 'Group').map(s => s.id);
    if (groupSessionIds.length > 0) {
      const studentRows = await executeQuery(`
        SELECT sa.session_id, sa.attendance, st.name as student_name, st.id as student_id
@@ -9274,15 +9286,54 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
      }
 
      // Attach students to each group session
-     for (const cls of upcoming) {
+     for (const cls of paginatedClasses) {
        if (cls.display_type === 'Group') {
          cls.enrolled_students = studentMap[cls.id] || [];
        }
      }
    }
 
+   // Fetch last session topic for each upcoming class
+   for (const cls of paginatedClasses) {
+     try {
+       let lastSessionQuery;
+       
+       if (cls.display_type === 'Private') {
+         // Last completed private session for this student
+         lastSessionQuery = await executeQuery(`
+           SELECT session_topic, session_number
+           FROM sessions
+           WHERE student_id = $1 AND session_type = 'Private' AND status = 'Completed'
+           ORDER BY session_date DESC, session_time DESC
+           LIMIT 1
+         `, [cls.student_id]);
+       } else if (cls.display_type === 'Group') {
+         // Last completed group session for this group
+         lastSessionQuery = await executeQuery(`
+           SELECT session_topic, session_number
+           FROM sessions
+           WHERE group_id = $1 AND session_type = 'Group' AND status = 'Completed'
+           ORDER BY session_date DESC, session_time DESC
+           LIMIT 1
+         `, [cls.group_id]);
+       }
+       
+       if (lastSessionQuery && lastSessionQuery.rows.length > 0) {
+         const lastSession = lastSessionQuery.rows[0];
+         cls.last_session_topic = lastSession.session_topic || 'No topic recorded';
+         cls.last_session_number = lastSession.session_number;
+       } else {
+         cls.last_session_topic = null;
+         cls.last_session_number = null;
+       }
+     } catch (e) {
+       console.warn('Error fetching last session topic:', e.message);
+       cls.last_session_topic = null;
+     }
+   }
+
    // SUCCESS
-  const upcomingResp = { success: true, classes: upcoming };
+  const upcomingResp = { success: true, classes: paginatedClasses, page, limit, total: totalClasses, hasMore };
   adminUpcomingCache = { data: upcomingResp, ts: Date.now() };
 res.json(upcomingResp);
 
@@ -10955,15 +11006,19 @@ app.get('/api/sessions/:studentId', async (req, res) => {
             NULL::text as homework_grade,
             NULL::text as homework_feedback,
             false as has_feedback,
-            COALESCE(s.class_link, $2) as class_link
+            COALESCE(s.class_link, $2) as class_link,
+            st.program_name
           FROM sessions s
+          LEFT JOIN students st ON st.id = s.student_id
           WHERE s.student_id = $1 AND s.session_type = 'Private'
         `, [id, DEFAULT_CLASS])
       : executeQuery(`
           SELECT s.*, 'Private' as source_type,
             COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
-            CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
+            CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
+            st.program_name
           FROM sessions s
+          LEFT JOIN students st ON st.id = s.student_id
           LEFT JOIN LATERAL (
             SELECT json_agg(
               json_build_object(
@@ -11004,18 +11059,22 @@ app.get('/api/sessions/:studentId', async (req, res) => {
               NULL::text as homework_feedback,
               false as has_feedback,
               COALESCE(sa.attendance, 'Pending') as student_attendance,
-              COALESCE(s.class_link, $3) as class_link
+              COALESCE(s.class_link, $3) as class_link,
+              g.program_name
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
+            LEFT JOIN groups g ON g.id = s.group_id
             WHERE s.group_id = $2 AND s.session_type = 'Group'
           `, [id, groupId, DEFAULT_CLASS])
         : await executeQuery(`
             SELECT s.*, 'Group' as source_type,
               COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
               CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
-              COALESCE(sa.attendance, 'Pending') as student_attendance
+              COALESCE(sa.attendance, 'Pending') as student_attendance,
+              g.program_name
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
+            LEFT JOIN groups g ON g.id = s.group_id
             LEFT JOIN LATERAL (
               SELECT json_agg(
                 json_build_object(

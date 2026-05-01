@@ -4900,11 +4900,17 @@ I'm passionate about helping children develop confidence in communication!"></te
           </div>`;
         }
 
+        // Last class topic display
+        const lastTopicHtml = cls.last_session_topic 
+          ? `<p style="background: rgba(255,255,255,0.15); padding: 8px 12px; border-radius: 8px; margin: 8px 0 0 0; font-size: 0.85rem;">📋 <strong>Last Topic:</strong> ${cls.last_session_topic}</p>`
+          : '';
+
         return `<div class="${cardClass}">
         <h3>${cls.student_name}${typeLabel}</h3>
         <p>📚 ${cls.class_info || 'N/A'}</p>
         <p>📅 ${dayName}, ${formatSessionTime(cls)} (IST)</p>
         <p>🌍 ${isDemo ? 'Demo Class' : 'Student TZ: ' + cls.timezone}</p>
+        ${lastTopicHtml}
         ${studentsHtml}
         <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
          <button type="button"
