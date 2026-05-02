@@ -2163,6 +2163,7 @@
         </div>
         <div style="padding: 20px;">
           <input type="hidden" id="editPRId">
+          <input type="hidden" id="editPRType" value="payment">
           <div class="form-row">
             <div class="form-group"><label>Payment Date *</label><input type="date" id="editPRDate" required></div>
             <div class="form-group"><label>Amount *</label>
@@ -14345,8 +14346,8 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.payment_method || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.sessions_covered || '-'}</td>
               <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-                <button onclick="openEditPaymentRecord(${p.id}, '${p.payment_date ? p.payment_date.split('T')[0] : ''}', ${parseFloat(p.amount)}, '${p.currency}', '${(p.payment_method || '').replace(/'/g, "\\'")}', '${(p.sessions_covered || '').replace(/'/g, "\\'")}', '${(p.notes || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-warning" title="Edit this payment">✏️</button>
-                <button onclick="deletePaymentRecord(${p.id}, '${(p.student_name || 'Unknown').replace(/'/g, "\\'")}', '${p.currency === 'USD' ? '$' : p.currency === 'BDT' ? '৳' : p.currency === 'AUD' ? 'A$' : '₹'}${parseFloat(p.amount).toLocaleString()}')" class="btn btn-sm btn-danger" title="Delete this payment record">🗑️</button>
+                <button onclick="openEditPaymentRecord(${p.id}, '${p.record_type || 'payment'}', '${p.payment_date ? p.payment_date.split('T')[0] : ''}', ${parseFloat(p.amount)}, '${p.currency}', '${(p.payment_method || '').replace(/'/g, "\\'")}', '${(p.sessions_covered || '').replace(/'/g, "\\'")}', '${(p.notes || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-warning" title="Edit this payment">✏️</button>
+                <button onclick="deletePaymentRecord(${p.id}, '${p.record_type || 'payment'}', '${(p.student_name || 'Unknown').replace(/'/g, "\\'")}', '${p.currency === 'USD' ? '$' : p.currency === 'BDT' ? '৳' : p.currency === 'AUD' ? 'A$' : '₹'}${parseFloat(p.amount).toLocaleString()}')" class="btn btn-sm btn-danger" title="Delete this payment record">🗑️</button>
               </td>
             </tr>
           `).join('');
@@ -14467,16 +14468,18 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
       }
     }
 
-    async function deletePaymentRecord(id, studentName, amount) {
+    async function deletePaymentRecord(id, recordType, studentName, amount) {
       if (!confirm(`Delete payment record?\n\nStudent: ${studentName}\nAmount: ${amount}\n\nThis will also adjust the student's fees_paid. This action cannot be undone.`)) return;
 
       try {
-        const res = await fetch(`/api/payment-history/${id}`, { method: 'DELETE' });
+        const endpoint = recordType === 'renewal' ? `/api/payment-renewals/${id}` : `/api/payment-history/${id}`;
+        const res = await fetch(endpoint, { method: 'DELETE' });
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          alert('✅ Payment record deleted and fees adjusted');
+          alert('✅ ' + (data.message || 'Payment record deleted and fees adjusted'));
           loadFinancialReports();
         } else {
-          alert('❌ Failed to delete payment record');
+          alert('❌ ' + (data.error || 'Failed to delete payment record'));
         }
       } catch (err) {
         alert('❌ Error: ' + err.message);
@@ -14549,8 +14552,9 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
     }
 
     // Edit Payment Record (in financial summary)
-    function openEditPaymentRecord(id, date, amount, currency, method, sessions, notes) {
+    function openEditPaymentRecord(id, recordType, date, amount, currency, method, sessions, notes) {
       document.getElementById('editPRId').value = id;
+      document.getElementById('editPRType').value = recordType || 'payment';
       document.getElementById('editPRDate').value = date;
       document.getElementById('editPRAmount').value = amount;
       document.getElementById('editPRCurrency').value = currency || 'INR';
@@ -14562,6 +14566,7 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
 
     async function saveEditPaymentRecord() {
       const id = document.getElementById('editPRId').value;
+      const recordType = document.getElementById('editPRType').value || 'payment';
       const data = {
         payment_date: document.getElementById('editPRDate').value,
         amount: parseFloat(document.getElementById('editPRAmount').value),
@@ -14577,17 +14582,19 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
       }
 
       try {
-        const res = await fetch(`/api/payment-history/${id}`, {
+        const endpoint = recordType === 'renewal' ? `/api/payment-renewals/${id}` : `/api/payment-history/${id}`;
+        const res = await fetch(endpoint, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
+        const result = await res.json().catch(() => ({}));
         if (res.ok) {
-          alert('Payment updated successfully!');
+          alert(result.message || 'Payment updated successfully!');
           document.getElementById('editPaymentRecordModal').classList.remove('active');
           loadFinancialReports();
         } else {
-          alert('Failed to update payment');
+          alert(result.error || 'Failed to update payment');
         }
       } catch (err) {
         alert('Error: ' + err.message);

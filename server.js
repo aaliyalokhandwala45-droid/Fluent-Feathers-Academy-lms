@@ -14246,7 +14246,7 @@ app.get('/api/financial-reports', async (req, res) => {
 
     // Get all payments from payment_history
     const paymentsQuery = `
-      SELECT ph.*, s.name as student_name, s.parent_name
+      SELECT ph.*, s.name as student_name, s.parent_name, 'payment' as record_type
       FROM payment_history ph
       LEFT JOIN students s ON ph.student_id = s.id
       ${dateFilter}
@@ -14264,8 +14264,9 @@ app.get('/api/financial-reports', async (req, res) => {
       const renewalQuery = `
         SELECT pr.id, pr.student_id, pr.renewal_date as payment_date, pr.amount, pr.currency,
                pr.payment_method, CAST(pr.sessions_added AS TEXT) as sessions_covered,
-               COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes,
-               'Completed' as payment_status, s.name as student_name, s.parent_name
+               COALESCE(pr.notes, '') as notes,
+               'Completed' as payment_status, s.name as student_name, s.parent_name,
+               'renewal' as record_type
         FROM payment_renewals pr
         LEFT JOIN students s ON pr.student_id = s.id
         ${renewalWhere} NOT EXISTS (
@@ -14593,17 +14594,105 @@ app.delete('/api/payment-renewals/:id', async (req, res) => {
 
 // Edit a payment record
 app.put('/api/payment-history/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const { payment_date, amount, currency, payment_method, sessions_covered, notes } = req.body;
-    await pool.query(`
+    const existing = await client.query('SELECT * FROM payment_history WHERE id = $1', [req.params.id]);
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Payment record not found' });
+    }
+
+    const current = existing.rows[0];
+    const newAmount = parseFloat(amount);
+    if (!payment_date || Number.isNaN(newAmount)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Payment date and amount are required' });
+    }
+
+    const result = await client.query(`
       UPDATE payment_history
       SET payment_date = $1, amount = $2, currency = $3, payment_method = $4, sessions_covered = $5, notes = $6
       WHERE id = $7
-    `, [payment_date, amount, currency, payment_method, sessions_covered, notes, req.params.id]);
+    `, [payment_date, newAmount, currency, payment_method, sessions_covered, notes, req.params.id]);
+
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Payment record not found' });
+    }
+
+    const amountDelta = newAmount - parseFloat(current.amount || 0);
+    if (amountDelta !== 0) {
+      await client.query(
+        'UPDATE students SET fees_paid = GREATEST(fees_paid + $1, 0) WHERE id = $2',
+        [amountDelta, current.student_id]
+      );
+    }
+
+    await client.query('COMMIT');
     res.json({ success: true, message: 'Payment updated successfully' });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Error updating payment:', err);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Edit a renewal payment record
+app.put('/api/payment-renewals/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { payment_date, amount, currency, payment_method, sessions_covered, sessions_added, notes } = req.body;
+    const existing = await client.query('SELECT * FROM payment_renewals WHERE id = $1', [req.params.id]);
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Renewal record not found' });
+    }
+
+    const current = existing.rows[0];
+    const newAmount = parseFloat(amount);
+    const newSessions = parseInt(sessions_added || sessions_covered, 10);
+    if (!payment_date || Number.isNaN(newAmount) || Number.isNaN(newSessions) || newSessions < 1) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Payment date, amount, and sessions are required' });
+    }
+
+    const result = await client.query(`
+      UPDATE payment_renewals
+      SET renewal_date = $1, amount = $2, currency = $3, payment_method = $4, sessions_added = $5, notes = $6
+      WHERE id = $7
+    `, [payment_date, newAmount, currency, payment_method, newSessions, notes, req.params.id]);
+
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Renewal record not found' });
+    }
+
+    const amountDelta = newAmount - parseFloat(current.amount || 0);
+    const sessionDelta = newSessions - parseInt(current.sessions_added || 0, 10);
+    if (amountDelta !== 0 || sessionDelta !== 0) {
+      await client.query(`
+        UPDATE students SET
+          fees_paid = GREATEST(fees_paid + $1, 0),
+          total_sessions = GREATEST(total_sessions + $2, 0),
+          remaining_sessions = GREATEST(remaining_sessions + $2, 0)
+        WHERE id = $3
+      `, [amountDelta, sessionDelta, current.student_id]);
+      await renumberPrivateSessionsForStudent(current.student_id, client);
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Renewal updated successfully' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error updating renewal:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
