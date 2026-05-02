@@ -729,6 +729,7 @@
         <div style="display: flex; gap: 10px; align-items: center;">
           <span id="currentChildBadge" style="display: none; background: #e2e8f0; color: #4a5568; padding: 6px 12px; border-radius: 15px; font-size: 0.85rem;">Viewing: <strong id="currentChildName">-</strong></span>
           <button id="switchChildBtn" onclick="showChildSelector()" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'">👧👦 Switch Child</button>
+          <button id="parentNotifyBtn" type="button" onclick="enableParentNotifications(true)" class="btn btn-sm" style="background: #38b2ac; color: white; font-size: 12px;">🔔 Enable Notifications</button>
           <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
         </div>
       </header>
@@ -1561,6 +1562,8 @@ setTimeout(() => {
     let selectedRating = 0;
     let checkedFeedbackSessions = new Set();
     let appConfig = { logoUrl: '/app-icon.png' };
+    let parentPushSetupDone = false;
+    window.__ffParentPushToken = null;
     const PARENT_PUSH_PROMPT_KEY = 'ff_parent_push_prompted_v1';
     // Load app configuration (logo URL from environment)
    async function loadConfig() {
@@ -1585,8 +1588,10 @@ setTimeout(() => {
     const apple = document.getElementById('pwaAppleTouch');
     if (fav && appConfig.logoUrl) fav.href = appConfig.logoUrl;
     if (apple && appConfig.logoUrl) apple.href = appConfig.logoUrl;
+    updateParentNotifyButton();
   } catch (e) {
     console.log('Using default config');
+    updateParentNotifyButton();
   }
 }
 
@@ -1620,6 +1625,61 @@ setTimeout(() => {
       }
     }
 
+    async function enableParentNotifications(showErrors) {
+      try {
+        if (!('Notification' in window) || !('serviceWorker' in navigator) || typeof firebase === 'undefined') {
+          if (showErrors) alert('This browser does not support notifications.');
+          updateParentNotifyButton();
+          return false;
+        }
+        await loadConfig();
+        if (!appConfig.firebase || !appConfig.firebaseVapidKey) {
+          if (showErrors) alert('Push notifications are not fully configured yet.');
+          updateParentNotifyButton();
+          return false;
+        }
+        if (Notification.permission === 'denied') {
+          if (showErrors) alert('Notifications are blocked in this browser. Please enable them in browser settings.');
+          updateParentNotifyButton();
+          return false;
+        }
+
+        const enabled = await initializeFirebaseMessaging({ requestPermission: true });
+        updateParentNotifyButton();
+        if (enabled && showErrors) alert('Notifications enabled successfully.');
+        if (!enabled && showErrors && Notification.permission !== 'denied') {
+          alert('Could not enable notifications right now. Please try again.');
+        }
+        return enabled;
+      } catch (err) {
+        console.warn('Parent push setup:', err);
+        updateParentNotifyButton();
+        if (showErrors) alert('Could not enable notifications right now. Please try again.');
+        return false;
+      }
+    }
+
+    function updateParentNotifyButton() {
+      const btn = document.getElementById('parentNotifyBtn');
+      if (!btn) return;
+      if (parentPushSetupDone && window.__ffParentPushToken) {
+        btn.textContent = '✅ Notifications Enabled';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'default';
+      } else if ('Notification' in window && Notification.permission === 'denied') {
+        btn.textContent = '⚠️ Notifications Blocked';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'default';
+      } else {
+        btn.textContent = '🔔 Enable Notifications';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+      }
+    }
+
     async function promptEnableParentPushIfNeeded() {
       try {
         if (!('Notification' in window) || !('serviceWorker' in navigator) || typeof firebase === 'undefined') return;
@@ -1630,7 +1690,7 @@ setTimeout(() => {
         localStorage.setItem(PARENT_PUSH_PROMPT_KEY, '1');
         const shouldEnable = window.confirm('Enable app notifications for class updates? Click OK, then allow notifications in the browser prompt.');
         if (!shouldEnable) return;
-        await initializeFirebaseMessaging({ requestPermission: true });
+        await enableParentNotifications(false);
       } catch (err) {
         console.warn('Push permission prompt failed:', err);
       }
@@ -1641,10 +1701,12 @@ setTimeout(() => {
       const requestPermission = !!options.requestPermission;
       if (!('Notification' in window) || !('serviceWorker' in navigator) || typeof firebase === 'undefined') {
         console.log('Push notifications are not supported in this browser context');
+        updateParentNotifyButton();
         return false;
       }
       if (!appConfig.firebase || !appConfig.firebaseVapidKey) {
         console.log('Firebase not configured, skipping push notifications');
+        updateParentNotifyButton();
         return false;
       }
 
@@ -1656,6 +1718,7 @@ setTimeout(() => {
         }
         if (perm !== 'granted') {
           console.log('Notification permission not granted');
+          updateParentNotifyButton();
           return false;
         }
 
@@ -1676,7 +1739,8 @@ setTimeout(() => {
 
         if (!token) {
           console.warn('Could not get FCM token');
-          return;
+          updateParentNotifyButton();
+          return false;
         }
 
         // Store token globally
@@ -1720,10 +1784,13 @@ setTimeout(() => {
           window.__ffParentPushOnMessageBound = true;
         }
 
+        parentPushSetupDone = true;
+        updateParentNotifyButton();
         console.log('Firebase messaging initialized for parent');
         return true;
       } catch (err) {
         console.warn('Firebase messaging initialization failed:', err);
+        updateParentNotifyButton();
         return false;
       }
     }
