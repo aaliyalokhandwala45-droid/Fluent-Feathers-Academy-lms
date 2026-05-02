@@ -898,7 +898,7 @@
           <!-- Search and Filter Controls -->
           <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px;">
             <div style="flex: 1; min-width: 0;">
-              <input type="text" id="pastClassSearch" placeholder="🔍 Search by session #, date, topic, status..."
+              <input type="text" id="pastClassSearch" placeholder="🔍 Search by session #, program, date, topic, status..."
                      style="width: 100%; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;"
                      oninput="filterPastClasses()">
             </div>
@@ -3839,7 +3839,8 @@ setTimeout(() => {
 
       const filtered = allPastSessions.filter(s => {
         const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
-        const searchStr = `#${getSerial(s)} ${t.date} ${t.time} ${s.status || ''} ${s.student_attendance || ''} ${s.session_topic || ''}`.toLowerCase();
+        const programName = s.program_name || currentStudent?.program_name || '';
+        const searchStr = `#${getSerial(s)} ${programName} ${t.date} ${t.time} ${s.status || ''} ${s.student_attendance || ''} ${s.session_topic || ''}`.toLowerCase();
         return searchStr.includes(searchTerm);
       });
       renderPastClasses(filtered);
@@ -4024,8 +4025,13 @@ setTimeout(() => {
             }
           }
 
+          const programName = s.program_name || currentStudent?.program_name || '';
+          const programLabel = programName
+            ? `<br><small style="color:#718096; font-size:0.76rem; font-weight:600;">${programName}</small>`
+            : '';
+
           return `<tr>
-            <td>#${getSerial(s)}</td>
+            <td>#${getSerial(s)}${programLabel}</td>
             <td>${t.date}<br><small style="color:#718096; font-size:0.78rem;">📆 ${t.weekday}</small>${s.session_topic ? `<br><small style="color:#B05D9E; font-weight:600; font-size:0.78rem;">📌 ${s.session_topic}</small>` : ''}</td>
             <td>${t.time}</td>
             <td>${attendanceDisplay}</td>
