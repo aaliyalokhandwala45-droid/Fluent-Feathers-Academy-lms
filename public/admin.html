@@ -11871,6 +11871,7 @@ async function saveEditedPayment() {
           };
           const emoji = typeEmojis[c.challenge_type] || '🎯';
           const badgeReward = c.badge_reward || '🎯 Challenge Champion';
+          const publicLink = `${window.location.origin}/public-challenge?id=${c.id}`;
 
           return `
             <div class="${isActive ? 'challenge-card-active' : 'challenge-card-inactive'}">
@@ -11886,11 +11887,14 @@ async function saveEditedPayment() {
                     <span style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 3px 10px; border-radius: 12px;">🏅 ${badgeReward}</span>
                     <span>👥 ${c.assigned_count || 0} assigned</span>
                     ${c.submitted_count > 0 ? `<span style="background: #9f7aea; color: white; padding: 3px 10px; border-radius: 12px; font-weight: 600;">📩 ${c.submitted_count} awaiting review!</span>` : ''}
+                    <span style="background: #e6fffa; color: #047857; padding: 3px 10px; border-radius: 12px; font-weight: 600;">🌐 ${c.public_entry_count || 0} public entries</span>
                     <span style="color: #38a169; font-weight: 600;">✅ ${c.completed_count || 0} completed</span>
                   </div>
                 </div>
                 <div style="display: flex; gap: 8px; flex-direction: column; align-items: flex-end;">
                   ${c.submitted_count > 0 ? `<span style="background: #e53e3e; color: white; padding: 4px 8px; border-radius: 50%; font-size: 0.75rem; font-weight: bold;">${c.submitted_count}</span>` : ''}
+                  <button onclick="copyPublicChallengeLink('${publicLink.replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #0f766e; color: white;">🔗 Copy Public Link</button>
+                  <button onclick="viewPublicChallengeEntries(${c.id}, decodeURIComponent('${encodeURIComponent(c.title)}'))" class="btn btn-sm" style="background: #14b8a6; color: white;">🌐 Public Entries (${c.public_entry_count || 0})</button>
                   <button onclick="viewChallengeStudents(${c.id}, decodeURIComponent('${encodeURIComponent(c.title)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm ${c.submitted_count > 0 ? 'btn-challenge-review' : 'btn-challenge-track'}">${c.submitted_count > 0 ? '🔔 Review Submissions' : '👥 Track Progress'}</button>
                   <button onclick="extendChallenge(${c.id}, '${c.week_end}')" class="btn btn-sm" style="background: #667eea; color: white;">📅 Edit End</button>
                   <button onclick="deleteChallenge(${c.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️</button>
@@ -11902,6 +11906,99 @@ async function saveEditedPayment() {
       } catch (err) {
         console.error('Error loading challenges:', err);
         document.getElementById('challengesList').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading challenges</p>';
+      }
+    }
+
+    async function copyPublicChallengeLink(link) {
+      try {
+        await navigator.clipboard.writeText(link);
+        alert('Public challenge link copied. You can paste it in Instagram or any social media post.');
+      } catch (err) {
+        const input = document.createElement('input');
+        input.value = link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        input.remove();
+        alert('Public challenge link copied.');
+      }
+    }
+
+    async function viewPublicChallengeEntries(challengeId, challengeTitle) {
+      try {
+        const res = await fetch(`/api/challenges/${challengeId}/public-entries`);
+        const entries = await res.json();
+        if (!res.ok) throw new Error(entries.error || 'Failed to load public entries');
+
+        const existingModal = document.getElementById('publicChallengeEntriesModal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'publicChallengeEntriesModal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+          <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <div>
+                <h2 style="color: #0f766e; margin-bottom: 4px;">🌐 Public Entries</h2>
+                <p style="margin:0; color:#718096;">${escapeHtml(challengeTitle)}</p>
+              </div>
+              <button onclick="document.getElementById('publicChallengeEntriesModal').remove()" class="btn btn-danger btn-sm">✕</button>
+            </div>
+            ${entries.length === 0 ? '<p style="color:#718096; text-align:center; padding:30px;">No public entries yet.</p>' : `
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #f7fafc;">
+                    <th style="padding: 12px; text-align: left;">Child</th>
+                    <th style="padding: 12px; text-align: left;">Parent</th>
+                    <th style="padding: 12px; text-align: center;">Submitted</th>
+                    <th style="padding: 12px; text-align: center;">Video</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${entries.map(entry => {
+                    const fileName = entry.video_file_name || 'Challenge video';
+                    let fileUrl = entry.video_file_path || '';
+                    if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('/uploads/')) {
+                      fileUrl = '/uploads/homework/' + fileUrl;
+                    }
+                    const downloadUrl = getDownloadUrl(fileUrl, fileName);
+                    return `
+                      <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 12px;">
+                          <strong>${escapeHtml(entry.child_name)}</strong>
+                          <br><small style="color:#718096;">Age: ${entry.child_age ? escapeHtml(entry.child_age) : '-'}</small>
+                        </td>
+                        <td style="padding: 12px;">
+                          <strong>${escapeHtml(entry.parent_name)}</strong>
+                          <br><small style="color:#718096;">${escapeHtml(entry.parent_email)}</small>
+                        </td>
+                        <td style="padding: 12px; text-align:center;">${entry.submitted_at ? new Date(entry.submitted_at).toLocaleString() : '-'}</td>
+                        <td style="padding: 12px; text-align:center;">
+                          <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                            <span style="font-size:0.8rem; color:#4a5568;">🎥 ${escapeHtml(fileName.length > 24 ? fileName.substring(0, 24) + '...' : fileName)}</span>
+                            <div style="display:flex; gap:6px; justify-content:center;">
+                              <button onclick="previewFile('${fileUrl.replace(/'/g, "\\'")}', 'video', decodeURIComponent('${encodeURIComponent(fileName)}'))" class="btn btn-sm" style="background:#0f766e; color:white;">View</button>
+                              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="btn btn-sm" style="background:#667eea; color:white; text-decoration:none;">⬇️</a>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            `}
+          </div>
+        `;
+
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) modal.remove();
+        });
+        document.body.appendChild(modal);
+      } catch (err) {
+        alert('Error loading public entries: ' + err.message);
       }
     }
 

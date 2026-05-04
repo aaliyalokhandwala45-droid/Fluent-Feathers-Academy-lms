@@ -652,6 +652,10 @@ function getJoinClassUrl(sessionId, options = {}) {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.get('/public-challenge', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'public-challenge.html'));
+});
+
 app.get('/demo', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'demo-register.html'));
 });
@@ -2652,6 +2656,29 @@ async function runMigrations() {
       console.log('✅ Migration 45: Added submitted_at to student_challenges');
     } catch (err) {
       console.log('Migration 45 note:', err.message);
+    }
+
+    // Migration 45b: Public challenge entries for social media links
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS public_challenge_entries (
+          id SERIAL PRIMARY KEY,
+          challenge_id INTEGER NOT NULL REFERENCES weekly_challenges(id) ON DELETE CASCADE,
+          child_name TEXT NOT NULL,
+          parent_name TEXT NOT NULL,
+          child_age INTEGER,
+          parent_email TEXT NOT NULL,
+          video_file_path TEXT NOT NULL,
+          video_file_name TEXT,
+          status TEXT DEFAULT 'Submitted',
+          submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          notes TEXT
+        );
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS public_challenge_entries_challenge_idx ON public_challenge_entries (challenge_id, submitted_at DESC)`);
+      console.log('Public challenge entries table checked/created');
+    } catch (err) {
+      console.log('Migration 45b note:', err.message);
     }
 
     // Migration 46: Daily Quiz System
@@ -16747,6 +16774,118 @@ app.delete('/api/homework/:id', async (req, res) => {
 });
 
 // ==================== WEEKLY CHALLENGES API ====================
+// Public challenge details for social media entry links
+app.get('/api/public-challenges/:id', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, title, description, challenge_type, badge_reward, week_start, week_end, is_active
+      FROM weekly_challenges
+      WHERE id = $1
+      LIMIT 1
+    `, [req.params.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Challenge not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public challenge video submission from parents outside the LMS
+app.post('/api/public-challenges/:id/entries', handleUpload('video'), async (req, res) => {
+  try {
+    const challengeId = req.params.id;
+    const childName = String(req.body.child_name || '').trim();
+    const parentName = String(req.body.parent_name || '').trim();
+    const parentEmail = String(req.body.parent_email || '').trim().toLowerCase();
+    const childAgeRaw = String(req.body.child_age || '').trim();
+    const childAge = childAgeRaw ? Number(childAgeRaw) : null;
+
+    if (!childName || !parentName || !parentEmail) {
+      return res.status(400).json({ error: 'Child name, parent name, and parent email are required.' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parentEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid parent email.' });
+    }
+
+    if (childAge !== null && (!Number.isInteger(childAge) || childAge < 1 || childAge > 18)) {
+      return res.status(400).json({ error: 'Please enter a valid child age between 1 and 18.' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Please upload a video for this challenge.' });
+    }
+
+    const mimeType = (req.file.mimetype || '').toLowerCase();
+    if (!mimeType.startsWith('video/')) {
+      return res.status(400).json({ error: 'Only video files are allowed for public challenge entries.' });
+    }
+
+    const challenge = await pool.query(
+      `SELECT id, title, week_end FROM weekly_challenges WHERE id = $1 LIMIT 1`,
+      [challengeId]
+    );
+    if (challenge.rows.length === 0) {
+      return res.status(404).json({ error: 'Challenge not found.' });
+    }
+
+    const filePath = useCloudinary
+      ? (req.file.secure_url || req.file.path || req.file.url)
+      : '/' + String(req.file.path || path.join('uploads', 'materials', req.file.filename)).replace(/\\/g, '/');
+    const fileName = req.file.originalname;
+
+    const entry = await pool.query(`
+      INSERT INTO public_challenge_entries
+        (challenge_id, child_name, parent_name, child_age, parent_email, video_file_path, video_file_name)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, submitted_at
+    `, [challengeId, childName, parentName, childAge, parentEmail, filePath, fileName]);
+
+    try {
+      await sendPushToAdmins(
+        'Public Challenge Entry',
+        `${childName} submitted "${challenge.rows[0].title}" from the public link.`,
+        {
+          type: 'public_challenge_entry',
+          challengeId: String(challengeId),
+          childName,
+          parentName,
+          url: `${getAppBaseUrl()}/admin.html`
+        }
+      );
+    } catch (pushErr) {
+      console.warn('Public challenge entry admin push failed:', pushErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Entry submitted successfully. Thank you!',
+      entry: entry.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: review public social media entries for a challenge
+app.get('/api/challenges/:id/public-entries', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT *
+      FROM public_challenge_entries
+      WHERE challenge_id = $1
+      ORDER BY submitted_at DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get all challenges (admin)
 app.get('/api/challenges', async (req, res) => {
   try {
@@ -16754,7 +16893,8 @@ app.get('/api/challenges', async (req, res) => {
       SELECT c.*,
         (SELECT COUNT(*) FROM student_challenges sc WHERE sc.challenge_id = c.id) as assigned_count,
         (SELECT COUNT(*) FROM student_challenges sc WHERE sc.challenge_id = c.id AND sc.status = 'Completed') as completed_count,
-        (SELECT COUNT(*) FROM student_challenges sc WHERE sc.challenge_id = c.id AND sc.status = 'Submitted') as submitted_count
+        (SELECT COUNT(*) FROM student_challenges sc WHERE sc.challenge_id = c.id AND sc.status = 'Submitted') as submitted_count,
+        (SELECT COUNT(*) FROM public_challenge_entries pce WHERE pce.challenge_id = c.id) as public_entry_count
       FROM weekly_challenges c
       ORDER BY c.week_start DESC
     `);
@@ -16930,7 +17070,7 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
       if (useCloudinary) {
         filePath = req.file.secure_url || req.file.path || req.file.url;
       } else {
-        filePath = '/uploads/homework/' + req.file.filename;
+        filePath = '/' + String(req.file.path || path.join('uploads', 'materials', req.file.filename)).replace(/\\/g, '/');
       }
       fileName = req.file.originalname;
     }
