@@ -114,6 +114,29 @@
 
     .pill strong { color: var(--brand); }
 
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .challenge-image {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .challenge-image img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
     .card {
       padding: 28px;
     }
@@ -274,9 +297,13 @@
         app.className = 'shell';
         app.innerHTML = `
           <section class="hero">
+            <div class="logo">
+              <img src="/app-icon.png" alt="Fluent Feathers Academy">
+            </div>
             <span class="eyebrow">Public Challenge Entry</span>
             <h1>${escapeHtml(challenge.title)}</h1>
             <p class="description">${escapeHtml(challenge.description || 'Record your child completing this challenge and submit the video here.')}</p>
+            ${challenge.image_url ? `<div class="challenge-image"><img src="${escapeHtml(challenge.image_url)}" alt="Challenge Image"></div>` : ''}
             <div class="meta">
               <div class="pill"><span>Challenge Type</span><strong>${escapeHtml(challenge.challenge_type || 'General')}</strong></div>
               <div class="pill"><span>Dates</span><strong>${formatDate(challenge.week_start)} - ${formatDate(challenge.week_end)}</strong></div>

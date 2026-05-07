@@ -1534,6 +1534,10 @@
               <label style="color: white;">Description</label>
               <textarea id="challengeDescription" rows="2" placeholder="Describe what students need to do..."></textarea>
             </div>
+            <div class="form-group">
+              <label style="color: white;">Challenge Image (optional)</label>
+              <input type="file" id="challengeImage" accept="image/*" style="color: white;">
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label style="color: white;">Week Start *</label>
@@ -11882,6 +11886,7 @@ async function saveEditedPayment() {
                     ${isActive ? '<span style="background: #38a169; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 8px;">Active</span>' : '<span style="background: #718096; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 8px;">Ended</span>'}
                   </h4>
                   <p style="margin: 0 0 10px 0; color: #718096; font-size: 0.9rem;">${c.description || 'No description'}</p>
+                  ${c.image_url ? `<div style="margin-bottom: 10px;"><img src="${c.image_url}" alt="Challenge Image" style="max-width: 200px; max-height: 150px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"></div>` : ''}
                   <div style="display: flex; gap: 15px; flex-wrap: wrap; font-size: 0.85rem; color: #4a5568;">
                     <span>📅 ${new Date(c.week_start).toLocaleDateString()} - ${new Date(c.week_end).toLocaleDateString()}</span>
                     <span style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 3px 10px; border-radius: 12px;">🏅 ${badgeReward}</span>
@@ -12005,22 +12010,25 @@ async function saveEditedPayment() {
     // Create Challenge Form Handler
     document.getElementById('createChallengeForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const data = {
-        title: document.getElementById('challengeTitle').value,
-        description: document.getElementById('challengeDescription').value,
-        challenge_type: document.getElementById('challengeType').value,
-        badge_reward: document.getElementById('challengeBadgeReward').value,
-        week_start: document.getElementById('challengeWeekStart').value,
-        week_end: document.getElementById('challengeWeekEnd').value,
-        assign_to_all: document.getElementById('assignToAll').checked,
-        send_email: document.getElementById('challengeSendEmail').checked
-      };
+      const formData = new FormData();
+      formData.append('title', document.getElementById('challengeTitle').value);
+      formData.append('description', document.getElementById('challengeDescription').value);
+      formData.append('challenge_type', document.getElementById('challengeType').value);
+      formData.append('badge_reward', document.getElementById('challengeBadgeReward').value);
+      formData.append('week_start', document.getElementById('challengeWeekStart').value);
+      formData.append('week_end', document.getElementById('challengeWeekEnd').value);
+      formData.append('assign_to_all', document.getElementById('assignToAll').checked);
+      formData.append('send_email', document.getElementById('challengeSendEmail').checked);
+      
+      const imageFile = document.getElementById('challengeImage').files[0];
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
 
       try {
         const res = await fetch('/api/challenges', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(data)
+          body: formData
         });
         const result = await res.json();
         if (res.ok) {

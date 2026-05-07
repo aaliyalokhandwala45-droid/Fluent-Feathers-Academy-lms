@@ -2075,6 +2075,7 @@ async function runMigrations() {
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_expectations TEXT`);
       // Add badge_reward column to weekly_challenges
       await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS badge_reward TEXT DEFAULT '🎯 Challenge Champion'`);
+      await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS image_url TEXT`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS renewal_reminder_sent BOOLEAN DEFAULT false`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS last_reminder_remaining INTEGER`);
       // Add class_link column to students table
@@ -16778,7 +16779,7 @@ app.delete('/api/homework/:id', async (req, res) => {
 app.get('/api/public-challenges/:id', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, title, description, challenge_type, badge_reward, week_start, week_end, is_active
+      SELECT id, title, description, challenge_type, badge_reward, week_start, week_end, is_active, image_url
       FROM weekly_challenges
       WHERE id = $1
       LIMIT 1
@@ -16905,20 +16906,25 @@ app.get('/api/challenges', async (req, res) => {
 });
 
 // Create new challenge
-app.post('/api/challenges', async (req, res) => {
+app.post('/api/challenges', handleUpload('image'), async (req, res) => {
   const { title, description, challenge_type, badge_reward, week_start, week_end, assign_to_all, send_email } = req.body;
   try {
+    let imageUrl = null;
+    if (req.file) {
+      imageUrl = req.file.path || req.file.url; // Cloudinary gives url, local gives path
+    }
+
     const result = await pool.query(`
-      INSERT INTO weekly_challenges (title, description, challenge_type, badge_reward, week_start, week_end)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO weekly_challenges (title, description, challenge_type, badge_reward, week_start, week_end, image_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [title, description, challenge_type || 'General', badge_reward || '🎯 Challenge Champion', week_start, week_end]);
+    `, [title, description, challenge_type || 'General', badge_reward || '🎯 Challenge Champion', week_start, week_end, imageUrl]);
 
     const challenge = result.rows[0];
     let assignedStudents = [];
 
     // If assign_to_all, create student_challenges for all active students
-    if (assign_to_all) {
+    if (assign_to_all === 'true' || assign_to_all === true) {
       const students = await pool.query('SELECT id FROM students WHERE is_active = true');
       assignedStudents = students.rows;
       for (const student of assignedStudents) {
@@ -16933,7 +16939,7 @@ app.post('/api/challenges', async (req, res) => {
     let emailsSent = 0;
     const dueDate = new Date(week_end).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    if (send_email === true || send_email === 'true') {
+    if (send_email === 'true' || send_email === true) {
       const startDate = new Date(week_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
       const typeEmojis = { 'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️', 'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐' };
       const emoji = typeEmojis[challenge_type] || '🎯';
