@@ -16818,12 +16818,12 @@ app.post('/api/public-challenges/:id/entries', handleUpload('video'), async (req
     }
 
     if (!req.file) {
-      return res.status(400).json({ error: 'Please upload a video for this challenge.' });
+      return res.status(400).json({ error: 'Please upload a video or image for this challenge.' });
     }
 
     const mimeType = (req.file.mimetype || '').toLowerCase();
-    if (!mimeType.startsWith('video/')) {
-      return res.status(400).json({ error: 'Only video files are allowed for public challenge entries.' });
+    if (!mimeType.startsWith('video/') && !mimeType.startsWith('image/')) {
+      return res.status(400).json({ error: 'Only video or image files are allowed for public challenge entries.' });
     }
 
     const challenge = await pool.query(

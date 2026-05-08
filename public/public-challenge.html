@@ -312,8 +312,8 @@
           </section>
 
           <section class="card">
-            <h2>Submit Your Video</h2>
-            <p class="hint">Parents can submit entries here even if the child is not already a Fluent Feathers LMS student. Upload one video file, maximum 100MB.</p>
+            <h2>Submit Your Entry</h2>
+            <p class="hint">Parents can submit entries here even if the child is not already a Fluent Feathers Academy student. Upload one video or image file, maximum 100MB.</p>
             <div id="message" class="message"></div>
             <form id="entryForm">
               <input name="uploadType" type="hidden" value="homework">
@@ -334,8 +334,8 @@
                 <input name="parent_email" type="email" maxlength="180" required placeholder="parent@example.com">
               </label>
               <label>
-                Challenge Video *
-                <input name="video" type="file" accept="video/*" required>
+                Challenge Entry (Video or Image) *
+                <input name="video" type="file" accept="video/*,image/*" required>
               </label>
               <button id="submitBtn" type="submit">Submit Entry</button>
             </form>
@@ -354,20 +354,20 @@
 
       const form = event.currentTarget;
       const submitBtn = document.getElementById('submitBtn');
-      const video = form.video.files[0];
+      const file = form.video.files[0];
 
-      if (!video) {
-        setMessage('error', 'Please select a challenge video.');
+      if (!file) {
+        setMessage('error', 'Please select a video or image file.');
         return;
       }
 
-      if (!video.type.startsWith('video/')) {
-        setMessage('error', 'Please upload a video file only.');
+      if (!file.type.startsWith('video/') && !file.type.startsWith('image/')) {
+        setMessage('error', 'Please upload a video or image file only.');
         return;
       }
 
-      if (video.size > 100 * 1024 * 1024) {
-        setMessage('error', 'Video is too large. Please upload a file below 100MB.');
+      if (file.size > 100 * 1024 * 1024) {
+        setMessage('error', 'File is too large. Please upload a file below 100MB.');
         return;
       }
 
