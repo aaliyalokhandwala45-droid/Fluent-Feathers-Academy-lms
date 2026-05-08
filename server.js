@@ -7864,6 +7864,61 @@ const QUIZ_AI_CATEGORY_GUIDANCE = {
   advanced: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery']
 };
 
+// International & Special Days for themed quizzes
+// Format: { date: 'MM-DD', name: 'Day Name', emoji: '🎉' }
+const INTERNATIONAL_SPECIAL_DAYS = [
+  { date: '01-26', name: 'India Republic Day', emoji: '🇮🇳' },
+  { date: '03-08', name: 'International Women\'s Day', emoji: '👩' },
+  { date: '03-21', name: 'World Poetry Day', emoji: '📝' },
+  { date: '04-22', name: 'Earth Day', emoji: '🌍' },
+  { date: '04-23', name: 'World Book Day', emoji: '📚' },
+  { date: '05-01', name: 'International Labour Day', emoji: '💼' },
+  { date: '05-05', name: 'Cinco de Mayo', emoji: '🎉' },
+  { date: '05-12', name: 'International Nurses Day', emoji: '⚕️' },
+  { date: '05-17', name: 'World Telecommunication Day', emoji: '📱' },
+  { date: '05-22', name: 'International Biodiversity Day', emoji: '🦋' },
+  { date: '06-05', name: 'World Environment Day', emoji: '🌱' },
+  { date: '06-21', name: 'International Yoga Day', emoji: '🧘' },
+  { date: '07-11', name: 'World Population Day', emoji: '👥' },
+  { date: '08-15', name: 'India Independence Day', emoji: '🇮🇳' },
+  { date: '08-19', name: 'World Photography Day', emoji: '📷' },
+  { date: '09-05', name: 'Teachers\' Day', emoji: '👨‍🏫' },
+  { date: '09-08', name: 'International Literacy Day', emoji: '📖' },
+  { date: '09-16', name: 'International Day for Peace', emoji: '☮️' },
+  { date: '10-02', name: 'International Day of Non-Violence', emoji: '🕊️' },
+  { date: '10-05', name: 'World Teachers\' Day', emoji: '🍎' },
+  { date: '10-31', name: 'Halloween', emoji: '🎃' },
+  { date: '11-14', name: 'Children\'s Day', emoji: '👶' },
+  { date: '11-19', name: 'World Toilet Day', emoji: '🚽' },
+  { date: '11-20', name: 'Universal Children\'s Day', emoji: '🎈' },
+  { date: '12-05', name: 'International Volunteer Day', emoji: '🤝' },
+  { date: '12-10', name: 'Human Rights Day', emoji: '⚖️' },
+  { date: '12-25', name: 'Christmas Day', emoji: '🎄' },
+];
+
+// Function to calculate movable holidays
+function getMovableHolidays(year) {
+  const holidays = [];
+  
+  // Mother's Day: 2nd Sunday of May
+  const may = new Date(year, 4, 1);
+  let firstSunday = may;
+  while (firstSunday.getDay() !== 0) firstSunday.setDate(firstSunday.getDate() + 1);
+  const motherDay = new Date(firstSunday);
+  motherDay.setDate(motherDay.getDate() + 7);
+  holidays.push({ date: `0${motherDay.getMonth() + 1}`.slice(-2) + '-' + `0${motherDay.getDate()}`.slice(-2), name: 'Mother\'s Day', emoji: '❤️' });
+  
+  // Father's Day: 3rd Sunday of June
+  const june = new Date(year, 5, 1);
+  let firstSunday2 = june;
+  while (firstSunday2.getDay() !== 0) firstSunday2.setDate(firstSunday2.getDate() + 1);
+  const fatherDay = new Date(firstSunday2);
+  fatherDay.setDate(fatherDay.getDate() + 14);
+  holidays.push({ date: `0${fatherDay.getMonth() + 1}`.slice(-2) + '-' + `0${fatherDay.getDate()}`.slice(-2), name: 'Father\'s Day', emoji: '💙' });
+  
+  return holidays;
+}
+
 function normalizeQuizQuestionText(text) {
   return String(text || '')
     .toLowerCase()
@@ -17850,6 +17905,79 @@ app.get('/api/admin/quiz-stats/total-questions', async (req, res) => {
   try {
     const result = await pool.query(`SELECT COUNT(*) as count FROM pending_quiz_questions WHERE status = 'pending'`);
     res.json({ count: parseInt(result.rows[0].count) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Get upcoming special days for quiz planning (1 day prior)
+app.get('/api/admin/upcoming-special-days', async (req, res) => {
+  try {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    
+    // Combine static and movable holidays
+    const allDays = [...INTERNATIONAL_SPECIAL_DAYS, ...getMovableHolidays(currentYear)];
+    
+    // Get today's date in MM-DD format
+    const todayMMDD = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    // Get tomorrow's date in MM-DD format (this is what we show - 1 day prior to the actual event)
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowMMDD = `${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    
+    // Get upcoming 30 days for context
+    const upcoming = [];
+    for (let i = 0; i <= 30; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() + i);
+      const checkMMDD = `${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+      
+      const specialDay = allDays.find(d => d.date === checkMMDD);
+      if (specialDay) {
+        const isShowToday = (i === 1); // Show 1 day prior (tomorrow shows as "1 day before")
+        upcoming.push({
+          date: checkMMDD,
+          fullDate: checkDate.toISOString().split('T')[0],
+          name: specialDay.name,
+          emoji: specialDay.emoji,
+          daysUntil: i,
+          showToday: isShowToday
+        });
+      }
+    }
+    
+    res.json({ upcomingDays: upcoming });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Student: Get today's special day info (if any)
+app.get('/api/today-special-day', async (req, res) => {
+  try {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    
+    // Combine static and movable holidays
+    const allDays = [...INTERNATIONAL_SPECIAL_DAYS, ...getMovableHolidays(currentYear)];
+    
+    // Get today's date in MM-DD format
+    const todayMMDD = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    const specialDay = allDays.find(d => d.date === todayMMDD);
+    
+    if (specialDay) {
+      res.json({ 
+        isSpecialDay: true, 
+        name: specialDay.name, 
+        emoji: specialDay.emoji,
+        date: today.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      });
+    } else {
+      res.json({ isSpecialDay: false });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
