@@ -3572,8 +3572,8 @@ setTimeout(() => {
         .filter(s => {
           const status = String(s.status || '').trim().toLowerCase();
           const studentAttendance = String(s.student_attendance || '').trim().toLowerCase();
-          if (['cancelled', 'cancelled by parent', 'excused', 'unexcused'].includes(status)) return false;
-          if (['excused', 'unexcused'].includes(studentAttendance)) return false;
+          if (['cancelled', 'cancelled by parent', 'excused', 'unexcused', 'missed', 'absent'].includes(status)) return false;
+          if (['excused', 'unexcused', 'missed', 'absent'].includes(studentAttendance)) return false;
           if (seen.has(s.id)) return false;
           seen.add(s.id);
           return true;
@@ -3594,10 +3594,17 @@ setTimeout(() => {
     function formatSessionSerial(session) {
       const status = String(session.status || '').trim().toLowerCase();
       const studentAttendance = String(session.student_attendance || '').trim().toLowerCase();
-      if (['cancelled', 'cancelled by parent', 'excused', 'unexcused'].includes(status)) return '';
-      if (['excused', 'unexcused'].includes(studentAttendance)) return '';
+      if (['cancelled', 'cancelled by parent', 'excused', 'unexcused', 'missed', 'absent'].includes(status)) return '';
+      if (['excused', 'unexcused', 'missed', 'absent'].includes(studentAttendance)) return '';
       const serial = getSerial(session);
       return serial && serial !== '-' ? `#${serial}` : '';
+    }
+    function formatPastSessionSerial(session) {
+      const status = String(session.status || '').trim().toLowerCase();
+      const studentAttendance = String(session.student_attendance || '').trim().toLowerCase();
+      if (status !== 'completed') return '';
+      if (session.source_type === 'Group' && studentAttendance !== 'present') return '';
+      return formatSessionSerial(session);
     }
 
     function isCurrentStudentSummerCamp() {
@@ -3862,7 +3869,7 @@ setTimeout(() => {
       const filtered = allPastSessions.filter(s => {
         const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
         const programName = s.program_name || currentStudent?.program_name || '';
-        const serialLabel = formatSessionSerial(s);
+        const serialLabel = formatPastSessionSerial(s);
         const searchStr = `${serialLabel ? serialLabel + ' ' : ''}${programName} ${t.date} ${t.time} ${s.status || ''} ${s.student_attendance || ''} ${s.session_topic || ''}`.toLowerCase();
         return searchStr.includes(searchTerm);
       });
@@ -4052,7 +4059,7 @@ setTimeout(() => {
           const programLabel = programName
             ? `<br><small style="color:#718096; font-size:0.76rem; font-weight:600;">${programName}</small>`
             : '';
-          const serialLabel = formatSessionSerial(s);
+          const serialLabel = formatPastSessionSerial(s);
 
           return `<tr>
             <td>${serialLabel}${programLabel}</td>

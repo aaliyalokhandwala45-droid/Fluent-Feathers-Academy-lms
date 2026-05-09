@@ -4732,10 +4732,15 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (!session || typeof session !== 'object') return '';
       const status = String(session.status || session.session_status || '').trim().toLowerCase();
       const attendance = String(session.student_attendance || '').trim().toLowerCase();
-      const invalidStatuses = ['cancelled', 'cancelled by parent', 'excused', 'unexcused', 'missed'];
-      const invalidAttendance = ['excused', 'unexcused', 'missed'];
+      const invalidStatuses = ['cancelled', 'cancelled by parent', 'excused', 'unexcused', 'missed', 'absent'];
+      const invalidAttendance = ['excused', 'unexcused', 'missed', 'absent'];
       if (invalidStatuses.includes(status) || invalidAttendance.includes(attendance)) {
         return '';
+      }
+      if (Object.prototype.hasOwnProperty.call(session, 'chronological_session_number')) {
+        const chronologicalSerial = session.chronological_session_number;
+        if (chronologicalSerial === undefined || chronologicalSerial === null || chronologicalSerial === '') return '';
+        return String(chronologicalSerial);
       }
       const serial = session.chronological_session_number || session.session_number;
       if (serial === undefined || serial === null || serial === '') return '';
