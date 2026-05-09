@@ -4075,6 +4075,8 @@ I'm passionate about helping children develop confidence in communication!"></te
       let serverReady = false;
       let checkAttempts = 0;
       const maxAttempts = 2;
+      const serverCheckTimeoutMs = 1500;
+      const serverCheckDelayMs = 300;
 
       const loadingScreen = document.getElementById('serverLoadingScreen');
       const loadingMessage = document.getElementById('loadingMessage');
@@ -4091,11 +4093,11 @@ I'm passionate about helping children develop confidence in communication!"></te
 
       let messageIndex = 0;
 
-      // Rotate messages every 3 seconds
+      // Rotate messages every 2.5 seconds
       const messageInterval = setInterval(() => {
         messageIndex = (messageIndex + 1) % messages.length;
         if (loadingMessage) loadingMessage.textContent = messages[messageIndex];
-      }, 3000);
+      }, 2500);
 
       // Hide loading screen and show content
       function hideLoadingScreen() {
@@ -4117,9 +4119,9 @@ I'm passionate about helping children develop confidence in communication!"></te
       async function checkServerHealth() {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const timeoutId = setTimeout(() => controller.abort(), serverCheckTimeoutMs);
 
-          const response = await fetch('/api/health/light', {
+          const response = await _adminOriginalFetch('/api/health/light', {
             signal: controller.signal,
             cache: 'no-store'
           });
@@ -4146,10 +4148,10 @@ I'm passionate about helping children develop confidence in communication!"></te
           if (isReady) {
             console.log('✅ Server is ready!');
             hideLoadingScreen();
-            break;
+            return;
           }
 
-          await new Promise(resolve => setTimeout(resolve, 600));
+          await new Promise(resolve => setTimeout(resolve, serverCheckDelayMs));
         }
 
         if (!serverReady) {
@@ -4175,7 +4177,7 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
     window.fetch = function(input, init) {
       const url = _adminExtractUrl(input);
-      if (url.startsWith('/api/') && !url.startsWith('/api/db/ping')) {
+      if (url.startsWith('/api/') && !url.startsWith('/api/db/ping') && !url.startsWith('/api/health/light')) {
         _adminOriginalFetch('/api/db/ping', { cache: 'no-store' }).catch(() => {});
       }
       return _adminOriginalFetch(input, init);
