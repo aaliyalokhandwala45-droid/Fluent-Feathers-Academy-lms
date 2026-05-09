@@ -624,8 +624,7 @@
   <!-- Loading Screen -->
 <div id="serverLoadingScreen">
   <div style="text-align:center; color:white;">
-    <img id="loadingLogo" src="/app-icon.png" alt="Fluent Feathers" height="100"
-     onerror="this.outerHTML='🎓'">
+    <img id="loadingLogo" src="/app-icon.png" alt="Fluent Feathers" height="100" onerror="this.style.display='none'">
     <h1>Welcome to Fluent Feathers Academy By Aaliya</h1>
     <p id="loadingMessage">Preparing your learning portal...</p>
     <div class="spinner"></div>
@@ -3571,10 +3570,10 @@ setTimeout(() => {
       const seen = new Set();
       const validSessions = sessions
         .filter(s => {
-          const status = String(s.status || '').trim();
+          const status = String(s.status || '').trim().toLowerCase();
           const studentAttendance = String(s.student_attendance || '').trim().toLowerCase();
-          if (['cancelled', 'cancelled by parent'].includes(status.toLowerCase())) return false;
-          if (studentAttendance === 'excused') return false;
+          if (['cancelled', 'cancelled by parent', 'excused', 'unexcused'].includes(status)) return false;
+          if (['excused', 'unexcused'].includes(studentAttendance)) return false;
           if (seen.has(s.id)) return false;
           seen.add(s.id);
           return true;
@@ -3593,8 +3592,10 @@ setTimeout(() => {
       return sessionSerialMap[session.id] || '-';
     }
     function formatSessionSerial(session) {
+      const status = String(session.status || '').trim().toLowerCase();
       const studentAttendance = String(session.student_attendance || '').trim().toLowerCase();
-      if (studentAttendance === 'excused') return '';
+      if (['cancelled', 'cancelled by parent', 'excused', 'unexcused'].includes(status)) return '';
+      if (['excused', 'unexcused'].includes(studentAttendance)) return '';
       const serial = getSerial(session);
       return serial && serial !== '-' ? `#${serial}` : '';
     }
@@ -4385,11 +4386,13 @@ setTimeout(() => {
           // Create proper download URL with filename
           const downloadUrl = fileUrl && !hw.file_path.startsWith('LINK:') ? getDownloadUrl(fileUrl, hw.file_name || 'homework') : '';
 
+          const hwSerial = sessionSerialMap[hw.session_id];
+          const hwSerialLabel = hwSerial ? `Class #${hwSerial}` : '';
           return `
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
-                  <strong style="color: #2d3748;">${fileIcon} Class #${sessionSerialMap[hw.session_id] || '-'}</strong>
+                  <strong style="color: #2d3748;">${fileIcon} ${hwSerialLabel}</strong>
                   <p style="color: #718096; font-size: 0.85rem; margin: 5px 0;">
                     ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </p>

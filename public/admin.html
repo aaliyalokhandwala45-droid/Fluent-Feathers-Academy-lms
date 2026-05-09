@@ -4726,6 +4726,20 @@ I'm passionate about helping children develop confidence in communication!"></te
       }
     }
 
+    function getAdminSessionNumber(session) {
+      if (!session || typeof session !== 'object') return '';
+      const status = String(session.status || session.session_status || '').trim().toLowerCase();
+      const attendance = String(session.student_attendance || '').trim().toLowerCase();
+      const invalidStatuses = ['cancelled', 'cancelled by parent', 'excused', 'unexcused', 'missed'];
+      const invalidAttendance = ['excused', 'unexcused', 'missed'];
+      if (invalidStatuses.includes(status) || invalidAttendance.includes(attendance)) {
+        return '';
+      }
+      const serial = session.chronological_session_number || session.session_number;
+      if (serial === undefined || serial === null || serial === '') return '';
+      return String(serial);
+    }
+
     // Helper: Fetch with timeout (15 seconds for critical operations)
     // Also pings DB to keep it warm whenever admin triggers an API request.
     async function fetchWithTimeout(url, timeoutMs = 15000) {
@@ -5681,12 +5695,12 @@ if (dueEl) {
           `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Excused' ? 'attendance-excused' : s.status === 'Absent' || s.status === 'Unexcused' || s.status === 'Missed' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
         const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
         const typeClass = s.session_type === 'Private' ? 'type-badge-private' : 'type-badge-group';
-        const sessionDisplayNumber = s.chronological_session_number || s.session_number || '-';
+        const sessionNumberText = getAdminSessionNumber(s);
         return `<tr>
           <td>${formatSessionTime(s)}</td>
           <td><strong>${s.student_name}</strong></td>
           <td><span class="type-badge ${typeClass}">${s.session_type}</span></td>
-          <td>#${sessionDisplayNumber}${s.session_topic ? `<br><small style="color:#718096;font-size:0.78rem;">📌 ${s.session_topic}</small>` : ''}</td>
+          <td>${sessionNumberText ? `#${sessionNumberText}` : ''}${s.session_topic ? `<br><small style="color:#718096;font-size:0.78rem;">📌 ${s.session_topic}</small>` : ''}</td>
           <td>${attendanceBtn}</td>
           <td>${materials || '-'}</td>
           <td><button onclick="viewFeedback(${s.id})" class="btn btn-sm" style="background:#fbbf24; color:white;">⭐</button></td>
@@ -5749,7 +5763,10 @@ if (dueEl) {
         const res = await fetch('/api/students/' + studentId + '/sessions');
         const sessions = await res.json();
         sessionSelect.innerHTML = '<option value="">-- Select Session --</option>' +
-          sessions.map(s => `<option value="${s.id}">Session #${s.session_number} - ${new Date(s.session_date).toLocaleDateString()}</option>`).join('');
+          sessions.map(s => {
+            const sessionNumberText = getAdminSessionNumber(s);
+            return `<option value="${s.id}">${sessionNumberText ? `Session #${sessionNumberText}` : 'Session'} - ${new Date(s.session_date).toLocaleDateString()}</option>`;
+          }).join('');
       } catch (err) { sessionSelect.innerHTML = '<option value="">Error loading sessions</option>'; }
     }
 
@@ -6992,7 +7009,8 @@ if (dueEl) {
         throw new Error(`Unexpected content type for session details: ${detailsContentType}. Response: ${raw.substring(0, 200)}`);
       }
       const session = await res.json();
-      document.getElementById('modalSessionTitle').textContent = `Session #${session.session_number} - ${session.session_type}`;
+      const sessionNumberText = getAdminSessionNumber(session);
+      document.getElementById('modalSessionTitle').textContent = sessionNumberText ? `Session #${sessionNumberText} - ${session.session_type}` : session.session_type;
         const pptUrl = buildMaterialUrl(session.ppt_file_path);
         const recUrl = buildMaterialUrl(session.recording_file_path);
         const hwUrl = buildMaterialUrl(session.homework_file_path);
@@ -8426,11 +8444,14 @@ async function saveEditedPayment() {
 
         studentsList.innerHTML = matches.map(slot => {
           const dateLabel = new Date(slot.session_date).toLocaleDateString();
-          const studentBadges = slot.students.map(st => `
+          const studentBadges = slot.students.map(st => {
+          const sessionNumberText = getAdminSessionNumber(st);
+          return `
             <span style="display:inline-block; background:#faf5ff; color:#6b46c1; border:1px solid #d6bcfa; padding:5px 10px; border-radius:999px; font-size:0.82rem; font-weight:600; margin:4px 6px 0 0;">
-              ${st.student_name} <span style="opacity:0.8;">#${st.session_number || '-'}</span>
+              ${st.student_name}${sessionNumberText ? ` <span style="opacity:0.8;">#${sessionNumberText}</span>` : ''}
             </span>
-          `).join('');
+          `;
+        }).join('');
           const existingGroupNote = slot.existing_group_session_id
             ? `<span style="display:inline-block; background:#e6fffa; color:#234e52; border:1px solid #81e6d9; padding:5px 10px; border-radius:999px; font-size:0.82rem; font-weight:600; margin:4px 6px 0 0;">Existing batch already booked at this time</span>`
             : '';
@@ -10049,7 +10070,9 @@ async function saveEditedPayment() {
             const statusColor = isCancelled ? '#e53e3e' : (displayStatus === 'Completed' ? '#38a169' : displayStatus === 'Missed' ? '#e53e3e' : displayStatus === 'Excused' ? '#dd6b20' : '#718096');
             const sDate = s.session_date;
             const sTime = s.session_time;
-            return `<div class="session-item"><div><strong>Session #${s.session_number}</strong> - ${s.session_type}<br><span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${displayStatus}${cancelledByText}</span></span></div><div style="display: flex; gap: 10px;"><button onclick="editSession(${s.id}, '${sDate}', '${sTime}')" class="btn btn-sm btn-primary">Edit</button><button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button></div></div>`;
+            const sessionNumberText = getAdminSessionNumber(s);
+            const sessionTitle = sessionNumberText ? `Session #${sessionNumberText} - ${s.session_type}` : s.session_type;
+            return `<div class="session-item"><div><strong>${sessionTitle}</strong><br><span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${displayStatus}${cancelledByText}</span></span></div><div style="display: flex; gap: 10px;"><button onclick="editSession(${s.id}, '${sDate}', '${sTime}')" class="btn btn-sm btn-primary">Edit</button><button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button></div></div>`;
           }).join('')}
         `;
       } catch(err) {
@@ -14881,14 +14904,17 @@ async function loadSessionsForBulkReschedule() {
           </tr>
         </thead>
         <tbody>
-          ${sessions.map(s => `
+          ${sessions.map(s => {
+            const sessionNumberText = getAdminSessionNumber(s);
+            return `
             <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:10px;">#${s.session_number}</td>
+              <td style="padding:10px;">${sessionNumberText ? `#${sessionNumberText}` : ''}</td>
               <td style="padding:10px; color:#718096;">${new Date(s.session_date).toLocaleDateString('en-IN')}</td>
               <td style="padding:10px;"><input type="date" class="bulk-new-date" data-session-id="${s.id}" value="${s.session_date ? s.session_date.split('T')[0] : ''}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
               <td style="padding:10px;"><input type="time" class="bulk-new-time" data-session-id="${s.id}" value="${(s.session_time || '').toString().substring(0,5)}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
     `;
@@ -14934,9 +14960,11 @@ async function loadGroupSessionsForBulkReschedule() {
         </tr>
       </thead>
       <tbody>
-        ${groupSessions.map(s => `
+        ${groupSessions.map(s => {
+          const sessionNumberText = getAdminSessionNumber(s);
+          return `
           <tr style="border-bottom:1px solid #e2e8f0;">
-            <td style="padding:10px;">#${s.session_number}</td>
+            <td style="padding:10px;">${sessionNumberText ? `#${sessionNumberText}` : ''}</td>
             <td style="padding:10px; color:#718096;">
               ${new Date(s.session_date).toLocaleDateString('en-IN')}
             </td>
