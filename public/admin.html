@@ -4075,6 +4075,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       let serverReady = false;
       let checkAttempts = 0;
       const maxAttempts = 2;
+      let forcedHideTimer = null;
 
       const loadingScreen = document.getElementById('serverLoadingScreen');
       const loadingMessage = document.getElementById('loadingMessage');
@@ -4100,6 +4101,10 @@ I'm passionate about helping children develop confidence in communication!"></te
       // Hide loading screen and show content
       function hideLoadingScreen() {
         clearInterval(messageInterval);
+        if (forcedHideTimer) {
+          clearTimeout(forcedHideTimer);
+          forcedHideTimer = null;
+        }
         // Show the main content
         const appLayout = document.querySelector('.app-layout');
         if (appLayout) appLayout.classList.add('ready');
@@ -4164,6 +4169,12 @@ I'm passionate about helping children develop confidence in communication!"></te
       } else {
         initializeLoading();
       }
+
+      // Force-hide the loading screen after a fixed timeout to avoid indefinite waiting.
+      forcedHideTimer = setTimeout(() => {
+        console.warn('Forcing admin loading screen hide after timeout');
+        hideLoadingScreen();
+      }, 8000);
     })();
 
     // Global fetch wrapper: keep DB warm on every admin API call.
