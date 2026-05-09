@@ -465,7 +465,7 @@ app.get('/manifest.webmanifest', (req, res) => {
     name: 'Fluent Feathers Academy LMS',
     short_name: 'Fluent Feathers',
     description: 'Learning Management System for Fluent Feathers Academy',
-    start_url: '/',
+    start_url: '/parent.html',
     display: 'standalone',
     background_color: '#B05D9E',
     theme_color: '#B05D9E',

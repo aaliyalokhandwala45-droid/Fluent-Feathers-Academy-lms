@@ -1699,6 +1699,36 @@ setTimeout(() => {
       return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
+    async function ensureParentServiceWorkerForInstall() {
+      if (!('serviceWorker' in navigator)) return null;
+      try {
+        const existing = await navigator.serviceWorker.getRegistration('/');
+        if (existing) return existing;
+        const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260409', { updateViaCache: 'none' });
+        reg.update().catch(() => {});
+        return reg;
+      } catch (err) {
+        console.warn('Service worker registration for app install failed:', err);
+        return null;
+      }
+    }
+
+    function waitForParentInstallPrompt(timeoutMs = 1800) {
+      if (parentInstallPromptEvent) return Promise.resolve(parentInstallPromptEvent);
+      return new Promise(resolve => {
+        const timer = setTimeout(() => {
+          window.removeEventListener('beforeinstallprompt', onPrompt);
+          resolve(parentInstallPromptEvent);
+        }, timeoutMs);
+        function onPrompt() {
+          clearTimeout(timer);
+          window.removeEventListener('beforeinstallprompt', onPrompt);
+          resolve(parentInstallPromptEvent);
+        }
+        window.addEventListener('beforeinstallprompt', onPrompt);
+      });
+    }
+
     function updateParentInstallButton() {
       const btn = document.getElementById('parentInstallBtn');
       if (!btn) return;
@@ -1716,8 +1746,20 @@ setTimeout(() => {
     }
 
     async function installParentApp() {
-      updateParentInstallButton();
-      if (isParentAppInstalled()) return;
+      const btn = document.getElementById('parentInstallBtn');
+      const originalText = btn ? btn.textContent : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Preparing...';
+        btn.style.opacity = '0.75';
+      }
+      if (isParentAppInstalled()) {
+        updateParentInstallButton();
+        return;
+      }
+
+      await ensureParentServiceWorkerForInstall();
+      await waitForParentInstallPrompt();
 
       if (parentInstallPromptEvent) {
         const promptEvent = parentInstallPromptEvent;
@@ -1732,9 +1774,13 @@ setTimeout(() => {
       const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
       const message = isIOS
         ? 'To install the app: tap Share, then choose Add to Home Screen.'
-        : 'To install the app, use your browser menu and choose Install app or Add to Home screen.';
+        : 'Your browser did not show the install prompt yet. Please use Chrome or Edge, refresh once, then click Install App again. You can also use the install icon in the address bar.';
       alert(message);
-    }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = originalText || 'Install App';
+      }
+      }
 
     window.addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
@@ -2049,6 +2095,7 @@ setTimeout(() => {
 
       // Load app configuration (logo URL)
       await loadConfig();
+      ensureParentServiceWorkerForInstall().then(() => updateParentInstallButton());
       // Initialize Firebase messaging for push notifications
       initializeFirebaseMessaging();
       setPortalTimezone(getBrowserTimezone());
