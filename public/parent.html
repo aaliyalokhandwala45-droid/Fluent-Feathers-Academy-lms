@@ -3572,6 +3572,7 @@ setTimeout(() => {
       const validSessions = sessions
         .filter(s => {
           if (['Cancelled', 'Cancelled by Parent'].includes(s.status)) return false;
+          if (s.source_type === 'Group' && s.student_attendance === 'Excused') return false;
           if (seen.has(s.id)) return false;
           seen.add(s.id);
           return true;
@@ -3588,6 +3589,10 @@ setTimeout(() => {
     }
     function getSerial(session) {
       return sessionSerialMap[session.id] || '-';
+    }
+    function formatSessionSerial(session) {
+      const serial = getSerial(session);
+      return serial && serial !== '-' ? `#${serial}` : '';
     }
 
     function isCurrentStudentSummerCamp() {
@@ -3658,7 +3663,8 @@ setTimeout(() => {
 
           const isSummerCamp = isCurrentStudentSummerCamp();
           const canCancel = !isSummerCamp && diffMinutes > 60;
-          const sessionLabel = `Class #${getSerial(s)} — ${dayName}, ${t.date} at ${t.time}`;
+          const serialLabel = formatSessionSerial(s);
+          const sessionLabel = `${serialLabel ? serialLabel + ' — ' : ''}${dayName}, ${t.date} at ${t.time}`;
           const CancelButton = isSummerCamp
             ? `<button disabled title="Summer camp classes cannot be cancelled" style="background:#f7fafc; color:#a0aec0; border:2px solid #e2e8f0; border-radius:6px; padding:8px 16px; cursor:not-allowed; font-size:0.85rem; font-weight:600;">🔒 Cancel</button>`
             : canCancel
@@ -3669,8 +3675,9 @@ setTimeout(() => {
 
           const programName = currentStudent?.program_name || 'N/A';
 
+          const serialLabel = formatSessionSerial(s);
           return `<tr>
-            <td>#${getSerial(s)}</td>
+            <td>${serialLabel ? serialLabel : ''}</td>
             <td>${dayName}, ${t.date}</td>
             <td><strong style="color:#B05D9E">${t.time}</strong></td>
             <td>${programName}</td>
@@ -3719,7 +3726,8 @@ setTimeout(() => {
       const durationMatch = session.duration ? session.duration.match(/(\d+)\s*mins?/) : null;
       const classDurationMins = durationMatch ? parseInt(durationMatch[1]) : 40;
       const ClassLink = session.Class_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
-      const sessionLabel = `Class #${getSerial(session)} — ${dayName}, ${t.date} at ${t.time}`;
+      const serialLabel = formatSessionSerial(session);
+      const sessionLabel = `${serialLabel ? serialLabel + ' — ' : ''}${dayName}, ${t.date} at ${t.time}`;
 
       function tick() {
         const diff = target - new Date();
@@ -3851,7 +3859,8 @@ setTimeout(() => {
       const filtered = allPastSessions.filter(s => {
         const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
         const programName = s.program_name || currentStudent?.program_name || '';
-        const searchStr = `#${getSerial(s)} ${programName} ${t.date} ${t.time} ${s.status || ''} ${s.student_attendance || ''} ${s.session_topic || ''}`.toLowerCase();
+        const serialLabel = formatSessionSerial(s);
+        const searchStr = `${serialLabel ? serialLabel + ' ' : ''}${programName} ${t.date} ${t.time} ${s.status || ''} ${s.student_attendance || ''} ${s.session_topic || ''}`.toLowerCase();
         return searchStr.includes(searchTerm);
       });
       renderPastClasses(filtered);
@@ -3940,7 +3949,7 @@ setTimeout(() => {
           const hwSubs = Array.isArray(s.hw_submissions) ? s.hw_submissions : [];
           if (canSubmitHw) {
             const existingNames = hwSubs.map(f => f.file_name || '').filter(Boolean);
-            materials += `<button onclick="openHwSubmitModal(${s.id}, '${getSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Upload HW</button>`;
+            materials += `<button onclick="openHwSubmitModal(${s.id}, '${formatSessionSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">📤 Upload HW</button>`;
           }
           if (!materials) materials = '-';
 
@@ -4040,9 +4049,10 @@ setTimeout(() => {
           const programLabel = programName
             ? `<br><small style="color:#718096; font-size:0.76rem; font-weight:600;">${programName}</small>`
             : '';
+          const serialLabel = formatSessionSerial(s);
 
           return `<tr>
-            <td>#${getSerial(s)}${programLabel}</td>
+            <td>${serialLabel}${programLabel}</td>
             <td>${t.date}<br><small style="color:#718096; font-size:0.78rem;">📆 ${t.weekday}</small>${s.session_topic ? `<br><small style="color:#B05D9E; font-weight:600; font-size:0.78rem;">📌 ${s.session_topic}</small>` : ''}</td>
             <td>${t.time}</td>
             <td>${attendanceDisplay}</td>
@@ -4070,6 +4080,9 @@ setTimeout(() => {
           <ul style="margin:6px 0 0 16px;">${existingFiles.map(n => `<li>${n}</li>`).join('')}</ul>
         </div>` : '';
 
+      const sessionNumberText = sessionSerial && sessionSerial !== '-' ? String(sessionSerial).replace(/^#+/, '#') : '';
+      const sessionHeading = sessionNumberText ? `Session <strong>${sessionNumberText}</strong>` : 'Session';
+
       const modal = document.createElement('div');
       modal.id = 'hwSubmitModal';
       modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;justify-content:center;align-items:center;padding:20px;box-sizing:border-box;';
@@ -4079,7 +4092,7 @@ setTimeout(() => {
             <h2 style="margin:0;color:#B05D9E;font-size:1.3rem;">${isResubmit ? '🔄 Resubmit Homework' : '📤 Submit Homework'}</h2>
             <button onclick="closeHwSubmitModal()" style="background:#e53e3e;color:white;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
           </div>
-          <p style="color:#718096;margin-bottom:15px;font-size:0.9rem;">Session <strong>#${sessionSerial}</strong></p>
+          <p style="color:#718096;margin-bottom:15px;font-size:0.9rem;">${sessionHeading}</p>
           ${resubmitWarning}
           ${existingList}
           <div style="background:#fff8f0;border:1px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:18px;font-size:0.85rem;color:#744210;">
@@ -4272,7 +4285,8 @@ setTimeout(() => {
 
         sel.innerHTML = '<option value="">Select Session...</option>' + completed.map(s => {
           const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
-          return `<option value="${s.id}">Class #${getSerial(s)} - ${t.date}</option>`;
+          const serialLabel = formatSessionSerial(s) || `Session`;
+          return `<option value="${s.id}">${serialLabel}${serialLabel ? ' - ' : ''}${t.date}</option>`;
         }).join('');
 
         // Also load submitted homework
@@ -4421,7 +4435,8 @@ setTimeout(() => {
 
         sel.innerHTML = '<option value="">Select Class...</option>' + upcoming.map(s => {
             const t = toLocalTime(s.session_date, s.session_time, getPortalTimezone());
-            return `<option value="${s.id}">Class #${getSerial(s)} - ${t.date} at ${t.time}</option>`;
+            const serialLabel = formatSessionSerial(s) || `Class`;
+            return `<option value="${s.id}">${serialLabel}${serialLabel ? ' - ' : ''}${t.date} at ${t.time}</option>`;
         }).join('');
       } catch(e) {
         console.error('Error loading cancel dropdown:', e);
