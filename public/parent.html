@@ -3571,8 +3571,10 @@ setTimeout(() => {
       const seen = new Set();
       const validSessions = sessions
         .filter(s => {
-          if (['Cancelled', 'Cancelled by Parent'].includes(s.status)) return false;
-          if (s.source_type === 'Group' && s.student_attendance === 'Excused') return false;
+          const status = String(s.status || '').trim();
+          const studentAttendance = String(s.student_attendance || '').trim().toLowerCase();
+          if (['cancelled', 'cancelled by parent'].includes(status.toLowerCase())) return false;
+          if (studentAttendance === 'excused') return false;
           if (seen.has(s.id)) return false;
           seen.add(s.id);
           return true;
@@ -3591,6 +3593,8 @@ setTimeout(() => {
       return sessionSerialMap[session.id] || '-';
     }
     function formatSessionSerial(session) {
+      const studentAttendance = String(session.student_attendance || '').trim().toLowerCase();
+      if (studentAttendance === 'excused') return '';
       const serial = getSerial(session);
       return serial && serial !== '-' ? `#${serial}` : '';
     }
@@ -3613,9 +3617,9 @@ setTimeout(() => {
         const upcoming = sessions.filter(s => {
           if (!s.session_date) return false;
           if (s.session_date < today) return false;
-          if (['Cancelled', 'Completed', 'Missed'].includes(s.status)) return false;
-          // For group sessions: hide if this student was individually cancelled (Excused/Unexcused)
-          if (['Excused', 'Unexcused'].includes(s.student_attendance)) return false;
+          if (['Cancelled', 'Completed', 'Missed'].includes(String(s.status || '').trim())) return false;
+          const studentAttendance = String(s.student_attendance || '').trim().toLowerCase();
+          if (['excused', 'unexcused'].includes(studentAttendance)) return false;
           return true;
         }).sort((a, b) => {
           const dA = getDateStr(a.session_date);
