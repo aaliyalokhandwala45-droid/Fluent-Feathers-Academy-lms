@@ -729,6 +729,7 @@
           <span id="currentChildBadge" style="display: none; background: #e2e8f0; color: #4a5568; padding: 6px 12px; border-radius: 15px; font-size: 0.85rem;">Viewing: <strong id="currentChildName">-</strong></span>
           <button id="switchChildBtn" onclick="showChildSelector()" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'">👧👦 Switch Child</button>
           <button id="parentNotifyBtn" type="button" onclick="enableParentNotifications(true)" class="btn btn-sm" style="background: #38b2ac; color: white; font-size: 12px;">🔔 Enable Notifications</button>
+          <button id="parentInstallBtn" type="button" onclick="installParentApp()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">Install App</button>
           <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
         </div>
       </header>
@@ -1573,6 +1574,8 @@ setTimeout(() => {
     let checkedFeedbackSessions = new Set();
     let appConfig = { logoUrl: '/app-icon.png' };
     let parentPushSetupDone = false;
+    let parentInstallPromptEvent = null;
+    let parentInstallDismissed = false;
     window.__ffParentPushToken = null;
     const PARENT_PUSH_PROMPT_KEY = 'ff_parent_push_prompted_v1';
     // Load app configuration (logo URL from environment)
@@ -1599,9 +1602,11 @@ setTimeout(() => {
     if (fav && appConfig.logoUrl) fav.href = appConfig.logoUrl;
     if (apple && appConfig.logoUrl) apple.href = appConfig.logoUrl;
     updateParentNotifyButton();
+    updateParentInstallButton();
   } catch (e) {
     console.log('Using default config');
     updateParentNotifyButton();
+    updateParentInstallButton();
   }
 }
 
@@ -1689,6 +1694,59 @@ setTimeout(() => {
         btn.style.cursor = 'pointer';
       }
     }
+
+    function isParentAppInstalled() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function updateParentInstallButton() {
+      const btn = document.getElementById('parentInstallBtn');
+      if (!btn) return;
+      if (isParentAppInstalled()) {
+        btn.textContent = 'App Installed';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'default';
+        return;
+      }
+      btn.textContent = 'Install App';
+      btn.disabled = false;
+      btn.style.opacity = parentInstallPromptEvent || !parentInstallDismissed ? '1' : '0.85';
+      btn.style.cursor = 'pointer';
+    }
+
+    async function installParentApp() {
+      updateParentInstallButton();
+      if (isParentAppInstalled()) return;
+
+      if (parentInstallPromptEvent) {
+        const promptEvent = parentInstallPromptEvent;
+        parentInstallPromptEvent = null;
+        promptEvent.prompt();
+        const choice = await promptEvent.userChoice.catch(() => null);
+        if (choice?.outcome !== 'accepted') parentInstallDismissed = true;
+        updateParentInstallButton();
+        return;
+      }
+
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const message = isIOS
+        ? 'To install the app: tap Share, then choose Add to Home Screen.'
+        : 'To install the app, use your browser menu and choose Install app or Add to Home screen.';
+      alert(message);
+    }
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      parentInstallPromptEvent = event;
+      parentInstallDismissed = false;
+      updateParentInstallButton();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      parentInstallPromptEvent = null;
+      updateParentInstallButton();
+    });
 
     async function promptEnableParentPushIfNeeded() {
       try {
