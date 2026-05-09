@@ -3674,8 +3674,6 @@ setTimeout(() => {
                   style="background:#f7fafc; color:#a0aec0; border:2px solid #e2e8f0; border-radius:6px; padding:8px 16px; cursor:not-allowed; font-size:0.85rem; font-weight:600;">🔒 Cancel</button>`;
 
           const programName = currentStudent?.program_name || 'N/A';
-
-          const serialLabel = formatSessionSerial(s);
           return `<tr>
             <td>${serialLabel ? serialLabel : ''}</td>
             <td>${dayName}, ${t.date}</td>
