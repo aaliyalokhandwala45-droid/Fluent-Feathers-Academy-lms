@@ -11065,6 +11065,14 @@ function clearStudentSessionsCache(studentId) {
   sessionsResponseCache.delete(`${studentId}:false`);
 }
 
+function shouldCountSessionForStudent(session) {
+  const status = String(session?.status || '').trim().toLowerCase();
+  const studentAttendance = String(session?.student_attendance || '').trim().toLowerCase();
+  if (['cancelled', 'cancelled by parent', 'excused', 'unexcused'].includes(status)) return false;
+  if (['excused', 'unexcused'].includes(studentAttendance)) return false;
+  return true;
+}
+
 app.get('/api/sessions/:studentId', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
   const lightMode = String(req.query.light || '') === '1';
@@ -11182,9 +11190,16 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       return String(a.session_time || '').localeCompare(String(b.session_time || ''));
     });
 
-    // Renumber sessions sequentially per student (1, 2, 3...) instead of using group-level session_number
-    allSessions.forEach((s, i) => {
-      s.session_number = i + 1;
+    // Renumber sessions sequentially per student using the same rule as the parent portal:
+    // cancelled, excused and unexcused classes do not consume a session number.
+    let countedSessionNumber = 0;
+    allSessions.forEach((s) => {
+      if (shouldCountSessionForStudent(s)) {
+        countedSessionNumber += 1;
+        s.session_number = countedSessionNumber;
+      } else {
+        s.session_number = null;
+      }
     });
 
     // Fix file paths for backwards compatibility
@@ -11598,6 +11613,30 @@ app.get('/api/sessions/:sessionId/details', async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
+    if (session.student_id && session.session_type === 'Private') {
+      const serialResult = await pool.query(`
+        WITH target_session AS (
+          SELECT id, student_id, session_date, COALESCE(session_time, '00:00:00'::time) as session_time, status
+          FROM sessions
+          WHERE id = $1
+        )
+        SELECT CASE
+          WHEN lower(trim(COALESCE(ts.status, ''))) IN ('cancelled', 'cancelled by parent', 'excused', 'unexcused')
+          THEN NULL
+          ELSE COUNT(s.id)::INT
+        END as chronological_session_number
+        FROM target_session ts
+        LEFT JOIN sessions s
+          ON s.student_id = ts.student_id
+         AND s.session_type = 'Private'
+         AND (s.session_date, COALESCE(s.session_time, '00:00:00'::time), s.id)
+             <= (ts.session_date, ts.session_time, ts.id)
+         AND lower(trim(COALESCE(s.status, ''))) NOT IN ('cancelled', 'cancelled by parent', 'excused', 'unexcused')
+        GROUP BY ts.status
+      `, [req.params.sessionId]);
+      session.chronological_session_number = serialResult.rows[0]?.chronological_session_number || null;
+    }
+
     // Fix file paths for backwards compatibility (skip Cloudinary URLs)
     if (session) {
       const needsPrefix = (path) => path && !path.startsWith('/uploads/') && !path.startsWith('LINK:') && !path.startsWith('https://') && !path.startsWith('http://');
@@ -11747,11 +11786,44 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
   try {
     // First try to get from session_attendance table
     let result = await pool.query(`
-      SELECT sa.*, s.name as student_name, s.is_active
+      WITH current_session AS (
+        SELECT id, group_id, session_date, COALESCE(session_time, '00:00:00'::time) as session_time, status
+        FROM sessions
+        WHERE id = $1
+      )
+      SELECT sa.*, st.name as student_name, st.is_active,
+        CASE
+          WHEN lower(trim(COALESCE(cs.status, ''))) IN ('cancelled', 'cancelled by parent', 'excused', 'unexcused')
+            OR lower(trim(COALESCE(sa.attendance, ''))) IN ('excused', 'unexcused')
+          THEN NULL
+          ELSE counted.student_session_number
+        END as student_session_number
       FROM session_attendance sa
-      JOIN students s ON sa.student_id = s.id
+      JOIN students st ON sa.student_id = st.id
+      JOIN current_session cs ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::INT as student_session_number
+        FROM (
+          SELECT ps.id, ps.session_date, COALESCE(ps.session_time, '00:00:00'::time) as session_time,
+                 ps.status, NULL::text as student_attendance
+          FROM sessions ps
+          WHERE ps.student_id = sa.student_id AND ps.session_type = 'Private'
+
+          UNION ALL
+
+          SELECT gs.id, gs.session_date, COALESCE(gs.session_time, '00:00:00'::time) as session_time,
+                 gs.status, gsa.attendance as student_attendance
+          FROM sessions gs
+          JOIN session_attendance gsa ON gsa.session_id = gs.id AND gsa.student_id = sa.student_id
+          WHERE gs.session_type = 'Group'
+        ) all_student_sessions
+        WHERE (all_student_sessions.session_date, all_student_sessions.session_time, all_student_sessions.id)
+              <= (cs.session_date, cs.session_time, cs.id)
+          AND lower(trim(COALESCE(all_student_sessions.status, ''))) NOT IN ('cancelled', 'cancelled by parent', 'excused', 'unexcused')
+          AND lower(trim(COALESCE(all_student_sessions.student_attendance, ''))) NOT IN ('excused', 'unexcused')
+      ) counted ON true
       WHERE sa.session_id = $1
-      ORDER BY s.name
+      ORDER BY st.name
     `, [req.params.sessionId]);
 
     // If no records exist, get the group_id and create attendance for booked students only
@@ -11803,11 +11875,44 @@ app.get('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
         // Re-fetch the records
         result = await pool.query(`
-          SELECT sa.*, s.name as student_name, s.is_active
+          WITH current_session AS (
+            SELECT id, group_id, session_date, COALESCE(session_time, '00:00:00'::time) as session_time, status
+            FROM sessions
+            WHERE id = $1
+          )
+          SELECT sa.*, st.name as student_name, st.is_active,
+            CASE
+              WHEN lower(trim(COALESCE(cs.status, ''))) IN ('cancelled', 'cancelled by parent', 'excused', 'unexcused')
+                OR lower(trim(COALESCE(sa.attendance, ''))) IN ('excused', 'unexcused')
+              THEN NULL
+              ELSE counted.student_session_number
+            END as student_session_number
           FROM session_attendance sa
-          JOIN students s ON sa.student_id = s.id
+          JOIN students st ON sa.student_id = st.id
+          JOIN current_session cs ON true
+          LEFT JOIN LATERAL (
+            SELECT COUNT(*)::INT as student_session_number
+            FROM (
+              SELECT ps.id, ps.session_date, COALESCE(ps.session_time, '00:00:00'::time) as session_time,
+                     ps.status, NULL::text as student_attendance
+              FROM sessions ps
+              WHERE ps.student_id = sa.student_id AND ps.session_type = 'Private'
+
+              UNION ALL
+
+              SELECT gs.id, gs.session_date, COALESCE(gs.session_time, '00:00:00'::time) as session_time,
+                     gs.status, gsa.attendance as student_attendance
+              FROM sessions gs
+              JOIN session_attendance gsa ON gsa.session_id = gs.id AND gsa.student_id = sa.student_id
+              WHERE gs.session_type = 'Group'
+            ) all_student_sessions
+            WHERE (all_student_sessions.session_date, all_student_sessions.session_time, all_student_sessions.id)
+                  <= (cs.session_date, cs.session_time, cs.id)
+              AND lower(trim(COALESCE(all_student_sessions.status, ''))) NOT IN ('cancelled', 'cancelled by parent', 'excused', 'unexcused')
+              AND lower(trim(COALESCE(all_student_sessions.student_attendance, ''))) NOT IN ('excused', 'unexcused')
+          ) counted ON true
           WHERE sa.session_id = $1
-          ORDER BY s.name
+          ORDER BY st.name
         `, [req.params.sessionId]);
       }
     }

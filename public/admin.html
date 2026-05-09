@@ -7142,13 +7142,14 @@ if (dueEl) {
           content += `<h3 style="margin-top:20px;">Group Attendance</h3>
           ${addStudentButton}
           <p style="color:#718096; font-size:0.85rem; margin-bottom:10px;">⚠️ Excused = Absent with makeup credit | ✗ Unexcused = Absent without makeup credit</p>
-          <table><thead><tr><th>Student</th><th>Current Status</th><th>Action</th></tr></thead><tbody>` + students.map(s => {
+          <table><thead><tr><th>Student</th><th>Session #</th><th>Current Status</th><th>Action</th></tr></thead><tbody>` + students.map(s => {
             const statusClass = s.attendance === 'Present' ? 'att-badge-present' : s.attendance === 'Excused' ? 'att-badge-excused' : (s.attendance === 'Absent' || s.attendance === 'Unexcused') ? 'att-badge-absent' : 'att-badge-pending';
             const statusText = s.attendance === 'Present' ? 'Present' : s.attendance === 'Excused' ? 'Excused' : s.attendance === 'Unexcused' ? 'Unexcused' : s.attendance === 'Absent' ? 'Absent' : 'Pending';
             const presentBtnClass = s.attendance === 'Present' ? 'btn-att-active-present' : '';
             const excusedBtnClass = s.attendance === 'Excused' ? 'btn-att-active-excused' : '';
             const unexcusedBtnClass = (s.attendance === 'Absent' || s.attendance === 'Unexcused') ? 'btn-att-active-absent' : '';
-            return `<tr id="att-row-${s.student_id}"><td>${s.student_name}</td><td id="att-status-${s.student_id}"><span class="att-badge ${statusClass}">${statusText}</span></td><td>
+            const childSessionNumber = s.student_session_number ? `#${s.student_session_number}` : '-';
+            return `<tr id="att-row-${s.student_id}"><td>${s.student_name}</td><td id="att-session-number-${s.student_id}" style="font-weight:700; color:#4a5568;">${childSessionNumber}</td><td id="att-status-${s.student_id}"><span class="att-badge ${statusClass}">${statusText}</span></td><td>
               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present', '${s.student_name}')" class="btn btn-sm btn-success ${presentBtnClass}">✓ Present</button>
               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Excused', '${s.student_name}')" class="btn btn-sm" style="background:#dd6b20; color:white; ${excusedBtnClass}" title="Absent with makeup credit">⚠️ Excused</button>
               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Unexcused', '${s.student_name}')" class="btn btn-sm btn-danger ${unexcusedBtnClass}" title="Absent without makeup credit">✗ Unexcused</button>
@@ -7178,6 +7179,20 @@ if (dueEl) {
           if (statusCell) {
             const badgeClass = status === 'Present' ? 'att-badge-present' : status === 'Excused' ? 'att-badge-excused' : 'att-badge-absent';
             statusCell.innerHTML = `<span class="att-badge ${badgeClass}">${status}</span>`;
+          }
+          const sessionNumberCell = document.getElementById(`att-session-number-${studentId}`);
+          if (sessionNumberCell && (status === 'Excused' || status === 'Unexcused')) {
+            sessionNumberCell.textContent = '-';
+          }
+          if (sessionNumberCell && status === 'Present') {
+            try {
+              const refreshed = await fetch(`/api/sessions/${sessionId}/group-attendance`);
+              if (refreshed.ok) {
+                const rows = await refreshed.json();
+                const updatedStudent = rows.find(row => String(row.student_id) === String(studentId));
+                sessionNumberCell.textContent = updatedStudent?.student_session_number ? `#${updatedStudent.student_session_number}` : '-';
+              }
+            } catch (_) {}
           }
           const emoji = status === 'Present' ? '✅' : status === 'Excused' ? '⚠️' : '❌';
           const extraMsg = status === 'Excused' ? ' (makeup credit granted)' : status === 'Unexcused' ? ' (no makeup credit)' : '';
