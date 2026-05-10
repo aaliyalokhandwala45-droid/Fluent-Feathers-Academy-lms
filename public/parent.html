@@ -732,6 +732,7 @@
           <button id="parentInstallBtn" type="button" onclick="installParentApp()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">Install App</button>
           <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
         </div>
+        <div id="parentInstallHint" style="display:none; margin-top: 10px; font-size: 0.82rem; color: #4a5568; line-height: 1.4;">Tap Install App to add this portal to your Home Screen or desktop.</div>
       </header>
 
       <!-- Child Selector Modal for Siblings -->
@@ -1699,6 +1700,23 @@ setTimeout(() => {
       return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
+    function isIosInstallCandidate() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent) && !isParentAppInstalled();
+    }
+
+    function showParentInstallHint(message) {
+      const hint = document.getElementById('parentInstallHint');
+      if (!hint) return;
+      hint.textContent = message;
+      hint.style.display = 'block';
+    }
+
+    function hideParentInstallHint() {
+      const hint = document.getElementById('parentInstallHint');
+      if (!hint) return;
+      hint.style.display = 'none';
+    }
+
     async function ensureParentServiceWorkerForInstall() {
       if (!('serviceWorker' in navigator)) return null;
       try {
@@ -1713,14 +1731,15 @@ setTimeout(() => {
       }
     }
 
-    function waitForParentInstallPrompt(timeoutMs = 1800) {
+    function waitForParentInstallPrompt(timeoutMs = 3000) {
       if (parentInstallPromptEvent) return Promise.resolve(parentInstallPromptEvent);
       return new Promise(resolve => {
         const timer = setTimeout(() => {
           window.removeEventListener('beforeinstallprompt', onPrompt);
           resolve(parentInstallPromptEvent);
         }, timeoutMs);
-        function onPrompt() {
+        function onPrompt(event) {
+          parentInstallPromptEvent = event;
           clearTimeout(timer);
           window.removeEventListener('beforeinstallprompt', onPrompt);
           resolve(parentInstallPromptEvent);
@@ -1737,17 +1756,25 @@ setTimeout(() => {
         btn.disabled = true;
         btn.style.opacity = '0.7';
         btn.style.cursor = 'default';
+        hideParentInstallHint();
         return;
       }
       btn.textContent = 'Install App';
       btn.disabled = false;
-      btn.style.opacity = parentInstallPromptEvent || !parentInstallDismissed ? '1' : '0.85';
+      btn.style.opacity = '1';
       btn.style.cursor = 'pointer';
+      if (parentInstallPromptEvent) {
+        showParentInstallHint('Ready to install. Tap Install App again to open the install prompt.');
+      } else if (isIosInstallCandidate()) {
+        showParentInstallHint('Tap Install App, then use Share → Add to Home Screen to install on iPhone/iPad.');
+      } else {
+        showParentInstallHint('Tap Install App and follow the browser prompt. On desktop use Chrome/Edge install from the address bar or menu.');
+      }
     }
 
     async function installParentApp() {
       const btn = document.getElementById('parentInstallBtn');
-      const originalText = btn ? btn.textContent : '';
+      const originalText = btn ? btn.textContent : 'Install App';
       if (btn) {
         btn.disabled = true;
         btn.textContent = 'Preparing...';
@@ -1771,16 +1798,19 @@ setTimeout(() => {
         return;
       }
 
-      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      const message = isIOS
-        ? 'To install the app: tap Share, then choose Add to Home Screen.'
-        : 'Your browser did not show the install prompt yet. Please use Chrome or Edge, refresh once, then click Install App again. You can also use the install icon in the address bar.';
-      alert(message);
+      if (isIosInstallCandidate()) {
+        showParentInstallHint('No browser prompt is available on iOS. Use Share → Add to Home Screen.');
+      } else {
+        showParentInstallHint('No install prompt appeared. Please refresh the page, or use your browser menu / address bar install option.');
+      }
+      alert(isIosInstallCandidate()
+        ? 'To install the app on iOS: tap Share, then choose Add to Home Screen.'
+        : 'If the install prompt does not appear, use Chrome/Edge and click the browser install icon or menu option after refreshing.');
       if (btn) {
         btn.disabled = false;
         btn.textContent = originalText || 'Install App';
       }
-      }
+    }
 
     window.addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
@@ -1788,7 +1818,6 @@ setTimeout(() => {
       parentInstallDismissed = false;
       updateParentInstallButton();
     });
-
     window.addEventListener('appinstalled', () => {
       parentInstallPromptEvent = null;
       updateParentInstallButton();
