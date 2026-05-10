@@ -12423,6 +12423,8 @@ app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, re
       commentOnlySubmission ? false : true
     ]);
 
+    clearStudentSessionsCache(req.params.studentId);
+
     if (!commentOnlySubmission) {
       await awardHomeworkSubmissionRecognition(req.params.studentId);
     }

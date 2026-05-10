@@ -3897,10 +3897,10 @@ setTimeout(() => {
     let showAllPastClasses = false;
 
     let _pastRetryCount = 0;
-    async function loadPast(showLoadingOverlay = false) {
+    async function loadPast(showLoadingOverlay = false, forceRefresh = false) {
       try {
         if (showLoadingOverlay) setPortalDbLoading(true, 'Loading past classes...');
-        const rawSessions = await getStudentSessions({ light: false });
+        const rawSessions = await getStudentSessions({ light: false, forceRefresh });
 
         // Deduplicate by session id (latest entry wins, keeps most recent HW submission data)
         const seenIds = new Map();
@@ -3932,7 +3932,7 @@ setTimeout(() => {
         _pastRetryCount++;
         console.error(`Error loading past (attempt ${_pastRetryCount}):`, e);
         if (_pastRetryCount <= 3) {
-          setTimeout(() => loadPast(false), 5000);
+          setTimeout(() => loadPast(false, forceRefresh), 5000);
         } else {
           _pastRetryCount = 0;
         }
@@ -4096,7 +4096,9 @@ setTimeout(() => {
               const submissionLabel = sub.uploaded_by === 'Admin'
                 ? `<span style="color:#38a169; font-weight:600;">✅ Submitted</span> <span style="background:#667eea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;">📱 WhatsApp</span>`
                 : `<span style="color:#38a169; font-weight:600;">✅ Submitted</span>`;
-              hwStatus += `${subNum}${submissionLabel}`;
+              const isReviewed = !!(sub.feedback_grade || sub.feedback_comments || sub.corrected_file_path || sub.feedback_date);
+              const pendingReviewLabel = `<span style="color:#b7791f; font-weight:700;">Submitted - in review</span>${sub.uploaded_by === 'Admin' ? ' <span style="background:#667eea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;">WhatsApp</span>' : ''}<br><small style="color:#744210;">Your teacher has received it. No need to submit again.</small>`;
+              hwStatus += `${subNum}${isReviewed ? submissionLabel : pendingReviewLabel}`;
               if (s.session_topic && idx === 0) hwStatus += `<br><small style="color:#5a67d8; font-weight:600;">📌 ${s.session_topic}</small>`;
               if (submittedOn) hwStatus += `<br><small style="color:#718096;">📅 ${submittedOn}</small>`;
               if (sub.feedback_grade) hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${sub.feedback_grade}</span>`;
@@ -4367,10 +4369,12 @@ setTimeout(() => {
       const skipMsg = (skippedFiles.length + dupCount) > 0 ? ` (${skippedFiles.length + dupCount} duplicate(s) skipped)` : '';
       if (successCount > 0) {
         const summaryText = files.length > 0 ? `${successCount} new file(s) uploaded` : 'Comment/link submitted';
-        progressText.textContent = `✅ ${successCount} new file(s) uploaded!${skipMsg}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`;
+        const submittedReviewText = `${summaryText}! Submitted - in review. Your teacher has received it.${skipMsg}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`;
+        progressText.textContent = submittedReviewText;
         setTimeout(() => {
           closeHwSubmitModal();
-          loadPast();
+          resetSessionsCache();
+          loadPast(false, true);
           loadSubmittedHomework();
           loadBadges();
           loadScoreHistory();
@@ -4446,6 +4450,10 @@ setTimeout(() => {
             ? `<p style="margin-top:8px;"><a href="${hw.submission_link}" target="_blank" style="color:#3182ce; font-size:0.9rem; word-break:break-all;">Open submitted link</a></p>`
             : '';
 
+          const reviewStatusDisplay = hw.feedback_grade
+            ? gradeDisplay
+            : '<span style="background:#fff8e1; color:#975a16; border:1px solid #f6ad55; padding:4px 10px; border-radius:999px; font-size:0.85rem; font-weight:700;">Submitted - in review</span>';
+
           // Build proper file URL for viewing
           let fileUrl = '';
           let viewText = 'View';
@@ -4500,6 +4508,7 @@ setTimeout(() => {
 
           const hwSerial = sessionSerialMap[hw.session_id];
           const hwSerialLabel = hwSerial ? `Class #${hwSerial}` : '';
+          const submittedItemLabel = hw.file_name || (hw.submission_link && hw.submission_comment ? 'Link + comment submission' : hw.submission_link ? 'Link submission' : hw.submission_comment ? 'Comment submission' : 'Homework submission');
           return `
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -4509,8 +4518,9 @@ setTimeout(() => {
                     ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </p>
                 </div>
+                ${!hw.file_name ? `<p style="color:#4a5568; font-size:0.85rem; margin:4px 0 0;">${submittedItemLabel}</p>` : ''}
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                  ${gradeDisplay}
+                  ${reviewStatusDisplay}
                   ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Teacher Corrections')" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">📝 View Corrections</button>` : ''}
                   ${viewButton}
                   ${downloadUrl ? `<button onclick="forceDownload('${fileUrl}', '${(hw.file_name || 'download').replace(/'/g, "\\'")}')" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">⬇️ Download</button>` : ''}
@@ -4843,7 +4853,8 @@ setTimeout(() => {
         if (successCount > 0) {
           alert(`✅ ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
           e.target.reset();
-          loadPast();
+          resetSessionsCache();
+          loadPast(false, true);
           loadBadges();
           loadScoreHistory();
           loadSubmittedHomework();
