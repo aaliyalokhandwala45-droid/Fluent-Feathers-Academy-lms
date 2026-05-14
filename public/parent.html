@@ -3291,8 +3291,8 @@ setTimeout(() => {
             statusBadge = `<div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">IN PROGRESS</div>`;
             actionButton = `
               <div style="margin-top: 10px; background: rgba(255,255,255,0.6); padding: 12px; border-radius: 8px;">
-                <label style="display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 600;">📎 Attach your work (image, video, or PDF):</label>
-                <input type="file" id="challengeFile-${c.id}" accept="image/*,video/*,.pdf,.doc,.docx" style="font-size: 0.85rem; margin-bottom: 8px; width: 100%;">
+                <label style="display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 600;">📎 Attach your work (any file type: PDF, image, video, PPT, etc.):</label>
+                <input type="file" id="challengeFile-${c.id}" accept="*/*" style="font-size: 0.85rem; margin-bottom: 8px; width: 100%;">
                 <button onclick="submitChallenge(${c.id}, '${c.title.replace(/'/g, "\\'")}')" style="background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; width: 100%;">✋ Submit for Review</button>
               </div>`;
           }
@@ -3377,7 +3377,7 @@ setTimeout(() => {
       const file = fileInput ? fileInput.files[0] : null;
       const btn = document.getElementById(`challengeSubmitBtn-${challengeId}`);
       const hint = document.getElementById(`challengeFileHint-${challengeId}`);
-      const isValid = !!(file && file.type && (file.type.startsWith('image/') || file.type.startsWith('video/')));
+      const isValid = !!(file);
 
       if (btn) {
         btn.disabled = !isValid;
@@ -3387,10 +3387,7 @@ setTimeout(() => {
 
       if (hint) {
         if (!file) {
-          hint.textContent = 'Attach an image or video to enable submission.';
-          hint.style.color = '#c53030';
-        } else if (!isValid) {
-          hint.textContent = 'Only image or video files are allowed.';
+          hint.textContent = 'Attach any file (PDF, image, video, PPT, etc.) to enable submission.';
           hint.style.color = '#c53030';
         } else {
           hint.textContent = `Ready to submit: ${file.name}`;
@@ -3407,11 +3404,11 @@ setTimeout(() => {
         const oldButton = wrapper ? wrapper.querySelector('button') : null;
         let hint = document.getElementById(`challengeFileHint-${challengeId}`);
 
-        input.setAttribute('accept', 'image/*,video/*');
+        input.setAttribute('accept', '*/*');
         input.onchange = () => updateChallengeSubmitState(challengeId);
 
         if (label) {
-          label.textContent = 'Attach your work (image or video only):';
+          label.textContent = 'Attach your work (any file type: PDF, image, video, PPT, etc.):';
         }
 
         if (!hint && wrapper) {
@@ -3420,7 +3417,7 @@ setTimeout(() => {
           hint.style.fontSize = '0.8rem';
           hint.style.color = '#c53030';
           hint.style.marginBottom = '8px';
-          hint.textContent = 'Attach an image or video to enable submission.';
+          hint.textContent = 'Attach any file (PDF, image, video, PPT, etc.) to enable submission.';
           input.insertAdjacentElement('afterend', hint);
         }
 
@@ -3445,8 +3442,8 @@ setTimeout(() => {
       const fileInput = document.getElementById(`challengeFile-${challengeId}`);
       const file = fileInput ? fileInput.files[0] : null;
 
-      if (!file || !file.type || (!file.type.startsWith('image/') && !file.type.startsWith('video/'))) {
-        alert('Please attach an image or video before submitting this challenge.');
+      if (!file) {
+        alert('Please attach any file before submitting this challenge.');
         updateChallengeSubmitState(challengeId);
         return;
       }
@@ -4248,7 +4245,7 @@ setTimeout(() => {
           <div style="margin-bottom:18px;">
             <label style="display:block;font-weight:600;color:#4a5568;margin-bottom:8px;">Select Files</label>
             <input type="file" id="hwSubmitFileInput" multiple
-              accept="image/*,video/mp4,video/quicktime,video/x-msvideo,video/webm,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.mp4,.mov,.avi,.webm"
+              accept="*/*"
               style="width:100%;padding:10px;border:2px dashed #B05D9E;border-radius:8px;font-size:0.9rem;background:#fdf0f8;cursor:pointer;">
             <div id="hwSubmitFileList" style="margin-top:8px;font-size:0.83rem;color:#4a5568;max-height:120px;overflow-y:auto;"></div>
           </div>

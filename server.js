@@ -10917,19 +10917,19 @@ app.get('/api/groups/:groupId/matching-private-sessions', async (req, res) => {
         AND st.is_active = true
         AND s.session_type = 'Private'
         AND s.group_id IS NULL
-        AND s.status IN ('Pending', 'Scheduled')
+        AND COALESCE(s.status, 'Pending') NOT IN ('Cancelled', 'Cancelled by Parent')
       ORDER BY s.session_date, s.session_time, st.name
     `, [req.params.groupId])).rows;
 
     const groupSessions = (await pool.query(`
-      SELECT session_date, session_time, id
+      SELECT session_date, session_time, id, status
       FROM sessions
       WHERE group_id = $1
         AND session_type = 'Group'
-        AND status IN ('Pending', 'Scheduled')
+        AND COALESCE(status, 'Pending') NOT IN ('Cancelled', 'Cancelled by Parent')
     `, [req.params.groupId])).rows;
 
-    const groupSessionMap = new Map(groupSessions.map(gs => [`${gs.session_date}|${gs.session_time}`, gs.id]));
+    const groupSessionMap = new Map(groupSessions.map(gs => [`${gs.session_date}|${gs.session_time}`, gs]));
 
     const grouped = new Map();
     for (const row of rows) {
@@ -10939,7 +10939,8 @@ app.get('/api/groups/:groupId/matching-private-sessions', async (req, res) => {
           session_date: row.session_date,
           session_time: row.session_time,
           students: [],
-          existing_group_session_id: groupSessionMap.get(key) || null
+          existing_group_session_id: groupSessionMap.get(key)?.id || null,
+          existing_group_session_status: groupSessionMap.get(key)?.status || null
         });
       }
       grouped.get(key).students.push({
@@ -17753,11 +17754,12 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
 
     let badgeAwarded = false;
     if (perfectScore) {
+      const uniqueBadgeType = `${DAILY_QUIZ_BADGE_TYPE}_${quizDate}`;
       badgeAwarded = await awardBadge(
         studentId,
-        DAILY_QUIZ_BADGE_TYPE,
+        uniqueBadgeType,
         DAILY_QUIZ_BADGE_NAME,
-        DAILY_QUIZ_BADGE_DESCRIPTION
+        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${quizDate})`
       );
     }
 
@@ -17781,6 +17783,42 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
     res.status(500).json({ error: err.message, message: err.message });
   }
 });
+
+// Backfill Quiz Champion badges for existing perfect scores
+async function backfillQuizChampionBadges() {
+  try {
+    console.log('🔄 Backfilling Quiz Champion badges for existing perfect scores...');
+
+    // Find all perfect quiz attempts that don't have badges
+    const result = await pool.query(`
+      SELECT qa.student_id, qa.quiz_date
+      FROM quiz_attempts qa
+      LEFT JOIN student_badges sb ON qa.student_id = sb.student_id
+        AND sb.badge_type = CONCAT('daily_quiz_champion_', qa.quiz_date::text)
+      WHERE qa.score = 10 AND sb.id IS NULL
+    `);
+
+    console.log(`Found ${result.rows.length} perfect quiz attempts without badges`);
+
+    let awarded = 0;
+    for (const row of result.rows) {
+      const uniqueBadgeType = `daily_quiz_champion_${row.quiz_date}`;
+      const badgeAwarded = await awardBadge(
+        row.student_id,
+        uniqueBadgeType,
+        DAILY_QUIZ_BADGE_NAME,
+        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${row.quiz_date})`
+      );
+      if (badgeAwarded) awarded++;
+    }
+
+    console.log(`✅ Awarded ${awarded} Quiz Champion badges`);
+    return awarded;
+  } catch (err) {
+    console.error('Error backfilling quiz badges:', err);
+    return 0;
+  }
+}
 
 // Get student's quiz history
 app.get('/api/daily-quiz/history', async (req, res) => {
@@ -19355,6 +19393,35 @@ app.get('/api/students/:id/assessments', async (req, res) => {
   }
 });
 
+function attendanceFromPrivateStatus(privateStatus, groupStatus, sessionDate) {
+  const privateKey = String(privateStatus || 'Pending').trim().toLowerCase();
+  const groupKey = String(groupStatus || '').trim().toLowerCase();
+  const sessionDay = sessionDate instanceof Date
+    ? sessionDate.toISOString().split('T')[0]
+    : String(sessionDate || '').split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+
+  if (privateKey === 'completed' || privateKey === 'present') return 'Present';
+  if (privateKey === 'excused') return 'Excused';
+  if (['missed', 'unexcused', 'absent'].includes(privateKey)) return 'Unexcused';
+  if (groupKey === 'completed' && sessionDay && sessionDay <= today) return 'Present';
+  return 'Pending';
+}
+
+function groupStatusForMergedSlot(slotRows, existingGroupStatus) {
+  if (existingGroupStatus) return existingGroupStatus;
+
+  const statuses = slotRows.map(row => String(row.status || 'Pending').trim().toLowerCase());
+  if (statuses.some(status => status === 'completed' || status === 'present')) return 'Completed';
+  if (statuses.some(status => status === 'scheduled')) return 'Scheduled';
+  return 'Pending';
+}
+
+function privateStatusAlreadyCounted(privateStatus) {
+  return ['completed', 'excused', 'missed', 'unexcused', 'absent']
+    .includes(String(privateStatus || '').trim().toLowerCase());
+}
+
 app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -19373,7 +19440,7 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
         AND st.is_active = true
         AND s.session_type = 'Private'
         AND s.group_id IS NULL
-        AND s.status IN ('Pending', 'Scheduled')
+        AND COALESCE(s.status, 'Pending') NOT IN ('Cancelled', 'Cancelled by Parent')
       ORDER BY s.session_date, s.session_time, st.name
     `, [groupId])).rows;
 
@@ -19388,13 +19455,13 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
     let nextSessionNumber = parseInt(sessionCountResult.rows[0].count || 0, 10) + 1;
 
     const existingGroupSessions = (await client.query(`
-      SELECT id, session_date, session_time
+      SELECT id, session_date, session_time, status
       FROM sessions
       WHERE group_id = $1
         AND session_type = 'Group'
-        AND status IN ('Pending', 'Scheduled')
+        AND COALESCE(status, 'Pending') NOT IN ('Cancelled', 'Cancelled by Parent')
     `, [groupId])).rows;
-    const groupSessionMap = new Map(existingGroupSessions.map(gs => [`${gs.session_date}|${gs.session_time}`, gs.id]));
+    const groupSessionMap = new Map(existingGroupSessions.map(gs => [`${gs.session_date}|${gs.session_time}`, gs]));
 
     let mergedSlots = 0;
     let mergedStudents = 0;
@@ -19403,21 +19470,25 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
     for (const slotRows of grouped.values()) {
       const { session_date, session_time } = slotRows[0];
       const key = `${session_date}|${session_time}`;
-      const existingGroupSessionId = groupSessionMap.get(key);
+      const existingGroupSession = groupSessionMap.get(key);
 
-      if (slotRows.length < 2 && !existingGroupSessionId) continue;
+      if (slotRows.length < 2 && !existingGroupSession) continue;
 
-      let groupSession = existingGroupSessionId
-        ? { id: existingGroupSessionId }
+      const mergedGroupStatus = groupStatusForMergedSlot(slotRows, existingGroupSession?.status);
+      let groupSession = existingGroupSession
+        ? { id: existingGroupSession.id, status: existingGroupSession.status }
         : (await client.query(`
             INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status)
-            VALUES ($1, 'Group', $2, $3, $4, $5, 'Pending')
+            VALUES ($1, 'Group', $2, $3, $4, $5, $6)
             RETURNING id
-          `, [groupId, nextSessionNumber, session_date, session_time, slotRows[0].class_link || DEFAULT_CLASS])).rows[0];
+          `, [groupId, nextSessionNumber, session_date, session_time, slotRows[0].class_link || DEFAULT_CLASS, mergedGroupStatus])).rows[0];
 
-      if (!existingGroupSessionId) nextSessionNumber++;
+      if (!existingGroupSession) nextSessionNumber++;
 
       for (const row of slotRows) {
+        const attendance = attendanceFromPrivateStatus(row.status, mergedGroupStatus, row.session_date);
+        const shouldApplyAttendanceCount = attendance === 'Present' && !privateStatusAlreadyCounted(row.status);
+
         await client.query(`
           UPDATE materials
           SET session_id = $1, group_id = $2
@@ -19432,10 +19503,39 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
 
         await client.query(`
           INSERT INTO session_attendance (session_id, student_id, attendance)
-          VALUES ($1, $2, 'Pending')
+          VALUES ($1, $2, $3)
           ON CONFLICT (session_id, student_id)
           DO UPDATE SET attendance = EXCLUDED.attendance
-        `, [groupSession.id, row.student_id]);
+        `, [groupSession.id, row.student_id, attendance]);
+
+        if (shouldApplyAttendanceCount) {
+          await client.query(
+            `UPDATE students
+             SET completed_sessions = completed_sessions + 1,
+                 remaining_sessions = GREATEST(remaining_sessions - 1, 0),
+                 renewal_reminder_sent = false
+             WHERE id = $1`,
+            [row.student_id]
+          );
+
+          await client.query(
+            `UPDATE makeup_classes
+             SET status = 'Used', used_date = CURRENT_DATE
+             WHERE student_id = $1
+               AND scheduled_session_id = $2
+               AND LOWER(COALESCE(status, '')) = 'scheduled'`,
+            [row.student_id, row.session_id]
+          );
+
+          const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [row.student_id]);
+          const completedCount = student.rows[0]?.completed_sessions || 0;
+
+          if (completedCount === 1) await awardBadge(row.student_id, 'first_class', 'First Class Star', 'Attended first class!');
+          if (completedCount === 5) await awardBadge(row.student_id, '5_classes', '5 Classes Champion', 'Completed 5 classes!');
+          if (completedCount === 10) await awardBadge(row.student_id, '10_classes', '10 Classes Master', 'Completed 10 classes!');
+          if (completedCount === 25) await awardBadge(row.student_id, '25_classes', '25 Classes Legend', 'Amazing milestone!');
+          if (completedCount === 50) await awardBadge(row.student_id, '50_classes', '50 Classes Diamond', 'Amazing milestone!');
+        }
 
 // ✅ FIX: Reassign makeup credits pointing to the old session → new group session
 await client.query(`
@@ -19456,6 +19556,11 @@ await client.query(`
 
     affectedStudents.forEach(id => clearStudentSessionsCache(id));
     clearAdminDashboardCache();
+    affectedStudents.forEach(id => {
+      maybeSendPaidClassesDoneMakeupEmail(id).catch(err =>
+        console.error('Failed to send paid-classes-complete makeup email:', err)
+      );
+    });
 
     res.json({
       success: true,
@@ -21137,4 +21242,11 @@ app.get('/api/live-points/leaderboard', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 LMS Running on port ${PORT}`);
   startKeepAlive();
+
+  // Backfill Quiz Champion badges for existing perfect scores
+  console.log('Starting backfill in 2 seconds...');
+  setTimeout(() => {
+    console.log('Running backfill now...');
+    backfillQuizChampionBadges();
+  }, 2000); // Wait 2 seconds after startup
 });
