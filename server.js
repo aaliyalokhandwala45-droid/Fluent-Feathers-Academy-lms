@@ -7982,6 +7982,13 @@ function getQuizQuestionSimilarityKey(text) {
     .trim();
 }
 
+function addQuizQuestionTextToSet(set, text) {
+  const normalized = normalizeQuizQuestionText(text);
+  const similarityKey = getQuizQuestionSimilarityKey(text);
+  if (normalized) set.add(normalized);
+  if (similarityKey) set.add(similarityKey);
+}
+
 function isQuizQuestionTooSimilar(questionText, existingTexts) {
   const key = getQuizQuestionSimilarityKey(questionText);
   if (!key) return true;
@@ -8201,14 +8208,15 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
   const seen = new Set();
   const normalizedLevel = level ? normalizeStudentQuizLevel(level) : null;
   const includeQuestionBank = options.includeQuestionBank === true;
+  const limit = Number.isInteger(options.limit) ? Math.max(1, options.limit) : 120;
 
   const dailyResult = await db.query(
     `SELECT beginner_questions, intermediate_questions, advanced_questions
      FROM daily_quizzes
      ${quizDate ? 'WHERE quiz_date < $1' : ''}
      ORDER BY quiz_date DESC
-     LIMIT 120`,
-    quizDate ? [quizDate] : []
+     LIMIT $${quizDate ? 2 : 1}`,
+    quizDate ? [quizDate, limit] : [limit]
   );
 
   for (const row of dailyResult.rows) {
@@ -8217,8 +8225,7 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
       : ['beginner_questions', 'intermediate_questions', 'advanced_questions'];
     const questions = columns.flatMap(column => Array.isArray(row[column]) ? row[column] : []);
     for (const question of questions) {
-      const normalized = normalizeQuizQuestionText(question?.question_text);
-      if (normalized) seen.add(normalized);
+      addQuizQuestionTextToSet(seen, question?.question_text);
     }
   }
 
@@ -8232,8 +8239,7 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
   );
 
   for (const row of pendingResult.rows) {
-    const normalized = normalizeQuizQuestionText(row.question_text);
-    if (normalized) seen.add(normalized);
+    addQuizQuestionTextToSet(seen, row.question_text);
   }
 
   if (includeQuestionBank) {
@@ -8247,8 +8253,7 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
     );
 
     for (const row of bankResult.rows) {
-      const normalized = normalizeQuizQuestionText(row.question_text);
-      if (normalized) seen.add(normalized);
+      addQuizQuestionTextToSet(seen, row.question_text);
     }
   }
 
@@ -8529,12 +8534,13 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   };
 
   const preferredCategories = QUIZ_AI_CATEGORY_GUIDANCE[level] || QUIZ_ALLOWED_CATEGORIES;
-  const historicalTexts = await getHistoricalQuizQuestionTexts(null, quizDate);
+  const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate, pool, { limit: 180 });
   for (const text of excludeTexts) {
-    const normalized = normalizeQuizQuestionText(text);
-    if (normalized) historicalTexts.add(normalized);
+    addQuizQuestionTextToSet(historicalTexts, text);
   }
-  const bannedExamples = Array.from(historicalTexts).slice(0, 35);
+  const bannedExamples = Array.from(historicalTexts)
+    .filter(text => text.split(' ').length >= 4)
+    .slice(0, 60);
 
   const themeInstruction = theme 
     ? `\n\nTheme/Context: ${theme}\nAll questions should relate to or incorporate this theme where possible. Make questions engaging and relevant to this topic.`
@@ -8544,6 +8550,8 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
 
 Requirements:
 - Each question MUST be completely different from others
+- Do NOT repeat or lightly reword any past question listed below
+- Use new situations, names, sentences, idioms, examples, and answer choices
 - ${levelDescriptions[level]}
 - Category: ${preferredCategories.join(', ')} (only these categories)
 - 4 options (A, B, C, D), one correct answer
@@ -8554,8 +8562,8 @@ Requirements:
 Format as JSON array:
 [{"question_text":"...","options":["A","B","C","D"],"correct_answer":0,"category":"...","explanation":"..."}]
 
-Avoid repeating:
-${bannedExamples.slice(0, 5).map((q, i) => `${i + 1}. ${q.substring(0, 60)}`).join('\n')}
+Past ${level} questions/topics that are already used and must not be repeated or paraphrased:
+${bannedExamples.length > 0 ? bannedExamples.map((q, i) => `${i + 1}. ${q.substring(0, 140)}`).join('\n') : 'None yet.'}
 
 Return ONLY JSON, no other text. Each question 100% unique.`;
 
@@ -8910,6 +8918,9 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
     : ['beginner', 'intermediate', 'advanced'];
   const targetCountByLevel = options.targetCountByLevel || {};
   const theme = options.theme || null;
+  const extraExcludeTexts = options.excludeTexts instanceof Set
+    ? options.excludeTexts
+    : new Set(Array.isArray(options.excludeTexts) ? options.excludeTexts : []);
   let totalGenerated = 0;
 
   for (const level of levels) {
@@ -8939,7 +8950,9 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       console.log(`⏳ Generating AI questions for ${level} level${theme ? ' with theme: ' + theme : ''}... (need ${neededCount})`);
       const aiQuestions = [];
       // Exclude ALL existing questions (including rejected) to prevent duplication
-      const localSeen = new Set(existingResult.rows.map(row => normalizeQuizQuestionText(row.question_text)).filter(Boolean));
+      const localSeen = new Set();
+      existingResult.rows.forEach(row => addQuizQuestionTextToSet(localSeen, row.question_text));
+      extraExcludeTexts.forEach(text => addQuizQuestionTextToSet(localSeen, text));
       
       if (localSeen.size > 0) {
         console.log(`📝 Already have ${localSeen.size} existing question text(s) for ${level} to avoid duplicating`);
@@ -18571,17 +18584,21 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
       return res.status(400).json({ error: `Questions for ${date} already have 10 active questions per level in the pending queue` });
     }
 
-    await pool.query(
-      `DELETE FROM pending_quiz_questions WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status = 'rejected'`,
+    const deletedRejectedResult = await pool.query(
+      `DELETE FROM pending_quiz_questions
+       WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status = 'rejected'
+       RETURNING question_text`,
       [date, levelsToGenerate]
     );
+    const rejectedTextsToAvoid = new Set(deletedRejectedResult.rows.map(row => row.question_text).filter(Boolean));
 
     console.log(`🤖 Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
     const generated = await generatePendingQuizQuestions(date, levelsToGenerate, {
       targetCountByLevel,
       allowQuestionBankFallback: false,
       allowLocalFallback: false,
-      theme: theme || null
+      theme: theme || null,
+      excludeTexts: rejectedTextsToAvoid
     });
 
     if (generated === 0) {
