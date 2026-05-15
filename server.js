@@ -2259,6 +2259,7 @@ async function runMigrations() {
     // Migration 20: Add missed_sessions column to students table
     try {
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS missed_sessions INTEGER DEFAULT 0`);
+      await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS session_balance_override BOOLEAN DEFAULT FALSE`);
       console.log('✅ Migration 20: Added missed_sessions column to students');
     } catch (err) {
       console.log('Migration 20 note:', err.message);
@@ -4522,23 +4523,41 @@ function mapStudentSessionBalance(studentRow) {
     (parseInt(studentRow.unresolved_group_missed_sessions, 10) || 0);
   const storedCompletedSessions = parseInt(studentRow.completed_sessions, 10);
   const storedMissedSessions = parseInt(studentRow.missed_sessions, 10);
+  const storedRemainingSessions = parseInt(studentRow.remaining_sessions, 10);
+  const hasManualBalanceOverride = studentRow.session_balance_override === true || String(studentRow.session_balance_override).toLowerCase() === 'true';
   const hasComputedCompletedSessions =
     Object.prototype.hasOwnProperty.call(studentRow, 'completed_private_sessions') ||
     Object.prototype.hasOwnProperty.call(studentRow, 'completed_group_sessions');
-  const completedSessions = hasComputedCompletedSessions
+  const displayedCompletedSessions = Number.isFinite(storedCompletedSessions)
+    ? storedCompletedSessions
+    : computedCompletedSessions;
+  const paidCompletedSessionsForBalance = hasComputedCompletedSessions
     ? computedCompletedSessions
-    : (Number.isFinite(storedCompletedSessions) ? storedCompletedSessions : 0);
+    : displayedCompletedSessions;
   const missedSessions = Math.max(
     Number.isFinite(storedMissedSessions) ? storedMissedSessions : 0,
     computedMissedSessions
   );
   const finalizedRegularSessions = regularPrivateUsed + regularGroupUsed;
   const regularUsageFromMakeupCredits = availableMakeupCredits + scheduledMakeupCredits + completedMakeupSessions;
-  const paidCompletedSessions = completedSessions;
+
+  if (hasManualBalanceOverride) {
+    const visibleRemainingSessions = Math.max(Number.isFinite(storedRemainingSessions) ? storedRemainingSessions : 0, 0);
+    const paidRemainingSessions = Math.max(visibleRemainingSessions - scheduledMakeupCredits, 0);
+    return {
+      completed_sessions: displayedCompletedSessions,
+      missed_sessions: missedSessions,
+      paid_remaining_sessions: paidRemainingSessions,
+      remaining_sessions: visibleRemainingSessions,
+      bookable_paid_sessions: Math.max(paidRemainingSessions - regularPrivatePending - regularGroupPending, 0),
+      scheduled_makeup_credits: scheduledMakeupCredits
+    };
+  }
+
   const paidFinalizedSessions = Math.max(
     finalizedRegularSessions,
-    Math.min(paidCompletedSessions + missedSessions, totalSessions),
-    Math.min(paidCompletedSessions + regularUsageFromMakeupCredits, totalSessions)
+    Math.min(paidCompletedSessionsForBalance + missedSessions, totalSessions),
+    Math.min(paidCompletedSessionsForBalance + regularUsageFromMakeupCredits, totalSessions)
   );
   const paidRemainingSessions = Math.max(totalSessions - paidFinalizedSessions, 0);
   const visibleRemainingSessions = paidRemainingSessions + scheduledMakeupCredits;
@@ -4548,7 +4567,7 @@ function mapStudentSessionBalance(studentRow) {
   );
 
   return {
-    completed_sessions: completedSessions,
+    completed_sessions: displayedCompletedSessions,
     missed_sessions: missedSessions,
     paid_remaining_sessions: paidRemainingSessions,
     remaining_sessions: visibleRemainingSessions,
@@ -4559,7 +4578,7 @@ function mapStudentSessionBalance(studentRow) {
 
 async function getStudentSessionBalance(studentId, db = pool) {
   const result = await db.query(`
-    SELECT s.id, s.total_sessions, s.completed_sessions, s.missed_sessions,
+    SELECT s.id, s.total_sessions, s.completed_sessions, s.missed_sessions, s.remaining_sessions, s.session_balance_override,
       COALESCE((
         SELECT COUNT(*)
         FROM sessions sess
@@ -14470,7 +14489,8 @@ app.post('/api/students/:id/fix-sessions', async (req, res) => {
         total_sessions = $1,
         completed_sessions = $2,
         missed_sessions = $3,
-        remaining_sessions = $4
+        remaining_sessions = $4,
+        session_balance_override = true
       WHERE id = $5
     `, [targetTotal, targetCompleted, normalizedMissed, targetRemaining, studentId]);
 
@@ -14481,22 +14501,6 @@ app.post('/api/students/:id/fix-sessions', async (req, res) => {
     console.log(`   New: Total=${targetTotal}, Completed=${targetCompleted}, Missed=${normalizedMissed}, Remaining=${updatedBalance?.remaining_sessions ?? targetRemaining}`);
     console.log(`   Reason: ${reason || 'No reason provided'}`);
 
-    // Try sending a push notification to the parent so their portal refreshes
-    try {
-      const parentEmail = (studentResult.rows[0].parent_email || '').toString().trim().toLowerCase();
-      if (parentEmail) {
-        const title = 'Session counts updated';
-        const body = `${studentResult.rows[0].name || 'Your child'}: Total ${targetTotal}, Remaining ${updatedBalance?.remaining_sessions ?? targetRemaining}`;
-        await sendPushToParentByEmail(parentEmail, title, body, {
-          type: 'session_fix',
-          studentId: String(studentId),
-          url: `${getAppBaseUrl()}/parent.html`
-        });
-      }
-    } catch (pushErr) {
-      console.warn('Failed sending session-fix push to parent:', pushErr && pushErr.message ? pushErr.message : pushErr);
-    }
-
     res.json({
       success: true,
       message: 'Session counts updated successfully!',
@@ -14505,6 +14509,43 @@ app.post('/api/students/:id/fix-sessions', async (req, res) => {
     });
   } catch (err) {
     console.error('Error fixing sessions:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin-only: Force update session counts (bypasses some normalization)
+app.post('/api/admin/force-fix-sessions', async (req, res) => {
+  const { student_id, total_sessions, completed_sessions, remaining_sessions, reason } = req.body || {};
+  const adminPass = req.headers['x-admin-password'];
+  if (!adminPass || adminPass !== ADMIN_PASSWORD) {
+    return res.status(403).json({ error: 'Forbidden: invalid admin password' });
+  }
+  if (!student_id) return res.status(400).json({ error: 'student_id is required' });
+
+  try {
+    const studentResult = await pool.query('SELECT name FROM students WHERE id = $1', [student_id]);
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+
+    const total = parseInt(total_sessions, 10) || 0;
+    const completed = parseInt(completed_sessions, 10) || 0;
+    const remaining = parseInt(remaining_sessions, 10) || Math.max(0, total - completed);
+    let missed = total - completed - remaining;
+    if (!Number.isFinite(missed) || missed < 0) missed = 0;
+
+    await pool.query(`
+      UPDATE students SET
+        total_sessions = $1,
+        completed_sessions = $2,
+        missed_sessions = $3,
+        remaining_sessions = $4,
+        session_balance_override = true
+      WHERE id = $5
+    `, [total, completed, missed, remaining, student_id]);
+
+    const updatedBalance = await getStudentSessionBalance(student_id);
+    res.json({ success: true, message: 'Session counts force-updated', total_sessions: total, completed_sessions: completed, remaining_sessions: remaining, ...updatedBalance });
+  } catch (err) {
+    console.error('Admin force-fix error:', err);
     res.status(500).json({ error: err.message });
   }
 });
