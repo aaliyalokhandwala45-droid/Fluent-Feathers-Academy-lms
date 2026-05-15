@@ -3333,11 +3333,6 @@ I'm passionate about helping children develop confidence in communication!"></te
           <small style="color: #718096;">Sessions already attended</small>
         </div>
         <div class="form-group">
-          <label>Missed Sessions</label>
-          <input type="number" id="editMissedSessions" min="0" required>
-          <small style="color: #718096;">Excused + Unexcused absences</small>
-        </div>
-        <div class="form-group">
           <label>Remaining Sessions</label>
           <input type="number" id="editRemainingSessions" min="0" required>
           <small style="color: #718096;">Sessions left to attend</small>
@@ -7932,12 +7927,11 @@ if (dueEl) {
     });
 
     // ==================== EDIT SESSION COUNTS ====================
-    function openEditSessionsModal(studentId, studentName, total, completed, missed, remaining) {
+    function openEditSessionsModal(studentId, studentName, total, completed, remaining) {
       document.getElementById('editSessionsStudentId').value = studentId;
       document.getElementById('editSessionsStudentName').textContent = studentName;
       document.getElementById('editTotalSessions').value = total;
       document.getElementById('editCompletedSessions').value = completed;
-      document.getElementById('editMissedSessions').value = missed || 0;
       document.getElementById('editRemainingSessions').value = remaining;
       document.getElementById('editSessionsReason').value = '';
       document.getElementById('editSessionsModal').classList.add('active');
@@ -7954,21 +7948,12 @@ if (dueEl) {
       const studentId = document.getElementById('editSessionsStudentId').value;
       const total = parseInt(document.getElementById('editTotalSessions').value);
       const completed = parseInt(document.getElementById('editCompletedSessions').value);
-      const missed = parseInt(document.getElementById('editMissedSessions').value);
       const remaining = parseInt(document.getElementById('editRemainingSessions').value);
       const reason = document.getElementById('editSessionsReason').value;
-
-      // Validate: Total should equal Completed + Missed + Remaining
-      if (completed + missed + remaining !== total) {
-        if (!confirm('⚠️ Warning: Completed (' + completed + ') + Missed (' + missed + ') + Remaining (' + remaining + ') = ' + (completed + missed + remaining) + ', but Total is ' + total + '.\n\nAre you sure you want to save these values?')) {
-          return;
-        }
-      }
 
       const confirmMsg = 'Update session counts?\n\n' +
         'Total: ' + total + '\n' +
         'Completed: ' + completed + '\n' +
-        'Missed: ' + missed + '\n' +
         'Remaining: ' + remaining + '\n\n' +
         'Reason: ' + reason;
 
@@ -7981,7 +7966,6 @@ if (dueEl) {
           body: JSON.stringify({
             total_sessions: total,
             completed_sessions: completed,
-            missed_sessions: missed,
             remaining_sessions: remaining,
             reason: reason
           })
@@ -7995,12 +7979,10 @@ if (dueEl) {
           // Update the display
           const statTotal = document.getElementById('statTotal-' + studentId);
           const statCompleted = document.getElementById('statCompleted-' + studentId);
-          const statMissed = document.getElementById('statMissed-' + studentId);
           const statRemaining = document.getElementById('statRemaining-' + studentId);
-          if (statTotal) statTotal.textContent = total;
-          if (statCompleted) statCompleted.textContent = completed;
-          if (statMissed) statMissed.textContent = missed;
-          if (statRemaining) statRemaining.textContent = remaining;
+          if (statTotal) statTotal.textContent = data.total_sessions ?? total;
+          if (statCompleted) statCompleted.textContent = data.completed_sessions ?? completed;
+          if (statRemaining) statRemaining.textContent = data.remaining_sessions ?? remaining;
           // Refresh student list
           loadStudents();
         } else {
@@ -8235,12 +8217,11 @@ if (dueEl) {
         <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="color: #B05D9E; margin: 0;">Session Statistics</h3>
-            <button onclick="openEditSessionsModal(${student.id}, '${student.name}', ${student.total_sessions}, ${student.completed_sessions}, ${student.missed_sessions || 0}, ${student.remaining_sessions})" class="btn btn-sm" style="background: #e53e3e; color: white;">✏️ Fix Sessions</button>
+            <button onclick="openEditSessionsModal(${student.id}, '${student.name}', ${student.total_sessions}, ${student.completed_sessions}, ${student.remaining_sessions})" class="btn btn-sm" style="background: #e53e3e; color: white;">✏️ Fix Sessions</button>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px;">
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
             <div><strong>Total:</strong> <span id="statTotal-${student.id}">${student.total_sessions}</span></div>
             <div><strong>Completed:</strong> <span id="statCompleted-${student.id}" class="status-active">${student.completed_sessions}</span></div>
-            <div><strong>Missed:</strong> <span id="statMissed-${student.id}" style="color: #e53e3e;">${student.missed_sessions || 0}</span></div>
             <div><strong>Remaining:</strong> <span id="statRemaining-${student.id}" style="color: #dd6b20;">${student.remaining_sessions}</span></div>
             <div><strong>Makeup:</strong> <span style="color: #9f7aea; font-weight: bold;">${student.makeup_credits || 0}</span></div>
           </div>
@@ -10035,6 +10016,20 @@ async function saveEditedPayment() {
             </div>
           </div>
 
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff5f5;border:1px solid #feb2b2;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-weight:600;color:#2d3748;">
+              <input type="checkbox" id="bulkSelectScheduleSessions" onchange="toggleScheduleSessionSelection(this.checked)" style="width:auto;margin:0;">
+              Select all sessions
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;color:#4a5568;">
+              <input type="checkbox" id="bulkDeleteSendEmail" checked style="width:auto;margin:0;">
+              Email parents about cancellation
+            </label>
+            <button onclick="bulkDeleteSelectedSessions()" class="btn btn-sm" style="background:#dc2626;color:white;font-weight:700;">
+              Delete Selected <span id="bulkDeleteSelectedCount">(0)</span>
+            </button>
+          </div>
+
           <!-- Extra Sessions Form (hidden by default) -->
           <div id="extraSessionForm" style="display: none; background: linear-gradient(135deg, #f7fafc, #edf2f7); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #667eea;">
             <h4 style="margin: 0 0 15px; color: #667eea;">+ Add Extra Sessions for ${student.name}</h4>
@@ -10094,9 +10089,19 @@ async function saveEditedPayment() {
             const sTime = s.session_time;
             const sessionNumberText = getAdminSessionNumber(s);
             const sessionTitle = sessionNumberText ? `Session #${sessionNumberText} - ${s.session_type}` : s.session_type;
-            return `<div class="session-item"><div><strong>${sessionTitle}</strong><br><span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${displayStatus}${cancelledByText}</span></span></div><div style="display: flex; gap: 10px;"><button onclick="editSession(${s.id}, '${sDate}', '${sTime}')" class="btn btn-sm btn-primary">Edit</button><button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button></div></div>`;
+            return `<div class="session-item">
+              <label style="display:flex;align-items:center;gap:10px;margin:0;flex:1;cursor:pointer;">
+                <input type="checkbox" class="schedule-session-checkbox" value="${s.id}" onchange="updateBulkDeleteSelectedCount()" style="width:auto;margin:0;">
+                <span><strong>${sessionTitle}</strong><br><span style="color: #718096;">📅 ${formatSessionTime(s)} | Status: <span style="color: ${statusColor}; font-weight: 600;">${displayStatus}${cancelledByText}</span></span></span>
+              </label>
+              <div style="display: flex; gap: 10px;">
+                <button onclick="editSession(${s.id}, '${sDate}', '${sTime}')" class="btn btn-sm btn-primary">Edit</button>
+                <button onclick="deleteSession(${s.id})" class="btn btn-sm btn-danger">Delete</button>
+              </div>
+            </div>`;
           }).join('')}
         `;
+        updateBulkDeleteSelectedCount();
       } catch(err) {
         container.innerHTML = '<p style="color: #e53e3e;">Error loading schedule</p>';
         console.error(err);
@@ -10277,6 +10282,58 @@ async function saveEditedPayment() {
           alert('❌ Failed: ' + result.error);
         }
       } catch(err) {
+        alert('❌ Error: ' + err.message);
+      }
+    }
+
+    function getSelectedScheduleSessionIds() {
+      return Array.from(document.querySelectorAll('.schedule-session-checkbox:checked'))
+        .map(cb => parseInt(cb.value, 10))
+        .filter(Number.isFinite);
+    }
+
+    function updateBulkDeleteSelectedCount() {
+      const selected = getSelectedScheduleSessionIds();
+      const countEl = document.getElementById('bulkDeleteSelectedCount');
+      if (countEl) countEl.textContent = `(${selected.length})`;
+      const allBoxes = Array.from(document.querySelectorAll('.schedule-session-checkbox'));
+      const selectAll = document.getElementById('bulkSelectScheduleSessions');
+      if (selectAll) {
+        selectAll.checked = allBoxes.length > 0 && selected.length === allBoxes.length;
+        selectAll.indeterminate = selected.length > 0 && selected.length < allBoxes.length;
+      }
+    }
+
+    function toggleScheduleSessionSelection(checked) {
+      document.querySelectorAll('.schedule-session-checkbox').forEach(cb => {
+        cb.checked = checked;
+      });
+      updateBulkDeleteSelectedCount();
+    }
+
+    async function bulkDeleteSelectedSessions() {
+      const sessionIds = getSelectedScheduleSessionIds();
+      if (sessionIds.length === 0) return alert('Select at least one session to delete.');
+      const sendEmail = document.getElementById('bulkDeleteSendEmail')?.checked === true;
+      const emailText = sendEmail ? 'Parents will receive cancellation emails.' : 'Parents will not receive cancellation emails.';
+      if (!confirm(`Delete ${sessionIds.length} selected session${sessionIds.length === 1 ? '' : 's'}?\n\n${emailText}\n\nThis cannot be undone.`)) return;
+
+      try {
+        const res = await fetch('/api/sessions/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_ids: sessionIds, send_email: sendEmail })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + result.message);
+          loadStudentSchedule();
+          loadUpcomingClasses();
+          loadCalendar();
+        } else {
+          alert('❌ Failed: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
         alert('❌ Error: ' + err.message);
       }
     }

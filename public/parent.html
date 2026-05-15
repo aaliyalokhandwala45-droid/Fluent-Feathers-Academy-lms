@@ -748,7 +748,7 @@
           <div><strong>Name:</strong> <span id="displayName">-</span></div>
           <div><strong>Age:</strong> <span id="displayGrade">-</span></div>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
           <div style="background: #f7fafc; padding: 12px; border-radius: 8px;">
             <div style="font-size: 1.5rem; font-weight: bold; color: #2d3748;" id="displayTotal">-</div>
             <div style="font-size: 0.75rem; color: #718096;">Total</div>
@@ -756,10 +756,6 @@
           <div style="background: #c6f6d5; padding: 12px; border-radius: 8px;">
             <div style="font-size: 1.5rem; font-weight: bold; color: #276749;" id="displayCompleted">-</div>
             <div style="font-size: 0.75rem; color: #276749;">Completed</div>
-          </div>
-          <div style="background: #fed7d7; padding: 12px; border-radius: 8px;">
-            <div style="font-size: 1.5rem; font-weight: bold; color: #c53030;" id="displayMissed">0</div>
-            <div style="font-size: 0.75rem; color: #c53030;">Missed</div>
           </div>
           <div style="background: #feebc8; padding: 12px; border-radius: 8px;">
             <div style="font-size: 1.5rem; font-weight: bold; color: #c05621;" id="displayRemaining">-</div>
@@ -950,7 +946,7 @@
           <!-- Session Progress Card -->
           <div id="sessionProgressCard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
             <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">📊 Session Progress</h3>
-            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
               <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
                 <div style="font-size: 1.75rem; font-weight: bold;" id="paymentTotalSessions">-</div>
                 <div style="font-size: 0.8rem; opacity: 0.9;">Total</div>
@@ -958,10 +954,6 @@
               <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
                 <div style="font-size: 1.75rem; font-weight: bold;" id="paymentCompletedSessions">-</div>
                 <div style="font-size: 0.8rem; opacity: 0.9;">Completed</div>
-              </div>
-              <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
-                <div style="font-size: 1.75rem; font-weight: bold;" id="paymentMissedSessions">0</div>
-                <div style="font-size: 0.8rem; opacity: 0.9;">Missed</div>
               </div>
               <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
                 <div style="font-size: 1.75rem; font-weight: bold;" id="paymentRemainingSessions">-</div>
@@ -2458,7 +2450,6 @@ setTimeout(() => {
       document.getElementById('displayGrade').textContent = getAgeDisplay(currentStudent);
       document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
       document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions || 0;
-      document.getElementById('displayMissed').textContent = currentStudent.missed_sessions || 0;
       document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions || 0;
 
       if (allMyStudents && allMyStudents.length > 1) {
@@ -4674,12 +4665,10 @@ setTimeout(() => {
         // Load session progress - use actual data from student object
         const totalSessions = parseInt(currentStudent.total_sessions) || 0;
         const completedSessions = parseInt(currentStudent.completed_sessions) || 0;
-        const missedSessions = parseInt(currentStudent.missed_sessions) || 0;
         const remainingSessions = parseInt(currentStudent.remaining_sessions) || 0;
 
         document.getElementById('paymentTotalSessions').textContent = totalSessions;
         document.getElementById('paymentCompletedSessions').textContent = completedSessions;
-        document.getElementById('paymentMissedSessions').textContent = missedSessions;
         document.getElementById('paymentRemainingSessions').textContent = remainingSessions;
 
         const availableMakeup = parseInt(currentStudent.available_makeup_credits) || 0;
