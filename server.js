@@ -4290,10 +4290,7 @@ async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
             SELECT 1
             FROM makeup_classes mc
             WHERE mc.student_id = s.id
-              AND (
-                mc.scheduled_session_id = sess.id
-                OR mc.original_session_id = sess.id
-              )
+              AND mc.scheduled_session_id = sess.id
           )
       ), 0) as regular_private_sessions_used,
       COALESCE((
@@ -4306,10 +4303,7 @@ async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
             SELECT 1
             FROM makeup_classes mc
             WHERE mc.student_id = s.id
-              AND (
-                mc.scheduled_session_id = sa.session_id
-                OR mc.original_session_id = sa.session_id
-              )
+              AND mc.scheduled_session_id = sa.session_id
           )
       ), 0) as regular_group_sessions_used,
       COALESCE((
@@ -4428,10 +4422,7 @@ async function getParentPortalStudentById(studentId, db = pool) {
             SELECT 1
             FROM makeup_classes mc
             WHERE mc.student_id = s.id
-              AND (
-                mc.scheduled_session_id = sess.id
-                OR mc.original_session_id = sess.id
-              )
+              AND mc.scheduled_session_id = sess.id
           )
       ), 0) as regular_private_sessions_used,
       COALESCE((
@@ -4444,10 +4435,7 @@ async function getParentPortalStudentById(studentId, db = pool) {
             SELECT 1
             FROM makeup_classes mc
             WHERE mc.student_id = s.id
-              AND (
-                mc.scheduled_session_id = sa.session_id
-                OR mc.original_session_id = sa.session_id
-              )
+              AND mc.scheduled_session_id = sa.session_id
           )
       ), 0) as regular_group_sessions_used,
       COALESCE((
@@ -4645,10 +4633,7 @@ async function getStudentSessionBalance(studentId, db = pool) {
             SELECT 1
             FROM makeup_classes mc
             WHERE mc.student_id = s.id
-              AND (
-                mc.scheduled_session_id = sess.id
-                OR mc.original_session_id = sess.id
-              )
+              AND mc.scheduled_session_id = sess.id
           )
       ), 0) as regular_private_sessions_used,
       COALESCE((
@@ -4661,10 +4646,7 @@ async function getStudentSessionBalance(studentId, db = pool) {
             SELECT 1
             FROM makeup_classes mc
             WHERE mc.student_id = s.id
-              AND (
-                mc.scheduled_session_id = sa.session_id
-                OR mc.original_session_id = sa.session_id
-              )
+              AND mc.scheduled_session_id = sa.session_id
           )
       ), 0) as regular_group_sessions_used,
       COALESCE((

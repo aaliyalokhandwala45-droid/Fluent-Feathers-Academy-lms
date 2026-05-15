@@ -2436,7 +2436,7 @@ setTimeout(() => {
             <div style="width: 60px; height: 60px; background: ${color}; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; color: white; font-size: 1.5rem; font-weight: bold;">${initials}</div>
             <h3 style="margin: 0 0 5px 0; color: #2d3748; font-size: 1.1rem;">${s.name}</h3>
             <p style="margin: 0; color: #718096; font-size: 0.9rem;">${getAgeDisplay(s)}</p>
-            <p style="margin: 8px 0 0 0; color: #B05D9E; font-size: 0.85rem; font-weight: 600;">${s.paid_remaining_sessions} sessions left</p>
+            <p style="margin: 8px 0 0 0; color: #B05D9E; font-size: 0.85rem; font-weight: 600;">${s.remaining_sessions || 0} sessions left</p>
           </div>
         `;
       }).join('');
@@ -2459,7 +2459,7 @@ setTimeout(() => {
       document.getElementById('displayTotal').textContent = currentStudent.total_sessions;
       document.getElementById('displayCompleted').textContent = currentStudent.completed_sessions || 0;
       document.getElementById('displayMissed').textContent = currentStudent.missed_sessions || 0;
-      document.getElementById('displayRemaining').textContent = currentStudent.paid_remaining_sessions || 0;
+      document.getElementById('displayRemaining').textContent = currentStudent.remaining_sessions || 0;
 
       if (allMyStudents && allMyStudents.length > 1) {
         document.getElementById('currentChildBadge').style.display = 'inline-block';
@@ -4675,7 +4675,7 @@ setTimeout(() => {
         const totalSessions = parseInt(currentStudent.total_sessions) || 0;
         const completedSessions = parseInt(currentStudent.completed_sessions) || 0;
         const missedSessions = parseInt(currentStudent.missed_sessions) || 0;
-        const remainingSessions = parseInt(currentStudent.paid_remaining_sessions) || 0;
+        const remainingSessions = parseInt(currentStudent.remaining_sessions) || 0;
 
         document.getElementById('paymentTotalSessions').textContent = totalSessions;
         document.getElementById('paymentCompletedSessions').textContent = completedSessions;
