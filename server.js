@@ -17083,7 +17083,10 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
   try {
     let imageUrl = null;
     if (req.file) {
-      imageUrl = req.file.path || req.file.url; // Cloudinary gives url, local gives path
+      imageUrl = req.file.secure_url || req.file.url || req.file.path; // Cloudinary gives a URL, local gives a path
+      if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+        imageUrl = '/' + String(imageUrl).replace(/\\/g, '/').replace(/^\/+/, '');
+      }
     }
 
     const result = await pool.query(`
