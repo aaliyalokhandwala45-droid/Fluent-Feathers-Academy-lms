@@ -16276,12 +16276,16 @@ app.get('/api/awards/current', async (req, res) => {
   try {
     const now = new Date();
 
-    // LAST WEEK range: Monday to Sunday of the previous completed week
-    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
-    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const thisWeekStart = new Date(now); thisWeekStart.setDate(now.getDate() + diffToMon); thisWeekStart.setHours(0,0,0,0);
-    const weekStart = new Date(thisWeekStart); weekStart.setDate(thisWeekStart.getDate() - 7); // Last Monday
-    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999); // Last Sunday
+    // LAST WEEK range: Sunday to Saturday of the previous completed week.
+    const dayOfWeek = now.getDay(); // 0=Sun
+    const thisWeekStart = new Date(now);
+    thisWeekStart.setDate(now.getDate() - dayOfWeek);
+    thisWeekStart.setHours(0,0,0,0);
+    const weekStart = new Date(thisWeekStart);
+    weekStart.setDate(thisWeekStart.getDate() - 7);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23,59,59,999);
 
     // LAST MONTH range
     const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -16292,11 +16296,13 @@ app.get('/api/awards/current', async (req, res) => {
     const yearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
 
     // Query to get student scores for a date range
-   const getTopStudent = async (startDate, endDate) => {
+    const getTopStudent = async (startDate, endDate) => {
     const result = await executeQuery(`
     WITH homework_pts AS (
-      SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
+      SELECT student_id, COUNT(DISTINCT session_id) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
+        AND student_id IS NOT NULL
+        AND session_id IS NOT NULL
         AND (
           COALESCE(comment_only_submission, false) = false
           OR COALESCE(homework_points_approved, false) = true
@@ -16401,8 +16407,10 @@ app.get('/api/awards/by-period', async (req, res) => {
     if (!start || !end) return res.status(400).json({ error: 'start and end dates required' });
     const result = await pool.query(`
     WITH homework_pts AS (
-      SELECT student_id, COUNT(DISTINCT session_date) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
+      SELECT student_id, COUNT(DISTINCT session_id) * ${HOMEWORK_POINT_VALUE} as pts FROM materials
       WHERE file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
+        AND student_id IS NOT NULL
+        AND session_id IS NOT NULL
         AND (
           COALESCE(comment_only_submission, false) = false
           OR COALESCE(homework_points_approved, false) = true
