@@ -10293,6 +10293,30 @@ app.delete('/api/groups/:groupId/students/:studentId', async (req, res) => {
       'UPDATE students SET group_id = NULL, group_name = NULL WHERE id = $1',
       [studentId]
     );
+    await client.query(`
+      DELETE FROM materials
+      WHERE student_id = $1
+        AND session_id IN (
+          SELECT id
+          FROM sessions
+          WHERE group_id = $2
+            AND session_type = 'Group'
+            AND status IN ('Pending', 'Scheduled')
+            AND session_date >= CURRENT_DATE
+        )
+    `, [studentId, groupId]);
+    await client.query(`
+      DELETE FROM session_attendance
+      WHERE student_id = $1
+        AND session_id IN (
+          SELECT id
+          FROM sessions
+          WHERE group_id = $2
+            AND session_type = 'Group'
+            AND status IN ('Pending', 'Scheduled')
+            AND session_date >= CURRENT_DATE
+        )
+    `, [studentId, groupId]);
     await client.query(
       'UPDATE groups SET current_students = GREATEST(current_students - 1, 0) WHERE id = $1',
       [groupId]
@@ -11147,12 +11171,19 @@ function shouldCountSessionForStudent(session) {
   return true;
 }
 
-async function getSessionCancellationNotifications(client, sessionId) {
+async function getSessionCancellationNotifications(client, sessionId, studentId = null) {
   const sessionRes = await client.query('SELECT * FROM sessions WHERE id = $1', [sessionId]);
   if (sessionRes.rows.length === 0) return [];
   const session = sessionRes.rows[0];
 
-  const recipientsRes = session.session_type === 'Group' && session.group_id
+  const scopedStudentId = parseInt(studentId, 10);
+  const recipientsRes = Number.isFinite(scopedStudentId)
+    ? await client.query(`
+        SELECT *
+        FROM students
+        WHERE id = $1 AND parent_email IS NOT NULL AND parent_email <> ''
+      `, [scopedStudentId])
+    : session.session_type === 'Group' && session.group_id
     ? await client.query(`
         SELECT DISTINCT st.*
         FROM session_attendance sa
@@ -11243,6 +11274,69 @@ async function deleteSessionRecord(client, sessionId) {
   await client.query('DELETE FROM session_materials WHERE session_id = $1', [sessionId]);
   await client.query('DELETE FROM sessions WHERE id = $1', [sessionId]);
   return session;
+}
+
+async function removeStudentFromGroupSession(client, sessionId, studentId) {
+  const sessionRes = await client.query(
+    `SELECT id, session_type, group_id, status
+     FROM sessions
+     WHERE id = $1 AND session_type = 'Group' AND group_id IS NOT NULL`,
+    [sessionId]
+  );
+  if (sessionRes.rows.length === 0) return null;
+  const session = sessionRes.rows[0];
+
+  const attendanceRes = await client.query(
+    'SELECT attendance FROM session_attendance WHERE session_id = $1 AND student_id = $2',
+    [sessionId, studentId]
+  );
+  if (attendanceRes.rows.length === 0) {
+    return { ...session, removed: false };
+  }
+
+  const attendance = String(attendanceRes.rows[0].attendance || 'Pending').trim();
+  const countedStatuses = new Set(['Present', 'Excused', 'Unexcused', 'Absent', 'Missed']);
+
+  await client.query(
+    `UPDATE makeup_classes
+     SET status = 'Available',
+         scheduled_session_id = NULL,
+         scheduled_date = NULL,
+         scheduled_time = NULL,
+         used_date = NULL
+     WHERE student_id = $1 AND scheduled_session_id = $2`,
+    [studentId, sessionId]
+  );
+  await client.query(
+    `DELETE FROM makeup_classes
+     WHERE student_id = $1
+       AND original_session_id = $2
+       AND LOWER(COALESCE(status, '')) = 'available'`,
+    [studentId, sessionId]
+  );
+  await client.query('DELETE FROM class_feedback WHERE session_id = $1 AND student_id = $2', [sessionId, studentId]);
+  await client.query('DELETE FROM materials WHERE session_id = $1 AND student_id = $2', [sessionId, studentId]);
+  await client.query('DELETE FROM session_attendance WHERE session_id = $1 AND student_id = $2', [sessionId, studentId]);
+
+  if (attendance === 'Present') {
+    await client.query(
+      `UPDATE students
+       SET completed_sessions = GREATEST(completed_sessions - 1, 0),
+           renewal_reminder_sent = false
+       WHERE id = $1`,
+      [studentId]
+    );
+  } else if (countedStatuses.has(attendance)) {
+    await client.query(
+      `UPDATE students
+       SET remaining_sessions = remaining_sessions + 1,
+           renewal_reminder_sent = false
+       WHERE id = $1`,
+      [studentId]
+    );
+  }
+
+  return { ...session, removed: true, attendance };
 }
 
 app.get('/api/sessions/:studentId', async (req, res) => {
@@ -11451,6 +11545,22 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    const studentId = parseInt(req.query.student_id, 10);
+    if (Number.isFinite(studentId)) {
+      const groupBooking = await removeStudentFromGroupSession(client, req.params.sessionId, studentId);
+      if (groupBooking) {
+        await client.query('COMMIT');
+        sessionsResponseCache.clear();
+        clearAdminDashboardCache();
+        return res.json({
+          success: true,
+          message: groupBooking.removed
+            ? 'Student removed from this group session; other students and shared resources were kept'
+            : 'Student was not booked in this group session'
+        });
+      }
+    }
+
     const session = await deleteSessionRecord(client, req.params.sessionId);
     if (!session) {
       await client.query('ROLLBACK');
@@ -11482,6 +11592,7 @@ app.post('/api/sessions/bulk-delete', async (req, res) => {
       ? [...new Set(req.body.session_ids.map(id => parseInt(id, 10)).filter(Number.isFinite))]
       : [];
     const sendEmail = req.body.send_email === true;
+    const scopedStudentId = parseInt(req.body.student_id, 10);
 
     if (sessionIds.length === 0) {
       return res.status(400).json({ error: 'No sessions selected' });
@@ -11492,8 +11603,9 @@ app.post('/api/sessions/bulk-delete', async (req, res) => {
 
     const notifications = [];
     if (sendEmail) {
+      const notificationStudentId = Number.isFinite(scopedStudentId) ? scopedStudentId : null;
       for (const sessionId of sessionIds) {
-        notifications.push(...await getSessionCancellationNotifications(client, sessionId));
+        notifications.push(...await getSessionCancellationNotifications(client, sessionId, notificationStudentId));
       }
     }
 
@@ -11503,6 +11615,16 @@ app.post('/api/sessions/bulk-delete', async (req, res) => {
     let deletedCount = 0;
 
     for (const sessionId of sessionIds) {
+      if (Number.isFinite(scopedStudentId)) {
+        const groupBooking = await removeStudentFromGroupSession(client, sessionId, scopedStudentId);
+        if (groupBooking) {
+          if (groupBooking.removed) deletedCount++;
+          touchedStudentIds.add(scopedStudentId);
+          if (groupBooking.group_id) touchedGroupIds.add(groupBooking.group_id);
+          continue;
+        }
+      }
+
       const session = await deleteSessionRecord(client, sessionId);
       if (!session) continue;
       deletedCount++;
@@ -11528,7 +11650,9 @@ app.post('/api/sessions/bulk-delete', async (req, res) => {
     clearAdminDashboardCache();
     res.json({
       success: true,
-      message: `${deletedCount} session${deletedCount === 1 ? '' : 's'} deleted successfully${sendEmail ? `; ${emailsSent} cancellation email${emailsSent === 1 ? '' : 's'} sent` : ''}`,
+      message: Number.isFinite(scopedStudentId)
+        ? `${deletedCount} student booking${deletedCount === 1 ? '' : 's'} removed successfully; shared group sessions and resources were kept${sendEmail ? `; ${emailsSent} cancellation email${emailsSent === 1 ? '' : 's'} sent` : ''}`
+        : `${deletedCount} session${deletedCount === 1 ? '' : 's'} deleted successfully${sendEmail ? `; ${emailsSent} cancellation email${emailsSent === 1 ? '' : 's'} sent` : ''}`,
       deleted: deletedCount,
       emailsSent
     });
