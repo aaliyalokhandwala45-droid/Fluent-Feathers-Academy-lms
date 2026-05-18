@@ -8382,8 +8382,29 @@ function normalizeStudentQuizLevel(value) {
   return 'beginner';
 }
 
+function getQuizLevelForAge(age) {
+  const years = Number(age);
+  if (!Number.isFinite(years)) return null;
+  if (years >= 12) return 'advanced';
+  if (years >= 8) return 'intermediate';
+  return 'beginner';
+}
+
+function parseAgeFromStudentText(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const match = text.match(/\b(?:age\s*)?(\d{1,2})\s*(?:years?|yrs?|yo|y\/o)\b/i);
+  return match ? Number(match[1]) : null;
+}
+
 function inferStudentQuizLevel(student) {
   if (!student || typeof student !== 'object') return 'beginner';
+
+  const ageBasedLevel = getQuizLevelForAge(calculateAge(student.date_of_birth));
+  if (ageBasedLevel) return ageBasedLevel;
+
+  const gradeAgeBasedLevel = getQuizLevelForAge(parseAgeFromStudentText(student.grade));
+  if (gradeAgeBasedLevel) return gradeAgeBasedLevel;
 
   const explicit = normalizeStudentQuizLevel(student.level);
   if (student.level && explicit !== 'beginner') return explicit;
@@ -8540,10 +8561,16 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
 
   const { quizDate = null, excludeTexts = new Set(), theme = null } = options;
 
+  const levelAgeGroups = {
+    beginner: 'ages 4-7',
+    intermediate: 'ages 8-11',
+    advanced: 'ages 12 and above'
+  };
+
   const levelDescriptions = {
-    beginner: 'simple English suitable for beginner learners with clear sentence choices',
-    intermediate: 'intermediate English concepts with balanced grammar and expression',
-    advanced: 'advanced English concepts, nuanced expression, and deeper language analysis'
+    beginner: 'simple English suitable only for children ages 4-7, with short clear sentences and easy choices',
+    intermediate: 'intermediate English suitable only for children ages 8-11, with balanced grammar and expression',
+    advanced: 'advanced English suitable only for children ages 12 and above, with nuanced expression and deeper language analysis'
   };
 
   const preferredCategories = QUIZ_AI_CATEGORY_GUIDANCE[level] || QUIZ_ALLOWED_CATEGORIES;
@@ -8559,13 +8586,15 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     ? `\n\nTheme/Context: ${theme}\nAll questions should relate to or incorporate this theme where possible. Make questions engaging and relevant to this topic.`
     : '';
 
-  const prompt = `Generate exactly ${count} UNIQUE English quiz questions for ${level} level.${themeInstruction}
+  const prompt = `Generate exactly ${count} UNIQUE English quiz questions for ${level} level (${levelAgeGroups[level]}).${themeInstruction}
 
 Requirements:
 - Each question MUST be completely different from others
 - Do NOT repeat or lightly reword any past question listed below
 - Use new situations, names, sentences, idioms, examples, and answer choices
 - ${levelDescriptions[level]}
+- Keep the difficulty strictly appropriate for ${levelAgeGroups[level]} only
+- Do not create questions meant for younger or older age groups
 - Category: ${preferredCategories.join(', ')} (only these categories)
 - 4 options (A, B, C, D), one correct answer
 - Advanced must include direct_indirect_speech questions
@@ -17871,6 +17900,15 @@ app.get('/api/daily-quiz/status', async (req, res) => {
       return res.status(401).json({ error: 'Student authentication required' });
     }
 
+    const studentResult = await pool.query(
+      'SELECT id, grade, program_name, date_of_birth FROM students WHERE id = $1',
+      [studentId]
+    );
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    const studentLevel = inferStudentQuizLevel(studentResult.rows[0]);
+
     const attempts = await pool.query(
       `
         SELECT
@@ -17919,7 +17957,8 @@ app.get('/api/daily-quiz/status', async (req, res) => {
       } : null,
       nextQuizTime: nextQuizTime ? nextQuizTime.toISOString() : null,
       maxDurationSeconds: DAILY_QUIZ_DURATION_SECONDS,
-      availableLevels: ['beginner', 'intermediate', 'advanced']
+      allowedLevel: studentLevel,
+      availableLevels: [studentLevel]
     });
   } catch (err) {
     console.error('Quiz status error:', err);
@@ -17956,14 +17995,19 @@ app.post('/api/daily-quiz/start', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
     const studentResult = await pool.query(
-      'SELECT id, grade, program_name FROM students WHERE id = $1',
+      'SELECT id, grade, program_name, date_of_birth FROM students WHERE id = $1',
       [studentId]
     );
     if (studentResult.rows.length === 0) {
       return res.status(404).json({ error: 'Student not found' });
     }
     const studentLevel = inferStudentQuizLevel(studentResult.rows[0]);
-    const quizLevel = requestedLevel || studentLevel;
+    if (requestedLevel && requestedLevel !== studentLevel) {
+      return res.status(403).json({
+        error: `Only the ${studentLevel} quiz is available for this student`
+      });
+    }
+    const quizLevel = studentLevel;
 
     let questions = await getPreparedDailyQuizQuestions(today, quizLevel);
     if (questions.length === 0) {

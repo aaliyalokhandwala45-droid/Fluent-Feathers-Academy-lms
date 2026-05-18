@@ -1197,13 +1197,13 @@
           <div id="startQuizContainer" style="text-align: center; padding: 40px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 16px; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);">
               <h3 style="margin-bottom: 15px;">🚀 Ready for Today's Quiz?</h3>
-              <p style="margin-bottom: 20px; opacity: 0.9;">Choose your level and start one quiz within 24 hours.</p>
+              <p style="margin-bottom: 20px; opacity: 0.9;">Your quiz level is selected from your age and locked for today.</p>
               <div style="margin: 0 auto 20px; max-width: 320px; text-align: left;">
-                <label for="dailyQuizLevelSelect" style="display:block; font-weight:700; margin-bottom:8px;">Choose your quiz level</label>
+                <label for="dailyQuizLevelSelect" style="display:block; font-weight:700; margin-bottom:8px;">Your quiz level</label>
                 <select id="dailyQuizLevelSelect" style="width:100%; padding:12px; border-radius:12px; border:none; font-size:1rem;">
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
+                  <option value="beginner">Beginner (Ages 4-7)</option>
+                  <option value="intermediate">Intermediate (Ages 8-11)</option>
+                  <option value="advanced">Advanced (Ages 12+)</option>
                 </select>
               </div>
               <button id="startQuizBtn" onclick="startQuiz()" class="btn" style="background: white; color: #667eea; font-size: 1.1rem; padding: 12px 30px; font-weight: bold;">🎯 Start Quiz</button>
@@ -1559,6 +1559,24 @@ setTimeout(() => {
       const age = getAge(student.date_of_birth);
       if (age !== null) return age + ' years';
       return student.grade || '-';
+    }
+    function getQuizLevelForAge(age) {
+      const years = Number(age);
+      if (!Number.isFinite(years)) return null;
+      if (years >= 12) return 'advanced';
+      if (years >= 8) return 'intermediate';
+      return 'beginner';
+    }
+    function parseAgeFromStudentText(value) {
+      const text = String(value || '').trim();
+      if (!text) return null;
+      const match = text.match(/\b(?:age\s*)?(\d{1,2})\s*(?:years?|yrs?|yo|y\/o)\b/i);
+      return match ? Number(match[1]) : null;
+    }
+    function getQuizLevelForStudent(student) {
+      return getQuizLevelForAge(getAge(student && student.date_of_birth))
+        || getQuizLevelForAge(parseAgeFromStudentText(student && student.grade))
+        || 'beginner';
     }
 
     let currentStudent = null;
@@ -6004,9 +6022,25 @@ setTimeout(() => {
     let quizTimerToken = null;
     let overallQuizTimer = null;
     let timeRemaining = 300; // 5 minutes for the full quiz
+    const quizLevelLabels = {
+      beginner: 'Beginner (Ages 4-7)',
+      intermediate: 'Intermediate (Ages 8-11)',
+      advanced: 'Advanced (Ages 12+)'
+    };
+
+    function setAllowedQuizLevel(level) {
+      const normalizedLevel = ['beginner', 'intermediate', 'advanced'].includes(level) ? level : getQuizLevelForStudent(currentStudent);
+      const select = document.getElementById('dailyQuizLevelSelect');
+      if (!select) return normalizedLevel;
+      select.innerHTML = `<option value="${normalizedLevel}">${quizLevelLabels[normalizedLevel] || 'Beginner'}</option>`;
+      select.value = normalizedLevel;
+      select.disabled = true;
+      return normalizedLevel;
+    }
 
     // Initialize quiz when tab is shown
     function initializeQuizTab() {
+      setAllowedQuizLevel(getQuizLevelForStudent(currentStudent));
       const startCardText = document.querySelector('#startQuizContainer p:not(#quizCooldown)');
       if (startCardText) {
         startCardText.textContent = '10 questions - Multiple choice - 5-minute limit - 1 point per correct answer - Perfect 10/10 = Quiz Champion badge';
@@ -6045,6 +6079,7 @@ setTimeout(() => {
           headers: studentAuthHeaders()
         });
         const status = await response.json();
+        setAllowedQuizLevel(status.allowedLevel || (Array.isArray(status.availableLevels) ? status.availableLevels[0] : null));
 
         const startContainer = document.getElementById('startQuizContainer');
         const quizContainer = document.getElementById('quizContainer');
