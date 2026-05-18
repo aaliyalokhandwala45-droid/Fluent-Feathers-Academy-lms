@@ -1690,6 +1690,7 @@ async function initializeDatabase() {
         id SERIAL PRIMARY KEY,
         child_name TEXT NOT NULL,
         child_grade TEXT,
+        child_date_of_birth DATE,
         parent_name TEXT NOT NULL,
         parent_email TEXT NOT NULL,
         phone TEXT,
@@ -2016,6 +2017,7 @@ async function runMigrations() {
           id SERIAL PRIMARY KEY,
           child_name TEXT NOT NULL,
           child_grade TEXT,
+          child_date_of_birth DATE,
           parent_name TEXT NOT NULL,
           parent_email TEXT NOT NULL,
           phone TEXT,
@@ -2035,6 +2037,17 @@ async function runMigrations() {
       console.log('✅ Demo leads table checked/created');
     } catch (err) {
       console.error('❌ Error with demo_leads table:', err.message);
+    }
+
+    // Migration 9b: Add child date of birth to demo leads
+    try {
+      await client.query(`
+        ALTER TABLE demo_leads
+        ADD COLUMN IF NOT EXISTS child_date_of_birth DATE;
+      `);
+      console.log('Demo leads child_date_of_birth column checked/created');
+    } catch (err) {
+      console.error('Error adding child_date_of_birth to demo_leads:', err.message);
     }
 
     // Migration 10: Weekly challenges table
@@ -9517,7 +9530,7 @@ app.get('/api/demo-leads', async (req, res) => {
 
 // Add new demo lead
 app.post('/api/demo-leads', async (req, res) => {
-  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, notes, send_email } = req.body;
+  const { child_name, child_grade, child_date_of_birth, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, notes, send_email } = req.body;
   try {
     // Demo schedule is entered by admin in IST
     const studentTimezone = 'Asia/Kolkata';
@@ -9533,10 +9546,10 @@ app.post('/api/demo-leads', async (req, res) => {
     }
 
     const r = await pool.query(`
-      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, notes, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Scheduled')
+      INSERT INTO demo_leads (child_name, child_grade, child_date_of_birth, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, notes, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Scheduled')
       RETURNING *
-    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, utcDate, utcTime, studentTimezone, parentTimezone, source, notes]);
+    `, [child_name, child_grade, child_date_of_birth || null, parent_name, parent_email, phone, program_interest, utcDate, utcTime, studentTimezone, parentTimezone, source, notes]);
 
     let emailSent = false;
 
@@ -9610,7 +9623,7 @@ app.put('/api/demo-leads/:id/status', async (req, res) => {
 
 // Update demo lead details (edit)
 app.put('/api/demo-leads/:id', async (req, res) => {
-  const { child_name, child_grade, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, status, notes, send_email } = req.body;
+  const { child_name, child_grade, child_date_of_birth, parent_name, parent_email, phone, program_interest, demo_date, demo_time, student_timezone, parent_timezone, source, status, notes, send_email } = req.body;
 
   try {
     // Demo schedule is entered by admin in IST
@@ -9636,13 +9649,13 @@ app.put('/api/demo-leads/:id', async (req, res) => {
     // Update the demo lead
     const r = await pool.query(`
       UPDATE demo_leads
-      SET child_name = $1, child_grade = $2, parent_name = $3, parent_email = $4,
-          phone = $5, program_interest = $6, demo_date = $7, demo_time = $8,
-          student_timezone = $9, parent_timezone = $10,
-          source = $11, status = $12, notes = $13, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14
+      SET child_name = $1, child_grade = $2, child_date_of_birth = $3, parent_name = $4, parent_email = $5,
+          phone = $6, program_interest = $7, demo_date = $8, demo_time = $9,
+          student_timezone = $10, parent_timezone = $11,
+          source = $12, status = $13, notes = $14, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $15
       RETURNING *
-    `, [child_name, child_grade, parent_name, parent_email, phone, program_interest, utcDate, utcTime, studentTimezone, parentTimezone, source, status, notes, req.params.id]);
+    `, [child_name, child_grade, child_date_of_birth || null, parent_name, parent_email, phone, program_interest, utcDate, utcTime, studentTimezone, parentTimezone, source, status, notes, req.params.id]);
 
     // Send updated confirmation email if requested and date/time changed
     let emailSent = false;
@@ -9717,10 +9730,10 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
 
     // Create new student from demo lead
     const studentResult = await pool.query(`
-      INSERT INTO students (name, grade, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active, group_id, group_name, is_summer_camp)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $13, $14, $15, true, $16, $17, $18)
+      INSERT INTO students (name, grade, date_of_birth, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active, group_id, group_name, is_summer_camp)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 0, $14, $15, $16, true, $17, $18, $19)
       RETURNING *
-    `, [demoLead.child_name, demoLead.child_grade, demoLead.parent_name, demoLead.parent_email, demoLead.phone, studentTimezone, parentTimezone, program_name, class_type || 'Private', duration, currency, per_session_fee, total_sessions, amount_paid, payment_method, group_id || null, groupName, is_summer_camp || false]);
+    `, [demoLead.child_name, demoLead.child_grade, demoLead.child_date_of_birth || null, demoLead.parent_name, demoLead.parent_email, demoLead.phone, studentTimezone, parentTimezone, program_name, class_type || 'Private', duration, currency, per_session_fee, total_sessions, amount_paid, payment_method, group_id || null, groupName, is_summer_camp || false]);
 
     const newStudent = studentResult.rows[0];
 
@@ -13131,10 +13144,10 @@ app.post('/api/public/event/:id/register', async (req, res) => {
 // ==================== PUBLIC DEMO REGISTRATION ====================
 app.post('/api/public/demo-register', async (req, res) => {
   try {
-    const { child_name, child_age, program_interest, parent_name, email, phone, student_timezone, parent_timezone } = req.body;
+    const { child_name, child_age, child_date_of_birth, program_interest, parent_name, email, phone, student_timezone, parent_timezone } = req.body;
 
     // Validate required fields
-    if (!child_name || !child_age || !program_interest || !parent_name || !email || !phone || !student_timezone || !parent_timezone) {
+    if (!child_name || !child_age || !child_date_of_birth || !program_interest || !parent_name || !email || !phone || !student_timezone || !parent_timezone) {
       return res.status(400).json({ error: 'All fields are required, including student and parent timezones' });
     }
 
@@ -13152,10 +13165,10 @@ app.post('/api/public/demo-register', async (req, res) => {
 
     // Insert into demo_leads
     const result = await pool.query(`
-      INSERT INTO demo_leads (child_name, child_grade, parent_name, parent_email, phone, program_interest, student_timezone, parent_timezone, source, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Website Form', 'Pending')
+      INSERT INTO demo_leads (child_name, child_grade, child_date_of_birth, parent_name, parent_email, phone, program_interest, student_timezone, parent_timezone, source, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Website Form', 'Pending')
       RETURNING *
-    `, [child_name, child_age, parent_name, email, phone, program_interest, studentTimezone, parentTimezone]);
+    `, [child_name, child_age, child_date_of_birth, parent_name, email, phone, program_interest, studentTimezone, parentTimezone]);
 
     // Send confirmation email
     try {
@@ -13179,6 +13192,7 @@ app.post('/api/public/demo-register', async (req, res) => {
         <table style="width: 100%; font-size: 14px; color: #4a5568;">
           <tr><td style="padding: 8px 0;">Child's Name:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${child_name}</td></tr>
           <tr><td style="padding: 8px 0;">Age:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${child_age}</td></tr>
+          <tr><td style="padding: 8px 0;">Date of Birth:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${child_date_of_birth}</td></tr>
           <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #B05D9E;">${program_interest}</td></tr>
           <tr><td style="padding: 8px 0;">Student Timezone:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentTimezone}</td></tr>
           <tr><td style="padding: 8px 0;">Parent Timezone:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${parentTimezone}</td></tr>
@@ -13226,6 +13240,7 @@ app.post('/api/public/demo-register', async (req, res) => {
         programInterest: program_interest || 'Demo',
         childName: child_name,
         childAge: String(child_age || ''),
+        childDateOfBirth: String(child_date_of_birth || ''),
         parentName: parent_name,
         email: email,
         url: `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/admin.html`

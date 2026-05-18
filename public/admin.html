@@ -793,6 +793,10 @@
               <div class="form-group"><label>Child's Age *</label><input type="text" id="demoChildGrade" required placeholder="e.g. 8 years"></div>
             </div>
             <div class="form-row">
+              <div class="form-group"><label>Child's Date of Birth</label><input type="date" id="demoChildDateOfBirth"></div>
+              <div class="form-group"></div>
+            </div>
+            <div class="form-row">
               <div class="form-group"><label>Parent Name *</label><input type="text" id="demoParentName" required></div>
               <div class="form-group"><label>Parent Email *</label><input type="email" id="demoParentEmail" required></div>
             </div>
@@ -3470,6 +3474,10 @@ I'm passionate about helping children develop confidence in communication!"></te
         <div class="form-row">
           <div class="form-group"><label>Child's Name *</label><input type="text" id="editDemoChildName" required></div>
           <div class="form-group"><label>Child's Age *</label><input type="text" id="editDemoChildGrade" required placeholder="e.g. 8 years"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Child's Date of Birth</label><input type="date" id="editDemoChildDateOfBirth"></div>
+          <div class="form-group"></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Parent Name *</label><input type="text" id="editDemoParentName" required></div>
@@ -10835,7 +10843,7 @@ async function saveEditedPayment() {
           : `${editBtn} <button onclick="openUpdateDemoStatusModal(${lead.id})" class="btn btn-sm" style="background: #718096; color: white;">Update</button>`;
 
         return `<tr>
-          <td><strong>${lead.child_name}</strong><br><small style="color:#718096;">Age: ${lead.child_grade || 'N/A'}</small></td>
+          <td><strong>${lead.child_name}</strong><br><small style="color:#718096;">Age: ${lead.child_grade || 'N/A'}</small>${lead.child_date_of_birth ? `<br><small style="color:#718096;">DOB: ${String(lead.child_date_of_birth).split('T')[0]}</small>` : ''}</td>
           <td>${lead.parent_name}<br><small style="color:#718096;">${lead.parent_email}</small></td>
           <td>${lead.phone || 'N/A'}<br><small style="color:#a0aec0;">${lead.source || ''}</small></td>
           <td>${lead.program_interest || 'Not specified'}</td>
@@ -10855,6 +10863,7 @@ async function saveEditedPayment() {
       const data = {
         child_name: document.getElementById('demoChildName').value,
         child_grade: document.getElementById('demoChildGrade').value,
+        child_date_of_birth: document.getElementById('demoChildDateOfBirth').value || null,
         parent_name: document.getElementById('demoParentName').value,
         parent_email: document.getElementById('demoParentEmail').value,
         phone: document.getElementById('demoPhone').value,
@@ -10880,6 +10889,7 @@ async function saveEditedPayment() {
           e.target.reset();
           document.getElementById('sendDemoEmail').checked = true; // Reset checkbox to checked
           document.getElementById('demoTimezone').value = 'Asia/Kolkata';
+          document.getElementById('demoChildDateOfBirth').value = '';
           loadDemoLeads();
         } else {
           alert('❌ Error: ' + result.error);
@@ -10911,6 +10921,7 @@ async function saveEditedPayment() {
       document.getElementById('editDemoId').value = leadId;
       document.getElementById('editDemoChildName').value = lead.child_name || '';
       document.getElementById('editDemoChildGrade').value = lead.child_grade || '';
+      document.getElementById('editDemoChildDateOfBirth').value = lead.child_date_of_birth ? String(lead.child_date_of_birth).split('T')[0] : '';
       document.getElementById('editDemoParentName').value = lead.parent_name || '';
       document.getElementById('editDemoParentEmail').value = lead.parent_email || '';
       document.getElementById('editDemoPhone').value = lead.phone || '';
@@ -10946,6 +10957,7 @@ async function saveEditedPayment() {
       const data = {
         child_name: document.getElementById('editDemoChildName').value,
         child_grade: document.getElementById('editDemoChildGrade').value,
+        child_date_of_birth: document.getElementById('editDemoChildDateOfBirth').value || null,
         parent_name: document.getElementById('editDemoParentName').value,
         parent_email: document.getElementById('editDemoParentEmail').value,
         phone: document.getElementById('editDemoPhone').value,
