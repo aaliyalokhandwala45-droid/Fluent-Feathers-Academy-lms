@@ -1588,6 +1588,7 @@ setTimeout(() => {
     let parentInstallPromptEvent = null;
     let parentInstallDismissed = false;
     window.__ffParentPushToken = null;
+    const PARENT_APP_INSTALLED_KEY = 'ff_parent_app_installed';
     const PARENT_PUSH_PROMPT_KEY = 'ff_parent_push_prompted_v1';
     // Load app configuration (logo URL from environment)
    async function loadConfig() {
@@ -1633,7 +1634,7 @@ setTimeout(() => {
         const resp = await fetch('/api/parent/register-fcm-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, email: normalizedEmail })
+          body: JSON.stringify({ token, email: normalizedEmail, app_installed: isParentAppInstalled() })
         });
         if (!resp.ok) {
           let details = '';
@@ -1644,9 +1645,32 @@ setTimeout(() => {
           throw new Error(`Token register failed (${resp.status})${details}`);
         }
         sessionStorage.setItem('parentEmail', normalizedEmail);
+        reportParentAppStatus(normalizedEmail).catch(() => {});
         return true;
       } catch (err) {
         console.warn('Parent push token registration failed:', err);
+        return false;
+      }
+    }
+
+    async function reportParentAppStatus(email) {
+      try {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (!normalizedEmail) return false;
+        const permission = ('Notification' in window) ? Notification.permission : '';
+        const resp = await fetch('/api/parent/app-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: normalizedEmail,
+            app_installed: isParentAppInstalled(),
+            notifications_enabled: !!window.__ffParentPushToken && permission === 'granted',
+            notification_permission: permission
+          })
+        });
+        return resp.ok;
+      } catch (err) {
+        console.warn('Parent app status update failed:', err);
         return false;
       }
     }
@@ -1707,7 +1731,9 @@ setTimeout(() => {
     }
 
     function isParentAppInstalled() {
-      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      return window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true
+        || localStorage.getItem(PARENT_APP_INSTALLED_KEY) === '1';
     }
 
     function isIosInstallCandidate() {
@@ -1830,7 +1856,9 @@ setTimeout(() => {
     });
     window.addEventListener('appinstalled', () => {
       parentInstallPromptEvent = null;
+      localStorage.setItem(PARENT_APP_INSTALLED_KEY, '1');
       updateParentInstallButton();
+      reportParentAppStatus(sessionStorage.getItem('parentEmail') || '').catch(() => {});
     });
 
     async function promptEnableParentPushIfNeeded() {
@@ -2393,6 +2421,7 @@ setTimeout(() => {
       const parentEmail = (parentEmailInput || parentEmailFromData).toLowerCase();
       if (parentEmail) {
         sessionStorage.setItem('parentEmail', parentEmail);
+        reportParentAppStatus(parentEmail).catch(() => {});
         registerParentPushToken(parentEmail).catch(() => {});
       }
       promptEnableParentPushIfNeeded().catch(() => {});

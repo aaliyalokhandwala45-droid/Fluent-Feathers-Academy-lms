@@ -1230,6 +1230,18 @@ async function ensurePushTokenTables() {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_parent_fcm_tokens_email ON parent_fcm_tokens(LOWER(parent_email))`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_admin_fcm_tokens_updated_at ON admin_fcm_tokens(updated_at)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS parent_app_status (
+        parent_email TEXT PRIMARY KEY,
+        app_installed BOOLEAN DEFAULT false,
+        notifications_enabled BOOLEAN DEFAULT false,
+        notification_permission TEXT,
+        user_agent TEXT,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_parent_app_status_updated_at ON parent_app_status(updated_at)`);
     pushTokenSchemaReady = true;
   })();
   try {
@@ -1272,10 +1284,53 @@ app.post('/api/parent/register-fcm-token', async (req, res) => {
        ON CONFLICT (fcm_token) DO UPDATE SET parent_email = EXCLUDED.parent_email, user_agent = EXCLUDED.user_agent, updated_at = NOW()`,
       [token, email.toLowerCase().trim(), req.headers['user-agent'] || '']
     );
+    await pool.query(
+      `INSERT INTO parent_app_status (parent_email, app_installed, notifications_enabled, notification_permission, user_agent, last_seen_at, updated_at)
+       VALUES ($1, $2, true, 'granted', $3, NOW(), NOW())
+       ON CONFLICT (parent_email) DO UPDATE SET
+         app_installed = parent_app_status.app_installed OR EXCLUDED.app_installed,
+         notifications_enabled = true,
+         notification_permission = 'granted',
+         user_agent = EXCLUDED.user_agent,
+         last_seen_at = NOW(),
+         updated_at = NOW()`,
+      [email.toLowerCase().trim(), req.body.app_installed === true, req.headers['user-agent'] || '']
+    );
     res.json({ success: true });
   } catch (err) {
     console.error('Register parent FCM token error:', err.message);
     res.status(500).json({ error: 'Failed to register FCM token' });
+  }
+});
+
+app.post('/api/parent/app-status', async (req, res) => {
+  const parentEmail = String(req.body.email || '').toLowerCase().trim();
+  if (!parentEmail) {
+    return res.status(400).json({ error: 'Parent email is required' });
+  }
+
+  const permission = String(req.body.notification_permission || '').trim().slice(0, 40) || null;
+  const appInstalled = req.body.app_installed === true;
+  const notificationsEnabled = req.body.notifications_enabled === true;
+
+  try {
+    await ensurePushTokenTables();
+    await pool.query(
+      `INSERT INTO parent_app_status (parent_email, app_installed, notifications_enabled, notification_permission, user_agent, last_seen_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       ON CONFLICT (parent_email) DO UPDATE SET
+         app_installed = parent_app_status.app_installed OR EXCLUDED.app_installed,
+         notifications_enabled = EXCLUDED.notifications_enabled,
+         notification_permission = COALESCE(EXCLUDED.notification_permission, parent_app_status.notification_permission),
+         user_agent = EXCLUDED.user_agent,
+         last_seen_at = NOW(),
+         updated_at = NOW()`,
+      [parentEmail, appInstalled, notificationsEnabled, permission, req.headers['user-agent'] || '']
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Parent app status update error:', err.message);
+    res.status(500).json({ error: 'Failed to update app status' });
   }
 });
 
@@ -2899,6 +2954,18 @@ async function runMigrations() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_parent_fcm_tokens_email ON parent_fcm_tokens(LOWER(parent_email))`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_admin_fcm_tokens_updated_at ON admin_fcm_tokens(updated_at)`);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS parent_app_status (
+          parent_email TEXT PRIMARY KEY,
+          app_installed BOOLEAN DEFAULT false,
+          notifications_enabled BOOLEAN DEFAULT false,
+          notification_permission TEXT,
+          user_agent TEXT,
+          last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_parent_app_status_updated_at ON parent_app_status(updated_at)`);
       console.log('✅ Migration 48: Ensured push token tables and indexes');
     } catch (err) {
       console.log('Migration 48 note:', err.message);
@@ -9840,6 +9907,7 @@ app.delete('/api/demo-leads/:id', async (req, res) => {
 // ==================== STUDENTS API ====================
 app.get('/api/students', async (req, res) => {
   try {
+    await ensurePushTokenTables();
     const r = await executeQuery(`
       SELECT s.*,
         COUNT(DISTINCT m.id) as makeup_credits,
@@ -9985,7 +10053,21 @@ app.get('/api/students', async (req, res) => {
           SELECT COUNT(DISTINCT pft.fcm_token)::int
           FROM parent_fcm_tokens pft
           WHERE LOWER(TRIM(pft.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
-        ) as parent_push_device_count
+        ) as parent_push_device_count,
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM parent_app_status pas
+            WHERE LOWER(TRIM(pas.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
+              AND pas.app_installed = true
+          ) THEN true
+          ELSE false
+        END as parent_app_installed,
+        (
+          SELECT MAX(pas.last_seen_at)
+          FROM parent_app_status pas
+          WHERE LOWER(TRIM(pas.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
+        ) as parent_app_last_seen_at
       FROM students s
       LEFT JOIN makeup_classes m ON s.id = m.student_id AND m.status = 'Available'
       WHERE s.is_active = true
