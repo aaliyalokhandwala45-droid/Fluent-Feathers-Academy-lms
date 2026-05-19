@@ -8460,7 +8460,8 @@ function getQuizLevelForAge(age) {
 function parseAgeFromStudentText(value) {
   const text = String(value || '').trim();
   if (!text) return null;
-  const match = text.match(/\b(?:age\s*)?(\d{1,2})\s*(?:years?|yrs?|yo|y\/o)\b/i);
+  const match = text.match(/\b(?:age\s*)?(\d{1,2})\s*(?:years?|yrs?|yo|y\/o)\b/i)
+    || text.match(/^\s*(?:age\s*)?(\d{1,2})\s*$/i);
   return match ? Number(match[1]) : null;
 }
 
