@@ -15376,7 +15376,9 @@ async function loadQuizAttempts(date) {
   }
 }
 
-function renderDailyQuizQuestions(usage) {
+function renderDailyQuizQuestions(usage, options = {}) {
+  const editable = options.editable === true;
+  const quizDate = options.quizDate || (usage.quiz_date ? String(usage.quiz_date).split('T')[0] : getLocalDateString());
   const levels = ['beginner', 'intermediate', 'advanced'];
   return levels.map(level => {
     const questions = usage[`${level}_questions`] || [];
@@ -15385,15 +15387,35 @@ function renderDailyQuizQuestions(usage) {
         <h4 style="margin:0 0 12px;color:#2d3748;text-transform:capitalize;">${level} questions (${questions.length})</h4>
         ${questions.length === 0 ? '<p style="color:#718096;margin:0;">No questions selected for this level.</p>' : questions.map(q => `
           <div style="margin-bottom:16px; padding:16px; border-radius:12px; background:#f7fafc;">
-            <div style="font-weight:700;color:#2d3748; margin-bottom:10px;">Q${q.id}: ${q.question_text}</div>
+            <div style="font-weight:700;color:#2d3748; margin-bottom:10px;">Q${q.id}: ${editable ? 'Live question' : escapeHtml(q.question_text || '')}</div>
+            ${editable ? `
+              <textarea id="live-qtext-${level}-${q.id}" style="width:100%;min-height:64px;padding:10px;border:1px solid #cbd5e0;border-radius:8px;resize:vertical;margin-bottom:10px;">${escapeHtml(q.question_text || '')}</textarea>
+            ` : ''}
             <div style="display:grid; gap:8px; margin-bottom:10px;">
               ${Array.isArray(q.options) ? q.options.map((opt, idx) => `
-                <div style="padding:10px; border-radius:10px; background:${q.correct_answer === idx ? '#c6f6d5' : '#ffffff'}; border:1px solid ${q.correct_answer === idx ? '#38a169' : '#e2e8f0'}; color:${q.correct_answer === idx ? '#2f855a' : '#2d3748'};">
-                  <strong>${String.fromCharCode(65 + idx)}.</strong> ${opt}
+                <div style="padding:10px; border-radius:10px; background:${Number(q.correct_answer) === idx ? '#c6f6d5' : '#ffffff'}; border:1px solid ${Number(q.correct_answer) === idx ? '#38a169' : '#e2e8f0'}; color:${Number(q.correct_answer) === idx ? '#2f855a' : '#2d3748'};">
+                  <strong>${String.fromCharCode(65 + idx)}.</strong>
+                  ${editable
+                    ? `<input id="live-opt-${level}-${q.id}-${idx}" type="text" value="${escapeHtml(opt || '')}" style="width:calc(100% - 30px);margin-left:6px;padding:8px;border:1px solid #cbd5e0;border-radius:6px;">`
+                    : escapeHtml(opt || '')}
                 </div>
               `).join('') : ''}
             </div>
-            <div style="font-size:0.85rem; color:#4a5568;">Category: ${q.category || 'N/A'}</div>
+            ${editable ? `
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                <select id="live-correct-${level}-${q.id}" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+                  <option value="0" ${Number(q.correct_answer) === 0 ? 'selected' : ''}>Correct: A</option>
+                  <option value="1" ${Number(q.correct_answer) === 1 ? 'selected' : ''}>Correct: B</option>
+                  <option value="2" ${Number(q.correct_answer) === 2 ? 'selected' : ''}>Correct: C</option>
+                  <option value="3" ${Number(q.correct_answer) === 3 ? 'selected' : ''}>Correct: D</option>
+                </select>
+                <input id="live-category-${level}-${q.id}" type="text" value="${escapeHtml(q.category || '')}" placeholder="Category" style="padding:8px;border:1px solid #cbd5e0;border-radius:6px;">
+              </div>
+              <input id="live-explanation-${level}-${q.id}" type="text" value="${escapeHtml(q.explanation || '')}" placeholder="Explanation (optional)" style="width:100%;padding:8px;border:1px solid #cbd5e0;border-radius:6px;margin-bottom:10px;">
+              <div style="display:flex;justify-content:flex-end;">
+                <button onclick="saveLiveQuizQuestionEdits('${quizDate}', '${level}', ${Number(q.id)})" style="background:#dd6b20;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;">💾 Save Live Edit</button>
+              </div>
+            ` : `<div style="font-size:0.85rem; color:#4a5568;">Category: ${escapeHtml(q.category || 'N/A')}</div>`}
           </div>
         `).join('')}
       </div>
@@ -15439,11 +15461,49 @@ async function loadTodayQuizQuestions(date) {
 
     container.innerHTML = `
       <div style="font-size:0.95rem; color:#4a5568; margin-bottom:16px;">Date: ${selectedDate}</div>
-      ${renderDailyQuizQuestions(usage)}
+      ${renderDailyQuizQuestions(usage, { editable: true, quizDate: selectedDate })}
     `;
   } catch (error) {
     console.error('Error loading quiz history:', error);
     document.getElementById('todayQuizQuestionsList').innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 20px;">Error loading quiz history.</p>';
+  }
+}
+
+async function saveLiveQuizQuestionEdits(quizDate, level, questionId) {
+  try {
+    const question_text = document.getElementById(`live-qtext-${level}-${questionId}`)?.value?.trim();
+    const options = [0, 1, 2, 3].map(idx => document.getElementById(`live-opt-${level}-${questionId}-${idx}`)?.value?.trim());
+    const correct_answer = parseInt(document.getElementById(`live-correct-${level}-${questionId}`)?.value, 10);
+    const category = document.getElementById(`live-category-${level}-${questionId}`)?.value?.trim() || null;
+    const explanation = document.getElementById(`live-explanation-${level}-${questionId}`)?.value?.trim() || null;
+
+    if (!question_text || options.some(opt => !opt)) {
+      alert('Question text and all 4 options are required.');
+      return;
+    }
+    if (!Number.isInteger(correct_answer) || correct_answer < 0 || correct_answer > 3) {
+      alert('Please select a valid correct answer.');
+      return;
+    }
+    if (!confirm(`Save this edit to the live ${level} quiz for ${quizDate}? Existing scores for this date/level will be recalculated.`)) {
+      return;
+    }
+
+    const response = await fetch('/api/admin/daily-quiz-questions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate, level, questionId, question_text, options, correct_answer, category, explanation })
+    });
+    const result = await readApiResponse(response);
+    if (!response.ok) throw new Error(result.error || 'Failed to update live quiz question');
+
+    alert(`✅ Live quiz updated. Recalculated attempts: ${result.recalculatedAttempts || 0}`);
+    loadTodayQuizQuestions(quizDate);
+    loadQuizAttempts(quizDate);
+    loadQuizStats();
+  } catch (error) {
+    console.error('Error saving live quiz question edit:', error);
+    alert('❌ Error saving live quiz edit: ' + error.message);
   }
 }
 

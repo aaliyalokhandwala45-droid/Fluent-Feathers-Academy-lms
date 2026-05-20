@@ -18756,6 +18756,150 @@ app.get('/api/admin/daily-quiz-usage', async (req, res) => {
   }
 });
 
+// Admin: Edit a question already published in a live/approved daily quiz
+app.put('/api/admin/daily-quiz-questions', async (req, res) => {
+  try {
+    const { quizDate, level, questionId, question_text, options, correct_answer, category, explanation } = req.body || {};
+    const date = String(quizDate || '').trim();
+    const normalizedLevel = normalizeStudentQuizLevel(level);
+    const parsedQuestionId = Number(questionId);
+    const parsedCorrectAnswer = Number(correct_answer);
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+    if (!['beginner', 'intermediate', 'advanced'].includes(normalizedLevel)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+    if (!Number.isInteger(parsedQuestionId) || parsedQuestionId <= 0) {
+      return res.status(400).json({ error: 'Invalid question id' });
+    }
+    if (!String(question_text || '').trim()) {
+      return res.status(400).json({ error: 'Question text is required' });
+    }
+    if (!Array.isArray(options) || options.length !== 4 || options.some(opt => !String(opt || '').trim())) {
+      return res.status(400).json({ error: 'All 4 options are required' });
+    }
+    if (!Number.isInteger(parsedCorrectAnswer) || parsedCorrectAnswer < 0 || parsedCorrectAnswer > 3) {
+      return res.status(400).json({ error: 'Correct answer must be A, B, C, or D' });
+    }
+
+    const quizResult = await pool.query(
+      `SELECT beginner_questions, intermediate_questions, advanced_questions
+       FROM daily_quizzes
+       WHERE quiz_date = $1
+       LIMIT 1`,
+      [date]
+    );
+
+    if (quizResult.rows.length === 0) {
+      return res.status(404).json({ error: `No approved quiz found for ${date}` });
+    }
+
+    const quizRow = quizResult.rows[0];
+    const levelColumn = getQuizLevelColumn(normalizedLevel);
+    const questions = Array.isArray(quizRow[levelColumn]) ? quizRow[levelColumn] : [];
+    const questionIndex = questions.findIndex(q => Number(q?.id) === parsedQuestionId);
+
+    if (questionIndex === -1) {
+      return res.status(404).json({ error: 'Question not found in the selected live quiz level' });
+    }
+
+    const updatedQuestion = {
+      ...questions[questionIndex],
+      id: parsedQuestionId,
+      question_text: String(question_text || '').trim(),
+      options: options.map(opt => String(opt || '').trim()),
+      correct_answer: parsedCorrectAnswer,
+      category: String(category || questions[questionIndex].category || 'grammar').trim(),
+      explanation: String(explanation || '').trim()
+    };
+    const updatedQuestions = questions.map((question, index) => index === questionIndex ? updatedQuestion : question);
+
+    await pool.query(
+      `UPDATE daily_quizzes SET ${levelColumn} = $1 WHERE quiz_date = $2`,
+      [JSON.stringify(updatedQuestions), date]
+    );
+
+    await pool.query(
+      `UPDATE pending_quiz_questions
+       SET question_text = $1,
+           options = $2,
+           correct_answer = $3,
+           category = $4,
+           explanation = $5
+       WHERE quiz_date = $6 AND level = $7 AND id = $8`,
+      [
+        updatedQuestion.question_text,
+        JSON.stringify(updatedQuestion.options),
+        updatedQuestion.correct_answer,
+        updatedQuestion.category,
+        updatedQuestion.explanation,
+        date,
+        normalizedLevel,
+        parsedQuestionId
+      ]
+    );
+
+    const attemptsResult = await pool.query(
+      `SELECT id, student_id, answers, score, points_awarded
+       FROM quiz_attempts
+       WHERE quiz_date = $1 AND level = $2`,
+      [date, normalizedLevel]
+    );
+
+    let recalculatedAttempts = 0;
+    let badgesAwarded = 0;
+    let badgesRemoved = 0;
+    for (const attempt of attemptsResult.rows) {
+      const answers = parseStoredQuizAnswers(attempt.answers);
+      let correctedScore = 0;
+      updatedQuestions.slice(0, DAILY_QUIZ_QUESTION_COUNT).forEach((question, index) => {
+        const answer = Number.isInteger(Number(answers[index])) ? Number(answers[index]) : -1;
+        if (answer === Number(question.correct_answer)) correctedScore++;
+      });
+      const correctedPoints = correctedScore * QUIZ_POINT_VALUE;
+
+      if (Number(attempt.score) !== correctedScore || Number(attempt.points_awarded) !== correctedPoints) {
+        await pool.query(
+          `UPDATE quiz_attempts SET score = $1, points_awarded = $2 WHERE id = $3`,
+          [correctedScore, correctedPoints, attempt.id]
+        );
+        recalculatedAttempts++;
+      }
+
+      if (correctedScore === DAILY_QUIZ_QUESTION_COUNT) {
+        const badgeAwarded = await awardBadge(
+          attempt.student_id,
+          `${DAILY_QUIZ_BADGE_TYPE}_${date}`,
+          DAILY_QUIZ_BADGE_NAME,
+          `${DAILY_QUIZ_BADGE_DESCRIPTION} (${date})`
+        );
+        if (badgeAwarded) badgesAwarded++;
+      } else {
+        const removedBadgeResult = await pool.query(
+          `DELETE FROM student_badges
+           WHERE student_id = $1 AND badge_type = $2`,
+          [attempt.student_id, `${DAILY_QUIZ_BADGE_TYPE}_${date}`]
+        );
+        badgesRemoved += removedBadgeResult.rowCount || 0;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Live quiz question updated',
+      question: updatedQuestion,
+      recalculatedAttempts,
+      badgesAwarded,
+      badgesRemoved
+    });
+  } catch (err) {
+    console.error('Live quiz question edit error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: Copy one day's approved quiz into the next day
 app.post('/api/admin/repeat-daily-quiz', async (req, res) => {
   try {
