@@ -1625,6 +1625,7 @@ setTimeout(() => {
 
     async function registerParentPushToken(email) {
       try {
+        if (isAdminParentView()) return false;
         const token = window.__ffParentPushToken;
         const normalizedEmail = String(email || '').trim().toLowerCase();
         if (!normalizedEmail) return false;
@@ -1656,6 +1657,7 @@ setTimeout(() => {
 
     async function reportParentAppStatus(email) {
       try {
+        if (isAdminParentView()) return false;
         const normalizedEmail = String(email || '').trim().toLowerCase();
         if (!normalizedEmail) return false;
         const permission = ('Notification' in window) ? Notification.permission : '';
@@ -1678,6 +1680,11 @@ setTimeout(() => {
 
     async function enableParentNotifications(showErrors) {
       try {
+        if (isAdminParentView()) {
+          if (showErrors) alert('Notifications must be enabled on the parent device/browser. Admin learner view cannot enable parent push notifications.');
+          updateParentNotifyButton();
+          return false;
+        }
         if (!('Notification' in window) || !('serviceWorker' in navigator) || typeof firebase === 'undefined') {
           if (showErrors) alert('This browser does not support notifications.');
           updateParentNotifyButton();
@@ -1713,19 +1720,28 @@ setTimeout(() => {
     function updateParentNotifyButton() {
       const btn = document.getElementById('parentNotifyBtn');
       if (!btn) return;
-      if (parentPushSetupDone && window.__ffParentPushToken) {
+      if (isAdminParentView()) {
+        btn.textContent = 'Notifications: Parent Device Only';
+        btn.disabled = true;
+        btn.title = 'Open the parent portal on the parent device/browser to enable notifications.';
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'default';
+      } else if (parentPushSetupDone && window.__ffParentPushToken) {
         btn.textContent = '✅ Notifications Enabled';
         btn.disabled = true;
+        btn.title = '';
         btn.style.opacity = '0.7';
         btn.style.cursor = 'default';
       } else if ('Notification' in window && Notification.permission === 'denied') {
         btn.textContent = '⚠️ Notifications Blocked';
         btn.disabled = true;
+        btn.title = '';
         btn.style.opacity = '0.7';
         btn.style.cursor = 'default';
       } else {
         btn.textContent = '🔔 Enable Notifications';
         btn.disabled = false;
+        btn.title = '';
         btn.style.opacity = '1';
         btn.style.cursor = 'pointer';
       }
@@ -1864,6 +1880,7 @@ setTimeout(() => {
 
     async function promptEnableParentPushIfNeeded() {
       try {
+        if (isAdminParentView()) return;
         if (!('Notification' in window) || !('serviceWorker' in navigator) || typeof firebase === 'undefined') return;
         if (!appConfig.firebase || !appConfig.firebaseVapidKey) return;
         if (Notification.permission !== 'default') return;
@@ -1881,6 +1898,10 @@ setTimeout(() => {
     // Initialize Firebase messaging for push notifications
     async function initializeFirebaseMessaging(options = {}) {
       const requestPermission = !!options.requestPermission;
+      if (isAdminParentView()) {
+        updateParentNotifyButton();
+        return false;
+      }
       if (!('Notification' in window) || !('serviceWorker' in navigator) || typeof firebase === 'undefined') {
         console.log('Push notifications are not supported in this browser context');
         updateParentNotifyButton();
@@ -1979,6 +2000,10 @@ setTimeout(() => {
 
     function getAdminParentToken() {
       return sessionStorage.getItem('adminParentToken');
+    }
+
+    function isAdminParentView() {
+      return !!getAdminParentToken();
     }
 
     function authHeaders() {

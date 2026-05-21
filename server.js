@@ -1264,6 +1264,7 @@ app.post('/api/admin/register-fcm-token', async (req, res) => {
        ON CONFLICT (fcm_token) DO UPDATE SET user_agent = EXCLUDED.user_agent, updated_at = NOW()`,
       [token, req.headers['user-agent'] || '']
     );
+    await pool.query('DELETE FROM parent_fcm_tokens WHERE fcm_token = $1', [token]);
     res.json({ success: true });
   } catch (err) {
     console.error('Register FCM token error:', err.message);
