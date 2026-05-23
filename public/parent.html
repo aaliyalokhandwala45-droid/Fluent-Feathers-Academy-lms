@@ -1590,7 +1590,8 @@ setTimeout(() => {
     let parentInstallDismissed = false;
     window.__ffParentPushToken = null;
     const PARENT_APP_INSTALLED_KEY = 'ff_parent_app_installed';
-    const PARENT_PUSH_PROMPT_KEY = 'ff_parent_push_prompted_v1';
+    const PARENT_PUSH_PROMPT_KEY = 'ff_parent_push_prompted_date_v2';
+    const PARENT_OPEN_APP_PROMPT_KEY = 'ff_parent_open_app_prompt_date_v1';
     // Load app configuration (logo URL from environment)
    async function loadConfig() {
   try {
@@ -1631,6 +1632,15 @@ setTimeout(() => {
         if (!normalizedEmail) return false;
         if (!token) {
           window.__ffParentPendingPushEmail = normalizedEmail;
+          if (('Notification' in window) && Notification.permission === 'granted' && !window.__ffParentPushTokenRefreshInFlight) {
+            window.__ffParentPushTokenRefreshInFlight = true;
+            try {
+              await initializeFirebaseMessaging({ requestPermission: false });
+            } finally {
+              window.__ffParentPushTokenRefreshInFlight = false;
+            }
+            if (window.__ffParentPushToken) return registerParentPushToken(normalizedEmail);
+          }
           return false;
         }
         const resp = await fetch('/api/parent/register-fcm-token', {
@@ -1747,10 +1757,35 @@ setTimeout(() => {
       }
     }
 
-    function isParentAppInstalled() {
+    function getLocalDateKey() {
+      return new Date().toLocaleDateString('en-CA');
+    }
+
+    function wasPromptShownToday(key) {
+      return localStorage.getItem(key) === getLocalDateKey();
+    }
+
+    function markPromptShownToday(key) {
+      localStorage.setItem(key, getLocalDateKey());
+    }
+
+    function isParentRunningAsInstalledApp() {
       return window.matchMedia('(display-mode: standalone)').matches
-        || window.navigator.standalone === true
+        || window.navigator.standalone === true;
+    }
+
+    function isParentAppInstalled() {
+      return isParentRunningAsInstalledApp()
         || localStorage.getItem(PARENT_APP_INSTALLED_KEY) === '1';
+    }
+
+    function promptOpenInstalledParentAppIfNeeded(force = false) {
+      if (isAdminParentView()) return false;
+      if (!isParentAppInstalled() || isParentRunningAsInstalledApp()) return false;
+      if (!force && wasPromptShownToday(PARENT_OPEN_APP_PROMPT_KEY)) return false;
+      markPromptShownToday(PARENT_OPEN_APP_PROMPT_KEY);
+      alert('You have already installed the Fluent Feathers app. For the best experience and notifications, close this browser tab and open Fluent Feathers from your app icon or home screen.');
+      return true;
     }
 
     function isIosInstallCandidate() {
@@ -1804,12 +1839,20 @@ setTimeout(() => {
     function updateParentInstallButton() {
       const btn = document.getElementById('parentInstallBtn');
       if (!btn) return;
-      if (isParentAppInstalled()) {
+      if (isParentRunningAsInstalledApp()) {
         btn.textContent = 'App Installed';
         btn.disabled = true;
         btn.style.opacity = '0.7';
         btn.style.cursor = 'default';
         hideParentInstallHint();
+        return;
+      }
+      if (isParentAppInstalled()) {
+        btn.textContent = 'Open App';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        showParentInstallHint('This device already has the app installed. Open Fluent Feathers from your app icon or home screen.');
         return;
       }
       btn.textContent = 'Install App';
@@ -1834,6 +1877,7 @@ setTimeout(() => {
         btn.style.opacity = '0.75';
       }
       if (isParentAppInstalled()) {
+        promptOpenInstalledParentAppIfNeeded(true);
         updateParentInstallButton();
         return;
       }
@@ -1883,12 +1927,35 @@ setTimeout(() => {
         if (isAdminParentView()) return;
         if (!('Notification' in window) || !('serviceWorker' in navigator) || typeof firebase === 'undefined') return;
         if (!appConfig.firebase || !appConfig.firebaseVapidKey) return;
-        if (Notification.permission !== 'default') return;
-        if (localStorage.getItem(PARENT_PUSH_PROMPT_KEY) === '1') return;
+        const parentEmail = sessionStorage.getItem('parentEmail')
+          || (currentStudent && currentStudent.parent_email)
+          || window.__ffParentPendingPushEmail
+          || '';
+        if (parentPushSetupDone && window.__ffParentPushToken) {
+          if (parentEmail) reportParentAppStatus(parentEmail).catch(() => {});
+          return;
+        }
+        if (Notification.permission === 'granted') {
+          await initializeFirebaseMessaging({ requestPermission: false });
+          if (parentEmail) await registerParentPushToken(parentEmail);
+          return;
+        }
+        if (Notification.permission === 'denied') {
+          if (!wasPromptShownToday(PARENT_PUSH_PROMPT_KEY)) {
+            markPromptShownToday(PARENT_PUSH_PROMPT_KEY);
+            alert('App notifications are blocked for this browser. Please enable notifications for Fluent Feathers in your browser or phone settings.');
+          }
+          if (parentEmail) reportParentAppStatus(parentEmail).catch(() => {});
+          return;
+        }
+        if (wasPromptShownToday(PARENT_PUSH_PROMPT_KEY)) return;
 
-        localStorage.setItem(PARENT_PUSH_PROMPT_KEY, '1');
+        markPromptShownToday(PARENT_PUSH_PROMPT_KEY);
         const shouldEnable = window.confirm('Enable app notifications for class updates? Click OK, then allow notifications in the browser prompt.');
-        if (!shouldEnable) return;
+        if (!shouldEnable) {
+          if (parentEmail) reportParentAppStatus(parentEmail).catch(() => {});
+          return;
+        }
         await enableParentNotifications(false);
       } catch (err) {
         console.warn('Push permission prompt failed:', err);
@@ -2189,6 +2256,7 @@ setTimeout(() => {
       // Load app configuration (logo URL)
       await loadConfig();
       ensureParentServiceWorkerForInstall().then(() => updateParentInstallButton());
+      setTimeout(() => promptOpenInstalledParentAppIfNeeded(), 700);
       // Initialize Firebase messaging for push notifications
       initializeFirebaseMessaging();
       setPortalTimezone(getBrowserTimezone());
@@ -2447,8 +2515,8 @@ setTimeout(() => {
       const parentEmail = (parentEmailInput || parentEmailFromData).toLowerCase();
       if (parentEmail) {
         sessionStorage.setItem('parentEmail', parentEmail);
-        reportParentAppStatus(parentEmail).catch(() => {});
-        registerParentPushToken(parentEmail).catch(() => {});
+        registerParentPushToken(parentEmail)
+          .finally(() => reportParentAppStatus(parentEmail).catch(() => {}));
       }
       promptEnableParentPushIfNeeded().catch(() => {});
 

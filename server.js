@@ -1321,7 +1321,10 @@ app.post('/api/parent/app-status', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
        ON CONFLICT (parent_email) DO UPDATE SET
          app_installed = parent_app_status.app_installed OR EXCLUDED.app_installed,
-         notifications_enabled = EXCLUDED.notifications_enabled,
+         notifications_enabled = CASE
+           WHEN EXCLUDED.notification_permission = 'denied' THEN false
+           ELSE parent_app_status.notifications_enabled OR EXCLUDED.notifications_enabled
+         END,
          notification_permission = COALESCE(EXCLUDED.notification_permission, parent_app_status.notification_permission),
          user_agent = EXCLUDED.user_agent,
          last_seen_at = NOW(),
@@ -10048,6 +10051,14 @@ app.get('/api/students', async (req, res) => {
             SELECT 1
             FROM parent_fcm_tokens pft
             WHERE LOWER(TRIM(pft.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
+          ) OR EXISTS (
+            SELECT 1
+            FROM parent_app_status pas
+            WHERE LOWER(TRIM(pas.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
+              AND (
+                pas.notifications_enabled = true
+                OR pas.notification_permission = 'granted'
+              )
           ) THEN true
           ELSE false
         END as parent_push_enabled,
@@ -10056,6 +10067,22 @@ app.get('/api/students', async (req, res) => {
           FROM parent_fcm_tokens pft
           WHERE LOWER(TRIM(pft.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
         ) as parent_push_device_count,
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM parent_app_status pas
+            WHERE LOWER(TRIM(pas.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
+              AND pas.notifications_enabled = true
+          ) THEN true
+          ELSE false
+        END as parent_notifications_enabled,
+        (
+          SELECT pas.notification_permission
+          FROM parent_app_status pas
+          WHERE LOWER(TRIM(pas.parent_email)) = LOWER(TRIM(COALESCE(s.parent_email, '')))
+          ORDER BY pas.updated_at DESC NULLS LAST
+          LIMIT 1
+        ) as parent_notification_permission,
         CASE
           WHEN EXISTS (
             SELECT 1
