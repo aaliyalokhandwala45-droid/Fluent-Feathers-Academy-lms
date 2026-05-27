@@ -12,22 +12,22 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "@remotion/bundler": "^4.0.441",
-    "@remotion/renderer": "^4.0.441",
-    "axios": "^1.6.2",
+    "@remotion/bundler": "^4.0.468",
+    "@remotion/renderer": "^4.0.468",
+    "axios": "^1.16.1",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.9.0",
     "dotenv": "^16.3.1",
-    "express": "^4.18.2",
+    "express": "^4.22.2",
     "ffmpeg-static": "^5.3.0",
-    "firebase-admin": "^13.7.0",
+    "firebase-admin": "^13.10.0",
     "multer": "^1.4.5-lts.1",
     "multer-storage-cloudinary": "^4.0.0",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.2.1",
     "pg": "^8.11.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "remotion": "^4.0.441"
+    "remotion": "^4.0.468"
   },
   "overrides": {
     "lodash": "^4.18.1",
@@ -38,7 +38,13 @@
     "loader-utils": "^2.0.4",
     "@tootallnate/once": "^3.0.1",
     "retry-request": "^8.0.2",
-    "teeny-request": "^10.1.2"
+    "teeny-request": "^10.1.2",
+    "fast-uri": "^3.1.2",
+    "fast-xml-builder": "^1.2.0",
+    "fast-xml-parser": "^5.8.0",
+    "protobufjs": "^7.6.1",
+    "@protobufjs/utf8": "^1.1.1",
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
