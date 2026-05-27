@@ -326,6 +326,24 @@ CREATE INDEX idx_birthday_cards_code ON birthday_cards(code);
 CREATE INDEX idx_parent_fcm_tokens_email ON parent_fcm_tokens(LOWER(parent_email));
 CREATE INDEX idx_admin_fcm_tokens_updated_at ON admin_fcm_tokens(updated_at);
 
+-- ==================== DATA API GRANTS ====================
+-- Supabase Data API roles need explicit grants on public tables and sequences.
+-- RLS policies below still control which rows those roles can access.
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL PRIVILEGES ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL PRIVILEGES ON SEQUENCES TO service_role;
+
 -- ==================== ROW LEVEL SECURITY ====================
 -- Enable RLS on all current/future public tables and enforce one service_role policy per table.
 DO $$

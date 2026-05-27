@@ -1342,6 +1342,7 @@ async function ensurePushTokenTables() {
       )
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_parent_app_status_updated_at ON parent_app_status(updated_at)`);
+    await applySupabasePublicApiGrants(pool);
     pushTokenSchemaReady = true;
   })();
   try {
@@ -1630,6 +1631,28 @@ function requireSameOrigin(req, res, next) {
 app.use('/api/admin', requireSameOrigin);
 
 // ==================== DATABASE INITIALIZATION ====================
+async function applySupabasePublicApiGrants(client) {
+  const { rows: apiRoles } = await client.query(`
+    SELECT rolname
+    FROM pg_roles
+    WHERE rolname IN ('anon', 'authenticated', 'service_role')
+  `);
+  if (apiRoles.length < 3) {
+    console.log('Supabase API roles not found; skipping public Data API grants');
+    return;
+  }
+
+  await client.query(`GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role`);
+  await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated`);
+  await client.query(`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role`);
+  await client.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated`);
+  await client.query(`GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role`);
+  await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon, authenticated`);
+  await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO service_role`);
+  await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated`);
+  await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO service_role`);
+}
+
 async function initializeDatabase() {
   const client = await pool.connect();
   try {
@@ -1997,6 +2020,8 @@ async function initializeDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_certificates_student ON student_certificates(student_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_students_birthday ON students(date_of_birth)');
+
+    await applySupabasePublicApiGrants(client);
 
     await client.query('COMMIT');
     console.log('✅ Database initialized successfully with all tables and columns');
@@ -3267,6 +3292,14 @@ async function runMigrations() {
       }
     } catch (err) {
       console.log('Migration 56 note:', err.message);
+    }
+
+    // Migration 57: Explicit Supabase Data API grants for new public tables
+    try {
+      await applySupabasePublicApiGrants(client);
+      console.log('Migration 57: Applied Supabase Data API grants and default privileges');
+    } catch (err) {
+      console.log('Migration 57 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
