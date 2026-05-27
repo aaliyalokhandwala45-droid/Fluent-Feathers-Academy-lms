@@ -1131,10 +1131,55 @@ function sanitizeDownloadFilename(filename) {
   return cleaned || fallback;
 }
 
+function stripCloudinaryAttachmentTransform(url) {
+  if (!url || !url.includes('cloudinary')) return url;
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    urlObj.pathname = pathParts
+      .filter(part => !part.startsWith('fl_attachment') && !part.startsWith('fl_inline'))
+      .join('/');
+    return urlObj.toString();
+  } catch (_) {
+    return url;
+  }
+}
+
+function extensionFromContentType(contentType) {
+  const type = String(contentType || '').split(';')[0].trim().toLowerCase();
+  const map = {
+    'video/mp4': '.mp4',
+    'video/quicktime': '.mov',
+    'video/webm': '.webm',
+    'video/x-msvideo': '.avi',
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'application/pdf': '.pdf'
+  };
+  return map[type] || '';
+}
+
+function ensureFilenameExtension(filename, sourceUrl, contentType = '') {
+  const clean = sanitizeDownloadFilename(filename);
+  if (path.extname(clean)) return clean;
+
+  let ext = '';
+  try {
+    const parsed = new URL(sourceUrl, 'https://local.invalid');
+    const sourceExt = path.extname(parsed.pathname);
+    if (sourceExt && sourceExt.length <= 8) ext = sourceExt;
+  } catch (_) {}
+
+  if (!ext) ext = extensionFromContentType(contentType);
+  return ext ? `${clean}${ext}` : clean;
+}
+
 app.get('/api/download-file', async (req, res) => {
   try {
     const rawUrl = String(req.query.url || '');
-    const filename = sanitizeDownloadFilename(req.query.filename || path.basename(rawUrl) || 'download');
+    let filename = sanitizeDownloadFilename(req.query.filename || path.basename(rawUrl) || 'download');
 
     if (!rawUrl) {
       return res.status(400).send('Missing file URL');
@@ -1147,6 +1192,7 @@ app.get('/api/download-file', async (req, res) => {
       if (!filePath.startsWith(uploadsRoot + path.sep) && filePath !== uploadsRoot) {
         return res.status(400).send('Invalid file path');
       }
+      filename = ensureFilenameExtension(filename, rawUrl);
       return res.download(filePath, filename);
     }
 
@@ -1157,10 +1203,15 @@ app.get('/api/download-file', async (req, res) => {
         return res.status(400).send('External downloads are only supported for Cloudinary files');
       }
 
-      const sourceUrl = getCloudinaryDownloadUrl(rawUrl, filename);
-      const upstream = await axios.get(sourceUrl, { responseType: 'stream' });
-      res.setHeader('Content-Type', upstream.headers['content-type'] || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      const sourceUrl = stripCloudinaryAttachmentTransform(rawUrl);
+      const upstream = await axios.get(sourceUrl, {
+        responseType: 'stream',
+        validateStatus: status => status >= 200 && status < 300
+      });
+      const contentType = upstream.headers['content-type'] || 'application/octet-stream';
+      filename = ensureFilenameExtension(filename, rawUrl, contentType);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
       return upstream.data.pipe(res);
     }
 
@@ -14094,6 +14145,7 @@ app.post('/api/parent/cancel-class', async (req, res) => {
     }
 
     await client.query('COMMIT');
+    clearStudentSessionsCache(id);
 
     maybeSendPaidClassesDoneMakeupEmail(id).catch(err =>
       console.error('Failed to send paid-classes-complete makeup email:', err)

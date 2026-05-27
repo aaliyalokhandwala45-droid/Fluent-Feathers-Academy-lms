@@ -3898,6 +3898,13 @@ setTimeout(() => {
     }
 
     function getDateStr(d) { return (d || '').includes('T') ? d.split('T')[0] : (d || ''); }
+    function isSessionCancelledForStudent(session) {
+      const status = String(session?.status || '').trim().toLowerCase();
+      const studentAttendance = String(session?.student_attendance || '').trim().toLowerCase();
+      return ['cancelled', 'cancelled by parent', 'completed', 'missed', 'absent', 'excused', 'unexcused'].includes(status)
+        || ['cancelled', 'cancelled by parent', 'missed', 'absent', 'excused', 'unexcused'].includes(studentAttendance);
+    }
+
     function buildSerialNumbers(sessions) {
       sessionSerialMap = {};
       // Deduplicate by session id (guard against multiple-HW-submission duplicates)
@@ -3959,9 +3966,7 @@ setTimeout(() => {
         const upcoming = sessions.filter(s => {
           if (!s.session_date) return false;
           if (s.session_date < today) return false;
-          if (['Cancelled', 'Completed', 'Missed'].includes(String(s.status || '').trim())) return false;
-          const studentAttendance = String(s.student_attendance || '').trim().toLowerCase();
-          if (['excused', 'unexcused'].includes(studentAttendance)) return false;
+          if (isSessionCancelledForStudent(s)) return false;
           return true;
         }).sort((a, b) => {
           const dA = getDateStr(a.session_date);
@@ -4781,7 +4786,9 @@ setTimeout(() => {
         const today = new Date().toISOString().split('T')[0];
         const upcoming = sessions.filter(s => {
           if (!s.session_date) return false;
-          return s.session_date >= today && (s.status === 'Pending' || s.status === 'Scheduled');
+          return s.session_date >= today
+            && (s.status === 'Pending' || s.status === 'Scheduled')
+            && !isSessionCancelledForStudent(s);
         });
 
         if (upcoming.length === 0) {
@@ -5021,13 +5028,14 @@ setTimeout(() => {
         const data = await res.json();
         document.getElementById('cancelReasonModal')?.remove();
         if (res.ok) {
+          resetSessionsCache();
           // Show success toast
           const toast = document.createElement('div');
           toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#38a169;color:white;padding:14px 28px;border-radius:30px;font-weight:600;font-size:0.95rem;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
           toast.textContent = '✅ Class cancelled! Makeup credit added.';
           document.body.appendChild(toast);
           setTimeout(() => toast.remove(), 3500);
-          loadUpcoming();
+          loadUpcoming(false);
           loadMakeupCredits();
         } else {
           alert(data.error || 'Cannot cancel this class');

@@ -9392,6 +9392,30 @@ async function saveEditedPayment() {
       return url;
     }
 
+    async function downloadFileFromUrl(url, filename) {
+      try {
+        const downloadUrl = getDownloadUrl(url, filename);
+        const res = await fetch(downloadUrl);
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        if (!res.ok || contentType.includes('text/html')) {
+          throw new Error('The server returned a page instead of the file.');
+        }
+
+        const blob = await res.blob();
+        const objectUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename || 'download';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(objectUrl);
+      } catch (err) {
+        console.error('File download error:', err);
+        alert('Could not download this file. Please try opening View, then save the video from there.');
+      }
+    }
+
     document.getElementById('addResourceForm').addEventListener('submit', async function(e) {
       e.preventDefault();
 
@@ -12185,7 +12209,6 @@ async function saveEditedPayment() {
                     const isVideo = ['mp4','mov','avi','webm'].includes(ext);
                     const fileType = isImage ? 'image' : isVideo ? 'video' : 'other';
                     const fileIcon = isVideo ? '🎥' : isImage ? '🖼️' : '📁';
-                    const downloadUrl = getDownloadUrl(fileUrl, fileName);
                     return `
                       <tr style="border-bottom: 1px solid #e2e8f0;">
                         <td style="padding: 12px;">
@@ -12202,7 +12225,7 @@ async function saveEditedPayment() {
                             <span style="font-size:0.8rem; color:#4a5568;">${fileIcon} ${escapeHtml(fileName.length > 24 ? fileName.substring(0, 24) + '...' : fileName)}</span>
                             <div style="display:flex; gap:6px; justify-content:center;">
                               <button onclick="previewFile('${fileUrl.replace(/'/g, "\\'")}', '${fileType}', decodeURIComponent('${encodeURIComponent(fileName)}'))" class="btn btn-sm" style="background:#0f766e; color:white;">View</button>
-                              <a href="${downloadUrl}" download="${escapeHtml(fileName)}" class="btn btn-sm" style="background:#667eea; color:white; text-decoration:none;">⬇️ Download</a>
+                              <button onclick="downloadFileFromUrl('${fileUrl.replace(/'/g, "\\'")}', decodeURIComponent('${encodeURIComponent(fileName)}'))" class="btn btn-sm" style="background:#667eea; color:white;">⬇️ Download</button>
                             </div>
                           </div>
                         </td>
@@ -12337,13 +12360,11 @@ async function saveEditedPayment() {
                           fileUrl = '/uploads/homework/' + fileUrl;
                         }
 
-                        const downloadUrl = getDownloadUrl(fileUrl, fname);
-
                         submissionCol = '<div style="display:flex; flex-direction:column; gap:4px; align-items:center;">' +
                           '<span style="font-size:0.8rem; color:#4a5568;">' + fileIcon + ' ' + (fname.length > 20 ? fname.substring(0,20) + '...' : fname) + '</span>' +
                           '<div style="display:flex; gap:4px;">' +
                             '<button onclick="previewFile(\'' + fileUrl + '\', \'' + fileType + '\', decodeURIComponent(\'' + encodeURIComponent(fname) + '\'))" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px;">View</button>' +
-                            '<a href="' + downloadUrl + '" download="' + fname + '" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px; text-decoration:none;">⬇️ Download</a>' +
+                            '<button onclick="downloadFileFromUrl(\'' + fileUrl.replace(/'/g, "\\'") + '\', decodeURIComponent(\'' + encodeURIComponent(fname) + '\'))" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px;">⬇️ Download</button>' +
                           '</div>' +
                         '</div>';
                       }
