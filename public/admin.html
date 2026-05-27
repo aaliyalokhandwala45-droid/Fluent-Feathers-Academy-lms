@@ -6056,6 +6056,7 @@ if (dueEl) {
               ${hw.comment_only_submission && !hw.homework_points_approved ? `<button onclick="approveHomeworkPoints(${hw.id})" class="btn btn-sm" style="background:#38a169;color:white;">Approve Points</button>` : ''}
               ${(isImage || isPdf) && fileUrl ? `<button onclick="openAnnotationEditor(${hw.id}, decodeURIComponent('${encodeURIComponent(fileUrl)}'), '${isPdf ? 'pdf' : 'image'}', decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'))" class="btn btn-sm" style="background:#e53e3e;color:white;">✏️ Annotate</button>` : ''}
               ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Corrected - ${hw.file_name || 'File'}')" class="btn btn-sm" style="background:#f59e0b;color:white;">📝 View Corrected</button>` : ''}
+              ${hw.corrected_file_path ? `<a href="${getDownloadUrl(hw.corrected_file_path, `corrected-${hw.file_name || 'homework.png'}`)}" download class="btn btn-sm" style="background:#dd6b20;color:white;text-decoration:none;">⬇️ Corrected</a>` : ''}
               ${previewBtn}
               ${hw.submission_link ? `<a href="${hw.submission_link}" target="_blank" class="btn btn-sm" style="background:#2b6cb0;color:white;text-decoration:none;">🔗 Open Link</a>` : ''}
               ${downloadUrl ? `<a href="${downloadUrl}" download="${hw.file_name || 'homework'}" class="btn btn-sm" style="background: #B05D9E; color: white; text-decoration: none;">⬇️ Download</a>` : ''}
@@ -6390,6 +6391,7 @@ if (dueEl) {
     let annotAiMeta = { grade: '', summary: '' };
     let annotAiIntegrity = null;
     let annotZoom = 1;
+    let annotRotation = 0;
     let annotPlacementCorrectionId = null;
 
     function openAnnotationEditor(materialId, fileUrl, fileType, studentName) {
@@ -6433,6 +6435,12 @@ if (dueEl) {
             <button onclick="setAnnotationZoom(1)" style="padding:6px 10px;border:none;border-radius:9px;background:#0f766e;color:white;cursor:pointer;font-size:12px;font-weight:700;">Reset</button>
             <button onclick="adjustAnnotationZoom(0.2)" style="padding:6px 10px;border:none;border-radius:9px;background:rgba(71,85,105,0.92);color:white;cursor:pointer;font-size:12px;font-weight:700;">+</button>
             <span id="annotZoomLabel" style="color:white;font-size:12px;font-weight:800;min-width:52px;text-align:center;">100%</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);">
+            <span style="color:#cbd5e1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;">Rotate</span>
+            <button onclick="rotateAnnotationCanvas(-1)" title="Rotate left" style="padding:6px 10px;border:none;border-radius:9px;background:rgba(71,85,105,0.92);color:white;cursor:pointer;font-size:12px;font-weight:700;">↶</button>
+            <button onclick="rotateAnnotationCanvas(1)" title="Rotate right" style="padding:6px 10px;border:none;border-radius:9px;background:rgba(71,85,105,0.92);color:white;cursor:pointer;font-size:12px;font-weight:700;">↷</button>
+            <span id="annotRotationLabel" style="color:white;font-size:12px;font-weight:800;min-width:38px;text-align:center;">0°</span>
           </div>
           <button onclick="annotUndo()" style="padding:7px 12px;border:none;border-radius:10px;background:#f59e0b;color:white;cursor:pointer;font-weight:700;">↩️ Undo</button>
           <button onclick="annotClear()" style="padding:7px 12px;border:none;border-radius:10px;background:#64748b;color:white;cursor:pointer;font-weight:700;">🗑️ Clear</button>
@@ -6491,6 +6499,7 @@ if (dueEl) {
       annotAiMeta = { grade: '', summary: '' };
       annotAiIntegrity = null;
       annotZoom = 1;
+      annotRotation = 0;
       annotPlacementCorrectionId = null;
       updateAiCorrectionsUI();
 
@@ -6836,6 +6845,70 @@ if (dueEl) {
 
     function adjustAnnotationZoom(delta) {
       setAnnotationZoom((annotZoom || 1) + delta);
+    }
+
+    function rotateImageData90(imageData, direction = 1) {
+      if (!imageData?.width || !imageData?.height) return imageData;
+      const sourceCanvas = document.createElement('canvas');
+      sourceCanvas.width = imageData.width;
+      sourceCanvas.height = imageData.height;
+      sourceCanvas.getContext('2d').putImageData(imageData, 0, 0);
+
+      const rotatedCanvas = document.createElement('canvas');
+      rotatedCanvas.width = imageData.height;
+      rotatedCanvas.height = imageData.width;
+      const rotatedCtx = rotatedCanvas.getContext('2d');
+      if (direction > 0) {
+        rotatedCtx.translate(rotatedCanvas.width, 0);
+        rotatedCtx.rotate(Math.PI / 2);
+      } else {
+        rotatedCtx.translate(0, rotatedCanvas.height);
+        rotatedCtx.rotate(-Math.PI / 2);
+      }
+      rotatedCtx.drawImage(sourceCanvas, 0, 0);
+      return rotatedCtx.getImageData(0, 0, rotatedCanvas.width, rotatedCanvas.height);
+    }
+
+    function rotateAnnotationPoint(x, y, width, height, direction = 1) {
+      return direction > 0
+        ? { x: height - y, y: x }
+        : { x: y, y: width - x };
+    }
+
+    function rotateAnnotationCanvas(direction = 1) {
+      if (!annotCanvas || !annotCtx || !annotCanvas.width || !annotCanvas.height) return;
+      direction = direction >= 0 ? 1 : -1;
+      const oldWidth = annotCanvas.width;
+      const oldHeight = annotCanvas.height;
+      const currentImage = annotCtx.getImageData(0, 0, oldWidth, oldHeight);
+      const rotatedImage = rotateImageData90(currentImage, direction);
+
+      annotCanvas.width = rotatedImage.width;
+      annotCanvas.height = rotatedImage.height;
+      annotCtx = annotCanvas.getContext('2d');
+      annotCtx.putImageData(rotatedImage, 0, 0);
+
+      if (annotBgImage) annotBgImage = rotateImageData90(annotBgImage, direction);
+      annotHistory = (annotHistory || []).map(snapshot => rotateImageData90(snapshot, direction));
+      if (annotHistory.length === 0) {
+        annotHistory.push(annotCtx.getImageData(0, 0, annotCanvas.width, annotCanvas.height));
+      }
+
+      annotAiCorrections.forEach(item => {
+        const anchor = rotateAnnotationPoint(item.anchorX || item.left || 0, item.anchorY || item.top || 0, oldWidth, oldHeight, direction);
+        item.anchorX = Math.max(0, Math.min(annotCanvas.width, anchor.x));
+        item.anchorY = Math.max(0, Math.min(annotCanvas.height, anchor.y));
+        const placement = getAiCorrectionPlacement(item);
+        item.left = placement.left;
+        item.top = placement.top;
+        keepAiCorrectionInBounds(item);
+      });
+
+      annotRotation = (annotRotation + (direction > 0 ? 90 : -90) + 360) % 360;
+      const rotationLabel = document.getElementById('annotRotationLabel');
+      if (rotationLabel) rotationLabel.textContent = `${annotRotation}°`;
+      setAnnotationZoom(annotZoom || 1);
+      updateAiCorrectionsUI();
     }
 
     function getAiCorrectionPlacement(item) {
@@ -9284,6 +9357,10 @@ async function saveEditedPayment() {
     // Helper to create proper download URL for Cloudinary files
     function getDownloadUrl(url, filename) {
       if (!url) return url;
+      const safeFilename = filename || 'download';
+      if (url.startsWith('/uploads/') || url.includes('cloudinary.com')) {
+        return `/api/download-file?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(safeFilename)}`;
+      }
 
       // For Cloudinary URLs, add fl_attachment transformation
       if (url.includes('cloudinary.com')) {
@@ -12010,6 +12087,7 @@ async function saveEditedPayment() {
           const emoji = typeEmojis[c.challenge_type] || '🎯';
           const badgeReward = c.badge_reward || '🎯 Challenge Champion';
           const publicLink = `${window.location.origin}/public-challenge?id=${c.id}`;
+          const challengeImageDownloadUrl = c.image_url ? getDownloadUrl(c.image_url, `${c.title || 'challenge'}-image`) : '';
 
           return `
             <div class="${isActive ? 'challenge-card-active' : 'challenge-card-inactive'}">
@@ -12020,7 +12098,7 @@ async function saveEditedPayment() {
                     ${isActive ? '<span style="background: #38a169; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 8px;">Active</span>' : '<span style="background: #718096; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 8px;">Ended</span>'}
                   </h4>
                   <p style="margin: 0 0 10px 0; color: #718096; font-size: 0.9rem;">${c.description || 'No description'}</p>
-                  ${c.image_url ? `<div style="margin-bottom: 10px;"><img src="${c.image_url}" alt="Challenge Image" style="max-width: 200px; max-height: 150px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"></div>` : ''}
+                  ${c.image_url ? `<div style="margin-bottom: 10px;display:inline-flex;flex-direction:column;gap:7px;align-items:flex-start;"><img src="${c.image_url}" alt="Challenge Image" style="max-width: 200px; max-height: 150px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><a href="${challengeImageDownloadUrl}" download class="btn btn-sm" style="background:#667eea;color:white;text-decoration:none;">⬇️ Download Challenge Image</a></div>` : ''}
                   <div style="display: flex; gap: 15px; flex-wrap: wrap; font-size: 0.85rem; color: #4a5568;">
                     <span>📅 ${new Date(c.week_start).toLocaleDateString()} - ${new Date(c.week_end).toLocaleDateString()}</span>
                     <span style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 3px 10px; border-radius: 12px;">🏅 ${badgeReward}</span>
@@ -12092,16 +12170,21 @@ async function saveEditedPayment() {
                     <th style="padding: 12px; text-align: left;">Child</th>
                     <th style="padding: 12px; text-align: left;">Parent</th>
                     <th style="padding: 12px; text-align: center;">Submitted</th>
-                    <th style="padding: 12px; text-align: center;">Video</th>
+                    <th style="padding: 12px; text-align: center;">File</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${entries.map(entry => {
-                    const fileName = entry.video_file_name || 'Challenge video';
+                    const fileName = entry.video_file_name || 'Challenge file';
                     let fileUrl = entry.video_file_path || '';
                     if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('/uploads/')) {
                       fileUrl = '/uploads/homework/' + fileUrl;
                     }
+                    const ext = fileName.split('.').pop().toLowerCase();
+                    const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
+                    const isVideo = ['mp4','mov','avi','webm'].includes(ext);
+                    const fileType = isImage ? 'image' : isVideo ? 'video' : 'other';
+                    const fileIcon = isVideo ? '🎥' : isImage ? '🖼️' : '📁';
                     const downloadUrl = getDownloadUrl(fileUrl, fileName);
                     return `
                       <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -12116,10 +12199,10 @@ async function saveEditedPayment() {
                         <td style="padding: 12px; text-align:center;">${entry.submitted_at ? new Date(entry.submitted_at).toLocaleString() : '-'}</td>
                         <td style="padding: 12px; text-align:center;">
                           <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
-                            <span style="font-size:0.8rem; color:#4a5568;">🎥 ${escapeHtml(fileName.length > 24 ? fileName.substring(0, 24) + '...' : fileName)}</span>
+                            <span style="font-size:0.8rem; color:#4a5568;">${fileIcon} ${escapeHtml(fileName.length > 24 ? fileName.substring(0, 24) + '...' : fileName)}</span>
                             <div style="display:flex; gap:6px; justify-content:center;">
-                              <button onclick="previewFile('${fileUrl.replace(/'/g, "\\'")}', 'video', decodeURIComponent('${encodeURIComponent(fileName)}'))" class="btn btn-sm" style="background:#0f766e; color:white;">View</button>
-                              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="btn btn-sm" style="background:#667eea; color:white; text-decoration:none;">⬇️</a>
+                              <button onclick="previewFile('${fileUrl.replace(/'/g, "\\'")}', '${fileType}', decodeURIComponent('${encodeURIComponent(fileName)}'))" class="btn btn-sm" style="background:#0f766e; color:white;">View</button>
+                              <a href="${downloadUrl}" download="${escapeHtml(fileName)}" class="btn btn-sm" style="background:#667eea; color:white; text-decoration:none;">⬇️ Download</a>
                             </div>
                           </div>
                         </td>
@@ -12260,7 +12343,7 @@ async function saveEditedPayment() {
                           '<span style="font-size:0.8rem; color:#4a5568;">' + fileIcon + ' ' + (fname.length > 20 ? fname.substring(0,20) + '...' : fname) + '</span>' +
                           '<div style="display:flex; gap:4px;">' +
                             '<button onclick="previewFile(\'' + fileUrl + '\', \'' + fileType + '\', decodeURIComponent(\'' + encodeURIComponent(fname) + '\'))" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px;">View</button>' +
-                            '<a href="' + downloadUrl + '" target="_blank" download="' + fname + '" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px; text-decoration:none;">⬇️</a>' +
+                            '<a href="' + downloadUrl + '" download="' + fname + '" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px; text-decoration:none;">⬇️ Download</a>' +
                           '</div>' +
                         '</div>';
                       }

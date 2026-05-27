@@ -1122,6 +1122,55 @@ function getCloudinaryDownloadUrl(url, originalFilename) {
   return url;
 }
 
+function sanitizeDownloadFilename(filename) {
+  const fallback = 'download';
+  const cleaned = String(filename || fallback)
+    .replace(/[\r\n"]/g, '')
+    .replace(/[\\/:*?<>|]/g, '_')
+    .trim();
+  return cleaned || fallback;
+}
+
+app.get('/api/download-file', async (req, res) => {
+  try {
+    const rawUrl = String(req.query.url || '');
+    const filename = sanitizeDownloadFilename(req.query.filename || path.basename(rawUrl) || 'download');
+
+    if (!rawUrl) {
+      return res.status(400).send('Missing file URL');
+    }
+
+    if (rawUrl.startsWith('/uploads/')) {
+      const uploadsRoot = path.resolve(__dirname, 'uploads');
+      const relativePath = rawUrl.replace(/^\/uploads\//, '').replace(/\?.*$/, '');
+      const filePath = path.resolve(uploadsRoot, relativePath);
+      if (!filePath.startsWith(uploadsRoot + path.sep) && filePath !== uploadsRoot) {
+        return res.status(400).send('Invalid file path');
+      }
+      return res.download(filePath, filename);
+    }
+
+    if (/^https?:\/\//i.test(rawUrl)) {
+      const parsed = new URL(rawUrl);
+      const isAllowedHost = parsed.hostname === 'res.cloudinary.com' || parsed.hostname.endsWith('.cloudinary.com');
+      if (!isAllowedHost) {
+        return res.status(400).send('External downloads are only supported for Cloudinary files');
+      }
+
+      const sourceUrl = getCloudinaryDownloadUrl(rawUrl, filename);
+      const upstream = await axios.get(sourceUrl, { responseType: 'stream' });
+      res.setHeader('Content-Type', upstream.headers['content-type'] || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return upstream.data.pipe(res);
+    }
+
+    return res.status(400).send('Unsupported file URL');
+  } catch (err) {
+    console.error('Download file error:', err.message);
+    return res.status(500).send('Failed to download file');
+  }
+});
+
 // File filter for security
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
