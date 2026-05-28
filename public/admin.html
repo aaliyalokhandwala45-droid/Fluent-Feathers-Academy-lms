@@ -10466,6 +10466,8 @@ async function saveEditedPayment() {
       document.getElementById('cancelReason').value = '';
       document.getElementById('cancelNotes').value = '';
       document.getElementById('grantMakeupCredit').checked = true;
+      document.querySelector('label[for="grantMakeupCredit"]').textContent =
+        sessionType === 'Group' ? 'Grant makeup credit to booked students' : 'Grant makeup credit to student';
       document.getElementById('cancelClassModal').classList.add('active');
     }
 

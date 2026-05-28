@@ -12039,13 +12039,20 @@ app.put('/api/sessions/:sessionId', async (req, res) => {
 // Cancel a session (with reason and optional makeup credit)
 app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
   const { reason, notes, grant_makeup_credit, session_type } = req.body;
+  const client = await pool.connect();
+  let transactionOpen = false;
   try {
+    await client.query('BEGIN');
+    transactionOpen = true;
+
     // Get session details first
-    const sessionResult = await pool.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
+    const sessionResult = await client.query('SELECT * FROM sessions WHERE id = $1', [req.params.sessionId]);
     if (sessionResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Session not found' });
     }
     const session = sessionResult.rows[0];
+    const isGroupSession = session.session_type === 'Group' || !!session.group_id;
     const fallbackDate = session.session_date instanceof Date
       ? session.session_date.toISOString().split('T')[0]
       : (typeof session.session_date === 'string' && session.session_date.includes('T')
@@ -12054,31 +12061,82 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
     const fallbackTime = (session.session_time || 'N/A').toString().substring(0, 8);
 
     // Get student details for email
-    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [session.student_id]);
+    const studentResult = session.student_id
+      ? await client.query('SELECT * FROM students WHERE id = $1', [session.student_id])
+      : { rows: [] };
     const student = studentResult.rows[0];
 
     // Update session status to Cancelled with cancelled_by = 'Teacher'
-    await pool.query(
+    await client.query(
       'UPDATE sessions SET status = $1, cancelled_by = $2, teacher_notes = COALESCE(teacher_notes, \'\') || $3 WHERE id = $4',
       ['Cancelled', 'Teacher', `\n[Cancelled: ${reason}${notes ? ' - ' + notes : ''}]`, req.params.sessionId]
     );
 
-    // If grant makeup credit is checked, add a makeup credit to the student
-    if (grant_makeup_credit) {
-      // Add to makeup_classes table
-      await pool.query(`
-        INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by, notes)
-        VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'admin', $4)
-      `, [session.student_id, session.id, reason || 'Teacher cancelled', notes || '']);
-    }
+    let groupStudentCount = 0;
+    if (isGroupSession) {
+      const groupStudents = await client.query(
+        `SELECT sa.student_id, sa.attendance
+         FROM session_attendance sa
+         WHERE sa.session_id = $1`,
+        [session.id]
+      );
+      groupStudentCount = groupStudents.rows.length;
 
-    // Decrement remaining_sessions for the student (private sessions only)
-    if (session.student_id && session.session_type !== 'Group') {
-      await pool.query(
+      for (const row of groupStudents.rows) {
+        const previousAttendance = row.attendance;
+        const wasPending = !previousAttendance || previousAttendance === 'Pending';
+
+        await client.query(`
+          INSERT INTO session_attendance (session_id, student_id, attendance)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (session_id, student_id)
+          DO UPDATE SET attendance = EXCLUDED.attendance
+        `, [session.id, row.student_id, grant_makeup_credit ? 'Excused' : 'Unexcused']);
+
+        if (grant_makeup_credit) {
+          const existingCredit = await client.query(
+            'SELECT id FROM makeup_classes WHERE student_id = $1 AND original_session_id = $2',
+            [row.student_id, session.id]
+          );
+          if (existingCredit.rows.length === 0) {
+            await client.query(`
+              INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by, notes)
+              VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'admin', $4)
+            `, [row.student_id, session.id, reason || 'Teacher cancelled group class', notes || '']);
+          }
+        }
+
+        if (wasPending) {
+          await client.query(
+            `UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`,
+            [row.student_id]
+          );
+        }
+      }
+    } else if (session.student_id) {
+      // If grant makeup credit is checked, add a makeup credit to the student.
+      if (grant_makeup_credit) {
+        const existingCredit = await client.query(
+          'SELECT id FROM makeup_classes WHERE student_id = $1 AND original_session_id = $2',
+          [session.student_id, session.id]
+        );
+        if (existingCredit.rows.length === 0) {
+          await client.query(`
+            INSERT INTO makeup_classes (student_id, original_session_id, reason, credit_date, status, added_by, notes)
+            VALUES ($1, $2, $3, CURRENT_DATE, 'Available', 'admin', $4)
+          `, [session.student_id, session.id, reason || 'Teacher cancelled', notes || '']);
+        }
+      }
+
+      // Decrement remaining_sessions for the student (private sessions only)
+      await client.query(
         `UPDATE students SET remaining_sessions = GREATEST(remaining_sessions - 1, 0), renewal_reminder_sent = false WHERE id = $1`,
         [session.student_id]
       );
     }
+
+    await client.query('COMMIT');
+    transactionOpen = false;
 
     // Send cancellation email to parent
     if (student && student.parent_email) {
@@ -12119,28 +12177,37 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
 
     // Send cancellation push notification to admins
     const sessionType = session.session_type || 'Private';
-    await sendPushToAdmins(
-      `❌ Class Cancelled - ${student?.name || 'Student'}`,
-      `${studentResult ? `Student: ${student.name}` : 'A class'} cancellation - ${sessionType} class on ${fallbackDate || session.session_date}. Reason: ${reason || 'Not specified'}. ${grant_makeup_credit ? 'Makeup credit granted.' : ''}`,
-      {
-        type: 'class_cancelled_admin',
-        sessionId: String(req.params.sessionId),
-        studentId: student?.id ? String(student.id) : '',
-        studentName: student?.name || 'Student',
-        sessionType: sessionType,
-        reason: reason || '',
-        makeupCreditGranted: !!grant_makeup_credit,
-        url: `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/admin.html`
-      }
-    );
+    try {
+      await sendPushToAdmins(
+        `❌ Class Cancelled - ${student?.name || 'Student'}`,
+        `${student ? `Student: ${student.name}` : isGroupSession ? `Group class (${groupStudentCount} student${groupStudentCount === 1 ? '' : 's'})` : 'A class'} cancellation - ${sessionType} class on ${fallbackDate || session.session_date}. Reason: ${reason || 'Not specified'}. ${grant_makeup_credit ? 'Makeup credit granted.' : ''}`,
+        {
+          type: 'class_cancelled_admin',
+          sessionId: String(req.params.sessionId),
+          studentId: student?.id ? String(student.id) : '',
+          studentName: student?.name || 'Student',
+          sessionType: sessionType,
+          reason: reason || '',
+          makeupCreditGranted: !!grant_makeup_credit,
+          url: `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/admin.html`
+        }
+      );
+    } catch (pushErr) {
+      console.error('Failed to send cancellation push notification:', pushErr);
+    }
 
     clearAdminDashboardCache();
     res.json({
       success: true,
-      message: `Class cancelled successfully${grant_makeup_credit ? ' (makeup credit granted)' : ''}`
+      message: `Class cancelled successfully${grant_makeup_credit ? (isGroupSession ? ` (makeup credit granted to ${groupStudentCount} student${groupStudentCount === 1 ? '' : 's'})` : ' (makeup credit granted)') : ''}`
     });
   } catch (err) {
+    if (transactionOpen) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) { console.error('Rollback failed:', rollbackErr); }
+    }
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
