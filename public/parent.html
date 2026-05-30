@@ -4422,7 +4422,7 @@ setTimeout(() => {
       const resubmitWarning = isResubmit ? `
         <div style="background:#fff8e1;border:2px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.88rem;color:#744210;">
           ⚠️ <strong>You already submitted homework for this session.</strong><br>
-          Only upload <em>new</em> files — files you already submitted will be skipped automatically.
+          You can still add more files, comments, or links for the same homework.
         </div>` : '';
 
       const existingList = existingFiles.length > 0 ? `
@@ -4522,23 +4522,7 @@ setTimeout(() => {
         return;
       }
 
-      // Filter out files already submitted for this session
-      const modal = document.getElementById('hwSubmitModal');
-      const existingFiles = (modal && Array.isArray(modal._existingFiles)) ? modal._existingFiles.map(n => n.toLowerCase()) : [];
-      const allFiles = Array.from(input.files);
-      const skippedFiles = allFiles.filter(f => existingFiles.includes(f.name.toLowerCase()));
-      const files = allFiles.filter(f => !existingFiles.includes(f.name.toLowerCase()));
-
-      if (input.files.length > 0 && files.length === 0 && !comment && !link) {
-        alert('⚠️ All selected files have already been submitted for this session.\n\nPlease choose different files to add new homework.');
-        return;
-      }
-
-      if (skippedFiles.length > 0) {
-        const ok = confirm(`These files are already submitted and will be skipped:\n${skippedFiles.map(f => '• ' + f.name).join('\n')}\n\nContinue uploading the other ${files.length} new file(s)?`);
-        if (!ok) return;
-      }
-
+      const files = Array.from(input.files);
       const btn = document.getElementById('hwSubmitBtn');
       const progress = document.getElementById('hwSubmitProgress');
       const progressBar = document.getElementById('hwSubmitProgressBar');
@@ -4549,7 +4533,7 @@ setTimeout(() => {
       btn.textContent = 'Uploading...';
       progress.style.display = 'block';
 
-      let successCount = 0, errorCount = 0, dupCount = 0;
+      let successCount = 0, errorCount = 0;
       if (files.length === 0 && (comment || link)) {
         progressBar.style.width = '35%';
         progressText.textContent = 'Submitting comment/link...';
@@ -4587,23 +4571,17 @@ setTimeout(() => {
             headers: authHeaders(),
             body: fd
           });
-          if (res.ok) {
-            successCount++;
-          } else {
-            const data = await res.json().catch(() => ({}));
-            if (res.status === 409 || data.error === 'duplicate') dupCount++;
-            else errorCount++;
-          }
+          if (res.ok) successCount++;
+          else errorCount++;
         } catch (err) { errorCount++; }
       }
 
       _hwUploading = false;
       progressBar.style.width = '100%';
 
-      const skipMsg = (skippedFiles.length + dupCount) > 0 ? ` (${skippedFiles.length + dupCount} duplicate(s) skipped)` : '';
       if (successCount > 0) {
-        const summaryText = files.length > 0 ? `${successCount} new file(s) uploaded` : 'Comment/link submitted';
-        const submittedReviewText = `${summaryText}! Submitted - in review. Your teacher has received it.${skipMsg}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`;
+        const summaryText = files.length > 0 ? `${successCount} file(s) uploaded` : 'Comment/link submitted';
+        const submittedReviewText = `${summaryText}! Submitted - in review. Your teacher has received it.${errorCount > 0 ? ` (${errorCount} failed)` : ''}`;
         progressText.textContent = submittedReviewText;
         setTimeout(() => {
           closeHwSubmitModal();
@@ -4613,16 +4591,12 @@ setTimeout(() => {
           loadBadges();
           loadScoreHistory();
         }, 1800);
-      } else if ((skippedFiles.length + dupCount) > 0 && errorCount === 0) {
-        progressText.textContent = `⚠️ All files were already submitted. No duplicates created.`;
-        setTimeout(() => closeHwSubmitModal(), 2500);
       } else {
-        progressText.textContent = '❌ Upload failed. Please try again.';
+        progressText.textContent = 'Upload failed. Please try again.';
         btn.disabled = false;
-        btn.textContent = '📤 Try Again';
+        btn.textContent = 'Try Again';
       }
     }
-
     async function loadHomeworkSessions() {
       try {
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });

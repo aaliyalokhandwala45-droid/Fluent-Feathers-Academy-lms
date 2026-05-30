@@ -13072,17 +13072,6 @@ app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, re
       }
     }
 
-    // Duplicate guard: block re-submission of the same filename for the same session
-    if (req.body.sessionId && req.file) {
-      const dup = await pool.query(
-        `SELECT id FROM materials WHERE student_id = $1 AND session_id = $2 AND file_name = $3 AND uploaded_by = 'Parent'`,
-        [req.params.studentId, req.body.sessionId, req.file.originalname]
-      );
-      if (dup.rows.length > 0) {
-        return res.status(409).json({ error: 'duplicate', message: `'${req.file.originalname}' was already submitted for this session.` });
-      }
-    }
-
     // Get file path - Cloudinary returns URL in req.file.path, local storage uses filename
     let filePath = null;
     if (req.file && useCloudinary) {
