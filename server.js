@@ -9343,13 +9343,13 @@ function convertToINR(amount, currency) {
 }
 
 // ==================== ADMIN DASHBOARD CACHE ====================
-let adminUpcomingCache = { data: null, ts: 0 };
+let adminUpcomingCache = { entries: new Map() };
 let adminPastCache = { data: null, ts: 0 };
 const ADMIN_UPCOMING_TTL_MS = 60 * 1000;      // 1 minute (refreshes quickly)
 const ADMIN_PAST_TTL_MS = 3 * 60 * 1000;     // 3 minutes
 
 function clearAdminDashboardCache() {
-  adminUpcomingCache = { data: null, ts: 0 };
+  adminUpcomingCache = { entries: new Map() };
   adminPastCache = { data: null, ts: 0 };
 }
 
@@ -9522,17 +9522,18 @@ app.get('/api/calendar/sessions', async (req, res) => {
 });
 
 app.get('/api/dashboard/upcoming-classes', async (req, res) => {
+  const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '9', 10) || 9, 1), 50);
+  const offset = (page - 1) * limit;
+  const cacheKey = `${page}:${limit}`;
+  const cached = adminUpcomingCache.entries.get(cacheKey);
+
   // Serve from cache if fresh
-  if (adminUpcomingCache.data && (Date.now() - adminUpcomingCache.ts) < ADMIN_UPCOMING_TTL_MS) {
+  if (cached && (Date.now() - cached.ts) < ADMIN_UPCOMING_TTL_MS) {
     res.set('X-Cache', 'HIT');
-    return res.json(adminUpcomingCache.data);
+    return res.json(cached.data);
   }
   try {
-    // Get pagination params
-    const page = parseInt(req.query.page || '1', 10);
-    const limit = parseInt(req.query.limit || '9', 10);
-    const offset = (page - 1) * limit;
-
     // Fire all 4 independent queries in parallel
     const [priv, grp, events, demos] = await Promise.all([
       executeQuery(`
@@ -9725,14 +9726,14 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
 
    // SUCCESS
   const upcomingResp = { success: true, classes: paginatedClasses, page, limit, total: totalClasses, hasMore };
-  adminUpcomingCache = { data: upcomingResp, ts: Date.now() };
+  adminUpcomingCache.entries.set(cacheKey, { data: upcomingResp, ts: Date.now() });
 res.json(upcomingResp);
 
   } catch (err) {
     console.error('Error loading upcoming classes:', err);
     // ERROR
   const errResp = { success: false, classes: [] };
-  adminUpcomingCache = { data: errResp, ts: Date.now() - ADMIN_UPCOMING_TTL_MS + 10000 }; // retry in 10s
+  adminUpcomingCache.entries.set(cacheKey, { data: errResp, ts: Date.now() - ADMIN_UPCOMING_TTL_MS + 10000 }); // retry in 10s
 res.status(500).json(errResp);
 
   }
