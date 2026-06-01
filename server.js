@@ -17931,6 +17931,52 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
   }
 });
 
+// Update an existing challenge, including optional image replacement
+app.put('/api/challenges/:id', handleUpload('image'), async (req, res) => {
+  const { title, description, challenge_type, badge_reward, week_start, week_end, remove_image } = req.body;
+  try {
+    const existing = await pool.query('SELECT * FROM weekly_challenges WHERE id = $1', [req.params.id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Challenge not found' });
+
+    let imageUrl = existing.rows[0].image_url || null;
+    if (remove_image === 'true' || remove_image === true) {
+      imageUrl = null;
+    }
+    if (req.file) {
+      imageUrl = req.file.secure_url || req.file.url || req.file.path;
+      if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+        imageUrl = '/' + String(imageUrl).replace(/\\/g, '/').replace(/^\/+/, '');
+      }
+    }
+
+    const result = await pool.query(`
+      UPDATE weekly_challenges
+      SET title = $1,
+          description = $2,
+          challenge_type = $3,
+          badge_reward = $4,
+          week_start = $5,
+          week_end = $6,
+          image_url = $7
+      WHERE id = $8
+      RETURNING *
+    `, [
+      title || existing.rows[0].title,
+      description !== undefined ? description : existing.rows[0].description,
+      challenge_type || existing.rows[0].challenge_type || 'General',
+      badge_reward || existing.rows[0].badge_reward || '🎯 Challenge Champion',
+      week_start || existing.rows[0].week_start,
+      week_end || existing.rows[0].week_end,
+      imageUrl,
+      req.params.id
+    ]);
+
+    res.json({ success: true, challenge: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Assign challenge to specific students
 app.post('/api/challenges/:id/assign', async (req, res) => {
   const { student_ids } = req.body;

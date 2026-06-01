@@ -12096,6 +12096,7 @@ async function saveEditedPayment() {
       try {
         const res = await fetch('/api/challenges');
         const challenges = await res.json();
+        window.challengeCache = challenges;
         const container = document.getElementById('challengesList');
 
         if (challenges.length === 0) {
@@ -12139,6 +12140,7 @@ async function saveEditedPayment() {
                   <button onclick="copyPublicChallengeLink('${publicLink.replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #0f766e; color: white;">🔗 Copy Public Link</button>
                   <button onclick="viewPublicChallengeEntries(${c.id}, decodeURIComponent('${encodeURIComponent(c.title)}'))" class="btn btn-sm" style="background: #14b8a6; color: white;">🌐 Public Entries (${c.public_entry_count || 0})</button>
                   <button onclick="viewChallengeStudents(${c.id}, decodeURIComponent('${encodeURIComponent(c.title)}'), decodeURIComponent('${encodeURIComponent(badgeReward)}'))" class="btn btn-sm ${c.submitted_count > 0 ? 'btn-challenge-review' : 'btn-challenge-track'}">${c.submitted_count > 0 ? '🔔 Review Submissions' : '👥 Track Progress'}</button>
+                  <button onclick="openEditChallengeModal(${c.id})" class="btn btn-sm" style="background: #2d3748; color: white;">✏️ Edit</button>
                   <button onclick="extendChallenge(${c.id}, '${c.week_end}')" class="btn btn-sm" style="background: #667eea; color: white;">📅 Edit End</button>
                   <button onclick="deleteChallenge(${c.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️</button>
                 </div>
@@ -12286,6 +12288,120 @@ async function saveEditedPayment() {
         alert('❌ Error: ' + err.message);
       }
     });
+
+    function formatDateInput(value) {
+      if (!value) return '';
+      return String(value).substring(0, 10);
+    }
+
+    function openEditChallengeModal(challengeId) {
+      const challenge = (window.challengeCache || []).find(c => Number(c.id) === Number(challengeId));
+      if (!challenge) {
+        alert('Could not load this challenge. Please refresh and try again.');
+        return;
+      }
+
+      const existingModal = document.getElementById('editChallengeModal');
+      if (existingModal) existingModal.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'editChallengeModal';
+      modal.className = 'modal active';
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 720px; max-height: 90vh; overflow-y: auto;">
+          <div class="modal-header">
+            <h2 style="color:#2d3748;">✏️ Edit Challenge</h2>
+            <button onclick="document.getElementById('editChallengeModal').remove()" class="btn btn-danger btn-sm">✕</button>
+          </div>
+          <form id="editChallengeForm" style="padding: 20px;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Challenge Title *</label>
+                <input type="text" id="editChallengeTitle" required value="${escapeHtml(challenge.title)}">
+              </div>
+              <div class="form-group">
+                <label>Type</label>
+                <select id="editChallengeType">
+                  ${['Reading','Vocabulary','Speaking','Writing','Homework','Practice','General'].map(type => `<option value="${type}" ${challenge.challenge_type === type ? 'selected' : ''}>${type}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea id="editChallengeDescription" rows="3">${escapeHtml(challenge.description || '')}</textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Week Start *</label>
+                <input type="date" id="editChallengeWeekStart" required value="${formatDateInput(challenge.week_start)}">
+              </div>
+              <div class="form-group">
+                <label>Week End *</label>
+                <input type="date" id="editChallengeWeekEnd" required value="${formatDateInput(challenge.week_end)}">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Badge Reward</label>
+              <select id="editChallengeBadgeReward">
+                ${['🎯 Challenge Champion','📖 Reading Star','📚 Vocab Master','🗣️ Speaking Hero','✍️ Writing Wizard','⭐ Super Achiever','🏆 Weekly Winner','🌟 Shining Star'].map(badge => `<option value="${escapeHtml(badge)}" ${(challenge.badge_reward || '🎯 Challenge Champion') === badge ? 'selected' : ''}>${escapeHtml(badge)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Challenge Image</label>
+              ${challenge.image_url ? `
+                <div style="margin: 8px 0 12px; display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+                  <img src="${escapeHtml(challenge.image_url)}" alt="Current challenge image" style="max-width: 180px; max-height: 130px; border-radius: 8px; border: 1px solid #e2e8f0; object-fit: contain;">
+                  <label style="display:flex; gap:8px; align-items:center; color:#4a5568; font-size:0.9rem;">
+                    <input type="checkbox" id="editChallengeRemoveImage">
+                    Remove current image
+                  </label>
+                </div>
+              ` : '<p style="margin: 8px 0 12px; color:#718096;">No image attached yet.</p>'}
+              <input type="file" id="editChallengeImage" accept="image/*">
+              <small style="display:block; color:#718096; margin-top:6px;">Choose a file to add or replace the challenge image.</small>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+              <button type="button" onclick="document.getElementById('editChallengeModal').remove()" class="btn" style="background:#718096; color:white;">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+      document.body.appendChild(modal);
+
+      document.getElementById('editChallengeForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('title', document.getElementById('editChallengeTitle').value);
+        formData.append('description', document.getElementById('editChallengeDescription').value);
+        formData.append('challenge_type', document.getElementById('editChallengeType').value);
+        formData.append('badge_reward', document.getElementById('editChallengeBadgeReward').value);
+        formData.append('week_start', document.getElementById('editChallengeWeekStart').value);
+        formData.append('week_end', document.getElementById('editChallengeWeekEnd').value);
+        const removeImage = document.getElementById('editChallengeRemoveImage');
+        if (removeImage && removeImage.checked) formData.append('remove_image', 'true');
+        const imageFile = document.getElementById('editChallengeImage').files[0];
+        if (imageFile) formData.append('image', imageFile);
+
+        try {
+          const res = await fetch(`/api/challenges/${challengeId}`, {
+            method: 'PUT',
+            body: formData
+          });
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error || 'Failed to update challenge');
+          alert('✅ Challenge updated');
+          modal.remove();
+          loadChallenges();
+        } catch (err) {
+          alert('❌ Error: ' + err.message);
+        }
+      });
+    }
 
     // View Challenge Students - Track who completed
     async function viewChallengeStudents(challengeId, challengeTitle, badgeReward) {
