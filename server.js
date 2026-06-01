@@ -3255,7 +3255,7 @@ async function runMigrations() {
       await client.query(`
         ALTER TABLE quiz_questions
         ADD CONSTRAINT quiz_questions_category_check
-        CHECK (category IN ('grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language', 'subject_verb_agreement', 'sentence_correction', 'direct_indirect_speech'))
+        CHECK (category IN ('grammar', 'vocabulary', 'nouns', 'pronouns', 'adjectives', 'adverbs', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language', 'subject_verb_agreement', 'sentence_correction', 'direct_indirect_speech'))
       `);
       if ((retiredResult.rowCount || 0) > 0) {
         console.log(`✅ Migration 55: Retired ${retiredResult.rowCount} contextual reference quiz question(s)`);
@@ -7990,12 +7990,12 @@ async function generateDailyQuiz() {
   // Generate questions for each level
   const levels = ['beginner', 'intermediate', 'advanced'];
   const quizData = { quiz_date: today };
-  const categories = QUIZ_ALLOWED_CATEGORIES;
 
   for (const level of levels) {
     const questions = [];
     const selectedIds = new Set();
     const excludedIds = yesterdayIds[level].length > 0 ? yesterdayIds[level] : [];
+    const categories = getQuizAllowedCategoriesForLevel(level);
 
     for (const category of categories) {
       const params = [level, category];
@@ -8025,6 +8025,7 @@ async function generateDailyQuiz() {
           WHERE level = $1
             AND is_active = true
             AND LOWER(category) <> ALL($2::text[])
+            AND LOWER(category) = ANY($6::text[])
             AND id <> ALL($3::int[])
             AND id <> ALL($4::int[])
           ORDER BY RANDOM()
@@ -8035,6 +8036,7 @@ async function generateDailyQuiz() {
           WHERE level = $1
             AND is_active = true
             AND LOWER(category) <> ALL($2::text[])
+            AND LOWER(category) = ANY($5::text[])
             AND id <> ALL($3::int[])
           ORDER BY RANDOM()
           LIMIT $4
@@ -8043,8 +8045,8 @@ async function generateDailyQuiz() {
       const result = await pool.query(
         fallbackQuery,
         excludedIds.length > 0
-          ? [level, QUIZ_EXCLUDED_CATEGORIES, excludedIds, selectedIdsArray, limitRemaining]
-          : [level, QUIZ_EXCLUDED_CATEGORIES, selectedIdsArray, limitRemaining]
+          ? [level, QUIZ_EXCLUDED_CATEGORIES, excludedIds, selectedIdsArray, limitRemaining, categories]
+          : [level, QUIZ_EXCLUDED_CATEGORIES, selectedIdsArray, limitRemaining, categories]
       );
       for (const q of result.rows) {
         if (!selectedIds.has(q.id)) {
@@ -8061,10 +8063,11 @@ async function generateDailyQuiz() {
           WHERE level = $1
             AND is_active = true
             AND LOWER(category) <> ALL($2::text[])
+            AND LOWER(category) = ANY($4::text[])
           ORDER BY RANDOM()
           LIMIT $3
         `,
-        [level, QUIZ_EXCLUDED_CATEGORIES, 10 - questions.length]
+        [level, QUIZ_EXCLUDED_CATEGORIES, 10 - questions.length, categories]
       );
       for (const q of secondFallback.rows) {
         if (!selectedIds.has(q.id)) {
@@ -8105,8 +8108,13 @@ const DAILY_QUIZ_BADGE_DESCRIPTION = 'Scored 10/10 in the daily quiz!';
 const QUIZ_ALLOWED_CATEGORIES = [
   'grammar',
   'vocabulary',
+  'nouns',
+  'pronouns',
   'adjectives',
   'adverbs',
+  'prepositions',
+  'interjections',
+  'five_senses',
   'idioms',
   'proverbs',
   'elaboration',
@@ -8124,10 +8132,15 @@ const QUIZ_ALLOWED_CATEGORIES = [
 ];
 const QUIZ_EXCLUDED_CATEGORIES = ['phonics', 'contextual_reference_sentences'];
 const QUIZ_AI_CATEGORY_GUIDANCE = {
-  beginner: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery'],
+  beginner: ['nouns', 'pronouns', 'adjectives', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'vocabulary', 'grammar', 'punctuation'],
   intermediate: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery'],
-  advanced: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery']
+  advanced: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'direct_indirect_speech']
 };
+
+function getQuizAllowedCategoriesForLevel(level) {
+  const preferred = QUIZ_AI_CATEGORY_GUIDANCE[level];
+  return Array.isArray(preferred) && preferred.length > 0 ? preferred : QUIZ_ALLOWED_CATEGORIES;
+}
 
 // International & Special Days for themed quizzes
 // Format: { date: 'MM-DD', name: 'Day Name', emoji: '🎉' }
@@ -8778,7 +8791,7 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     advanced: 'advanced English suitable only for children ages 12 and above, with nuanced expression and deeper language analysis'
   };
 
-  const preferredCategories = QUIZ_AI_CATEGORY_GUIDANCE[level] || QUIZ_ALLOWED_CATEGORIES;
+  const preferredCategories = getQuizAllowedCategoriesForLevel(level);
   const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate, pool, { limit: 180 });
   for (const text of excludeTexts) {
     addQuizQuestionTextToSet(historicalTexts, text);
@@ -8801,8 +8814,9 @@ Requirements:
 - Keep the difficulty strictly appropriate for ${levelAgeGroups[level]} only
 - Do not create questions meant for younger or older age groups
 - Category: ${preferredCategories.join(', ')} (only these categories)
+${level === 'beginner' ? '- For beginner level, do not create direct speech, indirect speech, or reported speech questions\n' : ''}
 - 4 options (A, B, C, D), one correct answer
-- Advanced must include direct_indirect_speech questions
+${level === 'advanced' ? '- Advanced must include direct_indirect_speech questions\n' : ''}
 - Never use contextual_reference_sentences
 - Vary question types, vocabulary, contexts
 
@@ -8891,6 +8905,10 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
         console.log(`⏭️ Category in excluded list "${q.category}": "${q.question_text.substring(0, 40)}..."`);
         return false;
       }
+      if (!getQuizAllowedCategoriesForLevel(level).includes(q.category)) {
+        console.log(`Category not allowed for ${level} "${q.category}": "${q.question_text.substring(0, 40)}..."`);
+        return false;
+      }
       return true;
     });
 
@@ -8952,10 +8970,11 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
       WHERE level = $1
         AND is_active = true
         AND LOWER(category) <> ALL($2::text[])
+        AND LOWER(category) = ANY($4::text[])
       ORDER BY RANDOM()
       LIMIT $3
     `,
-    [level, QUIZ_EXCLUDED_CATEGORIES, Math.max(count * 4, 20)]
+    [level, QUIZ_EXCLUDED_CATEGORIES, Math.max(count * 4, 20), getQuizAllowedCategoriesForLevel(level)]
   );
 
   const fallbackQuestions = [];
@@ -8977,7 +8996,8 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
       correctAnswer < 0 ||
       correctAnswer > 3 ||
       !QUIZ_ALLOWED_CATEGORIES.includes(category) ||
-      QUIZ_EXCLUDED_CATEGORIES.includes(category)
+      QUIZ_EXCLUDED_CATEGORIES.includes(category) ||
+      !getQuizAllowedCategoriesForLevel(level).includes(category)
     ) {
       continue;
     }
@@ -9073,6 +9093,36 @@ function createLocalQuizQuestion(level, category, seed) {
       correct_answer: 1,
       explanation: 'Use goes with she in the simple present tense.'
     },
+    nouns: {
+      question_text: `Which word is a noun in this sentence: "Riya packed a pencil"?`,
+      options: ['Riya', 'packed', 'a', 'quickly'],
+      correct_answer: 0,
+      explanation: 'Riya is a name, and names are nouns.'
+    },
+    pronouns: {
+      question_text: `Choose the pronoun that can replace "Aarav" in this sentence: "Aarav is reading."`,
+      options: ['He', 'Book', 'Happy', 'Run'],
+      correct_answer: 0,
+      explanation: 'He is a pronoun used in place of the name Aarav.'
+    },
+    prepositions: {
+      question_text: `Choose the preposition: "The toy is under the chair."`,
+      options: ['toy', 'is', 'under', 'chair'],
+      correct_answer: 2,
+      explanation: 'Under tells where the toy is, so it is a preposition.'
+    },
+    interjections: {
+      question_text: `Which word is an interjection in this sentence: "Wow, that kite is high!"`,
+      options: ['Wow', 'kite', 'high', 'that'],
+      correct_answer: 0,
+      explanation: 'Wow shows a sudden feeling, so it is an interjection.'
+    },
+    five_senses: {
+      question_text: `Which sense helps you hear a bell?`,
+      options: ['Sight', 'Hearing', 'Taste', 'Touch'],
+      correct_answer: 1,
+      explanation: 'Hearing is the sense we use to listen to sounds.'
+    },
     imagery: {
       question_text: `Which sentence creates the strongest image for the reader?`,
       options: ['The room was nice.', 'The room glowed with soft yellow light and smelled of fresh paper.', 'The room was big.', 'The room had things.'],
@@ -9138,7 +9188,7 @@ async function getLocalGeneratedQuizQuestions(level, count, options = {}) {
     if (similarityKey) historicalTexts.add(similarityKey);
   }
 
-  const categoryCycle = ['vocabulary', 'grammar', 'imagery', 'idioms', 'proverbs', 'sentence_correction', 'adjectives', 'adverbs', 'punctuation'];
+  const categoryCycle = getQuizAllowedCategoriesForLevel(level);
   const generated = [];
   const seedBase = Math.abs(String(`${quizDate || ''}:${level}`).split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0));
 
@@ -18742,6 +18792,9 @@ app.post('/api/admin/quiz-questions', async (req, res) => {
     if (!QUIZ_ALLOWED_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: 'Invalid category' });
     }
+    if (!getQuizAllowedCategoriesForLevel(level).includes(category)) {
+      return res.status(400).json({ error: `Category is not allowed for ${level} level` });
+    }
 
     if (!Array.isArray(options) || options.length !== 4) {
       return res.status(400).json({ error: 'Must provide exactly 4 options' });
@@ -18791,6 +18844,9 @@ app.put('/api/admin/quiz-questions/:id', async (req, res) => {
 
     if (category && !QUIZ_ALLOWED_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: 'Invalid category' });
+    }
+    if (level && category && !getQuizAllowedCategoriesForLevel(level).includes(category)) {
+      return res.status(400).json({ error: `Category is not allowed for ${level} level` });
     }
 
     if (options && (!Array.isArray(options) || options.length !== 4)) {
@@ -19366,6 +19422,22 @@ app.put('/api/admin/pending-quiz-questions/:id', async (req, res) => {
     if (options.some(opt => typeof opt !== 'string' || !opt.trim())) {
       return res.status(400).json({ error: 'All options must be non-empty strings' });
     }
+    const normalizedCategory = String(category || '').trim().toLowerCase();
+    if (!QUIZ_ALLOWED_CATEGORIES.includes(normalizedCategory)) {
+      return res.status(400).json({ error: 'Invalid quiz category' });
+    }
+
+    const existingQuestionResult = await pool.query(
+      `SELECT level FROM pending_quiz_questions WHERE id = $1 AND status = 'pending' LIMIT 1`,
+      [questionId]
+    );
+    if (existingQuestionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Pending question not found or already finalized' });
+    }
+    const existingLevel = existingQuestionResult.rows[0].level;
+    if (!getQuizAllowedCategoriesForLevel(existingLevel).includes(normalizedCategory)) {
+      return res.status(400).json({ error: `Category is not allowed for ${existingLevel} level` });
+    }
 
     const result = await pool.query(
       `UPDATE pending_quiz_questions
@@ -19376,7 +19448,7 @@ app.put('/api/admin/pending-quiz-questions/:id', async (req, res) => {
            explanation = $5
        WHERE id = $6 AND status = 'pending'
        RETURNING id`,
-      [question_text.trim(), JSON.stringify(options.map(opt => opt.trim())), correct_answer, category || null, explanation || null, questionId]
+      [question_text.trim(), JSON.stringify(options.map(opt => opt.trim())), correct_answer, normalizedCategory, explanation || null, questionId]
     );
 
     if (result.rows.length === 0) {
@@ -19418,6 +19490,9 @@ app.post('/api/admin/pending-quiz-questions', async (req, res) => {
     }
     if (!QUIZ_ALLOWED_CATEGORIES.includes(normalizedCategory)) {
       return res.status(400).json({ error: 'Invalid quiz category' });
+    }
+    if (!getQuizAllowedCategoriesForLevel(level).includes(normalizedCategory)) {
+      return res.status(400).json({ error: `Category is not allowed for ${level} level` });
     }
 
     const existingPendingCountResult = await pool.query(
