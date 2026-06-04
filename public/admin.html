@@ -1749,7 +1749,7 @@
               <div class="form-group">
                 <label>Upload File *</label>
                 <input type="file" id="resourceFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.mp4,.mp3">
-                <small style="color: #718096;">PDF, Word, PowerPoint, Images, Videos (max 100MB)</small>
+                <small style="color: #718096;">PDF, Word, PowerPoint, Images, Videos (max 500MB)</small>
               </div>
             </div>
             <div class="form-group">
@@ -8611,9 +8611,9 @@ async function saveEditedPayment() {
       }
 
       const fd = new FormData();
-      fd.append('file', inp.files[0]);
       fd.append('materialType', type);
       fd.append('uploadType', type === 'homework' ? 'homework' : 'materials');
+      fd.append('file', inp.files[0]);
 
       try {
         const response = await fetch(`/api/sessions/${id}/upload`, {
@@ -9438,8 +9438,8 @@ async function saveEditedPayment() {
 
         // Upload file first
         const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
         formData.append('uploadType', 'materials');
+        formData.append('file', fileInput.files[0]);
 
         try {
           const uploadRes = await fetch('/api/resources/upload', {
@@ -14020,8 +14020,8 @@ async function saveEditedPayment() {
     async function uploadSocialSourceIfNeeded() {
       if (!socialSourceUpload || !socialSourceUpload.file || socialSourceUpload.filePath) return socialSourceUpload;
       const fd = new FormData();
-      fd.append('file', socialSourceUpload.file);
       fd.append('uploadType', 'materials');
+      fd.append('file', socialSourceUpload.file);
 
       const res = await fetch('/api/social-media/upload', { method: 'POST', body: fd });
       const data = await res.json();

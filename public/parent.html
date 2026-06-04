@@ -926,7 +926,7 @@
               <label>Files * (Select multiple files at once)</label>
               <input type="file" id="homeworkFile" required multiple>
               <p style="color: #718096; font-size: 0.85rem; margin-top: 5px;">
-                Upload any file type: Images, Videos, PDFs, Documents, Presentations, Audio, etc. - Max 100MB per file. You can select multiple files.
+                Upload any file type: Images, Videos, PDFs, Documents, Presentations, Audio, etc. - Max 500MB per file. You can select multiple files.
               </p>
             </div>
             <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
@@ -3545,8 +3545,8 @@ setTimeout(() => {
         if (file) {
           // Use POST with FormData for file upload
           const fd = new FormData();
-          fd.append('file', file);
           fd.append('uploadType', 'homework');
+          fd.append('file', file);
           res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
             method: 'POST',
             headers: authHeaders(),
@@ -3659,8 +3659,8 @@ setTimeout(() => {
 
       try {
         const fd = new FormData();
-        fd.append('file', file);
         fd.append('uploadType', 'homework');
+        fd.append('file', file);
         const res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
           method: 'POST',
           headers: authHeaders(),
@@ -4447,7 +4447,7 @@ setTimeout(() => {
           ${resubmitWarning}
           ${existingList}
           <div style="background:#fff8f0;border:1px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:18px;font-size:0.85rem;color:#744210;">
-            📎 Accepted: Images, PDFs, MP4/video, Word docs, PowerPoints & more. Max 100MB per file.<br>
+            📎 Accepted: Images, PDFs, MP4/video, Word docs, PowerPoints & more. Max 500MB per file.<br>
             🎯 <strong>Tip:</strong> Select multiple files at once! Uploading many files still earns <strong>10 points</strong> on the leaderboard.
           </div>
           <div style="margin-bottom:18px;">
@@ -4554,26 +4554,24 @@ setTimeout(() => {
           errorCount++;
         }
       }
-      for (let i = 0; i < files.length; i++) {
-        progressBar.style.width = Math.round((i / files.length) * 100) + '%';
-        progressText.textContent = `Uploading ${i + 1} of ${files.length}: ${files[i].name}`;
+      if (files.length > 0) {
+        progressBar.style.width = '25%';
+        progressText.textContent = `Uploading ${files.length} file${files.length > 1 ? 's' : ''}...`;
         const fd = new FormData();
-        fd.append('file', files[i]);
         fd.append('sessionId', sessionId);
         fd.append('uploadType', 'homework');
-        if (i === 0) {
-          if (comment) fd.append('comment', comment);
-          if (link) fd.append('link', link);
-        }
+        if (comment) fd.append('comment', comment);
+        if (link) fd.append('link', link);
+        files.forEach(file => fd.append('file', file));
         try {
           const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
             method: 'POST',
             headers: authHeaders(),
             body: fd
           });
-          if (res.ok) successCount++;
-          else errorCount++;
-        } catch (err) { errorCount++; }
+          if (res.ok) successCount += files.length;
+          else errorCount += files.length;
+        } catch (err) { errorCount += files.length; }
       }
 
       _hwUploading = false;
@@ -5038,9 +5036,9 @@ setTimeout(() => {
         // Upload each file separately
         for (let i = 0; i < files.length; i++) {
           const fd = new FormData();
-          fd.append('file', files[i]);
           fd.append('sessionId', sid);
           fd.append('uploadType', 'homework');
+          fd.append('file', files[i]);
 
           try {
             const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {

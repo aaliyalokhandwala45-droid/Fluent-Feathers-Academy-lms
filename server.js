@@ -405,6 +405,9 @@ initializeDatabaseConnection();
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
+const UPLOAD_MAX_FILE_SIZE_MB = 500;
+const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
+
 // Set request timeout for all requests (30 seconds default)
 app.use((req, res, next) => {
   req.setTimeout(30 * 1000);
@@ -412,11 +415,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Extended timeout for upload endpoints (2 minutes for file uploads)
+// Extended timeout for upload endpoints (large video homework uploads)
 app.use((req, res, next) => {
   if (req.path.includes('/upload') || req.path.includes('/annotate')) {
-    req.setTimeout(2 * 60 * 1000);
-    res.setTimeout(2 * 60 * 1000);
+    req.setTimeout(UPLOAD_TIMEOUT_MS);
+    res.setTimeout(UPLOAD_TIMEOUT_MS);
   }
   next();
 });
@@ -1234,22 +1237,25 @@ const fileFilter = (req, file, cb) => {
 // Use Cloudinary storage if available, otherwise use local disk
 const upload = multer({
   storage: useCloudinary ? cloudinaryStorage : localDiskStorage,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max for videos
+  limits: { fileSize: UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024 },
   fileFilter: fileFilter
 });
 
 // Wrapper to handle multer upload errors properly
-const handleUpload = (fieldName) => {
+const handleUpload = (fieldName, maxCount = 1) => {
   return (req, res, next) => {
-    // Set reasonable timeout for upload processing (2 minutes max)
-    req.setTimeout(2 * 60 * 1000);
-    res.setTimeout(2 * 60 * 1000);
+    req.setTimeout(UPLOAD_TIMEOUT_MS);
+    res.setTimeout(UPLOAD_TIMEOUT_MS);
 
-    upload.single(fieldName)(req, res, (err) => {
+    const uploadHandler = maxCount > 1 ? upload.array(fieldName, maxCount) : upload.single(fieldName);
+    uploadHandler(req, res, (err) => {
       if (err) {
         console.error('❌ Upload error:', err.message, err);
         if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(400).json({ error: 'File too large. Maximum size is 100MB.' });
+          return res.status(400).json({ error: `File too large. Maximum size is ${UPLOAD_MAX_FILE_SIZE_MB}MB.` });
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          return res.status(400).json({ error: `Too many files uploaded. Maximum is ${maxCount}.` });
         }
         if (err.message.includes('Cloudinary') || err.message.includes('cloudinary')) {
           return res.status(500).json({ error: 'Cloudinary upload failed: ' + err.message + '. Check Cloudinary credentials in Render.' });
@@ -13101,17 +13107,22 @@ app.get('/api/materials/:studentId', async (req, res) => {
   }
 });
 
-app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, res) => {
+app.post('/api/upload/homework/:studentId', handleUpload('file', 20), async (req, res) => {
   try {
     const submissionComment = String(req.body.comment || '').trim();
     const submissionLinkRaw = String(req.body.link || '').trim();
     const submissionLink = submissionLinkRaw
       ? (/^https?:\/\//i.test(submissionLinkRaw) ? submissionLinkRaw : `https://${submissionLinkRaw}`)
       : '';
-    const commentOnlySubmission = !req.file && (!!submissionComment || !!submissionLink);
+    const uploadedFiles = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
+    const commentOnlySubmission = uploadedFiles.length === 0 && (!!submissionComment || !!submissionLink);
 
-    if (!req.file && !submissionComment && !submissionLink) {
+    if (uploadedFiles.length === 0 && !submissionComment && !submissionLink) {
       return res.status(400).json({ error: 'Please upload a file, write a comment, or add a link.' });
+    }
+
+    if (!req.file && uploadedFiles.length > 0) {
+      req.file = uploadedFiles[0];
     }
 
     if (submissionLink) {
@@ -13151,6 +13162,28 @@ app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, re
       commentOnlySubmission ? false : true
     ]);
 
+    for (const file of uploadedFiles.slice(1)) {
+      let extraFilePath = null;
+      if (useCloudinary) {
+        extraFilePath = file.secure_url || file.path || file.url;
+        if (!extraFilePath) {
+          return res.status(500).json({ error: 'Cloudinary did not return file URL. Check your CLOUDINARY_URL or CLOUDINARY_API_KEY/SECRET/CLOUD_NAME in Render.' });
+        }
+      } else {
+        extraFilePath = '/uploads/homework/' + file.filename;
+      }
+
+      await pool.query(`
+        INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by, submission_comment, submission_link, comment_only_submission, homework_points_approved)
+        VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent', NULL, NULL, false, true)
+      `, [
+        req.params.studentId,
+        req.body.sessionId,
+        file.originalname,
+        extraFilePath
+      ]);
+    }
+
     clearStudentSessionsCache(req.params.studentId);
 
     if (!commentOnlySubmission) {
@@ -13161,12 +13194,12 @@ app.post('/api/upload/homework/:studentId', handleUpload('file'), async (req, re
       studentId: req.params.studentId,
       submissionType: 'Homework',
       sessionId: req.body.sessionId || null,
-      fileName: req.file?.originalname || (submissionLink ? 'Link submission' : 'Comment submission')
+      fileName: uploadedFiles.length > 1 ? `${uploadedFiles.length} files` : (req.file?.originalname || (submissionLink ? 'Link submission' : 'Comment submission'))
     }).catch((notifyErr) => {
       console.warn('Homework admin push trigger failed:', notifyErr.message);
     });
 
-    res.json({ message: 'Homework submitted successfully!' });
+    res.json({ message: uploadedFiles.length > 1 ? `${uploadedFiles.length} homework files submitted successfully!` : 'Homework submitted successfully!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
