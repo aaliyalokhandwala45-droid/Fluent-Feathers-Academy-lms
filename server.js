@@ -654,6 +654,15 @@ function getJoinClassUrl(sessionId, options = {}) {
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.get('/uploads/materials/:filename', (req, res, next) => {
+  // Some homework uploads were saved with a materials URL even though multer
+  // stored the file in uploads/homework. Keep those existing parent links alive.
+  const homeworkRoot = path.resolve(__dirname, 'uploads', 'homework');
+  const homeworkPath = path.resolve(homeworkRoot, path.basename(req.params.filename));
+  if (!homeworkPath.startsWith(homeworkRoot + path.sep)) return next();
+  if (!fs.existsSync(homeworkPath)) return next();
+  return res.sendFile(homeworkPath);
+});
 
 app.get('/public-challenge', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'public-challenge.html'));
@@ -11826,7 +11835,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       }
       // Fix Homework file path (teacher uploaded)
       if (needsPrefix(session.homework_file_path)) {
-        session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
+        session.homework_file_path = '/uploads/homework/' + session.homework_file_path;
       }
       // Fix file paths inside hw_submissions array (parent uploads + corrections)
       if (Array.isArray(session.hw_submissions)) {
@@ -12392,7 +12401,7 @@ app.get('/api/sessions/:sessionId/details', async (req, res) => {
         session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
       }
       if (needsPrefix(session.homework_file_path)) {
-        session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
+        session.homework_file_path = '/uploads/homework/' + session.homework_file_path;
       }
     }
 
@@ -12903,8 +12912,9 @@ app.post('/api/sessions/:sessionId/upload', handleUpload('file'), async (req, re
         throw new Error('Cloudinary did not return a file URL. Check your Cloudinary credentials.');
       }
     } else if (req.file) {
-      // Local storage - use relative path
-      filePath = '/uploads/materials/' + req.file.filename;
+      // Local storage - mirror multer's destination folder.
+      const uploadFolder = req.body.materialType === 'homework' ? 'homework' : 'materials';
+      filePath = `/uploads/${uploadFolder}/` + req.file.filename;
     }
 
     // Respond immediately with success - file upload is complete
@@ -14052,7 +14062,7 @@ app.get('/api/sessions/past/all', async (req, res) => {
         session.recording_file_path = '/uploads/materials/' + session.recording_file_path;
       }
       if (needsPrefix(session.homework_file_path)) {
-        session.homework_file_path = '/uploads/materials/' + session.homework_file_path;
+        session.homework_file_path = '/uploads/homework/' + session.homework_file_path;
       }
       return session;
     });

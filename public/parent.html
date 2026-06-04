@@ -4257,10 +4257,12 @@ setTimeout(() => {
               const ext = filePath.split('.').pop().toLowerCase();
               const isImageFile = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
               const resourceType = isImageFile ? 'image' : 'raw';
-              fileUrl = `https://res.cloudinary.com/${appConfig.cloudName || 'dmqipms4f'}/${resourceType}/upload/fluentfeathers/materials/${filePath}`;
+              const folder = label === 'HW' ? 'homework' : 'materials';
+              fileUrl = `https://res.cloudinary.com/${appConfig.cloudName || 'dmqipms4f'}/${resourceType}/upload/fluentfeathers/${folder}/${filePath}`;
             } else {
-              // File upload - needs /uploads/materials/ prefix
-              fileUrl = '/uploads/materials/' + filePath;
+              // File upload - homework files are stored separately from class materials
+              const folder = label === 'HW' ? 'homework' : 'materials';
+              fileUrl = `/uploads/${folder}/` + filePath;
             }
 
             if (isLink) {
@@ -5078,7 +5080,17 @@ setTimeout(() => {
     });
 
     // Preview file in modal - supports all file types
+    function getAbsoluteFileUrl(url) {
+      if (!url) return url;
+      try {
+        return new URL(getViewUrl(url), window.location.origin).href;
+      } catch (e) {
+        return url;
+      }
+    }
+
     function previewFile(url, fileType, fileName) {
+      url = getAbsoluteFileUrl(url);
       // Remove any existing modal
       const existingModal = document.getElementById('filePreviewModal');
       if (existingModal) existingModal.remove();
@@ -5094,22 +5106,14 @@ setTimeout(() => {
             Your browser does not support video playback.
           </video>`;
       } else if (fileType === 'pdf') {
-        // For Cloudinary raw URLs, use direct embed first, then Google Docs as fallback
-        const isCloudinaryRaw = url.includes('cloudinary.com') && url.includes('/raw/');
+        // Use a direct PDF embed first. Google Docs is only a fallback and needs an absolute URL.
         const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
 
-        if (isCloudinaryRaw) {
-          // For Cloudinary raw PDFs, try direct object embed first (faster and more reliable)
-          content = `
-            <object data="${url}" type="application/pdf" style="width: 95vw; max-width: 1200px; height: 85vh; border-radius: 8px; background: white;">
-              <iframe src="${googleViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;"></iframe>
-            </object>
-            <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to open directly</a></p>`;
-        } else {
-          content = `
+        content = `
+          <object data="${url}" type="application/pdf" style="width: 95vw; max-width: 1200px; height: 85vh; border-radius: 8px; background: white;">
             <iframe src="${googleViewerUrl}" style="width: 95vw; max-width: 1200px; height: 85vh; border: none; border-radius: 8px; background: white;"></iframe>
-            <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to download</a></p>`;
-        }
+          </object>
+          <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">If the document doesn't load, <a href="${url}" target="_blank" style="color: #9f7aea;">click here to open directly</a></p>`;
       } else if (fileType === 'doc') {
         // Use Microsoft Office Online viewer for Word/PPT/Excel
         const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
