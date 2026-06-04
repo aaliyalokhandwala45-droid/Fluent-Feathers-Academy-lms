@@ -10360,15 +10360,15 @@ app.get('/api/students/due-for-assessment', async (req, res) => {
       const completedSessions = student.completed_sessions || 0;
       const totalAssessments = parseInt(student.total_assessments) || 0;
       const remainingSessions = student.remaining_sessions || 0;
-      const sessionsAccountedFor = totalAssessments * 7;
+      const sessionsAccountedFor = totalAssessments * 8;
       const sessionsSinceAssessment = Math.max(0, completedSessions - sessionsAccountedFor);
       const regularDue = sessionsSinceAssessment >= 8;
-      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 3;
+      const endOfPackageDue = remainingSessions <= 2 && sessionsSinceAssessment >= 8;
       return regularDue || endOfPackageDue;
     }).map(student => {
       const completedSessions = student.completed_sessions || 0;
       const totalAssessments = parseInt(student.total_assessments) || 0;
-      const sessionsAccountedFor = totalAssessments * 7;
+      const sessionsAccountedFor = totalAssessments * 8;
       return {
         ...student,
         sessions_since_assessment: Math.max(0, completedSessions - sessionsAccountedFor)
