@@ -13117,7 +13117,7 @@ app.get('/api/materials/:studentId', async (req, res) => {
   }
 });
 
-app.post('/api/upload/homework/:studentId', handleUpload('file', 20), async (req, res) => {
+app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req, res) => {
   try {
     const submissionComment = String(req.body.comment || '').trim();
     const submissionLinkRaw = String(req.body.link || '').trim();

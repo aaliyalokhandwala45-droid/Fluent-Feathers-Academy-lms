@@ -923,10 +923,10 @@
               <select id="homeworkSessionSelect" required><option value="">Loading...</option></select>
             </div>
             <div class="form-group">
-              <label>Files * (Select multiple files at once)</label>
-              <input type="file" id="homeworkFile" required multiple>
+              <label>Files * (Select multiple images/files at once)</label>
+              <input type="file" id="homeworkFile" name="file" required multiple accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.mp3,.wav,.m4a,.mp4,.mov,.avi,.webm">
               <p style="color: #718096; font-size: 0.85rem; margin-top: 5px;">
-                Upload any file type: Images, Videos, PDFs, Documents, Presentations, Audio, etc. - Max 500MB per file. You can select multiple files.
+                Select all homework photos/files together, then upload once. Max 500MB per file.
               </p>
             </div>
             <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
@@ -5031,33 +5031,20 @@ setTimeout(() => {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Uploading...';
 
-      let successCount = 0;
-      let errorCount = 0;
-
       try {
-        // Upload each file separately
-        for (let i = 0; i < files.length; i++) {
-          const fd = new FormData();
-          fd.append('sessionId', sid);
-          fd.append('uploadType', 'homework');
-          fd.append('file', files[i]);
+        const fd = new FormData();
+        fd.append('sessionId', sid);
+        fd.append('uploadType', 'homework');
+        Array.from(files).forEach(file => fd.append('file', file));
 
-          try {
-            const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
-              method: 'POST',
-              headers: authHeaders(),
-              body: fd
-            });
+        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: fd
+        });
 
-            if(res.ok) {
-              successCount++;
-            } else {
-              errorCount++;
-            }
-          } catch(err) {
-            errorCount++;
-          }
-        }
+        const successCount = res.ok ? files.length : 0;
+        const errorCount = res.ok ? 0 : files.length;
 
         if (successCount > 0) {
           alert(`✅ ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
@@ -5068,7 +5055,8 @@ setTimeout(() => {
           loadScoreHistory();
           loadSubmittedHomework();
         } else {
-          alert('Error uploading files');
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || 'Error uploading files');
         }
       } catch(err) {
         console.error('Upload error:', err);
