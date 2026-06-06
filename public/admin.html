@@ -4939,8 +4939,36 @@ I'm passionate about helping children develop confidence in communication!"></te
         }
 
         // Last class topic display
-        const lastTopicHtml = cls.last_session_topic 
-          ? `<p style="background: rgba(255,255,255,0.15); padding: 8px 12px; border-radius: 8px; margin: 8px 0 0 0; font-size: 0.85rem;">📋 <strong>Last Topic:</strong> ${cls.last_session_topic}</p>`
+        const previousTopics = Array.isArray(cls.previous_topics) ? cls.previous_topics : [];
+        const topicDropdownId = 'topics-' + cls.id;
+        const formatTopicDate = (value) => {
+          if (!value) return '';
+          const raw = value instanceof Date ? value.toISOString().split('T')[0] : String(value).split('T')[0];
+          const parsed = new Date(raw + 'T00:00:00');
+          return Number.isNaN(parsed.getTime()) ? raw : parsed.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+        };
+        const topicHistoryHtml = previousTopics.length > 0 ? `
+          <div style="position:relative;">
+            <button type="button"
+              onclick="var el=document.getElementById('${topicDropdownId}'); el.style.display = el.style.display==='none'?'block':'none'; this.querySelector('.arrow').textContent = el.style.display==='none'?'▾':'▴';"
+              style="border:none; background:rgba(255,255,255,0.25); color:white; padding:6px 9px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; white-space:nowrap;">
+              Topics <span class="arrow">▾</span>
+            </button>
+            <div id="${topicDropdownId}" style="display:none; position:absolute; z-index:20; right:0; top:34px; width:min(300px, 82vw); max-height:240px; overflow:auto; background:white; color:#2d3748; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.22); padding:8px;">
+              ${previousTopics.map(topic => `
+                <div style="padding:8px 6px; border-bottom:1px solid #edf2f7;">
+                  <div style="font-size:0.78rem; color:#718096; font-weight:700;">${topic.session_number ? `Session #${topic.session_number}` : 'Completed class'}${topic.session_date ? ` · ${formatTopicDate(topic.session_date)}` : ''}</div>
+                  <div style="font-size:0.85rem; color:#2d3748; line-height:1.35; margin-top:2px;">${escapeHtml(topic.session_topic)}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+        const lastTopicHtml = cls.last_session_topic
+          ? `<div style="background: rgba(255,255,255,0.15); padding: 8px 12px; border-radius: 8px; margin: 8px 0 0 0; font-size: 0.85rem; display:flex; align-items:flex-start; gap:8px; justify-content:space-between;">
+              <span style="line-height:1.4;">📋 <strong>Last Topic:</strong> ${escapeHtml(cls.last_session_topic)}</span>
+              ${topicHistoryHtml}
+            </div>`
           : '';
 
         return `<div class="${cardClass}">

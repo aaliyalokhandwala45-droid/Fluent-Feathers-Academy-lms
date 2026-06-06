@@ -9784,42 +9784,68 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
      }
    }
 
-   // Fetch last session topic for each upcoming class
-   for (const cls of paginatedClasses) {
-     try {
-       let lastSessionQuery;
-       
-       if (cls.display_type === 'Private') {
-         // Last completed private session for this student
-         lastSessionQuery = await executeQuery(`
-           SELECT session_topic, session_number
-           FROM sessions
-           WHERE student_id = $1 AND session_type = 'Private' AND status = 'Completed'
-           ORDER BY session_date DESC, session_time DESC
-           LIMIT 1
-         `, [cls.student_id]);
-       } else if (cls.display_type === 'Group') {
-         // Last completed group session for this group
-         lastSessionQuery = await executeQuery(`
-           SELECT session_topic, session_number
-           FROM sessions
-           WHERE group_id = $1 AND session_type = 'Group' AND status = 'Completed'
-           ORDER BY session_date DESC, session_time DESC
-           LIMIT 1
-         `, [cls.group_id]);
-       }
-       
-       if (lastSessionQuery && lastSessionQuery.rows.length > 0) {
-         const lastSession = lastSessionQuery.rows[0];
-         cls.last_session_topic = lastSession.session_topic || 'No topic recorded';
-         cls.last_session_number = lastSession.session_number;
-       } else {
-         cls.last_session_topic = null;
-         cls.last_session_number = null;
-       }
-     } catch (e) {
-       console.warn('Error fetching last session topic:', e.message);
+   // Fetch completed topic history for each upcoming private/group class.
+   try {
+     const privateStudentIds = [...new Set(paginatedClasses
+       .filter(s => s.display_type === 'Private' && s.student_id)
+       .map(s => s.student_id))];
+     const groupIdsForTopics = [...new Set(paginatedClasses
+       .filter(s => s.display_type === 'Group' && s.group_id)
+       .map(s => s.group_id))];
+
+     const [privateTopics, groupTopics] = await Promise.all([
+       privateStudentIds.length > 0 ? executeQuery(`
+         SELECT student_id, session_topic, session_number, session_date
+         FROM sessions
+         WHERE student_id = ANY($1)
+           AND session_type = 'Private'
+           AND status = 'Completed'
+           AND NULLIF(TRIM(session_topic), '') IS NOT NULL
+         ORDER BY session_date DESC, session_time DESC, id DESC
+       `, [privateStudentIds]) : { rows: [] },
+       groupIdsForTopics.length > 0 ? executeQuery(`
+         SELECT group_id, session_topic, session_number, session_date
+         FROM sessions
+         WHERE group_id = ANY($1)
+           AND session_type = 'Group'
+           AND status = 'Completed'
+           AND NULLIF(TRIM(session_topic), '') IS NOT NULL
+         ORDER BY session_date DESC, session_time DESC, id DESC
+       `, [groupIdsForTopics]) : { rows: [] }
+     ]);
+
+     const privateTopicMap = {};
+     for (const row of privateTopics.rows) {
+       if (!privateTopicMap[row.student_id]) privateTopicMap[row.student_id] = [];
+       privateTopicMap[row.student_id].push(row);
+     }
+
+     const groupTopicMap = {};
+     for (const row of groupTopics.rows) {
+       if (!groupTopicMap[row.group_id]) groupTopicMap[row.group_id] = [];
+       groupTopicMap[row.group_id].push(row);
+     }
+
+     for (const cls of paginatedClasses) {
+       const topicRows = cls.display_type === 'Private'
+         ? (privateTopicMap[cls.student_id] || [])
+         : cls.display_type === 'Group'
+           ? (groupTopicMap[cls.group_id] || [])
+           : [];
+       cls.previous_topics = topicRows.map(row => ({
+         session_topic: row.session_topic,
+         session_number: row.session_number,
+         session_date: row.session_date
+       }));
+       cls.last_session_topic = cls.previous_topics[0]?.session_topic || null;
+       cls.last_session_number = cls.previous_topics[0]?.session_number || null;
+     }
+   } catch (e) {
+     console.warn('Error fetching topic history:', e.message);
+     for (const cls of paginatedClasses) {
+       cls.previous_topics = [];
        cls.last_session_topic = null;
+       cls.last_session_number = null;
      }
    }
 
