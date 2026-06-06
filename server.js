@@ -8147,8 +8147,8 @@ const QUIZ_ALLOWED_CATEGORIES = [
 ];
 const QUIZ_EXCLUDED_CATEGORIES = ['phonics', 'contextual_reference_sentences'];
 const QUIZ_AI_CATEGORY_GUIDANCE = {
-  beginner: ['nouns', 'pronouns', 'adjectives', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'vocabulary', 'grammar', 'punctuation'],
-  intermediate: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery'],
+  beginner: ['grammar', 'subject_verb_agreement', 'nouns', 'vocabulary', 'pronouns', 'adjectives', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'punctuation'],
+  intermediate: ['grammar', 'subject_verb_agreement', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'elaboration'],
   advanced: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'direct_indirect_speech']
 };
 
@@ -8801,10 +8801,33 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   };
 
   const levelDescriptions = {
-    beginner: 'simple English suitable only for children ages 4-7, with short clear sentences and easy choices',
-    intermediate: 'intermediate English suitable only for children ages 8-11, with balanced grammar and expression',
+    beginner: 'simple English suitable for children ages 4-7, with short clear sentences, but with one or two stretch vocabulary words taught through context',
+    intermediate: 'intermediate English suitable for children ages 8-11, clearly harder than beginner but easier than advanced, with multi-step thinking in some questions',
     advanced: 'advanced English suitable only for children ages 12 and above, with nuanced expression and deeper language analysis'
   };
+
+  const levelSpecificRequirements = {
+    beginner: [
+      'Beginner mix: include at least 2 simple present tense fill-in-the-blank questions such as do/does, is/am/are, or verb+s for habits',
+      'Beginner mix: include at least 1 singular/plural question using nouns, articles, or subject-verb agreement',
+      'Beginner vocabulary: include at least 2 vocabulary questions, and at least 1 should teach an advanced word through a simple child-friendly sentence; examples of suitable stretch words: curious, patient, generous, cautious, enormous, observe, fragile, delighted',
+      'Beginner wording must stay short, but do not make every option obvious'
+    ],
+    intermediate: [
+      'Intermediate difficulty: make questions noticeably more advanced than beginner but clearly easier than advanced',
+      'Intermediate grammar should include applied usage such as tense choice, subject-verb agreement, sentence correction, adjective/adverb choice, or punctuation in a short context',
+      'Intermediate questions should require one small reasoning step, not just matching a single obvious word',
+      'Intermediate vocabulary must include useful higher-level words in context, such as reluctant, vivid, precise, cautious, persuade, evidence, infer, contrast, resilient, or concise'
+    ],
+    advanced: [
+      'Advanced questions should test nuance, inference, polished usage, direct/indirect speech, idioms, imagery, and precise vocabulary',
+      'Advanced vocabulary should include challenging but teachable words in context'
+    ]
+  };
+
+  const levelRequirementText = (levelSpecificRequirements[level] || [])
+    .map(item => `- ${item}`)
+    .join('\n');
 
   const preferredCategories = getQuizAllowedCategoriesForLevel(level);
   const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate, pool, { limit: 180 });
@@ -8832,6 +8855,11 @@ Requirements:
 ${level === 'beginner' ? '- For beginner level, do not create direct speech, indirect speech, or reported speech questions\n' : ''}
 - 4 options (A, B, C, D), one correct answer
 ${level === 'advanced' ? '- Advanced must include direct_indirect_speech questions\n' : ''}
+- MCQ options must be interesting and plausible: avoid one correct answer with three silly or unrelated choices
+- Distractors should be close enough to make the child think, but still fair for the level
+- Include vocabulary-related questions in every generated set, including beginner
+- Explain advanced vocabulary in simple language in the explanation
+${levelRequirementText}
 - Never use contextual_reference_sentences
 - Vary question types, vocabulary, contexts
 
@@ -9107,6 +9135,12 @@ function createLocalQuizQuestion(level, category, seed) {
       options: ['She go to class daily.', 'She goes to class daily.', 'She going to class daily.', 'She gone to class daily.'],
       correct_answer: 1,
       explanation: 'Use goes with she in the simple present tense.'
+    },
+    subject_verb_agreement: {
+      question_text: `Choose the correct simple present verb: "The children ___ their books carefully."`,
+      options: ['packs', 'pack', 'packing', 'packed'],
+      correct_answer: 1,
+      explanation: 'Children is plural, so use pack in the simple present tense.'
     },
     nouns: {
       question_text: `Which word is a noun in this sentence: "Riya packed a pencil"?`,
