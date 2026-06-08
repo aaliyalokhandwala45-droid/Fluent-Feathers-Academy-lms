@@ -4315,7 +4315,7 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
     }
 
     await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: effectiveSubject, htmlContent: finalHtml }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
-    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Sent', $5)`, [recipientName || '', to, emailType, effectiveSubject, finalHtml]);
+    await pool.query(`INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, $5, 'Sent', $6)`, [options.studentId || null, recipientName || '', to, emailType, effectiveSubject, finalHtml]);
     if (options.skipPush !== true) {
       const pushTitle = String(effectiveSubject || '').replace(/\s*\[[^\]]+\]\s*$/g, '').trim() || 'Fluent Feathers';
       const pushBody = stripHtmlSnippet(finalHtml);
@@ -4324,7 +4324,7 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
     return true;
   } catch (e) {
     console.error('Email Error:', e.message);
-    await pool.query(`INSERT INTO email_log (recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, 'Failed', $5)`, [recipientName || '', to, emailType, effectiveSubject, finalHtml || html || '']);
+    await pool.query(`INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, $5, 'Failed', $6)`, [options.studentId || null, recipientName || '', to, emailType, effectiveSubject, finalHtml || html || '']);
     // Do not block push fallback on email provider failures.
     const pushTitleFallback = String(effectiveSubject || subject || '').replace(/\s*\[[^\]]+\]\s*$/g, '').trim() || 'Fluent Feathers';
     const pushBodyFallback = stripHtmlSnippet(finalHtml || html || '') || `Update for ${recipientName || 'Parent'}`;
@@ -7645,6 +7645,27 @@ cron.schedule('0 8 * * *', async () => {
       try {
         const birthYear = new Date(student.date_of_birth).getFullYear();
         const age = today.getFullYear() - birthYear;
+        const appUrl = (process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com').replace(/\/$/, '');
+
+        try {
+          await sendPushToAdmins(
+            `Birthday Today: ${student.name}`,
+            `${student.name} turns ${age} today. Send a birthday wish to the student.`,
+            {
+              type: 'student_birthday_reminder',
+              notificationType: 'birthday-reminder',
+              studentId: String(student.id),
+              studentName: String(student.name || ''),
+              parentName: String(student.parent_name || ''),
+              parentEmail: String(student.parent_email || ''),
+              age: String(age),
+              dateOfBirth: String(student.date_of_birth || ''),
+              url: `${appUrl}/admin.html`
+            }
+          );
+        } catch (pushErr) {
+          console.warn(`Birthday admin push failed for ${student.name}:`, pushErr.message);
+        }
 
         const birthdayEmailHTML = getBirthdayEmail({
           studentName: student.name,
@@ -7656,7 +7677,8 @@ cron.schedule('0 8 * * *', async () => {
           `🎉 Happy Birthday ${student.name}! 🎂`,
           birthdayEmailHTML,
           student.parent_name,
-          'Birthday'
+          'Birthday',
+          { studentId: student.id }
         );
 
         console.log(`✅ Sent birthday email to ${student.name} (${student.parent_email})`);
@@ -14059,7 +14081,13 @@ app.get('/api/email-logs', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const offset = (page - 1) * limit;
     const countResult = await pool.query('SELECT COUNT(*) as total FROM email_log');
-    const r = await pool.query('SELECT * FROM email_log ORDER BY sent_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
+    const r = await pool.query(`
+      SELECT e.*, s.name AS student_name
+      FROM email_log e
+      LEFT JOIN students s ON s.id = e.student_id
+      ORDER BY e.sent_at DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
     res.json({ logs: r.rows, total: parseInt(countResult.rows[0].total), page, limit });
   } catch (err) {
     res.status(500).json({ error: err.message });

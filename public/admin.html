@@ -9745,10 +9745,14 @@ async function saveEditedPayment() {
       const isPush = isPushLogEntry(log);
       const recipientName = String(log?.recipient_name || '');
       const recipientEmail = String(log?.recipient_email || '');
+      const studentName = String(log?.student_name || '');
       const channelLabel = isPush
         ? `<span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:10px;font-weight:700;letter-spacing:0.02em;">APP PUSH</span>`
         : '';
-      return `${recipientName}<br><span style="font-size:11px;color:#718096;">${recipientEmail}</span>${channelLabel}`;
+      const studentLabel = studentName
+        ? `<br><span style="font-size:11px;color:#805ad5;font-weight:700;">Student: ${studentName}</span>`
+        : '';
+      return `${recipientName}<br><span style="font-size:11px;color:#718096;">${recipientEmail}</span>${studentLabel}${channelLabel}`;
     }
 
     function loadEmailLogs(page) {
