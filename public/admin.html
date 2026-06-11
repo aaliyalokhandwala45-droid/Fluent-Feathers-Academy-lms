@@ -1270,6 +1270,11 @@
       <div class="section">
         <h2>📝 Student Homework Submissions</h2>
         <p style="color: #718096; margin-bottom: 20px;">View and grade homework submitted by students from the Parent Portal</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding:12px;border:1px solid #bee3f8;background:#ebf8ff;border-radius:10px;">
+          <button onclick="bulkAnalyzeAiHomework()" class="btn btn-sm" style="background:#805ad5;color:white;">Analyze AI for Pending</button>
+          <button onclick="bulkApproveAiHomework()" class="btn btn-sm" style="background:#2b6cb0;color:white;">Bulk Approve Ready AI</button>
+          <span style="align-self:center;color:#2b6cb0;font-size:0.82rem;">Use the student filter first if you want bulk actions for only one child.</span>
+        </div>
 
         <!-- Manual Homework Completion -->
         <div style="background: linear-gradient(135deg, #ebf8ff 0%, #e9d8fd 100%); border: 1px solid #b794f4; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
@@ -6107,7 +6112,7 @@ if (dueEl) {
             <td>${gradeDisplay}${feedbackDisplay}${approvalDisplay}${aiReviewDisplay}${buildIntegrityMiniBadge(hw)}</td>
             <td>
               ${hw.ai_review_status === 'ready' && !hw.feedback_given ? `<button onclick="approveAiHomeworkReview(${hw.id})" class="btn btn-sm" style="background:#2b6cb0;color:white;">Approve AI</button>` : ''}
-              ${['failed','manual_required'].includes(hw.ai_review_status || '') && !hw.feedback_given ? `<button onclick="retryAiHomeworkReview(${hw.id})" class="btn btn-sm" style="background:#805ad5;color:white;">Retry AI</button>` : ''}
+              ${!hw.feedback_given && !['ready','processing','queued','approved'].includes(hw.ai_review_status || '') ? `<button onclick="retryAiHomeworkReview(${hw.id})" class="btn btn-sm" style="background:#805ad5;color:white;">${hw.ai_review_status ? 'Retry AI' : 'Analyze AI'}</button>` : ''}
               <button onclick="openGradeHomeworkModal(${hw.id})" class="btn btn-sm btn-primary">Grade</button>
               ${hw.comment_only_submission && !hw.homework_points_approved ? `<button onclick="approveHomeworkPoints(${hw.id})" class="btn btn-sm" style="background:#38a169;color:white;">Approve Points</button>` : ''}
               ${(isImage || isPdf) && fileUrl ? `<button onclick="openAnnotationEditor(${hw.id}, decodeURIComponent('${encodeURIComponent(fileUrl)}'), '${isPdf ? 'pdf' : 'image'}', decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'))" class="btn btn-sm" style="background:#e53e3e;color:white;">✏️ Annotate</button>` : ''}
@@ -6219,6 +6224,51 @@ if (dueEl) {
       } catch (err) {
         alert('❌ Error queueing AI review: ' + err.message);
       }
+    }
+
+    async function bulkAnalyzeAiHomework() {
+      const items = Object.values(homeworkSubmissionCache).filter(hw =>
+        !hw.feedback_given &&
+        !['ready', 'processing', 'queued', 'approved'].includes(hw.ai_review_status || '')
+      );
+      if (items.length === 0) return alert('No pending homework needs AI analysis in the current list.');
+      if (!confirm(`Queue AI analysis for ${items.length} pending homework submission(s)?`)) return;
+
+      let queued = 0;
+      for (const hw of items) {
+        try {
+          const res = await fetch(`/api/materials/${hw.id}/ai-review/retry`, { method: 'POST' });
+          if (res.ok) queued++;
+        } catch (err) {
+          console.error('Bulk AI queue failed:', hw.id, err);
+        }
+      }
+      alert(`AI analysis queued for ${queued}/${items.length} submission(s). Refresh this tab in a moment to see drafts.`);
+      loadHomeworkSubmissions();
+    }
+
+    async function bulkApproveAiHomework() {
+      const items = Object.values(homeworkSubmissionCache).filter(hw =>
+        !hw.feedback_given &&
+        hw.ai_review_status === 'ready' &&
+        hw.ai_suggested_grade &&
+        hw.ai_suggested_feedback
+      );
+      if (items.length === 0) return alert('No ready AI drafts to approve in the current list.');
+      if (!confirm(`Approve ${items.length} ready AI draft(s) and send feedback to parents?`)) return;
+
+      let approved = 0;
+      for (const hw of items) {
+        try {
+          const res = await fetch(`/api/materials/${hw.id}/ai-review/approve`, { method: 'POST' });
+          if (res.ok) approved++;
+        } catch (err) {
+          console.error('Bulk AI approve failed:', hw.id, err);
+        }
+      }
+      alert(`Approved ${approved}/${items.length} AI draft(s).`);
+      loadHomeworkSubmissions();
+      loadDashboardStats();
     }
 
     async function approveHomeworkPoints(homeworkId) {
