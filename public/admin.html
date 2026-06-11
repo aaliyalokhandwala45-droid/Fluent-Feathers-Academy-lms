@@ -1254,9 +1254,13 @@
           <label style="font-size:12px;font-weight:700;color:#4a5568;display:block;margin-bottom:4px;">Feedback for Parents <span style="color:#e53e3e;">*</span></label>
           <textarea id="hwFeedbackComments" rows="7" placeholder="Write detailed feedback here, or use &#x2728; AI Feedback above to generate it…" style="width:100%;padding:9px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;resize:vertical;outline:none;color:#2d3748;"></textarea>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <div style="font-size:11px;color:#718096;margin:-6px 0 12px;line-height:1.45;">
+          Save for this item when only one file needs correction. Use overall feedback when all files/comments for this session should show the same parent feedback.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
           <button type="button" onclick="closeHwFeedbackModal()" style="background:#edf2f7;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;color:#4a5568;">Cancel</button>
-          <button type="button" onclick="submitHwFeedback()" style="background:#B05D9E;color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:800;cursor:pointer;">&#x1F4BE; Save Grade &amp; Feedback</button>
+          <button type="button" onclick="submitHwFeedback(false)" style="background:#B05D9E;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;">&#x1F4BE; Save This Item</button>
+          <button type="button" onclick="submitHwFeedback(true)" style="background:#2b6cb0;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;">Save Overall</button>
         </div>
       </div>
     </div>
@@ -5808,7 +5812,8 @@ if (dueEl) {
         sessionSelect.innerHTML = '<option value="">-- Select Session --</option>' +
           sessions.map(s => {
             const sessionNumberText = getAdminSessionNumber(s);
-            return `<option value="${s.id}">${sessionNumberText ? `Session #${sessionNumberText}` : 'Session'} - ${new Date(s.session_date).toLocaleDateString()}</option>`;
+            const topicText = s.session_topic ? ` - ${s.session_topic}` : '';
+            return `<option value="${s.id}">${sessionNumberText ? `Session #${sessionNumberText}` : 'Session'} - ${new Date(s.session_date).toLocaleDateString()}${topicText}</option>`;
           }).join('');
       } catch (err) { sessionSelect.innerHTML = '<option value="">Error loading sessions</option>'; }
     }
@@ -6061,6 +6066,27 @@ if (dueEl) {
           const approvalDisplay = hw.comment_only_submission
             ? `<br><small style="color:${hw.homework_points_approved ? '#2f855a' : '#dd6b20'};">${hw.homework_points_approved ? '✅ Homework points approved' : '⏳ Homework points pending approval'}</small>`
             : '';
+          const aiReviewDisplay = (() => {
+            if (hw.feedback_given && hw.ai_review_status === 'approved') {
+              return '<br><small style="color:#2f855a;">✅ AI draft approved by teacher</small>';
+            }
+            if (hw.ai_review_status === 'ready') {
+              return `<br><div style="margin-top:6px;padding:8px;border-radius:8px;background:#ebf8ff;border:1px solid #90cdf4;color:#2b6cb0;font-size:0.78rem;line-height:1.45;">
+                <strong>AI draft ready:</strong> ${hw.ai_suggested_grade || ''}
+                ${hw.ai_review_summary ? `<br>${hw.ai_review_summary}` : ''}
+              </div>`;
+            }
+            if (hw.ai_review_status === 'processing' || hw.ai_review_status === 'queued') {
+              return '<br><small style="color:#805ad5;">🤖 AI checking...</small>';
+            }
+            if (hw.ai_review_status === 'manual_required') {
+              return `<br><small style="color:#dd6b20;">AI needs manual review${hw.ai_review_error ? `: ${hw.ai_review_error}` : ''}</small>`;
+            }
+            if (hw.ai_review_status === 'failed') {
+              return `<br><small style="color:#e53e3e;">AI check failed${hw.ai_review_error ? `: ${hw.ai_review_error}` : ''}</small>`;
+            }
+            return '';
+          })();
 
           // Create download URL with proper filename
           const downloadUrl = fileUrl && !isLink ? getDownloadUrl(fileUrl, hw.file_name || 'homework') : '';
@@ -6078,8 +6104,10 @@ if (dueEl) {
               ${linkDisplay}
             </td>
             <td>${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
-            <td>${gradeDisplay}${feedbackDisplay}${approvalDisplay}${buildIntegrityMiniBadge(hw)}</td>
+            <td>${gradeDisplay}${feedbackDisplay}${approvalDisplay}${aiReviewDisplay}${buildIntegrityMiniBadge(hw)}</td>
             <td>
+              ${hw.ai_review_status === 'ready' && !hw.feedback_given ? `<button onclick="approveAiHomeworkReview(${hw.id})" class="btn btn-sm" style="background:#2b6cb0;color:white;">Approve AI</button>` : ''}
+              ${['failed','manual_required'].includes(hw.ai_review_status || '') && !hw.feedback_given ? `<button onclick="retryAiHomeworkReview(${hw.id})" class="btn btn-sm" style="background:#805ad5;color:white;">Retry AI</button>` : ''}
               <button onclick="openGradeHomeworkModal(${hw.id})" class="btn btn-sm btn-primary">Grade</button>
               ${hw.comment_only_submission && !hw.homework_points_approved ? `<button onclick="approveHomeworkPoints(${hw.id})" class="btn btn-sm" style="background:#38a169;color:white;">Approve Points</button>` : ''}
               ${(isImage || isPdf) && fileUrl ? `<button onclick="openAnnotationEditor(${hw.id}, decodeURIComponent('${encodeURIComponent(fileUrl)}'), '${isPdf ? 'pdf' : 'image'}', decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'))" class="btn btn-sm" style="background:#e53e3e;color:white;">✏️ Annotate</button>` : ''}
@@ -6110,8 +6138,8 @@ if (dueEl) {
       const firstName = studentName.split(' ')[0];
       document.getElementById('hwFeedbackStudent').textContent = firstName;
       document.getElementById('hwFeedbackFile').textContent = fileName;
-      document.getElementById('hwFeedbackGrade').value = hw.feedback_grade || '';
-      document.getElementById('hwFeedbackComments').value = hw.feedback_comments || '';
+      document.getElementById('hwFeedbackGrade').value = hw.feedback_grade || (!hw.feedback_given && hw.ai_review_status === 'ready' ? (hw.ai_suggested_grade || '') : '');
+      document.getElementById('hwFeedbackComments').value = hw.feedback_comments || (!hw.feedback_given && hw.ai_review_status === 'ready' ? (hw.ai_suggested_feedback || '') : '');
       document.getElementById('hwFeedbackNotes').value = '';
       const approvalWrap = document.getElementById('hwCommentApprovalWrap');
       const approvalInput = document.getElementById('hwApproveCommentPoints');
@@ -6157,6 +6185,40 @@ if (dueEl) {
       currentHwIntegrity = null;
       renderHwIntegrityPanel(null);
       document.getElementById('hwFeedbackModal').style.display = 'none';
+    }
+
+    async function approveAiHomeworkReview(homeworkId) {
+      const hw = homeworkSubmissionCache[homeworkId];
+      if (!hw) return alert('Could not load submission details. Please refresh and try again.');
+      if (!confirm(`Approve AI draft grade ${hw.ai_suggested_grade || ''} and send feedback to parent?`)) return;
+      try {
+        const res = await fetch(`/api/materials/${homeworkId}/ai-review/approve`, { method: 'POST' });
+        const result = await res.json();
+        if (res.ok) {
+          alert('✅ ' + (result.message || 'AI draft approved.'));
+          loadHomeworkSubmissions();
+          loadDashboardStats();
+        } else {
+          alert('❌ ' + (result.error || 'Failed to approve AI draft'));
+        }
+      } catch (err) {
+        alert('❌ Error approving AI draft: ' + err.message);
+      }
+    }
+
+    async function retryAiHomeworkReview(homeworkId) {
+      try {
+        const res = await fetch(`/api/materials/${homeworkId}/ai-review/retry`, { method: 'POST' });
+        const result = await res.json();
+        if (res.ok) {
+          alert('AI review queued. Refresh this tab in a moment to see the draft.');
+          loadHomeworkSubmissions();
+        } else {
+          alert('❌ ' + (result.error || 'Failed to queue AI review'));
+        }
+      } catch (err) {
+        alert('❌ Error queueing AI review: ' + err.message);
+      }
     }
 
     async function approveHomeworkPoints(homeworkId) {
@@ -6268,14 +6330,14 @@ if (dueEl) {
         btn.textContent = '✨ AI Feedback'; btn.disabled = false;
       }
     }
-    async function submitHwFeedback() {
+    async function submitHwFeedback(applyToSession = false) {
       const id       = document.getElementById('hwFeedbackId').value;
       const grade    = document.getElementById('hwFeedbackGrade').value.trim();
       const comments = document.getElementById('hwFeedbackComments').value.trim();
       const approveHomeworkPoints = document.getElementById('hwApproveCommentPoints').checked;
       if (!grade)    { document.getElementById('hwFeedbackGrade').focus();    alert('Please enter a grade.'); return; }
       if (!comments) { document.getElementById('hwFeedbackComments').focus(); alert('Please write feedback for the parents before saving.'); return; }
-      await gradeHomework(id, grade, comments, approveHomeworkPoints);
+      await gradeHomework(id, grade, comments, approveHomeworkPoints, applyToSession);
       closeHwFeedbackModal();
     }
 
@@ -6391,12 +6453,12 @@ if (dueEl) {
       previewFile(url, 'video', 'Video');
     }
 
-    async function gradeHomework(homeworkId, grade, comments, approveHomeworkPoints = false) {
+    async function gradeHomework(homeworkId, grade, comments, approveHomeworkPoints = false, applyToSession = false) {
       try {
         const res = await fetch(`/api/materials/${homeworkId}/grade`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ grade, comments, approve_homework_points: approveHomeworkPoints })
+          body: JSON.stringify({ grade, comments, approve_homework_points: approveHomeworkPoints, apply_to_session: applyToSession })
         });
 
         if (res.ok) {
@@ -11638,7 +11700,7 @@ async function saveEditedPayment() {
       }
     }
 
-    async function gradeHomework(materialId, gradeParam, commentsParam, approveHomeworkPoints = false) {
+    async function gradeHomework(materialId, gradeParam, commentsParam, approveHomeworkPoints = false, applyToSession = false) {
       // If grade and comments are passed, use them; otherwise prompt
       let grade = gradeParam;
       let comments = commentsParam;
@@ -11653,7 +11715,7 @@ async function saveEditedPayment() {
         const res = await fetch(`/api/materials/${materialId}/grade`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ grade, comments, approve_homework_points: approveHomeworkPoints })
+          body: JSON.stringify({ grade, comments, approve_homework_points: approveHomeworkPoints, apply_to_session: applyToSession })
         });
         const result = await res.json();
         if(res.ok) {

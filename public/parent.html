@@ -924,9 +924,15 @@
             </div>
             <div class="form-group">
               <label>Files * (Select multiple images/files at once)</label>
-              <input type="file" id="homeworkFile" name="file" required multiple accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.mp3,.wav,.m4a,.mp4,.mov,.avi,.webm">
+              <input type="file" id="homeworkFile" name="file" multiple accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.mp3,.wav,.m4a,.mp4,.mov,.avi,.webm">
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                <button type="button" id="homeworkTakePhotoBtn" style="background:#2b6cb0;color:white;border:none;border-radius:8px;padding:9px 12px;font-size:0.86rem;font-weight:700;cursor:pointer;">Take Photo</button>
+                <button type="button" id="homeworkClearFilesBtn" style="background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:8px;padding:9px 12px;font-size:0.86rem;font-weight:700;cursor:pointer;">Clear Files</button>
+              </div>
+              <input type="file" id="homeworkCameraFile" accept="image/*" capture="environment" style="display:none;">
+              <div id="homeworkSelectedFileList" style="margin-top:8px;font-size:0.83rem;color:#4a5568;max-height:120px;overflow-y:auto;"></div>
               <p style="color: #718096; font-size: 0.85rem; margin-top: 5px;">
-                Select all homework photos/files together, then upload once. Max 500MB per file.
+                Select files together, or use Take Photo multiple times, then upload once. Max 500MB per file.
               </p>
             </div>
             <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
@@ -4418,6 +4424,7 @@ setTimeout(() => {
 
     function openHwSubmitModal(sessionId, sessionSerial, isResubmit, existingFiles, preferredMode = 'file') {
       existingFiles = Array.isArray(existingFiles) ? existingFiles : [];
+      hwSubmitSelectedFiles = [];
       const existing = document.getElementById('hwSubmitModal');
       if (existing) existing.remove();
 
@@ -4457,6 +4464,12 @@ setTimeout(() => {
             <input type="file" id="hwSubmitFileInput" multiple
               accept="*/*"
               style="width:100%;padding:10px;border:2px dashed #B05D9E;border-radius:8px;font-size:0.9rem;background:#fdf0f8;cursor:pointer;">
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+              <button type="button" id="hwTakePhotoBtn" style="background:#2b6cb0;color:white;border:none;border-radius:8px;padding:9px 12px;font-size:0.86rem;font-weight:700;cursor:pointer;">Take Photo</button>
+              <button type="button" id="hwClearFilesBtn" style="background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:8px;padding:9px 12px;font-size:0.86rem;font-weight:700;cursor:pointer;">Clear Files</button>
+            </div>
+            <input type="file" id="hwSubmitCameraInput" accept="image/*" capture="environment" style="display:none;">
+            <small style="display:block;color:#718096;margin-top:6px;">On phones, use Take Photo more than once to add multiple pictures before uploading.</small>
             <div id="hwSubmitFileList" style="margin-top:8px;font-size:0.83rem;color:#4a5568;max-height:120px;overflow-y:auto;"></div>
           </div>
           <div style="margin-bottom:14px;">
@@ -4481,16 +4494,41 @@ setTimeout(() => {
         </div>
       `;
 
-      // Show file list when selected
-      modal.querySelector('#hwSubmitFileInput').addEventListener('change', function() {
+      const renderHwSubmitFileList = () => {
         const list = modal.querySelector('#hwSubmitFileList');
-        if (this.files.length > 0) {
-          list.innerHTML = Array.from(this.files).map((f, i) =>
+        if (hwSubmitSelectedFiles.length > 0) {
+          list.innerHTML = hwSubmitSelectedFiles.map((f, i) =>
             `<div style="padding:3px 0;border-bottom:1px solid #e2e8f0;">${i+1}. ${f.name} <span style="color:#a0aec0;">(${(f.size/1024/1024).toFixed(1)}MB)</span></div>`
           ).join('');
         } else {
           list.innerHTML = '';
         }
+      };
+
+      const addHwSubmitFiles = (fileList) => {
+        const incoming = Array.from(fileList || []);
+        if (incoming.length === 0) return;
+        hwSubmitSelectedFiles.push(...incoming);
+        renderHwSubmitFileList();
+      };
+
+      modal.querySelector('#hwSubmitFileInput').addEventListener('change', function() {
+        addHwSubmitFiles(this.files);
+        this.value = '';
+      });
+
+      modal.querySelector('#hwTakePhotoBtn').addEventListener('click', () => {
+        modal.querySelector('#hwSubmitCameraInput').click();
+      });
+
+      modal.querySelector('#hwSubmitCameraInput').addEventListener('change', function() {
+        addHwSubmitFiles(this.files);
+        this.value = '';
+      });
+
+      modal.querySelector('#hwClearFilesBtn').addEventListener('click', () => {
+        hwSubmitSelectedFiles = [];
+        renderHwSubmitFileList();
       });
 
       if (preferredMode === 'comment') {
@@ -4514,17 +4552,18 @@ setTimeout(() => {
     }
 
     var _hwUploading = false;
+    var hwSubmitSelectedFiles = [];
     async function submitHwFiles(sessionId) {
       if (_hwUploading) return; // prevent double-fire
       const input = document.getElementById('hwSubmitFileInput');
       const comment = (document.getElementById('hwSubmitCommentInput')?.value || '').trim();
       const link = (document.getElementById('hwSubmitLinkInput')?.value || '').trim();
-      if (!input || (input.files.length === 0 && !comment && !link)) {
+      const files = hwSubmitSelectedFiles.length > 0 ? hwSubmitSelectedFiles : Array.from(input?.files || []);
+      if (!input || (files.length === 0 && !comment && !link)) {
         alert('Please upload a file, write a comment, or add a link.');
         return;
       }
 
-      const files = Array.from(input.files);
       const btn = document.getElementById('hwSubmitBtn');
       const progress = document.getElementById('hwSubmitProgress');
       const progressBar = document.getElementById('hwSubmitProgressBar');
@@ -5021,10 +5060,49 @@ setTimeout(() => {
       }
     }
 
+    var homeworkFormSelectedFiles = [];
+    function renderHomeworkFormFileList() {
+      const list = document.getElementById('homeworkSelectedFileList');
+      if (!list) return;
+      if (homeworkFormSelectedFiles.length === 0) {
+        list.innerHTML = '';
+        return;
+      }
+      list.innerHTML = homeworkFormSelectedFiles.map((file, i) =>
+        `<div style="padding:3px 0;border-bottom:1px solid #e2e8f0;">${i + 1}. ${file.name} <span style="color:#a0aec0;">(${(file.size / 1024 / 1024).toFixed(1)}MB)</span></div>`
+      ).join('');
+    }
+
+    function addHomeworkFormFiles(fileList) {
+      const incoming = Array.from(fileList || []);
+      if (incoming.length === 0) return;
+      homeworkFormSelectedFiles.push(...incoming);
+      renderHomeworkFormFileList();
+    }
+
+    document.getElementById('homeworkFile')?.addEventListener('change', function() {
+      addHomeworkFormFiles(this.files);
+      this.value = '';
+    });
+
+    document.getElementById('homeworkTakePhotoBtn')?.addEventListener('click', () => {
+      document.getElementById('homeworkCameraFile')?.click();
+    });
+
+    document.getElementById('homeworkCameraFile')?.addEventListener('change', function() {
+      addHomeworkFormFiles(this.files);
+      this.value = '';
+    });
+
+    document.getElementById('homeworkClearFilesBtn')?.addEventListener('click', () => {
+      homeworkFormSelectedFiles = [];
+      renderHomeworkFormFileList();
+    });
+
     document.getElementById('uploadHomeworkForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const sid = document.getElementById('homeworkSessionSelect').value;
-      const files = document.getElementById('homeworkFile').files;
+      const files = homeworkFormSelectedFiles;
       if(!sid || files.length === 0) return alert('Please select a session and at least one file');
 
       const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -5049,6 +5127,8 @@ setTimeout(() => {
         if (successCount > 0) {
           alert(`✅ ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
           e.target.reset();
+          homeworkFormSelectedFiles = [];
+          renderHomeworkFormFileList();
           resetSessionsCache();
           loadPast(false, true);
           loadBadges();

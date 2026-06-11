@@ -2582,6 +2582,20 @@ async function runMigrations() {
       console.log('Migration 28 note:', err.message);
     }
 
+    // Migration 28b: Store AI homework draft reviews separately from approved teacher feedback
+    try {
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS ai_review_status TEXT`);
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS ai_suggested_grade TEXT`);
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS ai_suggested_feedback TEXT`);
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS ai_review_summary TEXT`);
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS ai_review_details TEXT`);
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS ai_reviewed_at TIMESTAMP`);
+      await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS ai_review_error TEXT`);
+      console.log('Migration 28b: Added AI homework draft review columns');
+    } catch (err) {
+      console.log('Migration 28b note:', err.message);
+    }
+
     // Migration 29: Enable Row Level Security on all tables (fixes Supabase security warning)
     try {
       const tables = ['groups', 'group_timings', 'students', 'sessions', 'session_attendance', 'materials', 'events', 'event_registrations', 'email_log', 'announcements', 'parent_credentials', 'class_feedback', 'student_badges', 'monthly_assessments', 'student_certificates', 'payment_history', 'payment_renewals', 'makeup_classes', 'demo_leads', 'weekly_challenges', 'student_challenges', 'session_materials', 'admin_settings', 'expenses', 'resource_library', 'class_points'];
@@ -13199,6 +13213,168 @@ app.get('/api/materials/:studentId', async (req, res) => {
   }
 });
 
+function getImageMimeFromName(fileName = '') {
+  const ext = path.extname(fileName).toLowerCase();
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.png') return 'image/png';
+  if (ext === '.gif') return 'image/gif';
+  if (ext === '.webp') return 'image/webp';
+  return '';
+}
+
+function isHomeworkImageFile(fileName = '', filePath = '') {
+  const mime = getImageMimeFromName(fileName || filePath);
+  return !!mime;
+}
+
+function resolveLocalUploadPath(filePath = '') {
+  if (!filePath || !filePath.startsWith('/uploads/')) return null;
+  const uploadsRoot = path.resolve(__dirname, 'uploads');
+  const relativePath = filePath.replace(/^\/uploads\//, '').replace(/\?.*$/, '');
+  const absolutePath = path.resolve(uploadsRoot, relativePath);
+  if (!absolutePath.startsWith(uploadsRoot + path.sep) && absolutePath !== uploadsRoot) return null;
+  return absolutePath;
+}
+
+async function buildHomeworkImageInputForAi(material) {
+  const filePath = material.file_path || '';
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
+
+  const localPath = resolveLocalUploadPath(filePath);
+  if (!localPath || !fs.existsSync(localPath)) return null;
+  const mime = getImageMimeFromName(material.file_name || filePath);
+  if (!mime) return null;
+  const buffer = await fs.promises.readFile(localPath);
+  return `data:${mime};base64,${buffer.toString('base64')}`;
+}
+
+function extractJsonObject(text = '') {
+  const content = String(text || '').trim();
+  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const jsonStr = fenceMatch ? fenceMatch[1].trim() : (content.match(/\{[\s\S]*\}/) || [content])[0];
+  return JSON.parse(jsonStr);
+}
+
+async function runAiHomeworkDraftReview(materialId) {
+  const materialResult = await pool.query(`
+    SELECT m.*, st.name as student_name
+    FROM materials m
+    LEFT JOIN students st ON st.id = m.student_id
+    WHERE m.id = $1
+  `, [materialId]);
+  const material = materialResult.rows[0];
+  if (!material || material.feedback_given) return;
+
+  await pool.query(
+    `UPDATE materials SET ai_review_status = 'processing', ai_review_error = NULL WHERE id = $1`,
+    [materialId]
+  );
+
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    await pool.query(
+      `UPDATE materials SET ai_review_status = 'manual_required', ai_review_error = $1, ai_reviewed_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      ['GROQ_API_KEY is not configured.', materialId]
+    );
+    return;
+  }
+
+  const studentName = material.student_name || 'the student';
+  const fileName = material.file_name || '';
+  const filePath = material.file_path || '';
+  const comment = material.submission_comment || '';
+  const link = material.submission_link || '';
+  const hasVisibleText = !!comment || !!link || filePath === 'MANUAL' || filePath?.startsWith('LINK:');
+  const isImage = isHomeworkImageFile(fileName, filePath);
+
+  try {
+    let response;
+    const systemPrompt = `You are an English homework teacher. Review the submitted homework and create a draft review for the teacher to approve. Return ONLY valid JSON:
+{
+  "grade": "A/B+/B/etc",
+  "feedback": "parent-facing feedback in 2-5 clear sentences",
+  "summary": "short teacher summary",
+  "confidence": "high|medium|low"
+}
+Be fair, encouraging, and specific. If the submission has too little visible content, use confidence "low" and say manual teacher review is needed.`;
+
+    if (isImage) {
+      const imageInput = await buildHomeworkImageInputForAi(material);
+      if (!imageInput) throw new Error('Image file could not be read for AI review.');
+      response = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: `${systemPrompt}\n\nStudent: ${studentName}\nFile: ${fileName || 'homework image'}\nRead the worksheet/writeup carefully from the image.` },
+              { type: 'image_url', image_url: { url: imageInput } }
+            ]
+          }],
+          max_tokens: 1200,
+          temperature: 0.2
+        },
+        { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 45000 }
+      );
+    } else if (hasVisibleText) {
+      response = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Student: ${studentName}\nFile: ${fileName || 'text/link/manual submission'}\nParent comment/manual note: ${comment || fileName || ''}\nSubmitted link: ${link || (filePath?.startsWith('LINK:') ? filePath.replace('LINK:', '') : '')}\nCreate a draft review. If you cannot inspect the linked content, say manual teacher review is needed and use low confidence.` }
+          ],
+          max_tokens: 900,
+          temperature: 0.25
+        },
+        { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 20000 }
+      );
+    } else {
+      await pool.query(
+        `UPDATE materials SET ai_review_status = 'manual_required', ai_review_error = $1, ai_reviewed_at = CURRENT_TIMESTAMP WHERE id = $2`,
+        ['AI draft review currently supports images and visible text/comment/link submissions. Please review this file manually.', materialId]
+      );
+      return;
+    }
+
+    const content = response.data.choices?.[0]?.message?.content || '';
+    const parsed = extractJsonObject(content);
+    const grade = String(parsed.grade || '').trim().slice(0, 20);
+    const feedback = String(parsed.feedback || '').trim().slice(0, 2000);
+    const summary = String(parsed.summary || '').trim().slice(0, 500);
+    const confidence = String(parsed.confidence || 'medium').trim().toLowerCase();
+    if (!grade || !feedback) throw new Error('AI returned an incomplete draft review.');
+
+    await pool.query(`
+      UPDATE materials SET
+        ai_review_status = 'ready',
+        ai_suggested_grade = $1,
+        ai_suggested_feedback = $2,
+        ai_review_summary = $3,
+        ai_review_details = $4,
+        ai_reviewed_at = CURRENT_TIMESTAMP,
+        ai_review_error = NULL
+      WHERE id = $5
+    `, [grade, feedback, summary, JSON.stringify({ confidence, raw: parsed }), materialId]);
+  } catch (err) {
+    console.error('AI homework draft review failed:', err.response?.data || err.message);
+    await pool.query(
+      `UPDATE materials SET ai_review_status = 'failed', ai_review_error = $1, ai_reviewed_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [err.response?.data?.error?.message || err.message, materialId]
+    );
+  }
+}
+
+function queueAiHomeworkDraftReview(materialId) {
+  setTimeout(() => {
+    runAiHomeworkDraftReview(materialId).catch(err => {
+      console.error('AI homework draft queue error:', err.message);
+    });
+  }, 500);
+}
+
 app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req, res) => {
   try {
     const submissionComment = String(req.body.comment || '').trim();
@@ -13240,9 +13416,12 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
       filePath = '/uploads/homework/' + req.file.filename;
     }
 
-    await pool.query(`
+    const createdMaterialIds = [];
+
+    const firstInsert = await pool.query(`
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by, submission_comment, submission_link, comment_only_submission, homework_points_approved)
       VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent', $5, $6, $7, $8)
+      RETURNING id
     `, [
       req.params.studentId,
       req.body.sessionId,
@@ -13253,6 +13432,7 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
       commentOnlySubmission,
       commentOnlySubmission ? false : true
     ]);
+    createdMaterialIds.push(firstInsert.rows[0].id);
 
     for (const file of uploadedFiles.slice(1)) {
       let extraFilePath = null;
@@ -13265,15 +13445,17 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
         extraFilePath = '/uploads/homework/' + file.filename;
       }
 
-      await pool.query(`
+      const extraInsert = await pool.query(`
         INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by, submission_comment, submission_link, comment_only_submission, homework_points_approved)
         VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent', NULL, NULL, false, true)
+        RETURNING id
       `, [
         req.params.studentId,
         req.body.sessionId,
         file.originalname,
         extraFilePath
       ]);
+      createdMaterialIds.push(extraInsert.rows[0].id);
     }
 
     clearStudentSessionsCache(req.params.studentId);
@@ -13290,6 +13472,10 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
     }).catch((notifyErr) => {
       console.warn('Homework admin push trigger failed:', notifyErr.message);
     });
+
+    for (const materialId of createdMaterialIds) {
+      queueAiHomeworkDraftReview(materialId);
+    }
 
     res.json({ message: uploadedFiles.length > 1 ? `${uploadedFiles.length} homework files submitted successfully!` : 'Homework submitted successfully!' });
   } catch (err) {
@@ -17218,14 +17404,42 @@ app.get('/api/class-feedback/all', async (req, res) => {
 
 // ==================== HOMEWORK GRADING ====================
 app.post('/api/materials/:id/grade', async (req, res) => {
-  const { grade, comments, approve_homework_points } = req.body;
+  const { grade, comments, approve_homework_points, apply_to_session } = req.body;
   try {
     const materialBeforeResult = await pool.query(
-      'SELECT id, student_id, comment_only_submission, homework_points_approved FROM materials WHERE id = $1',
+      'SELECT id, student_id, session_id, file_type, comment_only_submission, homework_points_approved FROM materials WHERE id = $1',
       [req.params.id]
     );
     const materialBefore = materialBeforeResult.rows[0];
+    if (!materialBefore) {
+      return res.status(404).json({ error: 'Homework submission not found' });
+    }
+
     const shouldApproveHomeworkPoints = approve_homework_points === true || approve_homework_points === 'true';
+    const shouldApplyToSession = apply_to_session === true || apply_to_session === 'true';
+    let targetIds = [Number(req.params.id)];
+
+    if (shouldApplyToSession && materialBefore.session_id && materialBefore.student_id) {
+      const relatedResult = await pool.query(`
+        SELECT id
+        FROM materials
+        WHERE student_id = $1
+          AND session_id = $2
+          AND file_type = $3
+          AND uploaded_by IN ('Parent', 'Admin')
+      `, [materialBefore.student_id, materialBefore.session_id, materialBefore.file_type || 'Homework']);
+      targetIds = relatedResult.rows.map(row => row.id);
+    }
+
+    const approvalBeforeResult = await pool.query(`
+      SELECT id, student_id
+      FROM materials
+      WHERE id = ANY($1::int[])
+        AND file_type = 'Homework'
+        AND COALESCE(comment_only_submission, false) = true
+        AND COALESCE(homework_points_approved, false) = false
+    `, [targetIds]);
+
     await pool.query(`
       UPDATE materials SET
         feedback_grade = $1,
@@ -17236,8 +17450,15 @@ app.post('/api/materials/:id/grade', async (req, res) => {
           WHEN COALESCE(comment_only_submission, false) = true AND $3::boolean = true THEN true
           ELSE homework_points_approved
         END
-      WHERE id = $4
-    `, [grade, comments, shouldApproveHomeworkPoints, req.params.id]);
+      WHERE id = ANY($4::int[])
+    `, [grade, comments, shouldApproveHomeworkPoints, targetIds]);
+
+    if (shouldApplyToSession && materialBefore.file_type === 'Homework') {
+      await pool.query(
+        'UPDATE session_attendance SET homework_grade = $1, homework_comments = $2 WHERE session_id = $3 AND student_id = $4',
+        [grade, comments, materialBefore.session_id, materialBefore.student_id]
+      );
+    }
 
     // Get material details with student info for email
     const materialResult = await pool.query(`
@@ -17250,13 +17471,14 @@ app.post('/api/materials/:id/grade', async (req, res) => {
 
     if (materialResult.rows[0]) {
       const material = materialResult.rows[0];
-      if (
-        material.file_type === 'Homework' &&
-        materialBefore?.comment_only_submission &&
-        !materialBefore?.homework_points_approved &&
-        shouldApproveHomeworkPoints
-      ) {
-        await awardHomeworkSubmissionRecognition(material.student_id);
+      if (shouldApproveHomeworkPoints) {
+        const awardedStudents = new Set();
+        for (const row of approvalBeforeResult.rows) {
+          if (row.student_id && !awardedStudents.has(row.student_id)) {
+            await awardHomeworkSubmissionRecognition(row.student_id);
+            awardedStudents.add(row.student_id);
+          }
+        }
       }
       const materialType = material.file_type === 'Classwork' ? 'Classwork' : 'Homework';
 
@@ -17292,7 +17514,102 @@ app.post('/api/materials/:id/grade', async (req, res) => {
       }
     }
 
-    res.json({ success: true, message: 'Homework graded successfully!' });
+    res.json({
+      success: true,
+      message: shouldApplyToSession && targetIds.length > 1
+        ? `Overall feedback saved for ${targetIds.length} submissions.`
+        : 'Homework graded successfully!',
+      updated_count: targetIds.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/materials/:id/ai-review/approve', async (req, res) => {
+  try {
+    const materialResult = await pool.query(`
+      SELECT m.*, s.session_number, st.name as student_name, st.parent_email, st.parent_name
+      FROM materials m
+      LEFT JOIN sessions s ON m.session_id = s.id
+      LEFT JOIN students st ON m.student_id = st.id
+      WHERE m.id = $1
+    `, [req.params.id]);
+    const material = materialResult.rows[0];
+    if (!material) return res.status(404).json({ error: 'Homework submission not found' });
+    if (material.ai_review_status !== 'ready' || !material.ai_suggested_grade || !material.ai_suggested_feedback) {
+      return res.status(400).json({ error: 'AI draft review is not ready for approval.' });
+    }
+
+    const wasCommentOnlyPending = material.file_type === 'Homework' &&
+      material.comment_only_submission &&
+      !material.homework_points_approved;
+
+    await pool.query(`
+      UPDATE materials SET
+        feedback_grade = ai_suggested_grade,
+        feedback_comments = ai_suggested_feedback,
+        feedback_given = 1,
+        feedback_date = CURRENT_TIMESTAMP,
+        ai_review_status = 'approved',
+        homework_points_approved = CASE
+          WHEN COALESCE(comment_only_submission, false) = true THEN true
+          ELSE homework_points_approved
+        END
+      WHERE id = $1
+    `, [req.params.id]);
+
+    if (material.file_type === 'Homework' && material.session_id && material.student_id) {
+      await pool.query(
+        'UPDATE session_attendance SET homework_grade = $1, homework_comments = $2 WHERE session_id = $3 AND student_id = $4',
+        [material.ai_suggested_grade, material.ai_suggested_feedback, material.session_id, material.student_id]
+      );
+    }
+
+    if (wasCommentOnlyPending) {
+      await awardHomeworkSubmissionRecognition(material.student_id);
+    }
+    await awardBadge(material.student_id, 'graded_hw', 'ðŸ“š Homework Hero', 'Received homework feedback');
+
+    if (material.parent_email) {
+      try {
+        const materialType = material.file_type === 'Classwork' ? 'Classwork' : 'Homework';
+        const feedbackEmailHTML = getHomeworkFeedbackEmail({
+          studentName: material.student_name,
+          parentName: material.parent_name,
+          grade: material.ai_suggested_grade,
+          comments: material.ai_suggested_feedback,
+          fileName: material.file_name,
+          workType: materialType,
+          actionLabel: 'Reviewed'
+        });
+        await sendEmail(
+          material.parent_email,
+          `ðŸ“ ${materialType} Feedback - ${material.student_name}'s ${materialType} Reviewed`,
+          feedbackEmailHTML,
+          material.parent_name,
+          `${materialType}-Feedback`
+        );
+      } catch (emailErr) {
+        console.error('Error sending AI-approved homework feedback email:', emailErr);
+      }
+    }
+
+    res.json({ success: true, message: 'AI draft approved and homework marked checked.' });
+  } catch (err) {
+    console.error('Approve AI homework review error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/materials/:id/ai-review/retry', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE materials SET ai_review_status = 'queued', ai_review_error = NULL WHERE id = $1`,
+      [req.params.id]
+    );
+    queueAiHomeworkDraftReview(req.params.id);
+    res.json({ success: true, message: 'AI draft review queued.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -17801,13 +18118,13 @@ app.get('/api/students/:id/sessions', async (req, res) => {
   try {
     // Private sessions
     const priv = await pool.query(`
-      SELECT id, session_number, session_date FROM sessions
+      SELECT id, session_number, session_date, session_topic FROM sessions
       WHERE student_id = $1 AND status = 'Completed'
       ORDER BY session_number DESC
     `, [req.params.id]);
     // Group sessions via session_attendance
     const grp = await pool.query(`
-      SELECT s.id, s.session_number, s.session_date FROM sessions s
+      SELECT s.id, s.session_number, s.session_date, s.session_topic FROM sessions s
       JOIN session_attendance sa ON sa.session_id = s.id
       WHERE sa.student_id = $1 AND sa.attendance = 'Present'
       ORDER BY s.session_number DESC
