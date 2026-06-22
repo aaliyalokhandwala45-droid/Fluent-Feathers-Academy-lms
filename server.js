@@ -8270,12 +8270,55 @@ function addQuizQuestionTextToSet(set, text) {
   if (similarityKey) set.add(similarityKey);
 }
 
+function getQuizTextTokens(text) {
+  return getQuizQuestionSimilarityKey(text)
+    .split(' ')
+    .filter(word => word.length > 2);
+}
+
+function getQuizOptionSignature(options) {
+  if (!Array.isArray(options) || options.length !== 4) return '';
+  return options
+    .map(option => normalizeQuizQuestionText(option))
+    .filter(Boolean)
+    .sort()
+    .join('|');
+}
+
+function addQuizQuestionOptionsToSet(set, options) {
+  const signature = getQuizOptionSignature(options);
+  if (signature) set.add(signature);
+}
+
+function isQuizOptionSetTooSimilar(options, existingOptionSets) {
+  const signature = getQuizOptionSignature(options);
+  if (!signature) return true;
+  if (existingOptionSets.has(signature)) return true;
+
+  const optionWords = new Set(signature.split(/[|\s]+/).filter(word => word.length > 2));
+  if (optionWords.size < 4) return false;
+
+  for (const existing of existingOptionSets) {
+    const existingWords = new Set(String(existing || '').split(/[|\s]+/).filter(word => word.length > 2));
+    if (existingWords.size < 4) continue;
+
+    let overlap = 0;
+    for (const word of optionWords) {
+      if (existingWords.has(word)) overlap++;
+    }
+    const similarity = overlap / Math.max(optionWords.size, existingWords.size);
+    if (similarity >= 0.75) return true;
+  }
+
+  return false;
+}
+
 function isQuizQuestionTooSimilar(questionText, existingTexts) {
   const key = getQuizQuestionSimilarityKey(questionText);
   if (!key) return true;
   if (existingTexts.has(normalizeQuizQuestionText(questionText)) || existingTexts.has(key)) return true;
 
-  const words = new Set(key.split(' ').filter(word => word.length > 2));
+  const words = new Set(getQuizTextTokens(questionText));
   if (words.size < 4) return false;
 
   for (const existing of existingTexts) {
@@ -8284,16 +8327,14 @@ function isQuizQuestionTooSimilar(questionText, existingTexts) {
     // Only consider it too similar if one is contained in the other (very high similarity)
     if (existingKey.includes(key) || key.includes(existingKey)) return true;
 
-    const existingWords = new Set(existingKey.split(' ').filter(word => word.length > 2));
+    const existingWords = new Set(getQuizTextTokens(existingKey));
     if (existingWords.size < 4) continue;
     let overlap = 0;
     for (const word of words) {
       if (existingWords.has(word)) overlap++;
     }
     const similarity = overlap / Math.max(words.size, existingWords.size);
-    // Increased threshold from 0.72 to 0.88 - only reject if VERY similar (88% match)
-    // This allows more variety while still preventing exact duplicates
-    if (similarity >= 0.88) return true;
+    if (similarity >= 0.62) return true;
   }
 
   return false;
@@ -8535,6 +8576,62 @@ async function getHistoricalQuizQuestionTexts(level = null, quizDate = null, db 
 
     for (const row of bankResult.rows) {
       addQuizQuestionTextToSet(seen, row.question_text);
+    }
+  }
+
+  return seen;
+}
+
+async function getHistoricalQuizOptionSets(level = null, quizDate = null, db = pool, options = {}) {
+  const seen = new Set();
+  const normalizedLevel = level ? normalizeStudentQuizLevel(level) : null;
+  const includeQuestionBank = options.includeQuestionBank === true;
+  const limit = Number.isInteger(options.limit) ? Math.max(1, options.limit) : 120;
+
+  const dailyResult = await db.query(
+    `SELECT beginner_questions, intermediate_questions, advanced_questions
+     FROM daily_quizzes
+     ${quizDate ? 'WHERE quiz_date < $1' : ''}
+     ORDER BY quiz_date DESC
+     LIMIT $${quizDate ? 2 : 1}`,
+    quizDate ? [quizDate, limit] : [limit]
+  );
+
+  for (const row of dailyResult.rows) {
+    const columns = normalizedLevel
+      ? [getQuizLevelColumn(normalizedLevel)]
+      : ['beginner_questions', 'intermediate_questions', 'advanced_questions'];
+    const questions = columns.flatMap(column => Array.isArray(row[column]) ? row[column] : []);
+    for (const question of questions) {
+      addQuizQuestionOptionsToSet(seen, question?.options);
+    }
+  }
+
+  const pendingResult = await db.query(
+    `SELECT options
+     FROM pending_quiz_questions
+     WHERE ($1::text IS NULL OR level = $1)
+       ${quizDate ? 'AND quiz_date <= $2' : ''}
+       AND status IN ('pending', 'approved', 'rejected')`,
+    quizDate ? [normalizedLevel, quizDate] : [normalizedLevel]
+  );
+
+  for (const row of pendingResult.rows) {
+    addQuizQuestionOptionsToSet(seen, row.options);
+  }
+
+  if (includeQuestionBank) {
+    const bankResult = await db.query(
+      `SELECT options
+       FROM quiz_questions
+       WHERE ($1::text IS NULL OR level = $1)
+         AND is_active = true
+         AND LOWER(category) <> ALL($2::text[])`,
+      [normalizedLevel, QUIZ_EXCLUDED_CATEGORIES]
+    );
+
+    for (const row of bankResult.rows) {
+      addQuizQuestionOptionsToSet(seen, row.options);
     }
   }
 
@@ -8828,7 +8925,12 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     throw new Error('GROQ_API_KEY not configured. Add it to your environment variables.');
   }
 
-  const { quizDate = null, excludeTexts = new Set(), theme = null } = options;
+  const {
+    quizDate = null,
+    excludeTexts = new Set(),
+    excludeOptionSets = new Set(),
+    theme = null
+  } = options;
 
   const levelAgeGroups = {
     beginner: 'ages 4-7',
@@ -8866,9 +8968,13 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     .join('\n');
 
   const preferredCategories = getQuizAllowedCategoriesForLevel(level);
-  const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate, pool, { limit: 180 });
+  const historicalTexts = await getHistoricalQuizQuestionTexts(null, quizDate, pool, { limit: 180 });
+  const historicalOptionSets = await getHistoricalQuizOptionSets(null, quizDate, pool, { limit: 180 });
   for (const text of excludeTexts) {
     addQuizQuestionTextToSet(historicalTexts, text);
+  }
+  for (const optionSet of excludeOptionSets) {
+    if (optionSet) historicalOptionSets.add(optionSet);
   }
   const bannedExamples = Array.from(historicalTexts)
     .filter(text => text.split(' ').length >= 4)
@@ -8884,6 +8990,7 @@ Requirements:
 - Each question MUST be completely different from others
 - Do NOT repeat or lightly reword any past question listed below
 - Use new situations, names, sentences, idioms, examples, and answer choices
+- Do NOT reuse the same option words across questions; every question needs its own answer-choice set
 - ${levelDescriptions[level]}
 - Keep the difficulty strictly appropriate for ${levelAgeGroups[level]} only
 - Do not create questions meant for younger or older age groups
@@ -8894,6 +9001,8 @@ ${level === 'advanced' ? '- Advanced must include direct_indirect_speech questio
 - MCQ options must be interesting and plausible: avoid one correct answer with three silly or unrelated choices
 - Distractors should be close enough to make the child think, but still fair for the level
 - Include vocabulary-related questions in every generated set, including beginner
+- Include a balanced mix: grammar usage, vocabulary in context, sentence correction, punctuation, idioms/proverbs or imagery, and one sentence-building/expression question where allowed
+- Use varied contexts: school, home, travel, nature, friendship, books, sports, festivals, problem-solving, and daily conversation
 - Explain advanced vocabulary in simple language in the explanation
 ${levelRequirementText}
 - Never use contextual_reference_sentences
@@ -8995,11 +9104,17 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
 
     const deduped = [];
     const seen = new Set();
+    const seenOptionSets = new Set(historicalOptionSets);
     for (const question of validated) {
       const normalized = normalizeQuizQuestionText(question.question_text);
       const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+      const optionSignature = getQuizOptionSignature(question.options);
       if (!normalized) {
         console.log(`⏭️ Could not normalize question text`);
+        continue;
+      }
+      if (!optionSignature || new Set(question.options.map(option => normalizeQuizQuestionText(option))).size !== 4) {
+        console.log(`⏭️ Duplicate or invalid options: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
       if (seen.has(normalized)) {
@@ -9014,8 +9129,15 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
         console.log(`⏭️ Too similar to historical questions: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
+      if (isQuizOptionSetTooSimilar(question.options, seenOptionSets)) {
+        console.log(`⏭️ Options too similar to existing questions: "${question.question_text.substring(0, 40)}..."`);
+        continue;
+      }
       seen.add(normalized);
       if (similarityKey) seen.add(similarityKey);
+      seenOptionSets.add(optionSignature);
+      historicalTexts.add(normalized);
+      if (similarityKey) historicalTexts.add(similarityKey);
       deduped.push(question);
       console.log(`✔️ Added question: "${question.question_text.substring(0, 50)}..."`);
       if (deduped.length >= count) break;
@@ -9303,22 +9425,25 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
   const extraExcludeTexts = options.excludeTexts instanceof Set
     ? options.excludeTexts
     : new Set(Array.isArray(options.excludeTexts) ? options.excludeTexts : []);
+  const globalSeenTexts = new Set();
+  const globalSeenOptionSets = new Set();
+  extraExcludeTexts.forEach(text => addQuizQuestionTextToSet(globalSeenTexts, text));
   let totalGenerated = 0;
 
   for (const level of levels) {
     try {
       // Get ALL existing questions including rejected ones to avoid duplicating them
       const existingResult = await pool.query(
-        `SELECT question_text, status
+        `SELECT level, question_text, options, status
          FROM pending_quiz_questions
-         WHERE quiz_date = $1 AND level = $2
-         ORDER BY id`,
-        [quizDate, level]
+         WHERE quiz_date = $1
+         ORDER BY level, id`,
+        [quizDate]
       );
       
       // Count only pending/approved for actual queue
       const activeCount = existingResult.rows
-        .filter(r => ['pending', 'approved'].includes(r.status))
+        .filter(r => r.level === level && ['pending', 'approved'].includes(r.status))
         .length;
       const neededCount = Number.isInteger(targetCountByLevel[level])
         ? Math.max(0, targetCountByLevel[level])
@@ -9332,8 +9457,12 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       console.log(`⏳ Generating AI questions for ${level} level${theme ? ' with theme: ' + theme : ''}... (need ${neededCount})`);
       const aiQuestions = [];
       // Exclude ALL existing questions (including rejected) to prevent duplication
-      const localSeen = new Set();
+      const localSeen = new Set(globalSeenTexts);
+      const localOptionSets = new Set(globalSeenOptionSets);
       existingResult.rows.forEach(row => addQuizQuestionTextToSet(localSeen, row.question_text));
+      existingResult.rows.forEach(row => addQuizQuestionTextToSet(globalSeenTexts, row.question_text));
+      existingResult.rows.forEach(row => addQuizQuestionOptionsToSet(localOptionSets, row.options));
+      existingResult.rows.forEach(row => addQuizQuestionOptionsToSet(globalSeenOptionSets, row.options));
       extraExcludeTexts.forEach(text => addQuizQuestionTextToSet(localSeen, text));
       
       if (localSeen.size > 0) {
@@ -9343,15 +9472,15 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       let consecutiveRateLimits = 0;
       const maxConsecutiveRateLimits = 3;
       for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
-        // Cap request at 10 to avoid exceeding Groq token limits
-        // Only request what we actually need, not 1.5x
+        // Ask for extra candidates because strict variety filters may reject near-duplicates.
         const remaining = neededCount - aiQuestions.length;
-        const requestCount = Math.min(10, Math.max(2, remaining));
+        const requestCount = Math.min(10, Math.max(4, remaining * 2));
         let batch = [];
         try {
           batch = await generateQuizQuestionsWithAI(level, requestCount, {
             quizDate,
             excludeTexts: localSeen,
+            excludeOptionSets: localOptionSets,
             theme: theme
           });
           // Reset rate limit counter on success
@@ -9382,10 +9511,15 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         for (const question of batch) {
           const normalized = normalizeQuizQuestionText(question.question_text);
           const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+          const optionSignature = getQuizOptionSignature(question.options);
           
           // Skip if empty or already seen
           if (!normalized) {
             console.log(`⏭️ Skipping question with empty text`);
+            continue;
+          }
+          if (!optionSignature || isQuizOptionSetTooSimilar(question.options, localOptionSets)) {
+            console.log(`⏭️ Skipping question with repeated option pattern: "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
           if (localSeen.has(normalized)) {
@@ -9399,7 +9533,11 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           
           // Add this question
           localSeen.add(normalized);
+          globalSeenTexts.add(normalized);
           if (similarityKey) localSeen.add(similarityKey);
+          if (similarityKey) globalSeenTexts.add(similarityKey);
+          localOptionSets.add(optionSignature);
+          globalSeenOptionSets.add(optionSignature);
           aiQuestions.push(question);
           addedThisBatch++;
           
@@ -19955,17 +20093,23 @@ app.post('/api/admin/pending-quiz-questions', async (req, res) => {
     }
 
     const duplicateResult = await pool.query(
-      `SELECT id
+      `SELECT question_text, options
        FROM pending_quiz_questions
        WHERE quiz_date = $1
          AND level = $2
-         AND LOWER(TRIM(question_text)) = $3
          AND status IN ('pending', 'approved')
-       LIMIT 1`,
-      [date, level, normalizeQuizQuestionText(trimmedQuestion)]
+       ORDER BY id`,
+      [date, level]
     );
-    if (duplicateResult.rows.length > 0) {
-      return res.status(400).json({ error: 'A question with the same text already exists for this level and date' });
+    const existingTexts = new Set();
+    const existingOptionSets = new Set();
+    duplicateResult.rows.forEach(row => addQuizQuestionTextToSet(existingTexts, row.question_text));
+    duplicateResult.rows.forEach(row => addQuizQuestionOptionsToSet(existingOptionSets, row.options));
+    if (isQuizQuestionTooSimilar(trimmedQuestion, existingTexts)) {
+      return res.status(400).json({ error: 'A same or very similar question already exists for this level and date' });
+    }
+    if (isQuizOptionSetTooSimilar(trimmedOptions, existingOptionSets)) {
+      return res.status(400).json({ error: 'A question with very similar answer options already exists for this level and date' });
     }
 
     const insertResult = await pool.query(
@@ -20003,7 +20147,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
     }
 
     const existingResult = await pool.query(
-      `SELECT id, quiz_date, level, status, question_text
+      `SELECT id, quiz_date, level, status, question_text, options
        FROM pending_quiz_questions
        WHERE id = $1`,
       [questionId]
@@ -20019,13 +20163,15 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
 
     const quizDate = formatQuizDateValue(existing.quiz_date);
     const siblingResult = await pool.query(
-      `SELECT question_text
+      `SELECT question_text, options
        FROM pending_quiz_questions
-       WHERE quiz_date = $1 AND level = $2 AND id <> $3`,
-      [quizDate, existing.level, questionId]
+       WHERE quiz_date = $1 AND id <> $2`,
+      [quizDate, questionId]
     );
     const existingTexts = await getHistoricalQuizQuestionTexts(null, quizDate);
+    const existingOptionSets = await getHistoricalQuizOptionSets(null, quizDate);
     existingTexts.add(normalizeQuizQuestionText(existing.question_text));
+    addQuizQuestionOptionsToSet(existingOptionSets, existing.options);
     const currentSimilarityKey = getQuizQuestionSimilarityKey(existing.question_text);
     if (currentSimilarityKey) existingTexts.add(currentSimilarityKey);
     siblingResult.rows.forEach((row) => {
@@ -20033,6 +20179,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
       const similarityKey = getQuizQuestionSimilarityKey(row.question_text);
       if (normalized) existingTexts.add(normalized);
       if (similarityKey) existingTexts.add(similarityKey);
+      addQuizQuestionOptionsToSet(existingOptionSets, row.options);
     });
 
     let replacement = null;
@@ -20041,7 +20188,8 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
       try {
         generated = await generateQuizQuestionsWithAI(existing.level, 3, {
           quizDate,
-          excludeTexts: existingTexts
+          excludeTexts: existingTexts,
+          excludeOptionSets: existingOptionSets
         });
       } catch (err) {
         if (isGroqRateLimitError(err)) {
@@ -20055,7 +20203,11 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
       replacement = generated.find((q) => {
         const normalized = normalizeQuizQuestionText(q.question_text);
         const similarityKey = getQuizQuestionSimilarityKey(q.question_text);
-        return normalized && !existingTexts.has(normalized) && !existingTexts.has(similarityKey) && !isQuizQuestionTooSimilar(q.question_text, existingTexts);
+        return normalized &&
+          !existingTexts.has(normalized) &&
+          !existingTexts.has(similarityKey) &&
+          !isQuizQuestionTooSimilar(q.question_text, existingTexts) &&
+          !isQuizOptionSetTooSimilar(q.options, existingOptionSets);
       }) || null;
 
       for (const q of generated) {
@@ -20063,6 +20215,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
         const similarityKey = getQuizQuestionSimilarityKey(q.question_text);
         if (normalized) existingTexts.add(normalized);
         if (similarityKey) existingTexts.add(similarityKey);
+        addQuizQuestionOptionsToSet(existingOptionSets, q.options);
       }
     }
     if (!replacement && req.body?.allowQuestionBankFallback === true) {
