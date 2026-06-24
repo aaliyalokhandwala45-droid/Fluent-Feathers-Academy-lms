@@ -11728,7 +11728,9 @@ async function saveEditedPayment() {
         if(homework.length === 0) {
           container.innerHTML = '<p style="color:#718096; text-align:center;">No homework submitted yet</p>';
         } else {
-          container.innerHTML = homework.map(hw => `
+          container.innerHTML = homework.map(hw => {
+            const isReviewed = !!(hw.feedback_grade || hw.feedback_comments || hw.corrected_file_path || hw.feedback_date);
+            return `
             <div style="background:#f7fafc; padding:15px; border-radius:8px; margin-bottom:10px;">
               <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                 <div>
@@ -11737,12 +11739,14 @@ async function saveEditedPayment() {
                   <p style="color:#718096; font-size:0.85rem;">${new Date(hw.uploaded_at).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  ${hw.feedback_given ? `<span style="color:#38a169;">✓ Graded: ${hw.feedback_grade}</span>` : '<button onclick="gradeHomework('+hw.id+')" class="btn btn-sm btn-primary">Grade</button>'}
+                  ${isReviewed ? `<span style="color:#38a169;">✓ Reviewed${hw.feedback_grade ? ': ' + hw.feedback_grade : (hw.corrected_file_path ? ' (Annotated)' : '')}</span>` : '<button onclick="gradeHomework('+hw.id+')" class="btn btn-sm btn-primary">Grade</button>'}
                 </div>
               </div>
               ${hw.feedback_comments ? `<p><strong>Feedback:</strong> ${hw.feedback_comments}</p>` : ''}
+              ${hw.corrected_file_path && !hw.feedback_comments ? `<p style="color:#718096; font-size:0.9rem;"><em>Annotated file provided</em></p>` : ''}
             </div>
-          `).join('');
+          `;
+          }).join('');
         }
       } catch(err) {
         console.error(err);
