@@ -32,6 +32,8 @@ function isAbsoluteHttpUrl(value) {
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEFAULT_CLASS = process.env.DEFAULT_CLASS_LINK || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
+const GROQ_TEXT_MODEL = String(process.env.GROQ_TEXT_MODEL || process.env.GROQ_MODEL || 'openai/gpt-oss-120b').trim();
+const GROQ_VISION_MODEL = String(process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct').trim();
 
 // Enforce security requirements in production
 if (process.env.NODE_ENV === 'production') {
@@ -9029,7 +9031,7 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_TEXT_MODEL,
         messages: [
           {
             role: 'user',
@@ -9422,6 +9424,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
     : ['beginner', 'intermediate', 'advanced'];
   const targetCountByLevel = options.targetCountByLevel || {};
   const theme = options.theme || null;
+  const allowQuestionBankFallback = options.allowQuestionBankFallback !== false;
+  const allowLocalFallback = options.allowLocalFallback !== false;
   const extraExcludeTexts = options.excludeTexts instanceof Set
     ? options.excludeTexts
     : new Set(Array.isArray(options.excludeTexts) ? options.excludeTexts : []);
@@ -9551,7 +9555,56 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       }
 
       if (aiQuestions.length < neededCount) {
-        console.warn(`⚠️ Could only generate ${aiQuestions.length}/${neededCount} questions for ${level} after 12 attempts. No fallback enabled - will return partial set.`);
+        const remainingAfterAi = neededCount - aiQuestions.length;
+        console.warn(`Could only generate ${aiQuestions.length}/${neededCount} AI questions for ${level} after retries.`);
+
+        if (allowQuestionBankFallback) {
+          const fallbackQuestions = await getFallbackPendingQuizQuestions(level, remainingAfterAi, {
+            quizDate,
+            excludeTexts: localSeen
+          });
+          for (const question of fallbackQuestions) {
+            const normalized = normalizeQuizQuestionText(question.question_text);
+            const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+            const optionSignature = getQuizOptionSignature(question.options);
+            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || !optionSignature || isQuizOptionSetTooSimilar(question.options, localOptionSets)) {
+              continue;
+            }
+            localSeen.add(normalized);
+            globalSeenTexts.add(normalized);
+            if (similarityKey) localSeen.add(similarityKey);
+            if (similarityKey) globalSeenTexts.add(similarityKey);
+            localOptionSets.add(optionSignature);
+            globalSeenOptionSets.add(optionSignature);
+            aiQuestions.push(question);
+            if (aiQuestions.length >= neededCount) break;
+          }
+          console.log(`Question bank fallback filled quiz to ${aiQuestions.length}/${neededCount} for ${level}`);
+        }
+
+        if (aiQuestions.length < neededCount && allowLocalFallback) {
+          const localQuestions = await getLocalGeneratedQuizQuestions(level, neededCount - aiQuestions.length, {
+            quizDate,
+            excludeTexts: localSeen
+          });
+          for (const question of localQuestions) {
+            const normalized = normalizeQuizQuestionText(question.question_text);
+            const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+            const optionSignature = getQuizOptionSignature(question.options);
+            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || !optionSignature || isQuizOptionSetTooSimilar(question.options, localOptionSets)) {
+              continue;
+            }
+            localSeen.add(normalized);
+            globalSeenTexts.add(normalized);
+            if (similarityKey) localSeen.add(similarityKey);
+            if (similarityKey) globalSeenTexts.add(similarityKey);
+            localOptionSets.add(optionSignature);
+            globalSeenOptionSets.add(optionSignature);
+            aiQuestions.push(question);
+            if (aiQuestions.length >= neededCount) break;
+          }
+          console.log(`Local fallback filled quiz to ${aiQuestions.length}/${neededCount} for ${level}`);
+        }
       }
 
       if (!aiQuestions || aiQuestions.length === 0) {
@@ -13442,7 +13495,7 @@ Be fair, encouraging, and specific. If the submission has too little visible con
       response = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
         {
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          model: GROQ_VISION_MODEL,
           messages: [{
             role: 'user',
             content: [
@@ -13459,7 +13512,7 @@ Be fair, encouraging, and specific. If the submission has too little visible con
       response = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
         {
-          model: 'llama-3.3-70b-versatile',
+          model: GROQ_TEXT_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Student: ${studentName}\nFile: ${fileName || 'text/link/manual submission'}\nParent comment/manual note: ${comment || fileName || ''}\nSubmitted link: ${link || (filePath?.startsWith('LINK:') ? filePath.replace('LINK:', '') : '')}\nCreate a draft review. If you cannot inspect the linked content, say manual teacher review is needed and use low confidence.` }
@@ -17931,7 +17984,7 @@ Return ONLY the JSON. No markdown. No explanation.`;
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: GROQ_VISION_MODEL,
         messages: [{
           role: 'user',
           content: [
@@ -18080,7 +18133,7 @@ Return ONLY JSON. No markdown. No explanation.`;
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_TEXT_MODEL,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 1024,
         temperature: 0.4
@@ -18129,7 +18182,7 @@ Teacher prompt: ${teacher_notes}`;
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_TEXT_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -18193,7 +18246,7 @@ Return ONLY JSON. No markdown. No explanation.`
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_TEXT_MODEL,
         messages: [
           { role: 'system', content: sysPrompt },
           { role: 'user', content: prompt }
@@ -19920,16 +19973,16 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     console.log(`🤖 Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
     const generated = await generatePendingQuizQuestions(date, levelsToGenerate, {
       targetCountByLevel,
-      allowQuestionBankFallback: false,
-      allowLocalFallback: false,
+      allowQuestionBankFallback: true,
+      allowLocalFallback: true,
       theme: theme || null,
       excludeTexts: rejectedTextsToAvoid
     });
 
     if (generated === 0) {
       console.error('❌ No questions were generated!');
-      return res.status(429).json({
-        error: 'Groq is rate-limited right now and could not create fresh AI questions after retries. Please wait a minute and generate again.',
+      return res.status(503).json({
+        error: 'Could not create quiz questions from Groq, the question bank, or the local fallback. Please check Groq/API logs and question bank data.',
         generated: 0
       });
     }
