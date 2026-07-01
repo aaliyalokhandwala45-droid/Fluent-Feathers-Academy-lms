@@ -4345,17 +4345,28 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
       : subject;
   let finalHtml = html;
 
+  const logEmailAttempt = async (status, body = finalHtml || html || '') => {
+    await pool.query(`INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [options.studentId || null, recipientName || '', to, emailType, effectiveSubject, status, body]);
+  };
+  const sendResult = (sent, error = null, providerStatus = null) => (
+    options.returnResult === true
+      ? { sent, error, provider_status: providerStatus }
+      : sent
+  );
+
   const shouldSkipInactiveStudent = await shouldSkipInactiveStudentEmail(normalizedEmailType, to, options);
   if (shouldSkipInactiveStudent) {
     console.log(`Skipping ${normalizedEmailType} email for inactive student ${to}`);
-    return false;
+    await logEmailAttempt('Skipped');
+    return sendResult(false, 'Email skipped because the student is inactive');
   }
 
   try {
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) {
       console.warn('⚠️ BREVO_API_KEY missing. Email not sent.');
-      return false;
+      await logEmailAttempt('Failed');
+      return sendResult(false, 'Email provider is not configured');
     }
 
     const websiteLink = 'https://sites.google.com/view/fluentfeathersacademybyaaliya/home';
@@ -4375,21 +4386,28 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
     }
 
     await axios.post('https://api.brevo.com/v3/smtp/email', { sender: { name: 'Fluent Feathers Academy', email: process.env.EMAIL_USER || 'test@test.com' }, to: [{ email: to, name: recipientName || to }], subject: effectiveSubject, htmlContent: finalHtml }, { headers: { 'api-key': apiKey, 'Content-Type': 'application/json' } });
-    await pool.query(`INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, $5, 'Sent', $6)`, [options.studentId || null, recipientName || '', to, emailType, effectiveSubject, finalHtml]);
+    await logEmailAttempt('Sent');
     if (options.skipPush !== true) {
       const pushTitle = String(effectiveSubject || '').replace(/\s*\[[^\]]+\]\s*$/g, '').trim() || 'Fluent Feathers';
       const pushBody = stripHtmlSnippet(finalHtml);
       sendPushToParentByEmail(to, pushTitle, pushBody, { emailType: emailType || '' }).catch(() => {});
     }
-    return true;
+    return sendResult(true);
   } catch (e) {
     console.error('Email Error:', e.message);
-    await pool.query(`INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body) VALUES ($1, $2, $3, $4, $5, 'Failed', $6)`, [options.studentId || null, recipientName || '', to, emailType, effectiveSubject, finalHtml || html || '']);
+    if (e?.response?.status || e?.response?.data) {
+      console.error('Email Provider Response:', {
+        status: e?.response?.status,
+        data: e?.response?.data
+      });
+    }
+    await logEmailAttempt('Failed', finalHtml || html || '');
     // Do not block push fallback on email provider failures.
     const pushTitleFallback = String(effectiveSubject || subject || '').replace(/\s*\[[^\]]+\]\s*$/g, '').trim() || 'Fluent Feathers';
     const pushBodyFallback = stripHtmlSnippet(finalHtml || html || '') || `Update for ${recipientName || 'Parent'}`;
     sendPushToParentByEmail(to, pushTitleFallback, pushBodyFallback, { emailType: emailType || '', fallback: 'email_failed' }).catch(() => {});
-    return false;
+    const providerMessage = e?.response?.data?.message || e?.response?.data?.error || e.message || 'Email provider rejected the request';
+    return sendResult(false, providerMessage, e?.response?.status || null);
   }
 }
 
@@ -5869,7 +5887,21 @@ function getEventEmail(data) {
 }
 
 function getRefundEmail(data) {
-  const { parentName, studentName, amount, currency, sessions, reason } = data;
+  const {
+    parentName,
+    studentName,
+    amount,
+    currency,
+    sessions,
+    reason,
+    perSessionFee,
+    originalPaymentAmount,
+    originalSessions,
+    paymentDate,
+    refundDate,
+    completedSessions
+  } = data;
+  const safe = value => escapeHtml(value === null || value === undefined ? '' : value);
 
   return `<!DOCTYPE html>
 <html>
@@ -5880,24 +5912,30 @@ function getRefundEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">💸 Refund Processed</h1>
-      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">A refund has been initiated for your child’s unused sessions.</p>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">💸 Refund Initiated</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Your refund request has been recorded for the unused sessions.</p>
     </div>
     <div style="padding: 40px 30px;">
-      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">Dear <strong>${parentName}</strong>,</p>
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">Dear <strong>${safe(parentName)}</strong>,</p>
       <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
-        We have processed a refund for <strong>${studentName}</strong> for the unused sessions that were removed from the account.
+        We have initiated a refund for <strong>${safe(studentName)}</strong>. The unused sessions listed below have been removed from the account.
       </p>
 
       <div style="background: #f7fafc; padding: 25px; border-radius: 12px; border-left: 4px solid #e53e3e; margin: 20px 0;">
         <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 10px 0; color: #4a5568;">Amount Refunded:</td><td style="padding: 10px 0; font-weight: bold; color: #e53e3e; font-size: 1.1rem;">${currency} ${amount}</td></tr>
-          <tr><td style="padding: 10px 0; color: #4a5568;">Unused Sessions Removed:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${sessions}</td></tr>
-          ${reason ? `<tr><td style="padding: 10px 0; color: #4a5568;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${reason}</td></tr>` : ''}
+          <tr><td style="padding: 10px 0; color: #4a5568;">Refund Amount:</td><td style="padding: 10px 0; font-weight: bold; color: #e53e3e; font-size: 1.1rem;">${safe(currency)} ${safe(amount)}</td></tr>
+          <tr><td style="padding: 10px 0; color: #4a5568;">Unused Sessions Refunded:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(sessions)}</td></tr>
+          ${perSessionFee ? `<tr><td style="padding: 10px 0; color: #4a5568;">Fee per Session:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(currency)} ${safe(perSessionFee)}</td></tr>` : ''}
+          ${completedSessions !== null && completedSessions !== undefined ? `<tr><td style="padding: 10px 0; color: #4a5568;">Sessions Completed:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(completedSessions)}</td></tr>` : ''}
+          ${originalPaymentAmount ? `<tr><td style="padding: 10px 0; color: #4a5568;">Original Payment:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(currency)} ${safe(originalPaymentAmount)}${originalSessions ? ` for ${safe(originalSessions)} sessions` : ''}</td></tr>` : ''}
+          ${paymentDate ? `<tr><td style="padding: 10px 0; color: #4a5568;">Payment Date:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(paymentDate)}</td></tr>` : ''}
+          ${refundDate ? `<tr><td style="padding: 10px 0; color: #4a5568;">Refund Initiated:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(refundDate)}</td></tr>` : ''}
+          ${reason ? `<tr><td style="padding: 10px 0; color: #4a5568;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(reason)}</td></tr>` : ''}
         </table>
       </div>
 
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        The time taken for the refunded amount to appear can depend on the payment provider or bank.<br><br>
         If you have any questions regarding this refund, please feel free to reach out to us.<br><br>
         <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
       </p>
@@ -15551,7 +15589,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
     await client.query('BEGIN');
 
     const studentResult = await client.query(`
-      SELECT id, name, currency, per_session_fee, fees_paid, completed_sessions, remaining_sessions
+      SELECT id, name, parent_name, parent_email, currency, per_session_fee, fees_paid, completed_sessions, remaining_sessions
       FROM students
       WHERE id = $1
     `, [studentId]);
@@ -15576,7 +15614,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
     await client.query(`
       INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
       VALUES ($1, CURRENT_TIMESTAMP, $2, $3, $4, $5, $6, $7)
-    `, [studentId, -refundAmount, student.currency || 'INR', 'Refund', 0, notes, 'Refunded']);
+    `, [studentId, -refundAmount, student.currency || 'INR', 'Refund', remainingSessions, notes, 'Refunded']);
 
     await client.query(`
       UPDATE students
@@ -15591,23 +15629,41 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
     await client.query('COMMIT');
 
     let refundEmailSent = false;
-    if (student.parent_email) {
+    const parentEmail = (student.parent_email || '').toString().trim();
+    const recipientName = (student.parent_name || student.name || 'Parent').toString().trim();
+
+    if (parentEmail) {
       const refundEmailHTML = getRefundEmail({
-        parentName: student.parent_name || 'Parent',
+        parentName: recipientName,
         studentName: student.name,
         amount: refundAmount.toFixed(2),
         currency: student.currency || 'INR',
         sessions: remainingSessions,
-        reason: notes
+        reason: notes,
+        perSessionFee: parseFloat(student.per_session_fee || 0).toFixed(2),
+        originalPaymentAmount: parseFloat(student.fees_paid || 0).toFixed(2),
+        originalSessions: completedSessions + remainingSessions,
+        completedSessions,
+        refundDate: new Date().toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'Asia/Kolkata'
+        })
       });
       refundEmailSent = await sendEmail(
-        student.parent_email,
-        `💸 Refund Processed for ${student.name}`,
+        parentEmail,
+        `💸 Refund Initiated for ${student.name}`,
         refundEmailHTML,
-        student.parent_name || student.name,
+        recipientName,
         'Refund',
         { studentId: student.id }
       );
+    } else {
+      await pool.query(`
+        INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body)
+        VALUES ($1, $2, $3, $4, $5, 'Failed', $6)
+      `, [student.id, recipientName, '', 'Refund', `💸 Refund Initiated for ${student.name}`, 'No parent email available for refund notification.']);
     }
 
     res.json({
@@ -15623,6 +15679,125 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
+  }
+});
+
+app.post('/api/admin/resend-refund-email', async (req, res) => {
+  const { student_id } = req.body || {};
+  if (!student_id) {
+    return res.status(400).json({ error: 'Student is required' });
+  }
+
+  try {
+    const studentResult = await pool.query(
+      'SELECT id, name, parent_name, parent_email, currency, per_session_fee, completed_sessions FROM students WHERE id = $1',
+      [student_id]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const student = studentResult.rows[0];
+    const parentEmail = (student.parent_email || '').toString().trim();
+    const recipientName = (student.parent_name || student.name || 'Parent').toString().trim();
+
+    if (!parentEmail) {
+      return res.status(400).json({ error: 'Student has no parent email' });
+    }
+
+    const refundResult = await pool.query(`
+      SELECT id, amount, currency, sessions_covered, notes, payment_status,
+             TO_CHAR(payment_date, 'FMDD FMMonth YYYY') AS refund_date,
+             payment_date
+      FROM payment_history
+      WHERE student_id = $1
+        AND amount < 0
+        AND (
+          payment_method = 'Refund'
+          OR payment_status = 'Refunded'
+          OR LOWER(COALESCE(notes, '')) LIKE '%refund%'
+        )
+      ORDER BY payment_date DESC, id DESC
+      LIMIT 1
+    `, [student.id]);
+
+    const refundRecord = refundResult.rows[0];
+    if (!refundRecord) {
+      return res.status(404).json({ error: 'No refund record was found for this student' });
+    }
+
+    const refundAmount = refundRecord ? Math.abs(parseFloat(refundRecord.amount || 0)) : 0;
+    const refundCurrency = (refundRecord?.currency || student.currency || 'INR').toString().toUpperCase();
+    const sessionsFromRecord = parseInt(refundRecord.sessions_covered, 10) || 0;
+    const sessionsFromNotes = parseInt((refundRecord.notes || '').match(/(\d+)\s+unused session/i)?.[1], 10) || 0;
+    const sessionsFromAmount = parseFloat(student.per_session_fee || 0) > 0
+      ? Math.round(refundAmount / parseFloat(student.per_session_fee))
+      : 0;
+    const refundSessions = sessionsFromRecord || sessionsFromNotes || sessionsFromAmount;
+    const refundReason = (refundRecord.notes || `Refund for ${refundSessions} unused session(s)`).toString().trim();
+
+    const originalPaymentResult = await pool.query(`
+      SELECT amount, currency, sessions_covered,
+             TO_CHAR(payment_date, 'FMDD FMMonth YYYY') AS payment_date
+      FROM payment_history
+      WHERE student_id = $1
+        AND amount > 0
+        AND payment_date <= $2
+        AND COALESCE(payment_status, 'Paid') <> 'Refunded'
+      ORDER BY payment_date DESC, id DESC
+      LIMIT 1
+    `, [student.id, refundRecord.payment_date]);
+    const originalPayment = originalPaymentResult.rows[0] || null;
+    const originalSessions = parseInt(originalPayment?.sessions_covered, 10) || 0;
+    const completedSessions = originalSessions > 0
+      ? Math.max(originalSessions - refundSessions, 0)
+      : parseInt(student.completed_sessions || 0, 10);
+
+    const refundEmailHTML = getRefundEmail({
+      parentName: recipientName,
+      studentName: student.name,
+      amount: refundAmount.toFixed(2),
+      currency: refundCurrency,
+      sessions: refundSessions,
+      reason: refundReason,
+      perSessionFee: parseFloat(student.per_session_fee || 0).toFixed(2),
+      originalPaymentAmount: originalPayment ? Math.abs(parseFloat(originalPayment.amount || 0)).toFixed(2) : '',
+      originalSessions,
+      paymentDate: originalPayment?.payment_date || '',
+      refundDate: refundRecord.refund_date || '',
+      completedSessions
+    });
+
+    const emailResult = await sendEmail(
+      parentEmail,
+      `💸 Refund Initiated for ${student.name}`,
+      refundEmailHTML,
+      recipientName,
+      'Refund',
+      { studentId: student.id, returnResult: true }
+    );
+
+    if (!emailResult.sent) {
+      const statusText = emailResult.provider_status ? ` (${emailResult.provider_status})` : '';
+      return res.status(502).json({
+        error: `Refund email was not sent${statusText}: ${emailResult.error || 'Email provider rejected the request'}`,
+        email_sent: false
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Refund email sent to ${parentEmail}`,
+      email_sent: true,
+      refund_amount: refundAmount,
+      refund_sessions: refundSessions,
+      refund_date: refundRecord.refund_date || '',
+      currency: refundCurrency
+    });
+  } catch (err) {
+    console.error('Error resending refund email:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

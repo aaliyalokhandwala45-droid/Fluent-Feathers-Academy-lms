@@ -8410,6 +8410,28 @@ if (dueEl) {
       }
     }
 
+    async function refreshStudentModalAfterPaymentChange() {
+      if (!currentStudentId) return;
+
+      const modalOpen = document.getElementById('studentModal')?.classList.contains('active');
+      const paymentsTabActive = document.getElementById('modalPaymentsTab')?.classList.contains('active');
+
+      try {
+        await loadStudents();
+        if (modalOpen) {
+          await openStudentModal(currentStudentId);
+          if (paymentsTabActive) {
+            showModalTab('modalPayments');
+          }
+        }
+        if (typeof loadDashboardStats === 'function') {
+          await loadDashboardStats();
+        }
+      } catch (err) {
+        console.error('Error refreshing student modal after payment change:', err);
+      }
+    }
+
     async function openStudentModal(id) {
       currentStudentId = id;
       const student = allStudents.find(s => s.id == id);
@@ -8469,7 +8491,10 @@ if (dueEl) {
     <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${student.fees_paid || 0}</span></div>
     <div><strong>Status:</strong> <span class="${student.is_active ? 'status-active' : 'status-inactive'}">${student.is_active ? 'Active' : 'Inactive'}</span></div>
     <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.fees_paid || 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
-    <div><button onclick="initiateStudentRefund(${student.id}, '${(student.name || '').replace(/'/g, "\\'")}', ${student.remaining_sessions || 0}, ${student.per_session_fee || 0}, '${student.currency || 'INR'}')" class="btn btn-sm" style="background: #e53e3e; color: white;">💸 Refund Unused Sessions</button></div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button onclick="initiateStudentRefund(${student.id}, '${(student.name || '').replace(/'/g, "\\'")}', ${student.remaining_sessions || 0}, ${student.per_session_fee || 0}, '${student.currency || 'INR'}')" class="btn btn-sm" style="background: #e53e3e; color: white;">💸 Refund Unused Sessions</button>
+      <button onclick="resendStudentRefundEmail(this, ${student.id}, '${(student.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #805ad5; color: white;">📧 Resend Refund Email</button>
+    </div>
   </div>
 </div>
 
@@ -8625,7 +8650,7 @@ async function saveEditedPayment() {
     if (res.ok) {
       alert('✅ Payment updated successfully!');
       closeEditPaymentModal();
-      closeStudentModal();
+      await refreshStudentModalAfterPaymentChange();
       loadStudents();
       loadDashboardStats();
     } else {
@@ -8660,7 +8685,7 @@ async function initiateStudentRefund(studentId, studentName, remainingSessions, 
     const result = await res.json();
     if (res.ok) {
       alert('✅ Refund processed successfully!');
-      closeStudentModal();
+      await refreshStudentModalAfterPaymentChange();
       loadStudents();
       loadDashboardStats();
     } else {
@@ -8668,6 +8693,39 @@ async function initiateStudentRefund(studentId, studentName, remainingSessions, 
     }
   } catch (err) {
     alert('❌ Error: ' + err.message);
+  }
+}
+
+async function resendStudentRefundEmail(button, studentId, studentName) {
+  const originalText = button?.textContent || 'Resend Refund Email';
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Sending...';
+    }
+
+    const res = await fetch('/api/admin/resend-refund-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_id: studentId })
+    });
+    const result = await res.json();
+    if (!res.ok || !result.success || result.email_sent !== true) {
+      throw new Error(result.error || 'Email provider did not confirm delivery');
+    }
+    const currency = String(result.currency || 'INR').toUpperCase();
+    const amount = Number(result.refund_amount || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    alert(`✅ Refund email sent for ${studentName}.\n\n${currency} ${amount} for ${result.refund_sessions} unused session(s).`);
+  } catch (err) {
+    alert('❌ Refund email not sent: ' + err.message);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
   }
 }
 
@@ -11715,8 +11773,8 @@ async function initiateStudentRefund(studentId, studentName, remainingSessions, 
           alert('✅ ' + result.message);
           document.getElementById('renewalForm').style.display = 'none';
           document.getElementById('renewalForm').reset();
-          loadModalPayments();
-          loadStudents();
+          await refreshStudentModalAfterPaymentChange();
+          await loadModalPayments();
         } else {
           alert('❌ Failed: ' + result.error);
         }
@@ -14492,6 +14550,7 @@ async function initiateStudentRefund(studentId, studentName, remainingSessions, 
         if (res.ok) {
           alert('✅ Payment recorded successfully!');
           e.target.reset();
+          await refreshStudentModalAfterPaymentChange();
           await loadStudents();
           await loadStudentPaymentDetails();
         } else {
@@ -14527,6 +14586,7 @@ async function initiateStudentRefund(studentId, studentName, remainingSessions, 
         if (res.ok) {
           alert('✅ Renewal recorded successfully!');
           e.target.reset();
+          await refreshStudentModalAfterPaymentChange();
           await loadStudents();
           await loadStudentPaymentDetails();
         } else {
