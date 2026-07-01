@@ -4297,6 +4297,43 @@ async function sendAdminPrivateReminderPush(session, hoursBeforeClass) {
   });
 }
 
+function isClassRelatedEmail(emailType) {
+  const normalized = String(emailType || '').trim().toLowerCase();
+  return normalized.includes('reminder') || normalized.includes('schedule') || normalized.includes('cancel') || normalized.includes('reschedule');
+}
+
+async function shouldSkipInactiveStudentEmail(emailType, recipientEmail, options = {}) {
+  if (options.skipInactiveStudentCheck === true || options.allowInactiveStudent === true) {
+    return false;
+  }
+
+  if (!isClassRelatedEmail(emailType)) {
+    return false;
+  }
+
+  const studentId = options.studentId;
+  let studentResult;
+
+  if (studentId) {
+    studentResult = await pool.query('SELECT id, is_active FROM students WHERE id = $1', [studentId]);
+  } else {
+    studentResult = await pool.query(
+      `SELECT id, is_active
+       FROM students
+       WHERE LOWER(TRIM(parent_email)) = LOWER(TRIM($1))
+       ORDER BY id
+       LIMIT 1`,
+      [recipientEmail]
+    );
+  }
+
+  if (studentResult.rows.length === 0) {
+    return false;
+  }
+
+  return studentResult.rows[0].is_active === false;
+}
+
 async function sendEmail(to, subject, html, recipientName, emailType, options = {}) {
   const normalizedEmailType = String(emailType || '').trim();
   const effectiveSubject =
@@ -4307,6 +4344,13 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
           .replaceAll("'s Homework Reviewed", "'s Classwork Reviewed")
       : subject;
   let finalHtml = html;
+
+  const shouldSkipInactiveStudent = await shouldSkipInactiveStudentEmail(normalizedEmailType, to, options);
+  if (shouldSkipInactiveStudent) {
+    console.log(`Skipping ${normalizedEmailType} email for inactive student ${to}`);
+    return false;
+  }
+
   try {
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) {
@@ -5818,6 +5862,48 @@ function getEventEmail(data) {
       <p style="margin: 0; color: #718096; font-size: 13px;">
         Made with ❤️ By Aaliya
       </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function getRefundEmail(data) {
+  const { parentName, studentName, amount, currency, sessions, reason } = data;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">💸 Refund Processed</h1>
+      <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">A refund has been initiated for your child’s unused sessions.</p>
+    </div>
+    <div style="padding: 40px 30px;">
+      <p style="margin: 0 0 20px; font-size: 16px; color: #2d3748;">Dear <strong>${parentName}</strong>,</p>
+      <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        We have processed a refund for <strong>${studentName}</strong> for the unused sessions that were removed from the account.
+      </p>
+
+      <div style="background: #f7fafc; padding: 25px; border-radius: 12px; border-left: 4px solid #e53e3e; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td style="padding: 10px 0; color: #4a5568;">Amount Refunded:</td><td style="padding: 10px 0; font-weight: bold; color: #e53e3e; font-size: 1.1rem;">${currency} ${amount}</td></tr>
+          <tr><td style="padding: 10px 0; color: #4a5568;">Unused Sessions Removed:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${sessions}</td></tr>
+          ${reason ? `<tr><td style="padding: 10px 0; color: #4a5568;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${reason}</td></tr>` : ''}
+        </table>
+      </div>
+
+      <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+        If you have any questions regarding this refund, please feel free to reach out to us.<br><br>
+        <strong style="color: #667eea;">Team Fluent Feathers Academy</strong>
+      </p>
+    </div>
+    <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -7653,7 +7739,6 @@ cron.schedule('0 8 * * *', async () => {
       FROM students
       WHERE EXTRACT(MONTH FROM date_of_birth) = $1
         AND EXTRACT(DAY FROM date_of_birth) = $2
-        AND is_active = true
         AND date_of_birth IS NOT NULL
     `, [month, day]);
 
@@ -15453,6 +15538,91 @@ app.get('/api/students/:id/payments', async (req, res) => {
     res.json({ payments: payments.rows, renewals: renewals.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Refund unused sessions for a student and reduce accounting totals
+app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
+  const { reason } = req.body || {};
+  const studentId = req.params.id;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const studentResult = await client.query(`
+      SELECT id, name, currency, per_session_fee, fees_paid, completed_sessions, remaining_sessions
+      FROM students
+      WHERE id = $1
+    `, [studentId]);
+
+    if (studentResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const student = studentResult.rows[0];
+    const remainingSessions = Math.max(parseInt(student.remaining_sessions || 0, 10), 0);
+    const completedSessions = Math.max(parseInt(student.completed_sessions || 0, 10), 0);
+    const refundAmount = remainingSessions * parseFloat(student.per_session_fee || 0);
+
+    if (remainingSessions <= 0 || refundAmount <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No unused sessions are available for refund' });
+    }
+
+    const notes = (reason || '').toString().trim() || `Refund for ${remainingSessions} unused session(s)`;
+
+    await client.query(`
+      INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
+      VALUES ($1, CURRENT_TIMESTAMP, $2, $3, $4, $5, $6, $7)
+    `, [studentId, -refundAmount, student.currency || 'INR', 'Refund', 0, notes, 'Refunded']);
+
+    await client.query(`
+      UPDATE students
+      SET
+        fees_paid = GREATEST(fees_paid - $1, 0),
+        total_sessions = $2,
+        remaining_sessions = 0,
+        session_balance_override = true
+      WHERE id = $3
+    `, [refundAmount, completedSessions, studentId]);
+
+    await client.query('COMMIT');
+
+    let refundEmailSent = false;
+    if (student.parent_email) {
+      const refundEmailHTML = getRefundEmail({
+        parentName: student.parent_name || 'Parent',
+        studentName: student.name,
+        amount: refundAmount.toFixed(2),
+        currency: student.currency || 'INR',
+        sessions: remainingSessions,
+        reason: notes
+      });
+      refundEmailSent = await sendEmail(
+        student.parent_email,
+        `💸 Refund Processed for ${student.name}`,
+        refundEmailHTML,
+        student.parent_name || student.name,
+        'Refund',
+        { studentId: student.id }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Refund processed for ${remainingSessions} unused session(s)`,
+      refund_amount: refundAmount,
+      remaining_sessions_removed: remainingSessions,
+      email_sent: refundEmailSent
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error processing refund:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
