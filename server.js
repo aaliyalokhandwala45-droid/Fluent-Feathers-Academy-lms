@@ -10526,6 +10526,23 @@ app.get('/api/students', async (req, res) => {
       SELECT s.*,
         COUNT(DISTINCT m.id) as makeup_credits,
         COALESCE((
+          SELECT SUM(ph.amount)
+          FROM payment_history ph
+          WHERE ph.student_id = s.id
+        ), 0) + COALESCE((
+          SELECT SUM(pr.amount)
+          FROM payment_renewals pr
+          WHERE pr.student_id = s.id
+            AND NOT EXISTS (
+              SELECT 1
+              FROM payment_history ph
+              WHERE ph.student_id = pr.student_id
+                AND ph.payment_date = pr.renewal_date
+                AND ph.amount = pr.amount
+                AND LOWER(COALESCE(ph.notes, '')) LIKE '%renewal%'
+            )
+        ), 0) as ledger_total_paid,
+        COALESCE((
           SELECT COUNT(*)
           FROM sessions sess
           WHERE sess.student_id = s.id
@@ -15573,7 +15590,31 @@ app.get('/api/students/:id/payments', async (req, res) => {
   try {
     const payments = await pool.query('SELECT * FROM payment_history WHERE student_id = $1 ORDER BY payment_date DESC', [req.params.id]);
     const renewals = await pool.query('SELECT * FROM payment_renewals WHERE student_id = $1 ORDER BY renewal_date DESC', [req.params.id]);
-    res.json({ payments: payments.rows, renewals: renewals.rows });
+
+    const mirroredRenewal = (renewal) => payments.rows.some(payment =>
+      Number(payment.amount) === Number(renewal.amount) &&
+      new Date(payment.payment_date).toISOString().slice(0, 10) === new Date(renewal.renewal_date).toISOString().slice(0, 10) &&
+      String(payment.notes || '').toLowerCase().includes('renewal')
+    );
+    const standaloneRenewals = renewals.rows.filter(renewal => !mirroredRenewal(renewal));
+    const paymentTotal = payments.rows.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const renewalTotal = standaloneRenewals.reduce((sum, renewal) => sum + (Number(renewal.amount) || 0), 0);
+    const initialPayment = payments.rows.reduce((sum, payment) => {
+      const isRefund = Number(payment.amount) < 0 ||
+        String(payment.payment_method || '').toLowerCase() === 'refund' ||
+        String(payment.payment_status || '').toLowerCase() === 'refunded';
+      const isRenewal = String(payment.notes || '').toLowerCase().includes('renewal');
+      return isRefund || isRenewal ? sum : sum + (Number(payment.amount) || 0);
+    }, 0);
+
+    res.json({
+      payments: payments.rows,
+      renewals: standaloneRenewals,
+      summary: {
+        initialPayment,
+        totalPaid: paymentTotal + renewalTotal
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -15619,7 +15660,26 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
     await client.query(`
       UPDATE students
       SET
-        fees_paid = GREATEST(fees_paid - $1, 0),
+        fees_paid = GREATEST(
+          COALESCE((
+            SELECT SUM(ph.amount)
+            FROM payment_history ph
+            WHERE ph.student_id = $3
+          ), 0) + COALESCE((
+            SELECT SUM(pr.amount)
+            FROM payment_renewals pr
+            WHERE pr.student_id = $3
+              AND NOT EXISTS (
+                SELECT 1
+                FROM payment_history ph
+                WHERE ph.student_id = pr.student_id
+                  AND ph.payment_date = pr.renewal_date
+                  AND ph.amount = pr.amount
+                  AND LOWER(COALESCE(ph.notes, '')) LIKE '%renewal%'
+              )
+          ), 0),
+          0
+        ),
         total_sessions = $2,
         remaining_sessions = 0,
         session_balance_override = true

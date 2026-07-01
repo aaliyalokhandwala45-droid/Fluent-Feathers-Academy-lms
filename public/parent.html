@@ -4842,42 +4842,78 @@ setTimeout(() => {
           document.getElementById('renewalWarning').style.display = 'none';
         }
 
-        // Load payment renewals
-        const res = await fetch(`/api/students/${currentStudent.id}/renewals`, { headers: authHeaders() });
-        const renewals = await res.json();
+        // Load the complete ledger so initial payments, renewals, and refunds agree.
+        const res = await fetch(`/api/students/${currentStudent.id}/payments`, { headers: authHeaders() });
+        if (!res.ok) throw new Error('Unable to load payment history');
+        const data = await res.json();
+        const payments = Array.isArray(data.payments) ? data.payments : [];
+        const renewals = Array.isArray(data.renewals) ? data.renewals : [];
         const container = document.getElementById('paymentHistoryContainer');
 
-        // fees_paid already includes all payments (initial + renewals), so use it directly as total
-        const totalPaid = parseFloat(currentStudent.fees_paid) || 0;
-        const renewalTotal = renewals.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
-        const initialPayment = Math.max(totalPaid - renewalTotal, 0);
+        const totalPaid = Number(data.summary?.totalPaid) || 0;
+        const initialPayment = Number(data.summary?.initialPayment) || 0;
+        const currency = currentStudent.currency || payments[0]?.currency || renewals[0]?.currency || 'INR';
 
-        document.getElementById('displayInitialPayment').textContent = `${currentStudent.currency} ${initialPayment.toFixed(2)}`;
-        document.getElementById('displayTotalPaid').textContent = `${currentStudent.currency} ${totalPaid.toFixed(2)}`;
+        document.getElementById('displayInitialPayment').textContent = `${currency} ${initialPayment.toFixed(2)}`;
+        document.getElementById('displayTotalPaid').textContent = `${currency} ${totalPaid.toFixed(2)}`;
         document.getElementById('displayPaymentMethod').textContent = currentStudent.payment_method || '-';
-        document.getElementById('displayCurrency').textContent = currentStudent.currency;
+        document.getElementById('displayCurrency').textContent = currency;
 
-        if (renewals.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096;">No renewal payments yet</p>';
+        const history = [
+          ...payments.map(payment => {
+            const isRefund = Number(payment.amount) < 0 ||
+              String(payment.payment_method || '').toLowerCase() === 'refund' ||
+              String(payment.payment_status || '').toLowerCase() === 'refunded';
+            const isRenewal = String(payment.notes || '').toLowerCase().includes('renewal');
+            return {
+              date: payment.payment_date,
+              type: isRefund ? 'Refund' : (isRenewal ? 'Renewal' : 'Initial Payment'),
+              amount: Number(payment.amount) || 0,
+              currency: payment.currency || currency,
+              sessions: payment.sessions_covered,
+              method: payment.payment_method,
+              notes: payment.notes,
+              status: payment.payment_status
+            };
+          }),
+          ...renewals.map(renewal => ({
+            date: renewal.renewal_date,
+            type: 'Renewal',
+            amount: Number(renewal.amount) || 0,
+            currency: renewal.currency || currency,
+            sessions: renewal.sessions_added,
+            method: renewal.payment_method,
+            notes: renewal.notes,
+            status: renewal.status
+          }))
+        ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (history.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #718096;">No payment records yet</p>';
           return;
         }
 
-        container.innerHTML = renewals.map(r => `
+        container.innerHTML = history.map(item => {
+          const isRefund = item.type === 'Refund';
+          const sessionText = item.sessions
+            ? `${isRefund ? '' : '+'}${item.sessions} session${Number(item.sessions) === 1 ? '' : 's'} ${isRefund ? 'refunded' : 'covered'}`
+            : '';
+          return `
           <div class="payment-history-item">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <strong style="color: #B05D9E; font-size: 18px;">${r.currency} ${r.amount}</strong>
-                <p style="color: #4a5568; margin-top: 5px;">+${r.sessions_added} sessions added</p>
-                <p style="color: #718096; font-size: 0.9rem; margin-top: 5px;">Payment Method: ${r.payment_method || 'N/A'}</p>
-                ${r.notes ? `<p style="color: #718096; font-size: 0.9rem; font-style: italic;">${r.notes}</p>` : ''}
+                <strong style="color: ${isRefund ? '#e53e3e' : '#B05D9E'}; font-size: 18px;">${item.currency} ${item.amount.toFixed(2)}</strong>
+                ${sessionText ? `<p style="color: #4a5568; margin-top: 5px;">${sessionText}</p>` : ''}
+                <p style="color: #718096; font-size: 0.9rem; margin-top: 5px;">Payment Method: ${item.method || 'N/A'}</p>
+                ${item.notes ? `<p style="color: #718096; font-size: 0.9rem; font-style: italic;">${item.notes}</p>` : ''}
               </div>
               <div style="text-align: right;">
-                <span style="background: #38a169; color: white; padding: 5px 10px; border-radius: 5px; font-size: 0.85rem;">${r.status}</span>
-                <p style="color: #718096; margin-top: 5px; font-size: 0.9rem;">${new Date(r.renewal_date).toLocaleDateString()}</p>
+                <span style="background: ${isRefund ? '#e53e3e' : '#38a169'}; color: white; padding: 5px 10px; border-radius: 5px; font-size: 0.85rem;">${item.type}</span>
+                <p style="color: #718096; margin-top: 5px; font-size: 0.9rem;">${new Date(item.date).toLocaleDateString()}</p>
               </div>
             </div>
           </div>
-        `).join('');
+        `}).join('');
       } catch(e) {
         console.error('Error loading payments:', e);
         document.getElementById('paymentHistoryContainer').innerHTML = '<p style="color: #e53e3e;">Error loading payment history</p>';

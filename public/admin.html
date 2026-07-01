@@ -8488,9 +8488,9 @@ if (dueEl) {
        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
   <h3 style="color: #B05D9E; margin-bottom: 15px;">Financial Summary</h3>
   <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; align-items: center;">
-    <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${student.fees_paid || 0}</span></div>
+    <div><strong>Total Paid:</strong> <span id="studentTotalPaid">${student.currency} ${Number(student.ledger_total_paid ?? student.fees_paid ?? 0).toFixed(2)}</span></div>
     <div><strong>Status:</strong> <span class="${student.is_active ? 'status-active' : 'status-inactive'}">${student.is_active ? 'Active' : 'Inactive'}</span></div>
-    <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.fees_paid || 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
+    <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.ledger_total_paid ?? student.fees_paid ?? 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
       <button onclick="initiateStudentRefund(${student.id}, '${(student.name || '').replace(/'/g, "\\'")}', ${student.remaining_sessions || 0}, ${student.per_session_fee || 0}, '${student.currency || 'INR'}')" class="btn btn-sm" style="background: #e53e3e; color: white;">💸 Refund Unused Sessions</button>
       <button onclick="resendStudentRefundEmail(this, ${student.id}, '${(student.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #805ad5; color: white;">📧 Resend Refund Email</button>
@@ -11800,7 +11800,12 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
           });
 
           data.payments.forEach(p => {
-            html += `<tr><td>${p.payment_date}</td><td>Payment</td><td>${p.currency} ${p.amount}</td><td>${p.sessions_covered||'-'}</td><td>${p.payment_method}</td></tr>`;
+            const isRefund = Number(p.amount) < 0 ||
+              String(p.payment_method || '').toLowerCase() === 'refund' ||
+              String(p.payment_status || '').toLowerCase() === 'refunded';
+            const isRenewal = String(p.notes || '').toLowerCase().includes('renewal');
+            const type = isRefund ? 'Refund' : (isRenewal ? 'Renewal' : 'Initial Payment');
+            html += `<tr><td>${p.payment_date}</td><td>${type}</td><td>${p.currency} ${p.amount}</td><td>${p.sessions_covered||'-'}</td><td>${p.payment_method}</td></tr>`;
           });
 
           html += '</tbody></table></div>';
@@ -14449,7 +14454,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         document.getElementById('payStudentName').textContent = student.name;
         document.getElementById('payTotalSessions').textContent = student.total_sessions;
         document.getElementById('payRemainingSessions').textContent = student.remaining_sessions;
-        document.getElementById('payTotalPaid').textContent = `${student.currency} ${student.fees_paid || 0}`;
+        document.getElementById('payTotalPaid').textContent = `${student.currency} ${Number(student.ledger_total_paid ?? student.fees_paid ?? 0).toFixed(2)}`;
         document.getElementById('firstPaymentCurrency').value = student.currency || 'INR';
         document.getElementById('renewalPaymentCurrency').value = student.currency || 'INR';
         document.getElementById('paymentStudentDetails').style.display = 'block';
@@ -14464,17 +14469,32 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         const res = await fetch(`/api/students/${studentId}/payments`);
         const data = await res.json();
         const tbody = document.getElementById('paymentHistoryBody');
+        const student = allStudents.find(s => s.id == studentId);
+
+        if (data.summary && student) {
+          const totalPaid = Number(data.summary.totalPaid) || 0;
+          student.ledger_total_paid = totalPaid;
+          document.getElementById('payTotalPaid').textContent = `${student.currency || 'INR'} ${totalPaid.toFixed(2)}`;
+          const modalTotal = document.getElementById('studentTotalPaid');
+          if (modalTotal && currentStudentId == studentId) {
+            modalTotal.textContent = `${student.currency || 'INR'} ${totalPaid.toFixed(2)}`;
+          }
+        }
 
         const allPayments = [];
 
         // Add initial payments
         if (data.payments) {
           data.payments.forEach(p => {
+            const isRefund = Number(p.amount) < 0 ||
+              String(p.payment_method || '').toLowerCase() === 'refund' ||
+              String(p.payment_status || '').toLowerCase() === 'refunded';
+            const isRenewal = String(p.notes || '').toLowerCase().includes('renewal');
             allPayments.push({
               id: p.id,
               recordType: 'payment',
               date: p.payment_date,
-              type: 'Initial',
+              type: isRefund ? 'Refund' : (isRenewal ? 'Renewal' : 'Initial'),
               amount: `${p.currency} ${p.amount}`,
               rawAmount: p.amount,
               sessions: p.sessions_covered || '-',
@@ -14510,7 +14530,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
           tbody.innerHTML = allPayments.map(p => `
             <tr>
               <td>${new Date(p.date).toLocaleDateString()}</td>
-              <td><span class="type-badge ${p.type === 'Initial' ? 'payment-initial' : 'payment-renewal'}">${p.type}</span></td>
+              <td><span class="type-badge ${p.type === 'Initial' ? 'payment-initial' : 'payment-renewal'}" ${p.type === 'Refund' ? 'style="background:#e53e3e;color:white;"' : ''}>${p.type}</span></td>
               <td><strong>${p.amount}</strong></td>
               <td>${p.sessions}</td>
               <td>${p.method}</td>
