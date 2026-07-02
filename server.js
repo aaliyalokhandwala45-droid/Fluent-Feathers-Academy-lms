@@ -14166,11 +14166,14 @@ app.post('/api/public/event/:id/register', async (req, res) => {
 // ==================== PUBLIC DEMO REGISTRATION ====================
 app.post('/api/public/demo-register', async (req, res) => {
   try {
-    const { child_name, child_age, child_date_of_birth, program_interest, parent_name, email, phone, student_timezone, parent_timezone } = req.body;
+    const { child_name, child_age, child_date_of_birth, program_interest, parent_name, email, phone, source, referral_name, student_timezone, parent_timezone } = req.body;
 
     // Validate required fields
-    if (!child_name || !child_age || !child_date_of_birth || !program_interest || !parent_name || !email || !phone || !student_timezone || !parent_timezone) {
-      return res.status(400).json({ error: 'All fields are required, including student and parent timezones' });
+    if (!child_name || !child_age || !child_date_of_birth || !program_interest || !parent_name || !email || !phone || !source || !student_timezone || !parent_timezone) {
+      return res.status(400).json({ error: 'All fields are required, including how you found us and timezones' });
+    }
+    if (source === 'Referral' && !String(referral_name || '').trim()) {
+      return res.status(400).json({ error: 'Please enter the referral name' });
     }
 
     // Check for duplicate email in demo_leads (prevent double registrations)
@@ -14184,13 +14187,16 @@ app.post('/api/public/demo-register', async (req, res) => {
 
     const studentTimezone = student_timezone || 'Asia/Kolkata';
     const parentTimezone = parent_timezone || studentTimezone || 'Asia/Kolkata';
+    const leadSource = source === 'Referral'
+      ? `Referral: ${String(referral_name || '').trim()}`
+      : source;
 
     // Insert into demo_leads
     const result = await pool.query(`
       INSERT INTO demo_leads (child_name, child_grade, child_date_of_birth, parent_name, parent_email, phone, program_interest, student_timezone, parent_timezone, source, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Website Form', 'Pending')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Pending')
       RETURNING *
-    `, [child_name, child_age, child_date_of_birth, parent_name, email, phone, program_interest, studentTimezone, parentTimezone]);
+    `, [child_name, child_age, child_date_of_birth, parent_name, email, phone, program_interest, studentTimezone, parentTimezone, leadSource]);
 
     // Send confirmation email
     try {
@@ -14265,6 +14271,7 @@ app.post('/api/public/demo-register', async (req, res) => {
         childDateOfBirth: String(child_date_of_birth || ''),
         parentName: parent_name,
         email: email,
+        source: leadSource,
         url: `${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/admin.html`
       }
     );
@@ -14599,9 +14606,23 @@ app.get('/api/email-logs', async (req, res) => {
     const offset = (page - 1) * limit;
     const countResult = await pool.query('SELECT COUNT(*) as total FROM email_log');
     const r = await pool.query(`
-      SELECT e.*, s.name AS student_name
+      SELECT
+        e.*,
+        COALESCE(s.name, email_students.student_names, demo_children.child_names) AS student_name
       FROM email_log e
       LEFT JOIN students s ON s.id = e.student_id
+      LEFT JOIN LATERAL (
+        SELECT string_agg(DISTINCT st.name, ', ' ORDER BY st.name) AS student_names
+        FROM students st
+        WHERE LOWER(TRIM(st.parent_email)) = LOWER(TRIM(e.recipient_email))
+          AND COALESCE(st.name, '') <> ''
+      ) email_students ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT string_agg(DISTINCT dl.child_name, ', ' ORDER BY dl.child_name) AS child_names
+        FROM demo_leads dl
+        WHERE LOWER(TRIM(dl.parent_email)) = LOWER(TRIM(e.recipient_email))
+          AND COALESCE(dl.child_name, '') <> ''
+      ) demo_children ON TRUE
       ORDER BY e.sent_at DESC
       LIMIT $1 OFFSET $2
     `, [limit, offset]);

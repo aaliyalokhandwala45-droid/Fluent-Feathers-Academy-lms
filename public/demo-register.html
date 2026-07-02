@@ -264,6 +264,24 @@
           </div>
 
           <div class="form-group">
+            <label>How did you find us? <span class="required">*</span></label>
+            <select id="source" required onchange="toggleReferralName()">
+              <option value="">Select one...</option>
+              <option value="Instagram">Instagram</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Referral">Referral</option>
+              <option value="Google">Google</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="referralNameGroup" style="display: none;">
+            <label>Referral Name <span class="required">*</span></label>
+            <input type="text" id="referralName" placeholder="Who referred you?">
+          </div>
+
+          <div class="form-group">
             <label>Student Timezone <span class="required">*</span></label>
             <select id="studentTimezone" required></select>
           </div>
@@ -315,6 +333,16 @@
       btn.textContent = 'Registering...';
       errorDiv.style.display = 'none';
 
+      const source = document.getElementById('source').value;
+      const referralName = document.getElementById('referralName').value.trim();
+      if (source === 'Referral' && !referralName) {
+        errorDiv.textContent = 'Please enter the referral name.';
+        errorDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Book Free Demo';
+        return;
+      }
+
       const data = {
         child_name: document.getElementById('childName').value.trim(),
         child_age: document.getElementById('childAge').value.trim(),
@@ -323,6 +351,8 @@
         parent_name: document.getElementById('parentName').value.trim(),
         email: document.getElementById('email').value.trim(),
         phone: document.getElementById('phone').value.trim(),
+        source,
+        referral_name: referralName,
         student_timezone: document.getElementById('studentTimezone').value,
         parent_timezone: document.getElementById('sameTimezone').checked
           ? document.getElementById('studentTimezone').value
@@ -352,6 +382,16 @@
         btn.disabled = false;
         btn.textContent = 'Book Free Demo';
       }
+    }
+
+    function toggleReferralName() {
+      const source = document.getElementById('source');
+      const group = document.getElementById('referralNameGroup');
+      const input = document.getElementById('referralName');
+      const isReferral = source && source.value === 'Referral';
+      group.style.display = isReferral ? 'block' : 'none';
+      input.required = isReferral;
+      if (!isReferral) input.value = '';
     }
 
     // Load logo from config

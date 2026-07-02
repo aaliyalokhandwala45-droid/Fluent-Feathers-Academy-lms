@@ -824,6 +824,7 @@
                 <select id="demoSource">
                   <option value="">Select...</option>
                   <option value="Instagram">Instagram</option>
+                  <option value="LinkedIn">LinkedIn</option>
                   <option value="Facebook">Facebook</option>
                   <option value="WhatsApp">WhatsApp</option>
                   <option value="Referral">Referral</option>
@@ -3516,6 +3517,7 @@ I'm passionate about helping children develop confidence in communication!"></te
             <select id="editDemoSource">
               <option value="">Select...</option>
               <option value="Instagram">Instagram</option>
+              <option value="LinkedIn">LinkedIn</option>
               <option value="Facebook">Facebook</option>
               <option value="WhatsApp">WhatsApp</option>
               <option value="Referral">Referral</option>
@@ -9958,7 +9960,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       const studentLabel = studentName
         ? `<br><span style="font-size:11px;color:#805ad5;font-weight:700;">Student: ${studentName}</span>`
         : '';
-      return `${recipientName}<br><span style="font-size:11px;color:#718096;">${recipientEmail}</span>${studentLabel}${channelLabel}`;
+      return `${recipientName}<br><span style="font-size:11px;color:#718096;">Parent email: ${recipientEmail}</span>${studentLabel}${channelLabel}`;
     }
 
     function loadEmailLogs(page) {
@@ -11110,6 +11112,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
           (l.parent_name && l.parent_name.toLowerCase().includes(searchTerm)) ||
           (l.parent_email && l.parent_email.toLowerCase().includes(searchTerm)) ||
           (l.phone && l.phone.toLowerCase().includes(searchTerm)) ||
+          (l.source && l.source.toLowerCase().includes(searchTerm)) ||
           (l.program_interest && l.program_interest.toLowerCase().includes(searchTerm))
         );
       }
@@ -11272,7 +11275,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       document.getElementById('editDemoParentEmail').value = lead.parent_email || '';
       document.getElementById('editDemoPhone').value = lead.phone || '';
       document.getElementById('editDemoProgramInterest').value = lead.program_interest || '';
-      document.getElementById('editDemoSource').value = lead.source || '';
+      setDemoSourceSelectValue('editDemoSource', lead.source || '');
       document.getElementById('editDemoStatus').value = lead.status || 'Scheduled';
       document.getElementById('editDemoNotes').value = lead.notes || '';
       document.getElementById('editDemoSendEmail').checked = false;
@@ -11294,6 +11297,21 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
 
     function closeEditDemoModal() {
       document.getElementById('editDemoModal').classList.remove('active');
+    }
+
+    function setDemoSourceSelectValue(selectId, value) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const normalizedValue = value || '';
+      const existing = Array.from(select.options).find(option => option.value === normalizedValue);
+      if (!existing && normalizedValue) {
+        const customOption = document.createElement('option');
+        customOption.value = normalizedValue;
+        customOption.textContent = normalizedValue;
+        customOption.dataset.customSource = 'true';
+        select.appendChild(customOption);
+      }
+      select.value = normalizedValue;
     }
 
     document.getElementById('editDemoForm').addEventListener('submit', async (e) => {
