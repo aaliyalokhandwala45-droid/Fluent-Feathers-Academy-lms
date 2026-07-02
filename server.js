@@ -16643,16 +16643,16 @@ app.get('/api/financial-reports/export-merged', async (req, res) => {
     let expenseParams = [];
 
     if (startDate && endDate) {
-      incomeFilter = 'WHERE ph.payment_date >= $1 AND ph.payment_date <= $2';
+      incomeFilter = 'WHERE ph.payment_date >= $1::date AND ph.payment_date < ($2::date + INTERVAL \'1 day\')';
       incomeParams = [startDate, endDate];
-      expenseFilter = 'WHERE expense_date >= $1 AND expense_date <= $2';
+      expenseFilter = 'WHERE expense_date >= $1::date AND expense_date < ($2::date + INTERVAL \'1 day\')';
       expenseParams = [startDate, endDate];
     } else if (year) {
       const fyStart = `${year}-04-01`;
       const fyEnd = `${parseInt(year) + 1}-03-31`;
-      incomeFilter = 'WHERE ph.payment_date >= $1 AND ph.payment_date <= $2';
+      incomeFilter = 'WHERE ph.payment_date >= $1::date AND ph.payment_date < ($2::date + INTERVAL \'1 day\')';
       incomeParams = [fyStart, fyEnd];
-      expenseFilter = 'WHERE expense_date >= $1 AND expense_date <= $2';
+      expenseFilter = 'WHERE expense_date >= $1::date AND expense_date < ($2::date + INTERVAL \'1 day\')';
       expenseParams = [fyStart, fyEnd];
     }
 
@@ -16664,6 +16664,38 @@ app.get('/api/financial-reports/export-merged', async (req, res) => {
       ${incomeFilter}
     `, incomeParams);
 
+    // Include renewal payments that are not already mirrored in payment_history.
+    // The financial dashboard and income export already include these; merged export
+    // must do the same so the CA/tax CSV contains every student payment record.
+    let renewalRows = [];
+    try {
+      const renewalFilter = incomeFilter.replace(/ph\.payment_date/g, 'pr.renewal_date');
+      const renewalWhere = renewalFilter ? renewalFilter + ' AND ' : 'WHERE ';
+      const renewalResult = await pool.query(`
+        SELECT
+          pr.renewal_date as date,
+          s.name as description,
+          pr.amount,
+          pr.currency,
+          pr.payment_method,
+          COALESCE('Renewal - ' || pr.notes, 'Renewal') as notes,
+          'Income' as type,
+          '' as category
+        FROM payment_renewals pr
+        LEFT JOIN students s ON pr.student_id = s.id
+        ${renewalWhere} NOT EXISTS (
+          SELECT 1 FROM payment_history ph2
+          WHERE ph2.student_id = pr.student_id
+          AND ph2.payment_date = pr.renewal_date
+          AND ph2.amount = pr.amount
+          AND ph2.notes LIKE '%Renewal%'
+        )
+      `, incomeParams);
+      renewalRows = renewalResult.rows;
+    } catch (e) {
+      console.error('Error fetching renewals for merged CSV:', e);
+    }
+
     // Fetch expenses
     const expenseResult = await pool.query(`
       SELECT expense_date as date, description, amount, currency, payment_method, notes, 'Expense' as type, category
@@ -16672,7 +16704,7 @@ app.get('/api/financial-reports/export-merged', async (req, res) => {
     `, expenseParams);
 
     // Merge and sort by date
-    const all = [...incomeResult.rows, ...expenseResult.rows].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const all = [...incomeResult.rows, ...renewalRows, ...expenseResult.rows].sort((a, b) => new Date(a.date) - new Date(b.date));
 
     let csv = 'Type,Date,Description,Category,Amount,Currency,Payment Method,Notes\n';
     all.forEach(row => {
