@@ -932,7 +932,7 @@
               <input type="file" id="homeworkCameraFile" accept="image/*" capture="environment" style="display:none;">
               <div id="homeworkSelectedFileList" style="margin-top:8px;font-size:0.83rem;color:#4a5568;max-height:120px;overflow-y:auto;"></div>
               <p style="color: #718096; font-size: 0.85rem; margin-top: 5px;">
-                Select files together, or use Take Photo multiple times, then upload once. Max 500MB per file.
+                Select files together, or use Take Photo multiple times, then upload once. Max 1GB per file. Smaller/compressed videos upload faster.
               </p>
             </div>
             <button type="submit" class="btn btn-primary">📤 Upload Homework</button>
@@ -2082,6 +2082,37 @@ setTimeout(() => {
     function authHeaders() {
       const adminToken = getAdminParentToken();
       return adminToken ? { 'x-admin-token': adminToken } : {};
+    }
+
+    function uploadFormDataWithProgress(url, formData, options = {}) {
+      const method = options.method || 'POST';
+      const headers = options.headers || {};
+      const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.timeout = 30 * 60 * 1000;
+        Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+
+        xhr.upload.onprogress = (event) => {
+          if (!onProgress || !event.lengthComputable) return;
+          onProgress({
+            percent: Math.max(1, Math.min(99, Math.round((event.loaded / event.total) * 100))),
+            loaded: event.loaded,
+            total: event.total
+          });
+        };
+
+        xhr.onload = () => {
+          let data = {};
+          try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch (_) {}
+          resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+        };
+        xhr.onerror = () => reject(new Error('Upload failed. Please check your internet connection and try again.'));
+        xhr.ontimeout = () => reject(new Error('Upload timed out. Please try a smaller/compressed video or a stronger connection.'));
+        xhr.send(formData);
+      });
     }
 
     function studentAuthHeaders(extraHeaders = {}) {
@@ -3437,8 +3468,12 @@ setTimeout(() => {
             statusBadge = `<div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">IN PROGRESS</div>`;
             actionButton = `
               <div style="margin-top: 10px; background: rgba(255,255,255,0.6); padding: 12px; border-radius: 8px;">
-                <label style="display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 600;">📎 Attach your work (any file type: PDF, image, video, PPT, etc.):</label>
+                <label style="display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 600;">📎 Attach your work (PDF, image, video, PPT, etc. - max 1GB):</label>
                 <input type="file" id="challengeFile-${c.id}" accept="*/*" style="font-size: 0.85rem; margin-bottom: 8px; width: 100%;">
+                <div id="challengeUploadProgress-${c.id}" style="display:none;margin:2px 0 8px;">
+                  <div style="height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;"><div id="challengeUploadProgressBar-${c.id}" style="height:100%;width:0%;background:linear-gradient(135deg,#38b2ac,#2c7a7b);transition:width 0.2s;"></div></div>
+                  <div id="challengeUploadProgressText-${c.id}" style="font-size:0.78rem;color:#4a5568;text-align:center;margin-top:4px;"></div>
+                </div>
                 <button onclick="submitChallenge(${c.id}, '${c.title.replace(/'/g, "\\'")}')" style="background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; width: 100%;">✋ Submit for Review</button>
               </div>`;
           }
@@ -3596,7 +3631,7 @@ setTimeout(() => {
 
       if (hint) {
         if (!file) {
-          hint.textContent = 'Attach any file (PDF, image, video, PPT, etc.) to enable submission.';
+          hint.textContent = 'Attach any file (PDF, image, video, PPT, etc. - max 1GB) to enable submission.';
           hint.style.color = '#c53030';
         } else {
           hint.textContent = `Ready to submit: ${file.name}`;
@@ -3617,7 +3652,7 @@ setTimeout(() => {
         input.onchange = () => updateChallengeSubmitState(challengeId);
 
         if (label) {
-          label.textContent = 'Attach your work (any file type: PDF, image, video, PPT, etc.):';
+          label.textContent = 'Attach your work (PDF, image, video, PPT, etc. - max 1GB):';
         }
 
         if (!hint && wrapper) {
@@ -3626,7 +3661,7 @@ setTimeout(() => {
           hint.style.fontSize = '0.8rem';
           hint.style.color = '#c53030';
           hint.style.marginBottom = '8px';
-          hint.textContent = 'Attach any file (PDF, image, video, PPT, etc.) to enable submission.';
+          hint.textContent = 'Attach any file (PDF, image, video, PPT, etc. - max 1GB) to enable submission.';
           input.insertAdjacentElement('afterend', hint);
         }
 
@@ -3660,20 +3695,30 @@ setTimeout(() => {
       if (!confirm(`Submit "${challengeTitle}" as completed?\n\nFile: ${file.name}\n\nYour teacher will review and approve it.`)) return;
 
       const originalText = btn.innerHTML;
+      const progress = document.getElementById(`challengeUploadProgress-${challengeId}`);
+      const progressBar = document.getElementById(`challengeUploadProgressBar-${challengeId}`);
+      const progressText = document.getElementById(`challengeUploadProgressText-${challengeId}`);
       btn.innerHTML = 'Uploading...';
       btn.disabled = true;
+      if (progress) progress.style.display = 'block';
+      if (progressBar) progressBar.style.width = '0%';
+      if (progressText) progressText.textContent = 'Preparing upload...';
 
       try {
         const fd = new FormData();
         fd.append('uploadType', 'homework');
         fd.append('file', file);
-        const res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
-          method: 'POST',
+        const res = await uploadFormDataWithProgress(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, fd, {
           headers: authHeaders(),
-          body: fd
+          onProgress: ({ percent, loaded, total }) => {
+            if (progressBar) progressBar.style.width = `${percent}%`;
+            if (progressText) progressText.textContent = `Uploading ${percent}% (${(loaded/1024/1024).toFixed(1)} of ${(total/1024/1024).toFixed(1)} MB)`;
+          }
         });
-        const result = await res.json();
+        const result = res.data || {};
         if (res.ok) {
+          if (progressBar) progressBar.style.width = '100%';
+          if (progressText) progressText.textContent = 'Upload complete. Saving...';
           alert('Challenge submitted! Your teacher will review and award your badge soon.');
           loadStudentChallenges();
           loadScoreHistory();
@@ -4456,7 +4501,7 @@ setTimeout(() => {
           ${resubmitWarning}
           ${existingList}
           <div style="background:#fff8f0;border:1px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:18px;font-size:0.85rem;color:#744210;">
-            📎 Accepted: Images, PDFs, MP4/video, Word docs, PowerPoints & more. Max 500MB per file.<br>
+            📎 Accepted: Images, PDFs, MP4/video, Word docs, PowerPoints & more. Max 1GB per file. Smaller/compressed videos upload faster.<br>
             🎯 <strong>Tip:</strong> Select multiple files at once! Uploading many files still earns <strong>10 points</strong> on the leaderboard.
           </div>
           <div style="margin-bottom:18px;">
@@ -4584,10 +4629,12 @@ setTimeout(() => {
         if (comment) fd.append('comment', comment);
         if (link) fd.append('link', link);
         try {
-          const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
-            method: 'POST',
+          const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
             headers: authHeaders(),
-            body: fd
+            onProgress: ({ percent }) => {
+              progressBar.style.width = `${Math.min(percent, 95)}%`;
+              progressText.textContent = `Submitting comment/link ${percent}%...`;
+            }
           });
           if (res.ok) successCount++;
           else errorCount++;
@@ -4605,10 +4652,12 @@ setTimeout(() => {
         if (link) fd.append('link', link);
         files.forEach(file => fd.append('file', file));
         try {
-          const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
-            method: 'POST',
+          const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
             headers: authHeaders(),
-            body: fd
+            onProgress: ({ percent, loaded, total }) => {
+              progressBar.style.width = `${percent}%`;
+              progressText.textContent = `Uploading ${percent}% (${(loaded/1024/1024).toFixed(1)} of ${(total/1024/1024).toFixed(1)} MB)`;
+            }
           });
           if (res.ok) successCount += files.length;
           else errorCount += files.length;
@@ -5151,10 +5200,11 @@ setTimeout(() => {
         fd.append('uploadType', 'homework');
         Array.from(files).forEach(file => fd.append('file', file));
 
-        const res = await fetch(`/api/upload/homework/${currentStudent.id}`, {
-          method: 'POST',
+        const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
           headers: authHeaders(),
-          body: fd
+          onProgress: ({ percent, loaded, total }) => {
+            submitBtn.textContent = `Uploading ${percent}%`;
+          }
         });
 
         const successCount = res.ok ? files.length : 0;
@@ -5171,12 +5221,12 @@ setTimeout(() => {
           loadScoreHistory();
           loadSubmittedHomework();
         } else {
-          const data = await res.json().catch(() => ({}));
+          const data = res.data || {};
           alert(data.error || 'Error uploading files');
         }
       } catch(err) {
         console.error('Upload error:', err);
-        alert('Error uploading homework');
+        alert(err.message || 'Error uploading homework');
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = '📤 Upload Homework';

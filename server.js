@@ -11,7 +11,6 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const cron = require('node-cron');
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const firebaseAdmin = require('firebase-admin');
 require('dotenv').config();
 
@@ -407,8 +406,9 @@ initializeDatabaseConnection();
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
-const UPLOAD_MAX_FILE_SIZE_MB = 500;
-const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
+const UPLOAD_MAX_FILE_SIZE_MB = 1024;
+const UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
+const CLOUDINARY_LARGE_UPLOAD_CHUNK_SIZE = 20 * 1024 * 1024;
 
 // Set request timeout for all requests (30 seconds default)
 app.use((req, res, next) => {
@@ -1087,31 +1087,76 @@ const localDiskStorage = multer.diskStorage({
   }
 });
 
-// Cloudinary storage configuration
-let cloudinaryStorage = null;
-if (useCloudinary) {
-  cloudinaryStorage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: async (req, file) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
-      const isVideo = ['.mp4', '.mov', '.avi', '.webm'].includes(ext);
-      const folder = req.body.uploadType === 'homework' ? 'fluentfeathers/homework' : 'fluentfeathers/materials';
+function buildCloudinaryUploadParams(req, file) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) || String(file.mimetype || '').startsWith('image/');
+  const isVideo = ['.mp4', '.mov', '.avi', '.webm'].includes(ext) || String(file.mimetype || '').startsWith('video/');
+  const folder = req.body.uploadType === 'homework' ? 'fluentfeathers/homework' : 'fluentfeathers/materials';
 
-      // Create unique filename - include extension for raw files (PDFs, docs, etc.)
-      const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      // For raw files, append extension to public_id so it downloads correctly
-      const publicId = (isImage || isVideo) ? uniqueName : uniqueName + ext;
+  // Create unique filename - include extension for raw files (PDFs, docs, etc.)
+  const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  // For raw files, append extension to public_id so it downloads correctly.
+  const publicId = (isImage || isVideo) ? uniqueName : uniqueName + ext;
 
-      return {
-        folder: folder,
-        resource_type: isVideo ? 'video' : isImage ? 'image' : 'raw',
-        public_id: publicId,
-        allowed_formats: null // Allow all formats
-      };
-    }
-  });
+  return {
+    folder: folder,
+    resource_type: isVideo ? 'video' : isImage ? 'image' : 'raw',
+    public_id: publicId,
+    allowed_formats: null
+  };
 }
+
+function createCloudinaryUploadStorage() {
+  return {
+    _handleFile(req, file, cb) {
+      const params = buildCloudinaryUploadParams(req, file);
+      const useChunkedUpload = params.resource_type === 'video' || params.resource_type === 'raw';
+      let size = 0;
+      let settled = false;
+
+      const done = (err, result) => {
+        if (settled) return;
+        settled = true;
+        if (err) return cb(err);
+        cb(null, {
+          path: result.secure_url || result.url,
+          secure_url: result.secure_url,
+          url: result.url,
+          filename: result.public_id,
+          public_id: result.public_id,
+          resource_type: result.resource_type,
+          format: result.format,
+          bytes: result.bytes || size,
+          size: result.bytes || size
+        });
+      };
+
+      const uploadOptions = useChunkedUpload
+        ? { ...params, chunk_size: CLOUDINARY_LARGE_UPLOAD_CHUNK_SIZE }
+        : params;
+
+      const cloudinaryStream = useChunkedUpload
+        ? cloudinary.uploader.upload_large_stream(uploadOptions, done)
+        : cloudinary.uploader.upload_stream(uploadOptions, done);
+
+      file.stream.on('data', chunk => { size += chunk.length; });
+      file.stream.on('error', done);
+      cloudinaryStream.on('error', done);
+      file.stream.pipe(cloudinaryStream);
+    },
+    _removeFile(req, file, cb) {
+      if (file && file.public_id && file.resource_type) {
+        cloudinary.uploader.destroy(file.public_id, { resource_type: file.resource_type }, () => cb(null));
+      } else {
+        cb(null);
+      }
+    }
+  };
+}
+
+// Cloudinary storage configuration. Videos/raw files use chunked uploads so large
+// homework and challenge submissions do not fail through regular upload_stream.
+let cloudinaryStorage = useCloudinary ? createCloudinaryUploadStorage() : null;
 
 // Helper function to get proper download URL from Cloudinary
 function getCloudinaryDownloadUrl(url, originalFilename) {
@@ -12180,9 +12225,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
 
     let groupSessions = [];
 
-    if (student.rows[0] && student.rows[0].group_id) {
-      const groupId = student.rows[0].group_id;
-
+    if (student.rows[0]) {
       const groupSessionsResult = lightMode
         ? await executeQuery(`
             SELECT s.*, 'Group' as source_type,
@@ -12191,11 +12234,11 @@ app.get('/api/sessions/:studentId', async (req, res) => {
               NULL::text as homework_feedback,
               false as has_feedback,
               COALESCE(sa.attendance, 'Pending') as student_attendance,
-              COALESCE(s.class_link, $3) as class_link
+              COALESCE(s.class_link, $2) as class_link
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
-            WHERE s.group_id = $2 AND s.session_type = 'Group'
-          `, [id, groupId, DEFAULT_CLASS])
+            WHERE s.session_type = 'Group'
+          `, [id, DEFAULT_CLASS])
         : await executeQuery(`
             SELECT s.*, 'Group' as source_type,
               COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
@@ -12217,13 +12260,13 @@ app.get('/api/sessions/:studentId', async (req, res) => {
                   'feedback_date', feedback_date,
                   'uploaded_by', uploaded_by
                 ) ORDER BY uploaded_at ASC NULLS LAST
-              ) as hw_submissions
-              FROM materials
-              WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
-            ) ma ON true
-            LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
-            WHERE s.group_id = $2 AND s.session_type = 'Group'
-          `, [id, groupId]);
+            ) as hw_submissions
+            FROM materials
+            WHERE session_id = s.id AND student_id = $1 AND file_type = 'Homework' AND uploaded_by IN ('Parent', 'Admin')
+          ) ma ON true
+          LEFT JOIN class_feedback cf ON cf.session_id = s.id AND cf.student_id = $1
+            WHERE s.session_type = 'Group'
+          `, [id]);
       groupSessions = groupSessionsResult.rows;
     }
 
