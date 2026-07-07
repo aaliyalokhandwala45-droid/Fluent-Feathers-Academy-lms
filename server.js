@@ -19209,19 +19209,14 @@ app.get('/api/challenges/:id/students', async (req, res) => {
   }
 });
 
-// Parent submits challenge as done (awaiting teacher approval)
-// Challenge submission requires an image or video attachment
+// Parent submits challenge as done (awaiting teacher approval).
+// The parent portal allows any non-executable attachment type.
 app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload('file'), async (req, res) => {
   try {
     const { challengeId, studentId } = req.params;
 
     if (!req.file) {
-      return res.status(400).json({ error: 'Please attach an image or video before submitting this challenge.' });
-    }
-
-    const mimeType = (req.file.mimetype || '').toLowerCase();
-    if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
-      return res.status(400).json({ error: 'Only image or video files are allowed for challenge submissions.' });
+      return res.status(400).json({ error: 'Please attach a file before submitting this challenge.' });
     }
 
     // Get file path if file was uploaded
@@ -19234,6 +19229,10 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
         filePath = '/' + String(req.file.path || path.join('uploads', 'materials', req.file.filename)).replace(/\\/g, '/');
       }
       fileName = req.file.originalname;
+    }
+
+    if (!filePath) {
+      return res.status(500).json({ error: 'Upload completed but no file URL was returned. Please try again.' });
     }
 
     // Check if student already has a record for this challenge

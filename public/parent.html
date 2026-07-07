@@ -2106,13 +2106,29 @@ setTimeout(() => {
 
         xhr.onload = () => {
           let data = {};
-          try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch (_) {}
-          resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+          try {
+            data = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+          } catch (_) {
+            data = { error: xhr.responseText ? xhr.responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240) : '' };
+          }
+          resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, statusText: xhr.statusText, data });
         };
         xhr.onerror = () => reject(new Error('Upload failed. Please check your internet connection and try again.'));
+        xhr.onabort = () => reject(new Error('Upload was cancelled. Please try again.'));
         xhr.ontimeout = () => reject(new Error('Upload timed out. Please try a smaller/compressed video or a stronger connection.'));
         xhr.send(formData);
       });
+    }
+
+    function getUploadFailureMessage(res, fallback = 'Upload failed. Please try again.') {
+      const data = res && res.data ? res.data : {};
+      if (data.error) return data.error;
+      if (data.message) return data.message;
+      if (res && res.status === 413) return 'File too large. Please compress the video and try again.';
+      if (res && res.status === 408) return 'Upload timed out. Please try a smaller/compressed video or a stronger connection.';
+      if (res && res.status >= 500) return 'The server could not finish processing this upload. Please try a smaller/compressed video or try again in a few minutes.';
+      if (res && res.status) return `${fallback} (HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''})`;
+      return fallback;
     }
 
     function studentAuthHeaders(extraHeaders = {}) {
@@ -3723,7 +3739,9 @@ setTimeout(() => {
           loadStudentChallenges();
           loadScoreHistory();
         } else {
-          alert('Error: ' + result.error);
+          const message = getUploadFailureMessage(res, 'Challenge upload failed. Please try again.');
+          if (progressText) progressText.textContent = message;
+          alert('Error: ' + message);
         }
       } catch (err) {
         alert('Error: ' + err.message);
@@ -4637,9 +4655,13 @@ setTimeout(() => {
             }
           });
           if (res.ok) successCount++;
-          else errorCount++;
+          else {
+            errorCount++;
+            progressText.textContent = getUploadFailureMessage(res, 'Could not submit comment/link. Please try again.');
+          }
         } catch (err) {
           errorCount++;
+          progressText.textContent = err.message;
         }
       }
       if (files.length > 0) {
@@ -4660,8 +4682,14 @@ setTimeout(() => {
             }
           });
           if (res.ok) successCount += files.length;
-          else errorCount += files.length;
-        } catch (err) { errorCount += files.length; }
+          else {
+            errorCount += files.length;
+            progressText.textContent = getUploadFailureMessage(res, 'Homework upload failed. Please try again.');
+          }
+        } catch (err) {
+          errorCount += files.length;
+          progressText.textContent = err.message;
+        }
       }
 
       _hwUploading = false;
@@ -4680,7 +4708,7 @@ setTimeout(() => {
           loadScoreHistory();
         }, 1800);
       } else {
-        progressText.textContent = 'Upload failed. Please try again.';
+        progressText.textContent = progressText.textContent || 'Upload failed. Please try again.';
         btn.disabled = false;
         btn.textContent = 'Try Again';
       }
@@ -5221,8 +5249,7 @@ setTimeout(() => {
           loadScoreHistory();
           loadSubmittedHomework();
         } else {
-          const data = res.data || {};
-          alert(data.error || 'Error uploading files');
+          alert(getUploadFailureMessage(res, 'Error uploading files'));
         }
       } catch(err) {
         console.error('Upload error:', err);
