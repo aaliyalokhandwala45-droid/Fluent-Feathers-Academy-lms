@@ -1136,7 +1136,7 @@ function createCloudinaryUploadStorage() {
         : params;
 
       const cloudinaryStream = useChunkedUpload
-        ? cloudinary.uploader.upload_large_stream(uploadOptions, done)
+        ? cloudinary.uploader.upload_chunked_stream(uploadOptions, done)
         : cloudinary.uploader.upload_stream(uploadOptions, done);
 
       file.stream.on('data', chunk => { size += chunk.length; });
@@ -13387,15 +13387,13 @@ app.post('/api/sessions/:sessionId/upload', handleUpload('file'), async (req, re
       filePath = `/uploads/${uploadFolder}/` + req.file.filename;
     }
 
-    // Respond immediately with success - file upload is complete
+    await processUploadDatabaseOperations(req.params.sessionId, col, filePath, req.body.materialType, req.file);
+
     res.json({
       message: 'Material uploaded successfully!',
       filename: req.file.filename,
       filePath: filePath
     });
-
-    // Do database operations asynchronously after response
-    processUploadDatabaseOperations(req.params.sessionId, col, filePath, req.body.materialType, req.file);
 
   } catch (err) {
     console.error('Upload error:', err);
@@ -13413,6 +13411,9 @@ async function processUploadDatabaseOperations(sessionId, col, filePath, materia
     // Update session with file path
     await client.query(`UPDATE sessions SET ${col} = $1 WHERE id = $2`, [filePath, sessionId]);
     const session = (await client.query('SELECT * FROM sessions WHERE id = $1', [sessionId])).rows[0];
+    if (!session) {
+      throw new Error('Session not found for material upload.');
+    }
 
     // Add to session_materials table for multiple file support
     await client.query(`
@@ -13443,6 +13444,7 @@ async function processUploadDatabaseOperations(sessionId, col, filePath, materia
     if (client) {
       try { await client.query('ROLLBACK'); } catch(e) {}
     }
+    throw err;
   } finally {
     if (client) client.release();
   }
