@@ -1587,20 +1587,15 @@ setTimeout(() => {
     }
     function getClassTypeDisplay(student) {
       if (!student) return '-';
-      if (student.class_type_display) return student.class_type_display;
-      const storedClassType = String(student.class_type || '').trim().toLowerCase();
       const privateActivity =
-        (storedClassType === 'private' ? 1 : 0) +
-        Number(student.regular_private_sessions_used || 0) +
-        Number(student.regular_private_sessions_pending || 0) +
-        Number(student.completed_private_sessions || 0);
+        Number(student.regular_private_sessions_pending || 0);
       const groupActivity =
-        (storedClassType === 'group' ? 1 : 0) +
         (student.group_id ? 1 : 0) +
-        Number(student.regular_group_sessions_used || 0) +
-        Number(student.regular_group_sessions_pending || 0) +
-        Number(student.completed_group_sessions || 0);
-      return privateActivity > 0 && groupActivity > 0 ? 'Semi Batch' : (student.class_type || '-');
+        Number(student.regular_group_sessions_pending || 0);
+      if (privateActivity > 0 && groupActivity > 0) return 'Semi Batch';
+      if (groupActivity > 0) return 'Group';
+      if (privateActivity > 0) return 'Private';
+      return student.class_type || '-';
     }
 
     let currentStudent = null;

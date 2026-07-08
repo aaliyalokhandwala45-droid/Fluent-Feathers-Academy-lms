@@ -631,7 +631,7 @@
               </select>
             </div>
           </div>
-          <div class="form-row"><div class="form-group"><label>Program Name *</label><input type="text" id="programName" required></div><div class="form-group"><label>Class Type *</label><select id="classType" required><option value="Private">Private</option><option value="Group">Group</option></select></div></div>
+          <div class="form-row"><div class="form-group"><label>Program Name *</label><input type="text" id="programName" required></div><div class="form-group"><label>Class Type *</label><select id="classType" required><option value="Private">Private</option><option value="Group">Group</option><option value="Semi Batch">Semi Batch</option></select></div></div>
           <div class="form-row">
             <div class="form-group"><label>Duration *</label>
               <select id="duration" required>
@@ -3893,7 +3893,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         </div>
         <div class="form-row">
           <div class="form-group"><label>Program Name *</label><input type="text" id="editProgramName" required></div>
-          <div class="form-group"><label>Class Type *</label><select id="editClassType" required><option value="Private">Private</option><option value="Group">Group</option></select></div>
+          <div class="form-group"><label>Class Type *</label><select id="editClassType" required><option value="Private">Private</option><option value="Group">Group</option><option value="Semi Batch">Semi Batch</option></select></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
@@ -5232,20 +5232,15 @@ if (dueEl) {
 
     function getClassTypeDisplay(student) {
       if (!student) return '-';
-      if (student.class_type_display) return student.class_type_display;
-      const storedClassType = String(student.class_type || '').trim().toLowerCase();
       const privateActivity =
-        (storedClassType === 'private' ? 1 : 0) +
-        Number(student.regular_private_sessions_used || 0) +
-        Number(student.regular_private_sessions_pending || 0) +
-        Number(student.completed_private_sessions || 0);
+        Number(student.regular_private_sessions_pending || 0);
       const groupActivity =
-        (storedClassType === 'group' ? 1 : 0) +
         (student.group_id ? 1 : 0) +
-        Number(student.regular_group_sessions_used || 0) +
-        Number(student.regular_group_sessions_pending || 0) +
-        Number(student.completed_group_sessions || 0);
-      return privateActivity > 0 && groupActivity > 0 ? 'Semi Batch' : (student.class_type || '-');
+        Number(student.regular_group_sessions_pending || 0);
+      if (privateActivity > 0 && groupActivity > 0) return 'Semi Batch';
+      if (groupActivity > 0) return 'Group';
+      if (privateActivity > 0) return 'Private';
+      return student.class_type || '-';
     }
 
     function filterStudents() {

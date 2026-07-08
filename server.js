@@ -4864,20 +4864,15 @@ function mapParentPortalStudentSnapshot(studentRow) {
 }
 
 function getStudentClassTypeDisplay(studentRow) {
-  const storedClassType = String(studentRow.class_type || '').trim().toLowerCase();
   const privateActivity =
-    (storedClassType === 'private' ? 1 : 0) +
-    (parseInt(studentRow.regular_private_sessions_used, 10) || 0) +
-    (parseInt(studentRow.regular_private_sessions_pending, 10) || 0) +
-    (parseInt(studentRow.completed_private_sessions, 10) || 0);
+    (parseInt(studentRow.regular_private_sessions_pending, 10) || 0);
   const groupActivity =
-    (storedClassType === 'group' ? 1 : 0) +
     (studentRow.group_id ? 1 : 0) +
-    (parseInt(studentRow.regular_group_sessions_used, 10) || 0) +
-    (parseInt(studentRow.regular_group_sessions_pending, 10) || 0) +
-    (parseInt(studentRow.completed_group_sessions, 10) || 0);
+    (parseInt(studentRow.regular_group_sessions_pending, 10) || 0);
 
   if (privateActivity > 0 && groupActivity > 0) return 'Semi Batch';
+  if (groupActivity > 0) return 'Group';
+  if (privateActivity > 0) return 'Private';
   return studentRow.class_type || 'Private';
 }
 
@@ -16901,7 +16896,7 @@ app.get('/api/cleanup/orphaned-count', async (req, res) => {
 
 // ==================== EDIT & DELETE STUDENT ====================
 app.put('/api/students/:id', async (req, res) => {
-  const { name, grade, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, duration, per_session_fee, currency, date_of_birth, class_link } = req.body;
+  const { name, grade, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, class_type, duration, per_session_fee, currency, date_of_birth, class_link } = req.body;
   try {
     const studentTimezone = timezone || parent_timezone || 'Asia/Kolkata';
     const parentTimezone = studentTimezone; // single timezone — admin sets one value for everything
@@ -16909,10 +16904,10 @@ app.put('/api/students/:id', async (req, res) => {
       UPDATE students SET
         name = $1, grade = $2, parent_name = $3, parent_email = $4,
         primary_contact = $5, timezone = $6, parent_timezone = $7, program_name = $8,
-        duration = $9, per_session_fee = $10, currency = $11,
-        date_of_birth = $12, class_link = $13
-      WHERE id = $14
-    `, [name, grade, parent_name, parent_email, primary_contact, studentTimezone, parentTimezone, program_name, duration, per_session_fee, currency, date_of_birth || null, class_link || null, req.params.id]);
+        class_type = $9, duration = $10, per_session_fee = $11, currency = $12,
+        date_of_birth = $13, class_link = $14
+      WHERE id = $15
+    `, [name, grade, parent_name, parent_email, primary_contact, studentTimezone, parentTimezone, program_name, class_type || 'Private', duration, per_session_fee, currency, date_of_birth || null, class_link || null, req.params.id]);
     // Sync parent_credentials so the stored value is authoritative
     if (parent_email) {
       await pool.query(
