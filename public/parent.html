@@ -1585,6 +1585,23 @@ setTimeout(() => {
         || getQuizLevelForAge(parseAgeFromStudentText(student && student.grade))
         || 'beginner';
     }
+    function getClassTypeDisplay(student) {
+      if (!student) return '-';
+      if (student.class_type_display) return student.class_type_display;
+      const storedClassType = String(student.class_type || '').trim().toLowerCase();
+      const privateActivity =
+        (storedClassType === 'private' ? 1 : 0) +
+        Number(student.regular_private_sessions_used || 0) +
+        Number(student.regular_private_sessions_pending || 0) +
+        Number(student.completed_private_sessions || 0);
+      const groupActivity =
+        (storedClassType === 'group' ? 1 : 0) +
+        (student.group_id ? 1 : 0) +
+        Number(student.regular_group_sessions_used || 0) +
+        Number(student.regular_group_sessions_pending || 0) +
+        Number(student.completed_group_sessions || 0);
+      return privateActivity > 0 && groupActivity > 0 ? 'Semi Batch' : (student.class_type || '-');
+    }
 
     let currentStudent = null;
     let allMyStudents = [];
@@ -6232,7 +6249,7 @@ setTimeout(() => {
       document.getElementById('profileStudentName').textContent = currentStudent.name || '-';
       document.getElementById('profileStudentGrade').textContent = getAgeDisplay(currentStudent);
       document.getElementById('profileProgram').textContent = currentStudent.program_name || '-';
-      document.getElementById('profileClassType').textContent = currentStudent.class_type || '-';
+      document.getElementById('profileClassType').textContent = getClassTypeDisplay(currentStudent);
 
       // Parent info (editable)
       document.getElementById('profileParentName').value = currentStudent.parent_name || '';

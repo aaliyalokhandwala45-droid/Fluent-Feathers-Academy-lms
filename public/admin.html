@@ -5230,6 +5230,24 @@ if (dueEl) {
       if (pendingEl) pendingEl.textContent = pending;
     }
 
+    function getClassTypeDisplay(student) {
+      if (!student) return '-';
+      if (student.class_type_display) return student.class_type_display;
+      const storedClassType = String(student.class_type || '').trim().toLowerCase();
+      const privateActivity =
+        (storedClassType === 'private' ? 1 : 0) +
+        Number(student.regular_private_sessions_used || 0) +
+        Number(student.regular_private_sessions_pending || 0) +
+        Number(student.completed_private_sessions || 0);
+      const groupActivity =
+        (storedClassType === 'group' ? 1 : 0) +
+        (student.group_id ? 1 : 0) +
+        Number(student.regular_group_sessions_used || 0) +
+        Number(student.regular_group_sessions_pending || 0) +
+        Number(student.completed_group_sessions || 0);
+      return privateActivity > 0 && groupActivity > 0 ? 'Semi Batch' : (student.class_type || '-');
+    }
+
     function filterStudents() {
       const searchInput = document.getElementById('studentSearchInput');
       const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
@@ -5270,7 +5288,7 @@ if (dueEl) {
           : s.parent_app_installed
             ? `<div><span onclick="sendParentSetupEmail(${s.id})" style="display:inline-flex;align-items:center;gap:6px;background:#fef9c3;color:#854d0e;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;" title="Click to send setup email">📲 App installed</span></div><div style="font-size:11px;color:#854d0e;margin-top:4px;">Notifications not active</div>`
             : `<div><span onclick="sendParentSetupEmail(${s.id})" style="display:inline-flex;align-items:center;gap:6px;background:#ffedd5;color:#9a3412;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;" title="Click to send setup email">⚠️ Not set up</span></div><div style="font-size:11px;color:#9a3412;margin-top:4px;">Click badge to send setup email</div>`;
-        return `<tr><td><strong>${s.name}</strong>${assessmentBadge}<div style="font-size:11px;color:#718096;margin-top:4px;">${s.parent_name || '-'}${s.parent_email ? ` • ${s.parent_email}` : ''}</div></td><td>${getAgeDisplay(s)}</td><td>${s.program_name}</td><td>${s.class_type}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td>${parentAppStatus}</td><td><button onclick="toggleStudentStatus(${s.id}, ${!s.is_active})" class="btn btn-sm" style="background: ${s.is_active ? '#e53e3e' : '#38a169'}; color: white;">${s.is_active ? 'Deactivate' : 'Activate'}</button></td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="askStudentReview(${s.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
+        return `<tr><td><strong>${s.name}</strong>${assessmentBadge}<div style="font-size:11px;color:#718096;margin-top:4px;">${s.parent_name || '-'}${s.parent_email ? ` • ${s.parent_email}` : ''}</div></td><td>${getAgeDisplay(s)}</td><td>${s.program_name}</td><td>${getClassTypeDisplay(s)}</td><td>${s.completed_sessions}/${s.remaining_sessions}</td><td>${s.makeup_credits||0}</td><td>${parentAppStatus}</td><td><button onclick="toggleStudentStatus(${s.id}, ${!s.is_active})" class="btn btn-sm" style="background: ${s.is_active ? '#e53e3e' : '#38a169'}; color: white;">${s.is_active ? 'Deactivate' : 'Activate'}</button></td><td><button onclick="openStudentModal(${s.id})" class="btn btn-sm btn-primary">View</button> <button onclick="editStudent(${s.id})" class="btn btn-sm btn-warning">Edit</button> <button onclick="askStudentReview(${s.id})" class="btn btn-sm" style="background:#4285f4;color:white;">⭐ Ask Review</button> <button onclick="deleteStudent(${s.id})" class="btn btn-sm btn-danger">Delete</button></td></tr>`;
       }).join('');
     }
 
@@ -8458,7 +8476,7 @@ if (dueEl) {
           <h3 style="color: #B05D9E; margin-bottom: 15px;">Program Details</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div><strong>Program:</strong> ${student.program_name}</div>
-            <div><strong>Type:</strong> ${student.class_type}</div>
+            <div><strong>Type:</strong> ${getClassTypeDisplay(student)}</div>
             <div><strong>Duration:</strong> ${student.duration}</div>
             <div><strong>Fee per Session:</strong> ${student.currency} ${student.per_session_fee}</div>
           </div>

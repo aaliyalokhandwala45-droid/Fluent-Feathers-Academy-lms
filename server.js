@@ -4854,11 +4854,31 @@ async function getParentPortalStudentById(studentId, db = pool) {
 
 function mapParentPortalStudentSnapshot(studentRow) {
   const sessionBalance = mapStudentSessionBalance(studentRow);
+  const classTypeDisplay = getStudentClassTypeDisplay({ ...studentRow, ...sessionBalance });
   return {
     ...studentRow,
     ...sessionBalance,
+    class_type_display: classTypeDisplay,
     parent_timezone: studentRow.parent_timezone || studentRow.credential_timezone || studentRow.timezone || 'Asia/Kolkata'
   };
+}
+
+function getStudentClassTypeDisplay(studentRow) {
+  const storedClassType = String(studentRow.class_type || '').trim().toLowerCase();
+  const privateActivity =
+    (storedClassType === 'private' ? 1 : 0) +
+    (parseInt(studentRow.regular_private_sessions_used, 10) || 0) +
+    (parseInt(studentRow.regular_private_sessions_pending, 10) || 0) +
+    (parseInt(studentRow.completed_private_sessions, 10) || 0);
+  const groupActivity =
+    (storedClassType === 'group' ? 1 : 0) +
+    (studentRow.group_id ? 1 : 0) +
+    (parseInt(studentRow.regular_group_sessions_used, 10) || 0) +
+    (parseInt(studentRow.regular_group_sessions_pending, 10) || 0) +
+    (parseInt(studentRow.completed_group_sessions, 10) || 0);
+
+  if (privateActivity > 0 && groupActivity > 0) return 'Semi Batch';
+  return studentRow.class_type || 'Private';
 }
 
 function mapStudentSessionBalance(studentRow) {
@@ -4905,7 +4925,8 @@ function mapStudentSessionBalance(studentRow) {
       paid_remaining_sessions: paidRemainingSessions,
       remaining_sessions: visibleRemainingSessions,
       bookable_paid_sessions: Math.max(paidRemainingSessions - regularPrivatePending - regularGroupPending, 0),
-      scheduled_makeup_credits: scheduledMakeupCredits
+      scheduled_makeup_credits: scheduledMakeupCredits,
+      class_type_display: getStudentClassTypeDisplay(studentRow)
     };
   }
 
@@ -4927,13 +4948,14 @@ function mapStudentSessionBalance(studentRow) {
     paid_remaining_sessions: paidRemainingSessions,
     remaining_sessions: visibleRemainingSessions,
     bookable_paid_sessions: bookablePaidSessions,
-    scheduled_makeup_credits: scheduledMakeupCredits
+    scheduled_makeup_credits: scheduledMakeupCredits,
+    class_type_display: getStudentClassTypeDisplay(studentRow)
   };
 }
 
 async function getStudentSessionBalance(studentId, db = pool) {
   const result = await db.query(`
-    SELECT s.id, s.total_sessions, s.completed_sessions, s.missed_sessions, s.remaining_sessions, s.session_balance_override,
+    SELECT s.id, s.class_type, s.group_id, s.total_sessions, s.completed_sessions, s.missed_sessions, s.remaining_sessions, s.session_balance_override,
       COALESCE((
         SELECT COUNT(*)
         FROM sessions sess
