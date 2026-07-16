@@ -13253,7 +13253,15 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
       }
     }
 
-    await client.query('UPDATE sessions SET status = $1 WHERE id = $2', ['Completed', sessionId]);
+    const pendingAttendance = await client.query(
+      `SELECT COUNT(*)::int AS pending_count
+       FROM session_attendance
+       WHERE session_id = $1
+         AND COALESCE(attendance, 'Pending') = 'Pending'`,
+      [sessionId]
+    );
+    const nextSessionStatus = pendingAttendance.rows[0]?.pending_count > 0 ? 'Pending' : 'Completed';
+    await client.query('UPDATE sessions SET status = $1 WHERE id = $2', [nextSessionStatus, sessionId]);
     await client.query('COMMIT');
 
     if (Array.isArray(attendanceData)) {
