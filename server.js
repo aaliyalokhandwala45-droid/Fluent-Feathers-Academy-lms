@@ -32,7 +32,24 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEFAULT_CLASS = process.env.DEFAULT_CLASS_LINK || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
 const GROQ_TEXT_MODEL = String(process.env.GROQ_TEXT_MODEL || process.env.GROQ_MODEL || 'openai/gpt-oss-120b').trim();
-const GROQ_VISION_MODEL = String(process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct').trim();
+const DEFAULT_GROQ_VISION_MODEL = 'qwen/qwen3.6-27b';
+const DEPRECATED_GROQ_MODEL_REPLACEMENTS = {
+  'meta-llama/llama-4-scout-17b-16e-instruct': DEFAULT_GROQ_VISION_MODEL,
+  'meta-llama/llama-4-maverick-17b-128e-instruct': 'openai/gpt-oss-120b',
+  'qwen/qwen3-32b': 'openai/gpt-oss-120b'
+};
+
+function resolveGroqModel(configuredModel, fallbackModel) {
+  const model = String(configuredModel || fallbackModel).trim() || fallbackModel;
+  const replacement = DEPRECATED_GROQ_MODEL_REPLACEMENTS[model];
+  if (replacement) {
+    console.warn(`Configured Groq model "${model}" is deprecated/unavailable; using "${replacement}" instead.`);
+    return replacement;
+  }
+  return model;
+}
+
+const GROQ_VISION_MODEL = resolveGroqModel(process.env.GROQ_VISION_MODEL, DEFAULT_GROQ_VISION_MODEL);
 
 // Enforce security requirements in production
 if (process.env.NODE_ENV === 'production') {
