@@ -12950,7 +12950,9 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
 
     // Determine session status based on attendance
     let sessionStatus;
-    if (attendance === 'Present') {
+    if (attendance === 'Pending') {
+      sessionStatus = 'Pending';
+    } else if (attendance === 'Present') {
       sessionStatus = 'Completed';
     } else if (attendance === 'Excused') {
       sessionStatus = 'Excused';
@@ -12970,7 +12972,44 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
       // Only update student stats if status actually changed (prevent double-counting)
       const alreadyCounted = prevStatus === 'Completed' || prevStatus === 'Excused' || prevStatus === 'Missed';
 
-      if (attendance === 'Present') {
+      if (attendance === 'Pending') {
+        if (prevStatus === 'Completed') {
+          await pool.query(
+            `UPDATE students
+             SET completed_sessions = GREATEST(completed_sessions - 1, 0),
+                 remaining_sessions = remaining_sessions + 1,
+                 renewal_reminder_sent = false
+             WHERE id = $1`,
+            [studentId]
+          );
+          await pool.query(
+            `UPDATE makeup_classes
+             SET status = 'Scheduled', used_date = NULL
+             WHERE student_id = $1
+               AND scheduled_session_id = $2
+               AND LOWER(COALESCE(status, '')) = 'used'`,
+            [studentId, sessionId]
+          );
+        } else if (prevStatus === 'Excused' || prevStatus === 'Missed') {
+          await pool.query(
+            `UPDATE students
+             SET remaining_sessions = remaining_sessions + 1,
+                 renewal_reminder_sent = false
+             WHERE id = $1`,
+            [studentId]
+          );
+          if (prevStatus === 'Excused') {
+            await pool.query(
+              `DELETE FROM makeup_classes
+               WHERE student_id = $1
+                 AND original_session_id = $2
+                 AND LOWER(COALESCE(status, '')) = 'available'
+                 AND added_by = 'admin'`,
+              [studentId, sessionId]
+            );
+          }
+        }
+      } else if (attendance === 'Present') {
         if (!alreadyCounted) {
           await pool.query(
             `UPDATE students
@@ -13024,11 +13063,12 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
       }
     }
 
-    const message = attendance === 'Present' ? 'Marked as Present' :
+    const message = attendance === 'Pending' ? 'Attendance reversed to Pending' :
+                    attendance === 'Present' ? 'Marked as Present' :
                     attendance === 'Excused' ? 'Marked as Excused (makeup credit granted)' :
                     'Marked as Unexcused (no makeup credit)';
 
-    if (session.rows[0]?.student_id) {
+    if (attendance !== 'Pending' && session.rows[0]?.student_id) {
       maybeSendPaidClassesDoneMakeupEmail(session.rows[0].student_id).catch(err =>
         console.error('Failed to send paid-classes-complete makeup email:', err)
       );
@@ -13210,9 +13250,47 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
       // Handle state transitions
       const wasPresent = prevAttendance === 'Present';
       const wasExcused = prevAttendance === 'Excused';
+      const wasAbsent = prevAttendance === 'Unexcused' || prevAttendance === 'Absent';
       const wasPending = !prevAttendance || prevAttendance === 'Pending';
 
-      if (record.attendance === 'Present') {
+      if (record.attendance === 'Pending') {
+        if (wasPresent) {
+          await client.query(
+            `UPDATE students
+             SET completed_sessions = GREATEST(completed_sessions - 1, 0),
+                 remaining_sessions = remaining_sessions + 1,
+                 renewal_reminder_sent = false
+             WHERE id = $1`,
+            [record.student_id]
+          );
+          await client.query(
+            `UPDATE makeup_classes
+             SET status = 'Scheduled', used_date = NULL
+             WHERE student_id = $1
+               AND scheduled_session_id = $2
+               AND LOWER(COALESCE(status, '')) = 'used'`,
+            [record.student_id, sessionId]
+          );
+        } else if (wasExcused || wasAbsent) {
+          await client.query(
+            `UPDATE students
+             SET remaining_sessions = remaining_sessions + 1,
+                 renewal_reminder_sent = false
+             WHERE id = $1`,
+            [record.student_id]
+          );
+          if (wasExcused) {
+            await client.query(
+              `DELETE FROM makeup_classes
+               WHERE student_id = $1
+                 AND original_session_id = $2
+                 AND LOWER(COALESCE(status, '')) = 'available'
+                 AND added_by = 'admin'`,
+              [record.student_id, sessionId]
+            );
+          }
+        }
+      } else if (record.attendance === 'Present') {
         // If changing TO Present from non-Present
         if (!wasPresent) {
           await client.query(
@@ -13283,7 +13361,7 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 
     if (Array.isArray(attendanceData)) {
       for (const record of attendanceData) {
-        if (record?.student_id) {
+        if (record?.student_id && record.attendance !== 'Pending') {
           maybeSendPaidClassesDoneMakeupEmail(record.student_id).catch(err =>
             console.error('Failed to send paid-classes-complete makeup email:', err)
           );

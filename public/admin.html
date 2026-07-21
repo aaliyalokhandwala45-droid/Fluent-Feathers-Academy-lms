@@ -5759,7 +5759,8 @@ if (dueEl) {
           `<button onclick="markAttendance(${s.id}, '${s.session_type}', 'Present')" class="btn btn-sm" style="background:#38a169; color:white; margin-right:5px;">✓ Present</button>
            <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Excused')" class="btn btn-sm" style="background:#dd6b20; color:white; margin-right:5px;" title="Absent with makeup credit">⚠️ Excused</button>
            <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Unexcused')" class="btn btn-sm" style="background:#e53e3e; color:white;" title="Absent without makeup credit">✗ Unexcused</button>` :
-          `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Excused' ? 'attendance-excused' : s.status === 'Absent' || s.status === 'Unexcused' || s.status === 'Missed' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>`;
+          `<span class="type-badge ${s.status === 'Present' || s.status === 'Completed' ? 'attendance-present' : s.status === 'Excused' ? 'attendance-excused' : s.status === 'Absent' || s.status === 'Unexcused' || s.status === 'Missed' ? 'attendance-absent' : 'attendance-pending'}">${s.status}</span>
+           <button onclick="markAttendance(${s.id}, '${s.session_type}', 'Pending')" class="btn btn-sm" style="background:#718096; color:white; margin-left:6px;" title="Undo the attendance mark and return this class to the joining list">↩ Reverse</button>`;
         const materials = `${s.ppt_file_path ? '<span title="PPT">📊</span>' : ''} ${s.recording_file_path ? '<span title="Recording">🎥</span>' : ''} ${s.homework_file_path ? '<span title="HW">📝</span>' : ''}`;
         const typeClass = s.session_type === 'Private' ? 'type-badge-private' : 'type-badge-group';
         const sessionNumberText = getAdminSessionNumber(s);
@@ -7202,16 +7203,18 @@ if (dueEl) {
         openSessionModal(sessionId, 'Group');
       } else {
         try {
+          if (attendance === 'Pending' && !confirm('Reverse this attendance mark and put the class back as Pending?')) return;
           const res = await fetch(`/api/sessions/${sessionId}/attendance`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ attendance })
           });
           if(res.ok) {
-            const emoji = attendance === 'Present' ? '✅' : attendance === 'Excused' ? '⚠️' : '❌';
+            const emoji = attendance === 'Pending' ? '↩' : attendance === 'Present' ? '✅' : attendance === 'Excused' ? '⚠️' : '❌';
             const extraMsg = attendance === 'Excused' ? '\n(Makeup credit granted)' :
-                            attendance === 'Unexcused' ? '\n(No makeup credit)' : '';
-            alert(`${emoji} Marked as ${attendance}${extraMsg}`);
+                            attendance === 'Unexcused' ? '\n(No makeup credit)' :
+                            attendance === 'Pending' ? '\n(Class is back in the joining list)' : '';
+            alert(attendance === 'Pending' ? `${emoji} Attendance reversed${extraMsg}` : `${emoji} Marked as ${attendance}${extraMsg}`);
             loadPastSessions();
             loadDashboardStats();
           } else {
@@ -7390,10 +7393,14 @@ if (dueEl) {
             const excusedBtnClass = s.attendance === 'Excused' ? 'btn-att-active-excused' : '';
             const unexcusedBtnClass = (s.attendance === 'Absent' || s.attendance === 'Unexcused') ? 'btn-att-active-absent' : '';
             const childSessionNumber = s.student_session_number ? `#${s.student_session_number}` : '-';
+            const reverseButton = statusText !== 'Pending'
+              ? `<button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Pending', '${s.student_name}')" class="btn btn-sm" style="background:#718096; color:white;" title="Undo this attendance mark and return this student to the joining list">↩ Reverse</button>`
+              : '';
             return `<tr id="att-row-${s.student_id}"><td>${s.student_name}</td><td id="att-session-number-${s.student_id}" style="font-weight:700; color:#4a5568;">${childSessionNumber}</td><td id="att-status-${s.student_id}"><span class="att-badge ${statusClass}">${statusText}</span></td><td>
               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Present', '${s.student_name}')" class="btn btn-sm btn-success ${presentBtnClass}">✓ Present</button>
               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Excused', '${s.student_name}')" class="btn btn-sm" style="background:#dd6b20; color:white; ${excusedBtnClass}" title="Absent with makeup credit">⚠️ Excused</button>
               <button onclick="saveGroupAttendance(${sessionId}, ${s.student_id}, 'Unexcused', '${s.student_name}')" class="btn btn-sm btn-danger ${unexcusedBtnClass}" title="Absent without makeup credit">✗ Unexcused</button>
+              ${reverseButton}
             </td></tr>`;
           }).join('') + `</tbody></table>`;
         }
@@ -7409,6 +7416,7 @@ if (dueEl) {
 
     async function saveGroupAttendance(sessionId, studentId, status, studentName) {
       try {
+        if (status === 'Pending' && !confirm(`Reverse attendance for ${studentName} and put this student back as Pending?`)) return;
         const res = await fetch(`/api/sessions/${sessionId}/group-attendance`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -7418,11 +7426,11 @@ if (dueEl) {
           // Update UI immediately using CSS classes
           const statusCell = document.getElementById(`att-status-${studentId}`);
           if (statusCell) {
-            const badgeClass = status === 'Present' ? 'att-badge-present' : status === 'Excused' ? 'att-badge-excused' : 'att-badge-absent';
+            const badgeClass = status === 'Present' ? 'att-badge-present' : status === 'Excused' ? 'att-badge-excused' : status === 'Pending' ? 'att-badge-pending' : 'att-badge-absent';
             statusCell.innerHTML = `<span class="att-badge ${badgeClass}">${status}</span>`;
           }
           const sessionNumberCell = document.getElementById(`att-session-number-${studentId}`);
-          if (sessionNumberCell && (status === 'Excused' || status === 'Unexcused')) {
+          if (sessionNumberCell && (status === 'Excused' || status === 'Unexcused' || status === 'Pending')) {
             sessionNumberCell.textContent = '-';
           }
           if (sessionNumberCell && status === 'Present') {
@@ -7435,9 +7443,9 @@ if (dueEl) {
               }
             } catch (_) {}
           }
-          const emoji = status === 'Present' ? '✅' : status === 'Excused' ? '⚠️' : '❌';
-          const extraMsg = status === 'Excused' ? ' (makeup credit granted)' : status === 'Unexcused' ? ' (no makeup credit)' : '';
-          alert(`${emoji} ${studentName} marked as ${status}${extraMsg}`);
+          const emoji = status === 'Pending' ? '↩' : status === 'Present' ? '✅' : status === 'Excused' ? '⚠️' : '❌';
+          const extraMsg = status === 'Excused' ? ' (makeup credit granted)' : status === 'Unexcused' ? ' (no makeup credit)' : status === 'Pending' ? ' (joining restored)' : '';
+          alert(status === 'Pending' ? `${emoji} ${studentName} attendance reversed${extraMsg}` : `${emoji} ${studentName} marked as ${status}${extraMsg}`);
         } else {
           const err = await res.json();
           alert('❌ Failed: ' + (err.error || 'Unknown error'));
