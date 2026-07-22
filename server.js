@@ -9619,6 +9619,34 @@ async function getLocalGeneratedQuizQuestions(level, count, options = {}) {
   return generated;
 }
 
+async function getLastResortLocalQuizQuestions(level, count, options = {}) {
+  if (!count || count <= 0) return [];
+  const { quizDate = null, excludeTexts = new Set() } = options;
+  const existingTexts = new Set();
+  for (const text of excludeTexts) {
+    addQuizQuestionTextToSet(existingTexts, text);
+  }
+
+  const categoryCycle = getQuizAllowedCategoriesForLevel(level);
+  const generated = [];
+  const seedBase = Math.abs(String(`${quizDate || ''}:${level}:last-resort`).split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0));
+
+  for (let i = 0; generated.length < count && i < 120; i++) {
+    const category = categoryCycle[(seedBase + i) % categoryCycle.length];
+    const candidate = createLocalQuizQuestion(level, category, seedBase + i + 1);
+    const normalized = normalizeQuizQuestionText(candidate.question_text);
+    const similarityKey = getQuizQuestionSimilarityKey(candidate.question_text);
+    if (!normalized || existingTexts.has(normalized) || existingTexts.has(similarityKey)) {
+      continue;
+    }
+    existingTexts.add(normalized);
+    if (similarityKey) existingTexts.add(similarityKey);
+    generated.push(candidate);
+  }
+
+  return generated;
+}
+
 // Generate and store pending quiz questions for approval
 async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['beginner', 'intermediate', 'advanced'], options = {}) {
   const levels = Array.isArray(levelsToGenerate) && levelsToGenerate.length > 0
@@ -9807,6 +9835,29 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           }
           console.log(`Local fallback filled quiz to ${aiQuestions.length}/${neededCount} for ${level}`);
         }
+
+        if (aiQuestions.length < neededCount && allowLocalFallback) {
+          const lastResortQuestions = await getLastResortLocalQuizQuestions(level, neededCount - aiQuestions.length, {
+            quizDate,
+            excludeTexts: localSeen
+          });
+          for (const question of lastResortQuestions) {
+            const normalized = normalizeQuizQuestionText(question.question_text);
+            const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) {
+              continue;
+            }
+            localSeen.add(normalized);
+            globalSeenTexts.add(normalized);
+            if (similarityKey) localSeen.add(similarityKey);
+            if (similarityKey) globalSeenTexts.add(similarityKey);
+            addQuizQuestionOptionsToSet(localOptionSets, question.options);
+            addQuizQuestionOptionsToSet(globalSeenOptionSets, question.options);
+            aiQuestions.push(question);
+            if (aiQuestions.length >= neededCount) break;
+          }
+          console.log(`Last-resort local fill brought quiz to ${aiQuestions.length}/${neededCount} for ${level}`);
+        }
       }
 
       if (!aiQuestions || aiQuestions.length === 0) {
@@ -9814,8 +9865,27 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         continue;
       }
 
+      const currentActiveResult = await pool.query(
+        `SELECT COUNT(*)::int AS count
+         FROM pending_quiz_questions
+         WHERE quiz_date = $1 AND level = $2 AND status IN ('pending', 'approved')`,
+        [quizDate, level]
+      );
+      const currentActiveCount = currentActiveResult.rows[0]?.count || 0;
+      const remainingSlots = Math.max(0, DAILY_QUIZ_QUESTION_COUNT - currentActiveCount);
+      const questionsToInsert = aiQuestions.slice(0, remainingSlots);
+
+      if (questionsToInsert.length < aiQuestions.length) {
+        console.warn(`Skipping ${aiQuestions.length - questionsToInsert.length} extra ${level} question(s); ${quizDate} already has ${currentActiveCount} active question(s).`);
+      }
+
+      if (questionsToInsert.length === 0) {
+        console.log(`No remaining ${level} slots for ${quizDate}; active count is ${currentActiveCount}.`);
+        continue;
+      }
+
       // Insert into pending_quiz_questions table
-      for (const q of aiQuestions) {
+      for (const q of questionsToInsert) {
         await pool.query(`
           INSERT INTO pending_quiz_questions (quiz_date, level, question_text, options, correct_answer, category, explanation, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
@@ -9830,7 +9900,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         ]);
         totalGenerated++;
       }
-      console.log(`✅ Generated ${aiQuestions.length} questions for ${level} level`);
+      console.log(`✅ Generated ${questionsToInsert.length} questions for ${level} level`);
     } catch (err) {
       console.error(`❌ Error generating questions for ${level}:`, err.message);
     }
@@ -20721,6 +20791,37 @@ app.put('/api/admin/pending-quiz-questions/:id', async (req, res) => {
   }
 });
 
+// Admin: Delete one pending AI question before approval
+app.delete('/api/admin/pending-quiz-questions/:id', async (req, res) => {
+  try {
+    const questionId = parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(questionId) || questionId <= 0) {
+      return res.status(400).json({ error: 'Invalid question id' });
+    }
+
+    const result = await pool.query(
+      `DELETE FROM pending_quiz_questions
+       WHERE id = $1 AND status = 'pending'
+       RETURNING id, level, quiz_date`,
+      [questionId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Pending question not found or already finalized' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Pending question deleted',
+      deletedQuestion: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Delete pending question error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: Add one manual pending quiz question for review/approval
 app.post('/api/admin/pending-quiz-questions', async (req, res) => {
   try {
@@ -20759,7 +20860,7 @@ app.post('/api/admin/pending-quiz-questions', async (req, res) => {
     const existingPendingCountResult = await pool.query(
       `SELECT COUNT(*)::int AS count
        FROM pending_quiz_questions
-       WHERE quiz_date = $1 AND level = $2 AND status = 'pending'`,
+       WHERE quiz_date = $1 AND level = $2 AND status IN ('pending', 'approved')`,
       [date, level]
     );
     const pendingCount = existingPendingCountResult.rows[0]?.count || 0;

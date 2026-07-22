@@ -16111,14 +16111,15 @@ async function loadPendingQuizQuestions(date) {
       const questions = grouped[level] || [];
       const approvedCount = questions.filter(q => q.status === 'approved').length;
       const pendingCount = questions.filter(q => q.status === 'pending').length;
+      const activeCount = approvedCount + pendingCount;
       const rejectedCount = questions.filter(q => q.status === 'rejected').length;
-      const remainingSlots = Math.max(0, 10 - pendingCount);
+      const remainingSlots = Math.max(0, 10 - activeCount);
 
       html += `<div style="background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h4 style="margin: 0; color: #2d3748;">📋 ${level.toUpperCase()} Level (${pendingCount}/10 Pending)</h4>
+          <h4 style="margin: 0; color: #2d3748;">📋 ${level.toUpperCase()} Level (${activeCount}/10 Active)</h4>
           <div style="display: flex; gap: 8px;">
-            ${pendingCount >= 10 ? `<button onclick="approvePendingQuestions('${selectedDate}', '${level}')" style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">✅ Approve Level</button>` : ''}
+            ${activeCount >= 10 ? `<button onclick="approvePendingQuestions('${selectedDate}', '${level}')" style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold;">✅ Approve Level</button>` : ''}
             ${pendingCount > 0 ? `<button onclick="rejectPendingQuestions('${selectedDate}', '${level}')" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;">❌ Reject All</button>` : ''}
           </div>
         </div>
@@ -16195,6 +16196,7 @@ async function loadPendingQuizQuestions(date) {
         html += `<div style="display:flex; justify-content:flex-end; gap:8px;">
             <button onclick="refreshPendingQuestion(${q.id}, '${selectedDate}')" style="background:#805ad5;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;">🔄 Refresh Question</button>
             <button onclick="savePendingQuestionEdits(${q.id}, '${selectedDate}')" style="background:#3182ce;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;">💾 Save Edit</button>
+            <button onclick="deletePendingQuestion(${q.id}, '${selectedDate}')" style="background:#e53e3e;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:600;">🗑️ Delete</button>
           </div>
         </div>`;
       }
@@ -16368,6 +16370,24 @@ async function refreshPendingQuestion(questionId, date) {
   } catch (error) {
     console.error('Error refreshing pending question:', error);
     alert('❌ Error refreshing question: ' + error.message);
+  }
+}
+
+async function deletePendingQuestion(questionId, date) {
+  if (!confirm('Delete this pending question? You can generate or add another question to fill the slot.')) return;
+
+  try {
+    const response = await fetch(`/api/admin/pending-quiz-questions/${questionId}`, {
+      method: 'DELETE'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to delete question');
+
+    loadPendingQuizQuestions(date);
+    refreshQuizAdminData();
+  } catch (error) {
+    console.error('Error deleting pending question:', error);
+    alert('❌ Error deleting question: ' + error.message);
   }
 }
 
