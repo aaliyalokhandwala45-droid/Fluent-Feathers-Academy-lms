@@ -18604,7 +18604,7 @@ app.get('/api/students/:id/homework', async (req, res) => {
       SELECT m.*, s.session_number
       FROM materials m
       LEFT JOIN sessions s ON m.session_id = s.id
-      WHERE m.student_id = $1 AND m.file_type IN ('Homework', 'Classwork')
+      WHERE m.student_id = $1 AND LOWER(m.file_type) IN ('homework', 'classwork')
       ORDER BY m.uploaded_at DESC
     `, [req.params.id]);
 

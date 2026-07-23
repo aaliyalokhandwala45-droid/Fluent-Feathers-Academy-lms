@@ -921,6 +921,7 @@
             <div class="form-group">
               <label>Select Session *</label>
               <select id="homeworkSessionSelect" required><option value="">Loading...</option></select>
+              <div id="homeworkWorksheetActions" style="margin-top:8px;font-size:0.85rem;color:#4a5568;"></div>
             </div>
             <div class="form-group">
               <label>Files * (Select multiple images/files at once)</label>
@@ -4725,6 +4726,64 @@ setTimeout(() => {
         btn.textContent = 'Try Again';
       }
     }
+    let homeworkSessionWorksheetMap = new Map();
+
+    function getHomeworkFileType(fileNameOrPath) {
+      const ext = String(fileNameOrPath || '').split('?')[0].split('.').pop().toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+      if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) return 'video';
+      if (ext === 'pdf') return 'pdf';
+      if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(ext)) return 'doc';
+      return 'other';
+    }
+
+    function buildHomeworkFileUrl(filePath, uploadedBy = 'Teacher') {
+      if (!filePath) return { url: '', isLink: false };
+      const rawPath = String(filePath);
+      if (rawPath.startsWith('LINK:')) return { url: rawPath.replace('LINK:', ''), isLink: true };
+      if (rawPath.startsWith('https://') || rawPath.startsWith('http://') || rawPath.startsWith('/uploads/')) {
+        return { url: rawPath, isLink: false };
+      }
+      if (/^\d+-\d+/.test(rawPath)) {
+        const ext = rawPath.split('.').pop().toLowerCase();
+        const resourceType = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image' : 'raw';
+        const folder = uploadedBy === 'Parent' ? 'homework' : 'homework';
+        return {
+          url: `https://res.cloudinary.com/${appConfig.cloudName || 'dmqipms4f'}/${resourceType}/upload/fluentfeathers/${folder}/${rawPath}`,
+          isLink: false
+        };
+      }
+      return { url: '/uploads/homework/' + rawPath, isLink: false };
+    }
+
+    function renderHomeworkWorksheetActions() {
+      const container = document.getElementById('homeworkWorksheetActions');
+      const sel = document.getElementById('homeworkSessionSelect');
+      if (!container || !sel) return;
+
+      const session = homeworkSessionWorksheetMap.get(String(sel.value));
+      const filePath = session?.homework_file_path;
+      if (!filePath) {
+        container.innerHTML = sel.value ? 'No worksheet uploaded for this session yet.' : '';
+        return;
+      }
+
+      const fileName = String(filePath).split('/').pop().replace(/^LINK:/, '') || 'Worksheet';
+      const file = buildHomeworkFileUrl(filePath, 'Teacher');
+      const safeUrl = file.url.replace(/'/g, "\\'");
+      const safeName = fileName.replace(/'/g, "\\'");
+      const label = file.isLink ? 'Open worksheet' : 'View worksheet';
+      container.innerHTML = `
+        <button type="button" onclick="${file.isLink
+          ? `window.open('${safeUrl}', '_blank')`
+          : `previewFile('${safeUrl}', '${getHomeworkFileType(fileName)}', '${safeName}')`}"
+          style="background:#2b6cb0;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.82rem;font-weight:700;">
+          ${label}
+        </button>
+        ${file.isLink ? '' : `<button type="button" onclick="forceDownload('${safeUrl}', '${safeName}')" style="margin-left:6px;background:#edf2f7;color:#2d3748;border:1px solid #cbd5e0;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:0.82rem;">Download worksheet</button>`}
+      `;
+    }
+
     async function loadHomeworkSessions() {
       try {
         const res = await fetch(`/api/sessions/${currentStudent.id}`, { headers: authHeaders() });
@@ -4732,9 +4791,11 @@ setTimeout(() => {
         // Include completed sessions AND group sessions where student was absent (so they can still submit HW after watching recording)
         const completed = sessions.filter(s => s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance === 'Absent'));
         const sel = document.getElementById('homeworkSessionSelect');
+        homeworkSessionWorksheetMap = new Map(completed.map(s => [String(s.id), s]));
 
         if (completed.length === 0) {
           sel.innerHTML = '<option value="">No completed sessions yet</option>';
+          renderHomeworkWorksheetActions();
           return;
         }
 
@@ -4743,6 +4804,11 @@ setTimeout(() => {
           const serialLabel = formatSessionSerial(s) || `Session`;
           return `<option value="${s.id}">${serialLabel}${serialLabel ? ' - ' : ''}${t.date}</option>`;
         }).join('');
+        if (!sel.dataset.worksheetHandlerAttached) {
+          sel.addEventListener('change', renderHomeworkWorksheetActions);
+          sel.dataset.worksheetHandlerAttached = '1';
+        }
+        renderHomeworkWorksheetActions();
 
         // Also load submitted homework
         loadSubmittedHomework();
@@ -4763,6 +4829,8 @@ setTimeout(() => {
         }
 
         container.innerHTML = submissions.map(hw => {
+          const isSubmission = ['Parent', 'Admin'].includes(hw.uploaded_by);
+          const isWorksheet = !isSubmission;
           const fileExt = hw.file_name ? hw.file_name.split('.').pop().toLowerCase() : '';
           const fileIcon = ['mp4', 'mov', 'avi'].includes(fileExt) ? '🎥' :
                           ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt) ? '🖼️' :
@@ -4786,9 +4854,11 @@ setTimeout(() => {
             ? `<p style="margin-top:8px;"><a href="${hw.submission_link}" target="_blank" style="color:#3182ce; font-size:0.9rem; word-break:break-all;">Open submitted link</a></p>`
             : '';
 
-          const reviewStatusDisplay = hw.feedback_grade
-            ? gradeDisplay
-            : '<span style="background:#fff8e1; color:#975a16; border:1px solid #f6ad55; padding:4px 10px; border-radius:999px; font-size:0.85rem; font-weight:700;">Submitted - in review</span>';
+          const reviewStatusDisplay = isWorksheet
+            ? '<span style="background:#ebf8ff; color:#2b6cb0; border:1px solid #90cdf4; padding:4px 10px; border-radius:999px; font-size:0.85rem; font-weight:700;">Worksheet</span>'
+            : (hw.feedback_grade
+              ? gradeDisplay
+              : '<span style="background:#fff8e1; color:#975a16; border:1px solid #f6ad55; padding:4px 10px; border-radius:999px; font-size:0.85rem; font-weight:700;">Submitted - in review</span>');
 
           // Build proper file URL for viewing
           let fileUrl = '';
@@ -4844,28 +4914,31 @@ setTimeout(() => {
 
           const hwSerial = sessionSerialMap[hw.session_id];
           const hwSerialLabel = hwSerial ? `Class #${hwSerial}` : '';
-          const submittedItemLabel = hw.file_name || (hw.submission_link && hw.submission_comment ? 'Link + comment submission' : hw.submission_link ? 'Link submission' : hw.submission_comment ? 'Comment submission' : 'Homework submission');
+          const submittedItemLabel = isWorksheet
+            ? (hw.file_name || 'Worksheet')
+            : (hw.file_name || (hw.submission_link && hw.submission_comment ? 'Link + comment submission' : hw.submission_link ? 'Link submission' : hw.submission_comment ? 'Comment submission' : 'Homework submission'));
+          const uploadLabel = isWorksheet ? 'Uploaded by teacher' : 'Uploaded';
           return `
             <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #B05D9E;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
                   <strong style="color: #2d3748;">${fileIcon} ${hwSerialLabel}</strong>
                   <p style="color: #718096; font-size: 0.85rem; margin: 5px 0;">
-                    ${hw.file_name || 'File'} • Uploaded ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                    ${submittedItemLabel} - ${uploadLabel} ${hw.uploaded_at ? new Date(hw.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                   </p>
                 </div>
-                ${!hw.file_name ? `<p style="color:#4a5568; font-size:0.85rem; margin:4px 0 0;">${submittedItemLabel}</p>` : ''}
+                ${!hw.file_name && !isWorksheet ? `<p style="color:#4a5568; font-size:0.85rem; margin:4px 0 0;">${submittedItemLabel}</p>` : ''}
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                   ${reviewStatusDisplay}
-                  ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Teacher Corrections')" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">📝 View Corrections</button>` : ''}
+                  ${isSubmission && hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Teacher Corrections')" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">📝 View Corrections</button>` : ''}
                   ${viewButton}
                   ${downloadUrl ? `<button onclick="forceDownload('${fileUrl}', '${(hw.file_name || 'download').replace(/'/g, "\\'")}')" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">⬇️ Download</button>` : ''}
-                  <button onclick="deleteHomework(${hw.id})" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>
+                  ${isSubmission ? `<button onclick="deleteHomework(${hw.id})" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>` : ''}
                 </div>
               </div>
-              ${commentDisplay}
-              ${linkDisplay}
-              ${feedbackDisplay}
+              ${isSubmission ? commentDisplay : ''}
+              ${isSubmission ? linkDisplay : ''}
+              ${isSubmission ? feedbackDisplay : ''}
             </div>
           `;
         }).join('');
