@@ -4423,6 +4423,8 @@ setTimeout(() => {
               if (sub.feedback_comments) hwStatus += `<br><small style="color:#4a5568; font-style:italic;">💬 ${sub.feedback_comments}</small>`;
               if (checkedOn) hwStatus += `<br><small style="color:#718096;">✔️ Checked: ${checkedOn}</small>`;
               if (sub.file_name) hwStatus += `<br><small style="color:#4a5568;">File: ${sub.file_name}</small>`;
+              const submittedHomeworkActions = buildSubmittedHomeworkActions(sub, true);
+              if (submittedHomeworkActions) hwStatus += `<br>${submittedHomeworkActions}`;
               if (sub.submission_comment) hwStatus += `<br><small style="color:#2d3748; font-style:italic;">Comment: ${sub.submission_comment}</small>`;
               if (sub.submission_link) hwStatus += `<br><a href="${sub.submission_link}" target="_blank" style="color:#3182ce; font-size:0.82rem; word-break:break-all;">Link: ${sub.submission_link}</a>`;
               if (sub.corrected_file_path) {
@@ -4754,6 +4756,38 @@ setTimeout(() => {
         };
       }
       return { url: '/uploads/homework/' + rawPath, isLink: false };
+    }
+
+    function escapeJsString(value) {
+      return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ');
+    }
+
+    function buildSubmittedHomeworkActions(hw, compact = false) {
+      const filePath = hw?.file_path || '';
+      if (!filePath) return '';
+
+      const file = buildHomeworkFileUrl(filePath, hw.uploaded_by || 'Parent');
+      const fileName = hw.file_name || String(filePath).split('/').pop().replace(/^LINK:/, '') || 'Homework';
+      const safeUrl = escapeJsString(file.url);
+      const safeName = escapeJsString(fileName);
+      const attrUrl = escapeAttr(file.url);
+      const viewLabel = file.isLink ? 'Open Uploaded Link' : 'View Uploaded Work';
+      const buttonStyle = compact
+        ? 'margin-top:4px; background:#9f7aea; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.78rem; text-decoration:none; display:inline-block;'
+        : 'background: #9f7aea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-decoration: none;';
+      const downloadStyle = compact
+        ? 'margin-top:4px; margin-left:4px; background:#667eea; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.78rem;'
+        : 'background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;';
+
+      if (file.isLink) {
+        return `<a href="${attrUrl}" target="_blank" style="${buttonStyle}">${viewLabel}</a>`;
+      }
+
+      const fileType = getHomeworkFileType(fileName || filePath);
+      return `
+        <button onclick="previewFile('${safeUrl}', '${fileType}', '${safeName}')" style="${buttonStyle}">${viewLabel}</button>
+        <button onclick="forceDownload('${safeUrl}', '${safeName}')" style="${downloadStyle}">Download</button>
+      `;
     }
 
     function renderHomeworkWorksheetActions() {
