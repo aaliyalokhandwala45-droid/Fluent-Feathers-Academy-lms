@@ -5342,25 +5342,44 @@ setTimeout(() => {
       submitBtn.textContent = 'Uploading...';
 
       try {
-        const fd = new FormData();
-        fd.append('sessionId', sid);
-        fd.append('uploadType', 'homework');
-        Array.from(files).forEach(file => fd.append('file', file));
+        let successCount = 0;
+        const failures = [];
+        const totalFiles = files.length;
 
-        const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
-          headers: authHeaders(),
-          onProgress: ({ percent, loaded, total }) => {
-            submitBtn.textContent = `Uploading ${percent}%`;
+        for (let i = 0; i < totalFiles; i++) {
+          const file = files[i];
+          const fd = new FormData();
+          fd.append('sessionId', sid);
+          fd.append('uploadType', 'homework');
+          fd.append('file', file);
+
+          submitBtn.textContent = `Uploading ${i + 1}/${totalFiles}: 0%`;
+          try {
+            const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
+              headers: authHeaders(),
+              onProgress: ({ percent }) => {
+                submitBtn.textContent = `Uploading ${i + 1}/${totalFiles}: ${percent}%`;
+              }
+            });
+
+            if (res.ok) {
+              successCount++;
+            } else {
+              failures.push(`${file.name}: ${getUploadFailureMessage(res, 'Upload failed')}`);
+            }
+          } catch (uploadErr) {
+            failures.push(`${file.name}: ${uploadErr.message || 'Upload failed'}`);
           }
-        });
+        }
 
-        const successCount = res.ok ? files.length : 0;
-        const errorCount = res.ok ? 0 : files.length;
+        const errorCount = failures.length;
 
         if (successCount > 0) {
           alert(`✅ ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
           e.target.reset();
-          homeworkFormSelectedFiles = [];
+          homeworkFormSelectedFiles = errorCount > 0
+            ? files.filter(file => failures.some(message => message.startsWith(`${file.name}:`)))
+            : [];
           renderHomeworkFormFileList();
           resetSessionsCache();
           loadPast(false, true);
@@ -5368,7 +5387,7 @@ setTimeout(() => {
           loadScoreHistory();
           loadSubmittedHomework();
         } else {
-          alert(getUploadFailureMessage(res, 'Error uploading files'));
+          alert(`Could not upload homework:\n${failures.slice(0, 5).join('\n')}`);
         }
       } catch(err) {
         console.error('Upload error:', err);

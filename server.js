@@ -13941,6 +13941,18 @@ function queueAiHomeworkDraftReview(materialId) {
   }, 500);
 }
 
+function shouldQueueAiHomeworkDraftReview(file = {}) {
+  const fileName = String(file.originalname || file.file_name || '');
+  const filePath = String(file.secure_url || file.path || file.url || file.file_path || '');
+  const ext = path.extname(fileName || filePath).toLowerCase();
+  const mime = String(file.mimetype || '').toLowerCase();
+
+  if (!fileName && !filePath) return true;
+  if (mime.startsWith('video/') || mime.startsWith('audio/')) return false;
+  if (['.mp4', '.mov', '.avi', '.webm', '.mkv', '.mp3', '.wav', '.m4a'].includes(ext)) return false;
+  return true;
+}
+
 app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req, res) => {
   try {
     const submissionComment = String(req.body.comment || '').trim();
@@ -13982,7 +13994,7 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
       filePath = '/uploads/homework/' + req.file.filename;
     }
 
-    const createdMaterialIds = [];
+    const createdMaterials = [];
 
     const firstInsert = await pool.query(`
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by, submission_comment, submission_link, comment_only_submission, homework_points_approved)
@@ -13998,7 +14010,7 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
       commentOnlySubmission,
       commentOnlySubmission ? false : true
     ]);
-    createdMaterialIds.push(firstInsert.rows[0].id);
+    createdMaterials.push({ id: firstInsert.rows[0].id, file: req.file });
 
     for (const file of uploadedFiles.slice(1)) {
       let extraFilePath = null;
@@ -14021,7 +14033,7 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
         file.originalname,
         extraFilePath
       ]);
-      createdMaterialIds.push(extraInsert.rows[0].id);
+      createdMaterials.push({ id: extraInsert.rows[0].id, file });
     }
 
     clearStudentSessionsCache(req.params.studentId);
@@ -14039,8 +14051,15 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
       console.warn('Homework admin push trigger failed:', notifyErr.message);
     });
 
-    for (const materialId of createdMaterialIds) {
-      queueAiHomeworkDraftReview(materialId);
+    for (const material of createdMaterials) {
+      if (commentOnlySubmission || shouldQueueAiHomeworkDraftReview(material.file)) {
+        queueAiHomeworkDraftReview(material.id);
+      } else {
+        pool.query(
+          `UPDATE materials SET ai_review_status = 'manual_required', ai_review_error = $1, ai_reviewed_at = CURRENT_TIMESTAMP WHERE id = $2`,
+          ['Video/audio homework was uploaded successfully and should be reviewed manually.', material.id]
+        ).catch(err => console.warn('Homework AI skip status update failed:', err.message));
+      }
     }
 
     res.json({ message: uploadedFiles.length > 1 ? `${uploadedFiles.length} homework files submitted successfully!` : 'Homework submitted successfully!' });
