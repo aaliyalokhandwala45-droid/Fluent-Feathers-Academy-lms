@@ -777,7 +777,7 @@ app.get('/join-class', async (req, res) => {
       const sessionResult = await executeQuery(`
         SELECT s.id, s.session_date, s.session_time, s.status,
                COALESCE(s.class_link, st.class_link) AS class_link,
-               COALESCE(st.duration, g.duration, '40 mins') AS duration,
+               COALESCE(s.duration, st.duration, g.duration, '40 mins') AS duration,
                COALESCE(st.name, g.group_name) AS student_name
         FROM sessions s
         LEFT JOIN students st ON s.student_id = st.id
@@ -788,8 +788,7 @@ app.get('/join-class', async (req, res) => {
 
       if (sessionResult.rows.length > 0) {
         const row = sessionResult.rows[0];
-        const durationMatch = String(row.duration || '').match(/(\d+)/);
-        const durationMins = durationMatch ? parseInt(durationMatch[1], 10) : 40;
+        const durationMins = parseDurationMinutes(row.duration);
         const start = buildUtcInstant(row.session_date, row.session_time);
         if (start) {
           candidates.push({
@@ -865,7 +864,7 @@ app.get('/join-class', async (req, res) => {
     const result = await executeQuery(`
       SELECT s.session_date, s.session_time, s.status,
              COALESCE(s.class_link, st.class_link) AS class_link,
-             COALESCE(st.duration, g.duration, '40 mins') AS duration,
+             COALESCE(s.duration, st.duration, g.duration, '40 mins') AS duration,
              COALESCE(st.name, g.group_name) AS student_name
       FROM sessions s
       LEFT JOIN students st ON s.student_id = st.id
@@ -917,8 +916,7 @@ app.get('/join-class', async (req, res) => {
     const classLink = row.class_link || DEFAULT_CLASS;
 
     // Parse duration in minutes (e.g. "40 mins" → 40)
-    const durationMatch = row.duration ? row.duration.match(/(\d+)/) : null;
-    const durationMins = durationMatch ? parseInt(durationMatch[1]) : 40;
+    const durationMins = parseDurationMinutes(row.duration);
 
     // Build UTC session start time
     const dateStr = row.session_date instanceof Date
@@ -1815,6 +1813,7 @@ async function initializeDatabase() {
         attendance TEXT,
         cancelled_by TEXT,
         class_link TEXT,
+        duration TEXT,
         teacher_notes TEXT,
         ppt_file_path TEXT,
         recording_file_path TEXT,
@@ -2700,6 +2699,7 @@ async function runMigrations() {
     // Migration 32: Add notes column to sessions table
     try {
       await client.query('ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT');
+      await client.query('ALTER TABLE sessions ADD COLUMN IF NOT EXISTS duration TEXT');
       console.log('✅ Migration 32: Added notes column to sessions');
     } catch (err) {
       console.log('Migration 32 note:', err.message);
@@ -3885,7 +3885,7 @@ async function notifyParentsTeacherJoinedSession(sessionId) {
 
   const sessionResult = await pool.query(`
     SELECT s.id, s.session_type, s.session_date, s.session_time, s.status, s.student_id, s.group_id,
-           COALESCE(st.duration, g.duration, '40 mins') AS duration,
+           COALESCE(s.duration, st.duration, g.duration, '40 mins') AS duration,
            st.name AS student_name,
            g.group_name
     FROM sessions s
@@ -3904,8 +3904,7 @@ async function notifyParentsTeacherJoinedSession(sessionId) {
     return { success: false, reason: 'unsupported_session_type' };
   }
 
-  const durationMatch = String(session.duration || '').match(/(\d+)/);
-  const durationMins = durationMatch ? parseInt(durationMatch[1], 10) : 40;
+  const durationMins = parseDurationMinutes(session.duration);
   const dateStr = session.session_date instanceof Date
     ? session.session_date.toISOString().split('T')[0]
     : String(session.session_date).split('T')[0];
@@ -4881,6 +4880,7 @@ function mapParentPortalStudentSnapshot(studentRow) {
 }
 
 function getStudentClassTypeDisplay(studentRow) {
+  if (String(studentRow.class_type || '').toLowerCase().replace(/[-_]/g, ' ') === 'semi batch') return 'Semi Batch';
   const privateActivity =
     (parseInt(studentRow.regular_private_sessions_pending, 10) || 0);
   const groupActivity =
@@ -4891,6 +4891,13 @@ function getStudentClassTypeDisplay(studentRow) {
   if (groupActivity > 0) return 'Group';
   if (privateActivity > 0) return 'Private';
   return studentRow.class_type || 'Private';
+}
+
+function parseDurationMinutes(duration, fallback = 40) {
+  const matches = String(duration || '').match(/\d+/g);
+  if (!matches || matches.length === 0) return fallback;
+  const values = matches.map(value => parseInt(value, 10)).filter(Number.isFinite);
+  return values.length ? Math.max(...values) : fallback;
 }
 
 function mapStudentSessionBalance(studentRow) {
@@ -10136,7 +10143,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     const [priv, grp, events, demos] = await Promise.all([
       executeQuery(`
         SELECT s.*, st.name as student_name, st.timezone, s.session_number,
-        CONCAT(st.program_name, ' - ', st.duration) as class_info,
+        CONCAT(st.program_name, ' - ', COALESCE(s.duration, st.duration)) as class_info,
         'Private' as display_type,
         COALESCE(s.class_link, $1) as class_link
         FROM sessions s
@@ -10148,7 +10155,7 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
       `, [DEFAULT_CLASS]),
       executeQuery(`
         SELECT s.*, g.group_name as student_name, g.timezone, s.session_number,
-        CONCAT(g.program_name, ' - ', g.duration) as class_info,
+        CONCAT(g.program_name, ' - ', COALESCE(s.duration, g.duration)) as class_info,
         'Group' as display_type,
         COALESCE(s.class_link, $1) as class_link
         FROM sessions s
@@ -10577,9 +10584,10 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
     }
     const demoLead = lead.rows[0];
 
-    // Get group info if group student
+    // Get group info if group-linked student
     let groupName = null;
-    if (class_type === 'Group' && group_id) {
+    const isGroupLinkedStudent = class_type === 'Group' || class_type === 'Semi Batch';
+    if (isGroupLinkedStudent && group_id) {
       const group = await pool.query('SELECT group_name FROM groups WHERE id = $1', [group_id]);
       if (group.rows.length > 0) groupName = group.rows[0].group_name;
     }
@@ -10592,7 +10600,7 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
       INSERT INTO students (name, grade, date_of_birth, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, class_type, duration, currency, per_session_fee, total_sessions, completed_sessions, remaining_sessions, fees_paid, payment_method, is_active, group_id, group_name, is_summer_camp)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 0, $14, $15, $16, true, $17, $18, $19)
       RETURNING *
-    `, [demoLead.child_name, demoLead.child_grade, demoLead.child_date_of_birth || null, demoLead.parent_name, demoLead.parent_email, demoLead.phone, studentTimezone, parentTimezone, program_name, class_type || 'Private', duration, currency, per_session_fee, total_sessions, amount_paid, payment_method, group_id || null, groupName, is_summer_camp || false]);
+    `, [demoLead.child_name, demoLead.child_grade, demoLead.child_date_of_birth || null, demoLead.parent_name, demoLead.parent_email, demoLead.phone, studentTimezone, parentTimezone, program_name, class_type || 'Private', duration, currency, per_session_fee, total_sessions, amount_paid, payment_method, isGroupLinkedStudent ? (group_id || null) : null, groupName, is_summer_camp || false]);
 
     const newStudent = studentResult.rows[0];
 
@@ -11486,12 +11494,13 @@ app.post('/api/schedule/private-classes', async (req, res) => {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
       const isMakeup = cls.use_makeup === true;
+      const sessionDuration = cls.duration || student.duration || null;
 
       const result = await client.query(`
-        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes)
-        VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7)
+        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes, duration)
+        VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7, $8)
         RETURNING id
-      `, [student_id, sessionNumber, utc.date, utc.time, student.class_link || DEFAULT_CLASS, isMakeup ? 'Scheduled' : 'Pending', isMakeup ? 'Makeup Class' : null]);
+      `, [student_id, sessionNumber, utc.date, utc.time, student.class_link || DEFAULT_CLASS, isMakeup ? 'Scheduled' : 'Pending', isMakeup ? 'Makeup Class' : null, sessionDuration]);
 
       // If makeup, consume a makeup credit
       if (isMakeup && makeupCreditIndex < makeupCreditIds.length) {
@@ -11627,10 +11636,10 @@ app.post('/api/schedule/group-classes', async (req, res) => {
       if(!cls.date || !cls.time) continue;
       const utc = istToUTC(cls.date, cls.time);
       const r = await client.query(`
-        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status)
-        VALUES ($1, 'Group', $2, $3::date, $4::time, $5, 'Pending')
+        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status, duration)
+        VALUES ($1, 'Group', $2, $3::date, $4::time, $5, 'Pending', $6)
         RETURNING id
-      `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_CLASS]);
+      `, [group_id, sessionNumber, utc.date, utc.time, DEFAULT_CLASS, group.duration || null]);
 
       const sessionId = r.rows[0].id;
       const sessionIndex = i + 1;
@@ -12041,10 +12050,10 @@ app.post('/api/groups/:groupId/enroll-students', async (req, res) => {
 
       // Create group session
       const groupSession = (await client.query(`
-        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status)
-        VALUES ($1, 'Group', $2, $3, $4, $5, 'Pending')
+        INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status, duration)
+        VALUES ($1, 'Group', $2, $3, $4, $5, 'Pending', $6)
         RETURNING id
-      `, [groupId, sessionNumber, timing.session_date, timing.session_time, DEFAULT_CLASS])).rows[0];
+      `, [groupId, sessionNumber, timing.session_date, timing.session_time, DEFAULT_CLASS, group.duration || null])).rows[0];
 
       // Convert individual sessions to group attendance
       for (const session of individualSessions) {
@@ -12291,6 +12300,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
             NULL::text as homework_grade,
             NULL::text as homework_feedback,
             false as has_feedback,
+            COALESCE(s.duration, (SELECT duration FROM students WHERE id = $1), '40 mins') as duration,
             COALESCE(s.class_link, $2) as class_link
           FROM sessions s
           WHERE s.student_id = $1 AND s.session_type = 'Private'
@@ -12298,7 +12308,8 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       : executeQuery(`
           SELECT s.*, 'Private' as source_type,
             COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
-            CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback
+            CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
+            COALESCE(s.duration, (SELECT duration FROM students WHERE id = $1), '40 mins') as duration
           FROM sessions s
           LEFT JOIN LATERAL (
             SELECT json_agg(
@@ -12338,18 +12349,22 @@ app.get('/api/sessions/:studentId', async (req, res) => {
               NULL::text as homework_feedback,
               false as has_feedback,
               COALESCE(sa.attendance, 'Pending') as student_attendance,
+              COALESCE(s.duration, g.duration, '40 mins') as duration,
               COALESCE(s.class_link, $2) as class_link
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
+            LEFT JOIN groups g ON g.id = s.group_id
             WHERE s.session_type = 'Group'
           `, [id, DEFAULT_CLASS])
         : await executeQuery(`
             SELECT s.*, 'Group' as source_type,
               COALESCE(ma.hw_submissions, '[]'::json) as hw_submissions,
               CASE WHEN cf.id IS NOT NULL THEN true ELSE false END as has_feedback,
-              COALESCE(sa.attendance, 'Pending') as student_attendance
+              COALESCE(sa.attendance, 'Pending') as student_attendance,
+              COALESCE(s.duration, g.duration, '40 mins') as duration
             FROM sessions s
             INNER JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
+            LEFT JOIN groups g ON g.id = s.group_id
             LEFT JOIN LATERAL (
               SELECT json_agg(
                 json_build_object(
@@ -15444,6 +15459,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 
     // Convert to UTC
     const utc = istToUTC(session_date, session_time);
+    const sessionDuration = student.rows[0].duration || null;
 
     // Get next session number for this student
     const countResult = await client.query('SELECT COUNT(*) as count FROM sessions WHERE student_id = $1', [student_id]);
@@ -15451,10 +15467,10 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 
     // Create the makeup session
     const sessionResult = await client.query(`
-      INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes)
-      VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Scheduled', 'Makeup Class')
+      INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes, duration)
+      VALUES ($1, 'Private', $2, $3::date, $4::time, $5, 'Scheduled', 'Makeup Class', $6)
       RETURNING id
-    `, [student_id, sessionNumber, utc.date, utc.time, student.rows[0].class_link || DEFAULT_CLASS]);
+    `, [student_id, sessionNumber, utc.date, utc.time, student.rows[0].class_link || DEFAULT_CLASS, sessionDuration]);
 
     const newSessionId = sessionResult.rows[0].id;
 
@@ -16328,12 +16344,13 @@ app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
       const utc = istToUTC(cls.date, cls.time);
       const isMakeup = deduct_from === 'makeup';
       const notes = deduct_from === 'none' ? 'Extra session (paid separately)' : isMakeup ? 'Makeup Class' : null;
+      const sessionDuration = cls.duration || student.duration || null;
 
       const result = await client.query(`
-        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes)
-        VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7)
+        INSERT INTO sessions (student_id, session_type, session_number, session_date, session_time, class_link, status, notes, duration)
+        VALUES ($1, 'Private', $2, $3::date, $4::time, $5, $6, $7, $8)
         RETURNING id
-      `, [studentId, sessionNumber, utc.date, utc.time, student.class_link || DEFAULT_CLASS, isMakeup ? 'Scheduled' : 'Pending', notes]);
+      `, [studentId, sessionNumber, utc.date, utc.time, student.class_link || DEFAULT_CLASS, isMakeup ? 'Scheduled' : 'Pending', notes, sessionDuration]);
 
       // Consume makeup credit if applicable
       if (isMakeup && makeupIdx < makeupCreditIds.length) {
@@ -21859,7 +21876,7 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
     await client.query('BEGIN');
 
     const rows = (await client.query(`
-      SELECT s.id as session_id, s.student_id, s.session_date, s.session_time, s.session_number, s.status, s.class_link,
+      SELECT s.id as session_id, s.student_id, s.session_date, s.session_time, s.session_number, s.status, s.class_link, s.duration,
              st.name as student_name
       FROM sessions s
       INNER JOIN students st ON st.id = s.student_id
@@ -21905,10 +21922,10 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
       let groupSession = existingGroupSession
         ? { id: existingGroupSession.id, status: existingGroupSession.status }
         : (await client.query(`
-            INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status)
-            VALUES ($1, 'Group', $2, $3, $4, $5, $6)
+            INSERT INTO sessions (group_id, session_type, session_number, session_date, session_time, class_link, status, duration)
+            VALUES ($1, 'Group', $2, $3, $4, $5, $6, $7)
             RETURNING id
-          `, [groupId, nextSessionNumber, session_date, session_time, slotRows[0].class_link || DEFAULT_CLASS, mergedGroupStatus])).rows[0];
+          `, [groupId, nextSessionNumber, session_date, session_time, slotRows[0].class_link || DEFAULT_CLASS, mergedGroupStatus, group.duration || slotRows[0].duration || null])).rows[0];
 
       if (!existingGroupSession) nextSessionNumber++;
 

@@ -1588,6 +1588,7 @@ setTimeout(() => {
     }
     function getClassTypeDisplay(student) {
       if (!student) return '-';
+      if (String(student.class_type || '').toLowerCase().replace(/[-_]/g, ' ') === 'semi batch') return 'Semi Batch';
       const privateActivity =
         Number(student.regular_private_sessions_pending || 0);
       const groupActivity =
@@ -1597,6 +1598,13 @@ setTimeout(() => {
       if (groupActivity > 0) return 'Group';
       if (privateActivity > 0) return 'Private';
       return student.class_type || '-';
+    }
+
+    function parseDurationMinutes(duration, fallback = 40) {
+      const matches = String(duration || '').match(/\d+/g);
+      if (!matches || matches.length === 0) return fallback;
+      const values = matches.map(value => parseInt(value, 10)).filter(Number.isFinite);
+      return values.length ? Math.max(...values) : fallback;
     }
 
     let currentStudent = null;
@@ -4079,8 +4087,7 @@ setTimeout(() => {
           const ClassLink = s.Class_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
 
           // Get class duration in minutes from session (default 40 mins if not specified)
-          const durationMatch = s.duration ? s.duration.match(/(\d+)\s*mins?/) : null;
-          const classDurationMins = durationMatch ? parseInt(durationMatch[1]) : 40;
+          const classDurationMins = parseDurationMinutes(s.duration);
 
           // Check if within join window: 5 mins before start until end of class
           const sessionDateTime = new Date(dateStr + 'T' + s.session_time + 'Z');
@@ -4154,8 +4161,7 @@ setTimeout(() => {
       let timeStr = (session.session_time || '00:00:00').toString().substring(0, 8);
       if (timeStr.length === 5) timeStr += ':00';
       const target = new Date(`${dateStr}T${timeStr}Z`);
-      const durationMatch = session.duration ? session.duration.match(/(\d+)\s*mins?/) : null;
-      const classDurationMins = durationMatch ? parseInt(durationMatch[1]) : 40;
+      const classDurationMins = parseDurationMinutes(session.duration);
       const ClassLink = session.Class_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
       const serialLabel = formatSessionSerial(session);
       const sessionLabel = `${serialLabel ? serialLabel + ' — ' : ''}${dayName}, ${t.date} at ${t.time}`;

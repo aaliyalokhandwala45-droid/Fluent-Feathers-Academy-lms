@@ -260,7 +260,7 @@
     .upcoming-classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-bottom: 30px; }
     .class-card { background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }
     .schedule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-    .schedule-row input { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; }
+    .schedule-row input, .schedule-row select { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; }
     .session-item { background: #f7fafc; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid #B05D9E; display: flex; justify-content: space-between; align-items: center; }
     .star-rating { display: flex; gap: 5px; font-size: 24px; }
     .star { cursor: default; color: #fbbf24; }
@@ -640,6 +640,7 @@
                 <option value="40 mins">40 mins</option>
                 <option value="45 mins">45 mins</option>
                 <option value="60 mins">60 mins</option>
+                <option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option>
               </select>
             </div>
             <div class="form-group"><label>Currency *</label>
@@ -927,6 +928,7 @@
                     <option value="40 mins">40 mins</option>
                     <option value="45 mins">45 mins</option>
                     <option value="60 mins">60 mins</option>
+                    <option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option>
                 </select>
             </div>
             <div class="form-group"><label>Timezone *</label>
@@ -1043,9 +1045,32 @@
                 <input type="time" id="bulkClassTime2" placeholder="For different days">
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Duration Option 1 *</label>
+                <select id="bulkClassDuration1">
+                  <option value="25 mins">25 mins</option>
+                  <option value="30 mins">30 mins</option>
+                  <option value="40 mins" selected>40 mins</option>
+                  <option value="45 mins">45 mins</option>
+                  <option value="60 mins">60 mins</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Duration Option 2 (Optional)</label>
+                <select id="bulkClassDuration2">
+                  <option value="">Same as option 1</option>
+                  <option value="25 mins">25 mins</option>
+                  <option value="30 mins">30 mins</option>
+                  <option value="40 mins">40 mins</option>
+                  <option value="45 mins">45 mins</option>
+                  <option value="60 mins">60 mins</option>
+                </select>
+              </div>
+            </div>
             <div class="form-group">
-              <label>Select Days & Assign Time *</label>
-              <p style="font-size: 0.85rem; color: #718096; margin-bottom: 10px;">Check days and select which time to use for each day</p>
+              <label>Select Days & Assign Option *</label>
+              <p style="font-size: 0.85rem; color: #718096; margin-bottom: 10px;">Check days and select which time/duration option to use for each day</p>
               <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
                 <div style="display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd;">
                   <input type="checkbox" name="bulkDays" value="0" id="bulkDay0">
@@ -3629,6 +3654,7 @@ I'm passionate about helping children develop confidence in communication!"></te
             <select id="convertClassType" required onchange="toggleConvertGroupSelect()">
               <option value="Private">Private</option>
               <option value="Group">Group</option>
+              <option value="Semi Batch">Semi Batch</option>
             </select>
           </div>
           <div class="form-group" id="convertGroupSelectWrapper" style="display:none;">
@@ -3645,6 +3671,7 @@ I'm passionate about helping children develop confidence in communication!"></te
               <option value="40 mins" selected>40 mins</option>
               <option value="45 mins">45 mins</option>
               <option value="60 mins">60 mins</option>
+              <option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option>
             </select>
           </div>
         </div>
@@ -3896,7 +3923,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           <div class="form-group"><label>Class Type *</label><select id="editClassType" required><option value="Private">Private</option><option value="Group">Group</option><option value="Semi Batch">Semi Batch</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
+          <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option><option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option></select></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Date of Birth</label><input type="date" id="editDateOfBirth" onchange="autoFillAge(this.value, 'editGrade')"></div>
@@ -3966,7 +3993,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           <div class="form-group"><label>Program Name *</label><input type="text" id="editGroupProgram" required></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Duration *</label><select id="editGroupDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option></select></div>
+          <div class="form-group"><label>Duration *</label><select id="editGroupDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option><option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option></select></div>
           <div class="form-group"><label>Timezone *</label>
             <select id="editGroupTimezone" required>
               <optgroup label="Asia">
@@ -5232,6 +5259,7 @@ if (dueEl) {
 
     function getClassTypeDisplay(student) {
       if (!student) return '-';
+      if (String(student.class_type || '').toLowerCase().replace(/[-_]/g, ' ') === 'semi batch') return 'Semi Batch';
       const privateActivity =
         Number(student.regular_private_sessions_pending || 0);
       const groupActivity =
@@ -5512,6 +5540,10 @@ if (dueEl) {
       if (student) {
         const count = parseInt(student.makeup_credits) || 0;
         window.currentScheduleStudentMakeupCredits = count;
+        const duration1El = document.getElementById('bulkClassDuration1');
+        if (duration1El && Array.from(duration1El.options).some(opt => opt.value === student.duration)) {
+          duration1El.value = student.duration;
+        }
         document.querySelectorAll('#classScheduleList input[name="use_makeup"]').forEach(cb => cb.checked = false);
         updateMakeupCheckboxStates();
         infoDiv.style.display = count > 0 ? 'block' : 'none';
@@ -5536,11 +5568,22 @@ if (dueEl) {
       }
     }
 
+    function durationOptionsHtml(selectedValue) {
+      const durations = ['25 mins', '30 mins', '40 mins', '45 mins', '60 mins', '25 mins + 45 mins weekly'];
+      return durations.map(duration => `<option value="${duration}" ${duration === selectedValue ? 'selected' : ''}>${duration}</option>`).join('');
+    }
+
+    function getSelectedScheduleStudentDuration() {
+      const studentId = document.getElementById('scheduleStudent').value;
+      const student = allStudents.find(s => s.id == studentId);
+      return student?.duration || '40 mins';
+    }
+
     function addScheduleRow() {
       const container = document.getElementById('classScheduleList');
       const row = document.createElement('div');
       row.className = 'schedule-row';
-      row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><label style="display: none; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; font-size: 0.85rem; color: #6b46c1; min-width: fit-content;"><input type="checkbox" name="use_makeup" onchange="updateMakeupCheckboxStates()" style="width: auto; margin: 0;"> Makeup</label><button type="button" onclick="this.parentElement.remove(); updateMakeupCheckboxStates();" class="btn btn-sm btn-danger">×</button>`;
+      row.innerHTML = `<input type="date" name="date" required><input type="time" name="time" required><select name="duration" required style="flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px;">${durationOptionsHtml(getSelectedScheduleStudentDuration())}</select><label style="display: none; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; font-size: 0.85rem; color: #6b46c1; min-width: fit-content;"><input type="checkbox" name="use_makeup" onchange="updateMakeupCheckboxStates()" style="width: auto; margin: 0;"> Makeup</label><button type="button" onclick="this.parentElement.remove(); updateMakeupCheckboxStates();" class="btn btn-sm btn-danger">×</button>`;
       container.appendChild(row);
       updateMakeupCheckboxStates();
     }
@@ -5551,6 +5594,8 @@ if (dueEl) {
       const numSessionsEl = document.getElementById('bulkNumSessions');
       const time1El = document.getElementById('bulkClassTime1');
       const time2El = document.getElementById('bulkClassTime2');
+      const duration1El = document.getElementById('bulkClassDuration1');
+      const duration2El = document.getElementById('bulkClassDuration2');
       const daysCheckboxes = document.querySelectorAll('input[name="bulkDays"]:checked');
       const dayTimeSelects = document.querySelectorAll('select[name="bulkDayTime"]');
       const container = document.getElementById('classScheduleList');
@@ -5564,12 +5609,14 @@ if (dueEl) {
       const numSessions = parseInt(numSessionsEl.value, 10);
       const time1 = time1El.value;
       const time2 = time2El.value || time1;
+      const duration1 = duration1El.value || getSelectedScheduleStudentDuration();
+      const duration2 = duration2El.value || duration1;
       const selectedDays = Array.from(daysCheckboxes).map(cb => parseInt(cb.value, 10));
 
       const dayTimeMap = {};
       dayTimeSelects.forEach(select => {
         const day = parseInt(select.getAttribute('data-day'), 10);
-        dayTimeMap[day] = select.value === '2' ? time2 : time1;
+        dayTimeMap[day] = select.value === '2' ? '2' : '1';
       });
 
       container.innerHTML = '';
@@ -5584,7 +5631,9 @@ if (dueEl) {
         if (selectedDays.includes(currentDate.getDay())) {
           const dateStr = currentDate.toISOString().split('T')[0];
           const dayName = dayNames[currentDate.getDay()];
-          const timeForDay = dayTimeMap[currentDate.getDay()] || time1;
+          const optionForDay = dayTimeMap[currentDate.getDay()] || '1';
+          const timeForDay = optionForDay === '2' ? time2 : time1;
+          const durationForDay = optionForDay === '2' ? duration2 : duration1;
 
           const row = document.createElement('div');
           row.className = 'schedule-row';
@@ -5593,6 +5642,7 @@ if (dueEl) {
             <span style="min-width: 50px; font-weight: bold;">${dayName}</span>
             <input type="date" name="date" value="${dateStr}" required style="flex: 1;">
             <input type="time" name="time" value="${timeForDay}" required style="flex: 1;">
+            <select name="duration" required style="flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px;">${durationOptionsHtml(durationForDay)}</select>
             <label style="display: none; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; font-size: 0.85rem; color: #6b46c1; min-width: fit-content;"><input type="checkbox" name="use_makeup" onchange="updateMakeupCheckboxStates()" style="width: auto; margin: 0;"> Makeup</label>
             <button type="button" onclick="this.parentElement.remove(); updateMakeupCheckboxStates();" class="btn btn-sm btn-danger">×</button>
           `;
@@ -5623,9 +5673,10 @@ if (dueEl) {
       rows.forEach(row => {
         const date = row.querySelector('input[name="date"]').value;
         const time = row.querySelector('input[name="time"]').value;
+        const duration = row.querySelector('select[name="duration"]')?.value || getSelectedScheduleStudentDuration();
         const makeupCb = row.querySelector('input[name="use_makeup"]');
         const use_makeup = makeupCb ? makeupCb.checked : false;
-        if (date && time) classes.push({ date, time, use_makeup });
+        if (date && time) classes.push({ date, time, duration, use_makeup });
       });
       if (classes.length === 0) return alert('Add at least one class');
       const sendEmail = document.getElementById('sendPrivateScheduleEmail').checked;
@@ -11404,8 +11455,9 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
     function toggleConvertGroupSelect() {
       const classType = document.getElementById('convertClassType').value;
       const wrapper = document.getElementById('convertGroupSelectWrapper');
-      wrapper.style.display = classType === 'Group' ? '' : 'none';
-      if (classType === 'Group') {
+      const needsGroup = classType === 'Group' || classType === 'Semi Batch';
+      wrapper.style.display = needsGroup ? '' : 'none';
+      if (needsGroup) {
         const select = document.getElementById('convertGroupId');
         select.innerHTML = '<option value="">Select group...</option>' +
           (allGroups || []).map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
@@ -11433,8 +11485,9 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       e.preventDefault();
       const leadId = document.getElementById('convertDemoId').value;
       const classType = document.getElementById('convertClassType').value;
-      const groupId = classType === 'Group' ? document.getElementById('convertGroupId').value : null;
-      if (classType === 'Group' && !groupId) return alert('Please select a group');
+      const needsGroup = classType === 'Group' || classType === 'Semi Batch';
+      const groupId = needsGroup ? document.getElementById('convertGroupId').value : null;
+      if (needsGroup && !groupId) return alert('Please select a group');
 
       const data = {
         program_name: document.getElementById('convertProgram').value,
