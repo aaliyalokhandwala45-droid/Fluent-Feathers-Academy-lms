@@ -1121,6 +1121,13 @@ function buildCloudinaryUploadParams(req, file) {
   };
 }
 
+function isVideoOrAudioUpload(file) {
+  const ext = path.extname(file?.originalname || '').toLowerCase();
+  const mime = String(file?.mimetype || '').toLowerCase();
+  return mime.startsWith('video/') || mime.startsWith('audio/') ||
+    ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.mp3', '.wav', '.m4a'].includes(ext);
+}
+
 function createCloudinaryUploadStorage() {
   return {
     _handleFile(req, file, cb) {
@@ -1169,9 +1176,82 @@ function createCloudinaryUploadStorage() {
   };
 }
 
+// Video/audio uploads save locally first so parents get a fast response.
+// Cloudinary sync runs in the background after the homework record is saved.
+function createSmartUploadStorage() {
+  const cloudEngine = createCloudinaryUploadStorage();
+  return {
+    _handleFile(req, file, cb) {
+      if (useCloudinary && isVideoOrAudioUpload(file)) {
+        return localDiskStorage._handleFile(req, file, (err, info) => {
+          if (err) return cb(err);
+          cb(null, {
+            ...info,
+            deferCloudinarySync: true,
+            originalname: file.originalname,
+            mimetype: file.mimetype
+          });
+        });
+      }
+      if (useCloudinary) {
+        return cloudEngine._handleFile(req, file, cb);
+      }
+      return localDiskStorage._handleFile(req, file, cb);
+    },
+    _removeFile(req, file, cb) {
+      if (file?.deferCloudinarySync || (file?.path && !file?.public_id)) {
+        return localDiskStorage._removeFile(req, file, cb);
+      }
+      if (useCloudinary) {
+        return cloudEngine._removeFile(req, file, cb);
+      }
+      return localDiskStorage._removeFile(req, file, cb);
+    }
+  };
+}
+
+async function syncHomeworkFileToCloudinary(materialId, fileInfo) {
+  if (!useCloudinary || !fileInfo?.deferCloudinarySync || !fileInfo?.path) return;
+
+  const absolutePath = path.isAbsolute(fileInfo.path)
+    ? fileInfo.path
+    : path.join(__dirname, fileInfo.path);
+  if (!fs.existsSync(absolutePath)) return;
+
+  const ext = path.extname(fileInfo.originalname || absolutePath).toLowerCase();
+  const mime = String(fileInfo.mimetype || '').toLowerCase();
+  const isVideo = mime.startsWith('video/') || ['.mp4', '.mov', '.avi', '.webm', '.mkv'].includes(ext);
+  const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
+
+  const result = await cloudinary.uploader.upload(absolutePath, {
+    folder: 'fluentfeathers/homework',
+    resource_type: isVideo ? 'video' : 'raw',
+    public_id: isVideo ? uniqueName : uniqueName + ext,
+    chunk_size: CLOUDINARY_LARGE_UPLOAD_CHUNK_SIZE
+  });
+
+  const cloudUrl = result.secure_url || result.url;
+  if (!cloudUrl) throw new Error('Cloudinary returned no URL');
+
+  await pool.query('UPDATE materials SET file_path = $1 WHERE id = $2', [cloudUrl, materialId]);
+  fs.unlink(absolutePath, (err) => {
+    if (err) console.warn('Could not remove local homework file after Cloudinary sync:', err.message);
+  });
+}
+
+function queueHomeworkCloudinarySync(materialId, fileInfo) {
+  if (!useCloudinary || !fileInfo?.deferCloudinarySync) return;
+  setImmediate(() => {
+    syncHomeworkFileToCloudinary(materialId, fileInfo).catch(err => {
+      console.warn(`Homework Cloudinary sync failed for material ${materialId}:`, err.message);
+    });
+  });
+}
+
 // Cloudinary storage configuration. Videos/raw files use chunked uploads so large
 // homework and challenge submissions do not fail through regular upload_stream.
 let cloudinaryStorage = useCloudinary ? createCloudinaryUploadStorage() : null;
+const smartUploadStorage = useCloudinary ? createSmartUploadStorage() : localDiskStorage;
 
 // Helper function to get proper download URL from Cloudinary
 function getCloudinaryDownloadUrl(url, originalFilename) {
@@ -1307,7 +1387,7 @@ const fileFilter = (req, file, cb) => {
 
 // Use Cloudinary storage if available, otherwise use local disk
 const upload = multer({
-  storage: useCloudinary ? cloudinaryStorage : localDiskStorage,
+  storage: smartUploadStorage,
   limits: { fileSize: UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024 },
   fileFilter: fileFilter
 });
@@ -13968,6 +14048,17 @@ function shouldQueueAiHomeworkDraftReview(file = {}) {
   return true;
 }
 
+function resolveHomeworkStoredFilePath(file) {
+  if (!file) return null;
+  if (file.deferCloudinarySync || (file.filename && !file.secure_url && !String(file.path || '').startsWith('http'))) {
+    return '/uploads/homework/' + file.filename;
+  }
+  if (useCloudinary) {
+    return file.secure_url || file.path || file.url || null;
+  }
+  return '/uploads/homework/' + file.filename;
+}
+
 app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req, res) => {
   try {
     const submissionComment = String(req.body.comment || '').trim();
@@ -13996,17 +14087,9 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
     }
 
     // Get file path - Cloudinary returns URL in req.file.path, local storage uses filename
-    let filePath = null;
-    if (req.file && useCloudinary) {
-      // Cloudinary: use secure_url if available, otherwise path
-      filePath = req.file.secure_url || req.file.path || req.file.url;
-      console.log('📁 Cloudinary homework upload:', { path: req.file.path, secure_url: req.file.secure_url, url: req.file.url });
-      if (!filePath) {
-        return res.status(500).json({ error: 'Cloudinary did not return file URL. Check your CLOUDINARY_URL or CLOUDINARY_API_KEY/SECRET/CLOUD_NAME in Render.' });
-      }
-    } else if (req.file) {
-      // Local storage - use relative path
-      filePath = '/uploads/homework/' + req.file.filename;
+    let filePath = resolveHomeworkStoredFilePath(req.file);
+    if (req.file && !filePath) {
+      return res.status(500).json({ error: 'Upload did not return a file path. Please try again.' });
     }
 
     const createdMaterials = [];
@@ -14028,14 +14111,9 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
     createdMaterials.push({ id: firstInsert.rows[0].id, file: req.file });
 
     for (const file of uploadedFiles.slice(1)) {
-      let extraFilePath = null;
-      if (useCloudinary) {
-        extraFilePath = file.secure_url || file.path || file.url;
-        if (!extraFilePath) {
-          return res.status(500).json({ error: 'Cloudinary did not return file URL. Check your CLOUDINARY_URL or CLOUDINARY_API_KEY/SECRET/CLOUD_NAME in Render.' });
-        }
-      } else {
-        extraFilePath = '/uploads/homework/' + file.filename;
+      const extraFilePath = resolveHomeworkStoredFilePath(file);
+      if (!extraFilePath) {
+        return res.status(500).json({ error: 'Upload did not return a file path. Please try again.' });
       }
 
       const extraInsert = await pool.query(`
@@ -14054,7 +14132,15 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
     clearStudentSessionsCache(req.params.studentId);
 
     if (!commentOnlySubmission) {
-      await awardHomeworkSubmissionRecognition(req.params.studentId);
+      setImmediate(() => {
+        awardHomeworkSubmissionRecognition(req.params.studentId).catch(err => {
+          console.warn('Homework badge award failed:', err.message);
+        });
+      });
+    }
+
+    for (const material of createdMaterials) {
+      queueHomeworkCloudinarySync(material.id, material.file);
     }
 
     notifyAdminsStudentSubmission({

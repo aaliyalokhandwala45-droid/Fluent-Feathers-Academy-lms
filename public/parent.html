@@ -878,8 +878,8 @@
           <p style="color: #718096; font-size: 0.82rem; margin-bottom: 14px;">⚠️ Classes cannot be cancelled less than 1 hour before start.</p>
           <div class="table-responsive">
             <table id="upcomingTable">
-              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Program</th><th>Actions</th></tr></thead>
-              <tbody id="upcomingBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Duration</th><th>Program</th><th>Actions</th></tr></thead>
+              <tbody id="upcomingBody"><tr><td colspan="6">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -907,8 +907,8 @@
           <p id="pastClassCount" style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Showing recent 10 classes</p>
           <div class="table-responsive">
             <table id="pastTable">
-              <thead><tr><th>#</th><th>Date / Topic</th><th>Time</th><th>Attendance</th><th>Materials & Submit HW</th><th>HW Status</th><th>Feedback</th></tr></thead>
-              <tbody id="pastBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+              <thead><tr><th>#</th><th>Date / Topic</th><th>Time</th><th>Duration</th><th>Attendance</th><th>Materials & Submit HW</th><th>HW Status</th><th>Feedback</th></tr></thead>
+              <tbody id="pastBody"><tr><td colspan="8">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2116,14 +2116,27 @@ setTimeout(() => {
         xhr.timeout = 30 * 60 * 1000;
         Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
 
+        const reportProcessing = () => {
+          if (!onProgress) return;
+          onProgress({ phase: 'processing', percent: 100, loaded: 0, total: 0 });
+        };
+
         xhr.upload.onprogress = (event) => {
           if (!onProgress || !event.lengthComputable) return;
+          const rawPercent = Math.round((event.loaded / event.total) * 100);
+          if (rawPercent >= 100 || event.loaded >= event.total) {
+            reportProcessing();
+            return;
+          }
           onProgress({
-            percent: Math.max(1, Math.min(99, Math.round((event.loaded / event.total) * 100))),
+            phase: 'upload',
+            percent: Math.max(1, Math.min(99, rawPercent)),
             loaded: event.loaded,
             total: event.total
           });
         };
+
+        xhr.upload.onload = reportProcessing;
 
         xhr.onload = () => {
           let data = {};
@@ -2139,6 +2152,12 @@ setTimeout(() => {
         xhr.ontimeout = () => reject(new Error('Upload timed out. Please try a smaller/compressed video or a stronger connection.'));
         xhr.send(formData);
       });
+    }
+
+    function formatUploadProgressText({ phase, percent, loaded, total }, fallback = 'Uploading...') {
+      if (phase === 'processing') return 'Upload complete — saving your homework...';
+      if (!total) return fallback;
+      return `Uploading ${percent}% (${(loaded / 1024 / 1024).toFixed(1)} of ${(total / 1024 / 1024).toFixed(1)} MB)`;
     }
 
     function getUploadFailureMessage(res, fallback = 'Upload failed. Please try again.') {
@@ -4070,7 +4089,7 @@ setTimeout(() => {
         if (upcoming.length === 0) {
           _upcomingRetryCount = 0; // genuine empty — reset counter
           startParentNextClassTimer(null);
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
           return;
         }
 
@@ -4118,6 +4137,7 @@ setTimeout(() => {
             <td>${serialLabel ? serialLabel : ''}</td>
             <td>${dayName}, ${t.date}</td>
             <td><strong style="color:#B05D9E">${t.time}</strong></td>
+            <td><span style="background:#edf2f7; color:#2d3748; padding:3px 8px; border-radius:8px; font-size:0.8rem; font-weight:700;">${s.duration || `${classDurationMins} mins`}</span></td>
             <td>${programName}</td>
             <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${ClassButton}${CancelButton}</div></td>
           </tr>`;
@@ -4127,11 +4147,11 @@ setTimeout(() => {
         console.error(`Error loading upcoming (attempt ${_upcomingRetryCount}):`, e);
         const tbody = document.getElementById('upcomingBody');
         if (_upcomingRetryCount <= 3) {
-          if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#718096; padding:20px;">⏳ Database warming up… retrying (${_upcomingRetryCount}/3) 🔄</td></tr>`;
+          if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#718096; padding:20px;">⏳ Database warming up… retrying (${_upcomingRetryCount}/3) 🔄</td></tr>`;
           setTimeout(() => loadUpcoming(false), 5000);
         } else {
           _upcomingRetryCount = 0;
-          if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#e53e3e; padding:20px;">Could not load classes. <a href="javascript:void(0);" onclick="_upcomingRetryCount=0; loadUpcoming()" style="color:#B05D9E;">Tap to retry</a></td></tr>';
+          if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#e53e3e; padding:20px;">Could not load classes. <a href="javascript:void(0);" onclick="_upcomingRetryCount=0; loadUpcoming()" style="color:#B05D9E;">Tap to retry</a></td></tr>';
         }
       } finally {
         if (showLoadingOverlay) setPortalDbLoading(false);
@@ -4316,7 +4336,7 @@ setTimeout(() => {
         const tbody = document.getElementById('pastBody');
 
         if (past.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No past classes found</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #718096;">No past classes found</td></tr>';
           return;
         }
 
@@ -4498,6 +4518,7 @@ setTimeout(() => {
             <td>${serialLabel}${programLabel}</td>
             <td>${t.date}<br><small style="color:#718096; font-size:0.78rem;">📆 ${t.weekday}</small>${s.session_topic ? `<br><small style="color:#B05D9E; font-weight:600; font-size:0.78rem;">📌 ${s.session_topic}</small>` : ''}</td>
             <td>${t.time}</td>
+            <td><span style="background:#edf2f7; color:#2d3748; padding:3px 8px; border-radius:8px; font-size:0.78rem; font-weight:700;">${s.duration || '40 mins'}</span></td>
             <td>${attendanceDisplay}</td>
             <td>${materials}</td>
             <td>${hwStatus}</td>
@@ -4670,9 +4691,9 @@ setTimeout(() => {
         try {
           const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
             headers: authHeaders(),
-            onProgress: ({ percent }) => {
-              progressBar.style.width = `${Math.min(percent, 95)}%`;
-              progressText.textContent = `Submitting comment/link ${percent}%...`;
+            onProgress: (progress) => {
+              progressBar.style.width = `${progress.percent}%`;
+              progressText.textContent = formatUploadProgressText(progress, 'Submitting comment/link...');
             }
           });
           if (res.ok) successCount++;
@@ -4697,9 +4718,9 @@ setTimeout(() => {
         try {
           const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
             headers: authHeaders(),
-            onProgress: ({ percent, loaded, total }) => {
-              progressBar.style.width = `${percent}%`;
-              progressText.textContent = `Uploading ${percent}% (${(loaded/1024/1024).toFixed(1)} of ${(total/1024/1024).toFixed(1)} MB)`;
+            onProgress: (progress) => {
+              progressBar.style.width = `${progress.percent}%`;
+              progressText.textContent = formatUploadProgressText(progress, `Uploading ${files.length} file${files.length > 1 ? 's' : ''}...`);
             }
           });
           if (res.ok) successCount += files.length;
@@ -5363,8 +5384,10 @@ setTimeout(() => {
           try {
             const res = await uploadFormDataWithProgress(`/api/upload/homework/${currentStudent.id}`, fd, {
               headers: authHeaders(),
-              onProgress: ({ percent }) => {
-                submitBtn.textContent = `Uploading ${i + 1}/${totalFiles}: ${percent}%`;
+              onProgress: (progress) => {
+                submitBtn.textContent = progress.phase === 'processing'
+                  ? `Saving ${i + 1}/${totalFiles}...`
+                  : `Uploading ${i + 1}/${totalFiles}: ${progress.percent}%`;
               }
             });
 
