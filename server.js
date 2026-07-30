@@ -12493,6 +12493,44 @@ app.get('/api/sessions/:studentId', async (req, res) => {
       return String(a.session_time || '').localeCompare(String(b.session_time || ''));
     });
 
+    const normalizeSessionTimeKey = (value) => String(value || '').substring(0, 5);
+    const getSessionWeekdayKey = (value) => {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : String(date.getUTCDay());
+    };
+    const isConcreteDuration = (value) => {
+      const text = String(value || '').trim().toLowerCase();
+      return /^\d+\s*mins?$/.test(text);
+    };
+    const isMixedDuration = (value) => {
+      const text = String(value || '').toLowerCase();
+      return text.includes('+') || text.includes('weekly');
+    };
+    const concreteDurationBySlot = new Map();
+
+    allSessions.forEach((session) => {
+      if (!isConcreteDuration(session.duration)) return;
+      const type = session.source_type || session.session_type || 'Private';
+      const timeKey = normalizeSessionTimeKey(session.session_time);
+      const weekdayKey = getSessionWeekdayKey(session.session_date);
+      if (!timeKey || !weekdayKey) return;
+      concreteDurationBySlot.set(`${type}|${weekdayKey}|${timeKey}`, session.duration);
+      concreteDurationBySlot.set(`${type}|${timeKey}`, session.duration);
+    });
+
+    allSessions.forEach((session) => {
+      if (!isMixedDuration(session.duration)) return;
+      const type = session.source_type || session.session_type || 'Private';
+      const timeKey = normalizeSessionTimeKey(session.session_time);
+      const weekdayKey = getSessionWeekdayKey(session.session_date);
+      const matchedDuration =
+        concreteDurationBySlot.get(`${type}|${weekdayKey}|${timeKey}`) ||
+        concreteDurationBySlot.get(`${type}|${timeKey}`);
+      if (matchedDuration) {
+        session.duration = matchedDuration;
+      }
+    });
+
     // Renumber sessions sequentially per student using the same rule as the parent portal:
     // cancelled, excused and unexcused classes do not consume a session number.
     let countedSessionNumber = 0;
