@@ -641,6 +641,8 @@
                 <option value="45 mins">45 mins</option>
                 <option value="60 mins">60 mins</option>
                 <option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option>
+                <option value="25 mins Private + 45 mins Group weekly">25 mins Private + 45 mins Group weekly</option>
+                <option value="45 mins Private + 25 mins Group weekly">45 mins Private + 25 mins Group weekly</option>
               </select>
             </div>
             <div class="form-group"><label>Currency *</label>
@@ -3923,7 +3925,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           <div class="form-group"><label>Class Type *</label><select id="editClassType" required><option value="Private">Private</option><option value="Group">Group</option><option value="Semi Batch">Semi Batch</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option><option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option></select></div>
+          <div class="form-group"><label>Duration *</label><select id="editDuration" required><option value="25 mins">25 mins</option><option value="30 mins">30 mins</option><option value="40 mins">40 mins</option><option value="45 mins">45 mins</option><option value="60 mins">60 mins</option><option value="25 mins + 45 mins weekly">25 mins + 45 mins weekly</option><option value="25 mins Private + 45 mins Group weekly">25 mins Private + 45 mins Group weekly</option><option value="45 mins Private + 25 mins Group weekly">45 mins Private + 25 mins Group weekly</option></select></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Date of Birth</label><input type="date" id="editDateOfBirth" onchange="autoFillAge(this.value, 'editGrade')"></div>
@@ -5541,8 +5543,9 @@ if (dueEl) {
         const count = parseInt(student.makeup_credits) || 0;
         window.currentScheduleStudentMakeupCredits = count;
         const duration1El = document.getElementById('bulkClassDuration1');
-        if (duration1El && Array.from(duration1El.options).some(opt => opt.value === student.duration)) {
-          duration1El.value = student.duration;
+        const defaultSessionDuration = getConcreteSessionDuration(student.duration);
+        if (duration1El && Array.from(duration1El.options).some(opt => opt.value === defaultSessionDuration)) {
+          duration1El.value = defaultSessionDuration;
         }
         document.querySelectorAll('#classScheduleList input[name="use_makeup"]').forEach(cb => cb.checked = false);
         updateMakeupCheckboxStates();
@@ -5568,15 +5571,24 @@ if (dueEl) {
       }
     }
 
+    function getConcreteSessionDuration(duration) {
+      const raw = String(duration || '').toLowerCase();
+      if (raw.includes('45 mins private')) return '45 mins';
+      if (raw.includes('25 mins private')) return '25 mins';
+      if (raw.includes('25') && raw.includes('45')) return '25 mins';
+      return duration || '40 mins';
+    }
+
     function durationOptionsHtml(selectedValue) {
-      const durations = ['25 mins', '30 mins', '40 mins', '45 mins', '60 mins', '25 mins + 45 mins weekly'];
-      return durations.map(duration => `<option value="${duration}" ${duration === selectedValue ? 'selected' : ''}>${duration}</option>`).join('');
+      const durations = ['25 mins', '30 mins', '40 mins', '45 mins', '60 mins'];
+      const selected = getConcreteSessionDuration(selectedValue);
+      return durations.map(duration => `<option value="${duration}" ${duration === selected ? 'selected' : ''}>${duration}</option>`).join('');
     }
 
     function getSelectedScheduleStudentDuration() {
       const studentId = document.getElementById('scheduleStudent').value;
       const student = allStudents.find(s => s.id == studentId);
-      return student?.duration || '40 mins';
+      return getConcreteSessionDuration(student?.duration || '40 mins');
     }
 
     function addScheduleRow() {

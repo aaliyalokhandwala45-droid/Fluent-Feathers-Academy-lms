@@ -878,8 +878,8 @@
           <p style="color: #718096; font-size: 0.82rem; margin-bottom: 14px;">⚠️ Classes cannot be cancelled less than 1 hour before start.</p>
           <div class="table-responsive">
             <table id="upcomingTable">
-              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Duration</th><th>Program</th><th>Actions</th></tr></thead>
-              <tbody id="upcomingBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Class</th><th>Duration</th><th>Program</th><th>Actions</th></tr></thead>
+              <tbody id="upcomingBody"><tr><td colspan="7">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -907,8 +907,8 @@
           <p id="pastClassCount" style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Showing recent 10 classes</p>
           <div class="table-responsive">
             <table id="pastTable">
-              <thead><tr><th>#</th><th>Date / Topic</th><th>Time</th><th>Duration</th><th>Attendance</th><th>Materials & Submit HW</th><th>HW Status</th><th>Feedback</th></tr></thead>
-              <tbody id="pastBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+              <thead><tr><th>#</th><th>Date / Topic</th><th>Time</th><th>Class</th><th>Duration</th><th>Attendance</th><th>Materials & Submit HW</th><th>HW Status</th><th>Feedback</th></tr></thead>
+              <tbody id="pastBody"><tr><td colspan="9">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1605,6 +1605,25 @@ setTimeout(() => {
       if (!matches || matches.length === 0) return fallback;
       const values = matches.map(value => parseInt(value, 10)).filter(Number.isFinite);
       return values.length ? Math.max(...values) : fallback;
+    }
+
+    function getSessionClassType(session) {
+      const source = String(session?.source_type || session?.session_type || '').toLowerCase();
+      return source === 'group' ? 'Group' : 'Private';
+    }
+
+    function getSessionClassBadge(session) {
+      const type = getSessionClassType(session);
+      const isGroup = type === 'Group';
+      const bg = isGroup ? '#ebf8ff' : '#faf5ff';
+      const color = isGroup ? '#2b6cb0' : '#6b46c1';
+      const border = isGroup ? '#bee3f8' : '#e9d8fd';
+      return `<span style="background:${bg}; color:${color}; border:1px solid ${border}; padding:3px 8px; border-radius:8px; font-size:0.78rem; font-weight:800;">${type}</span>`;
+    }
+
+    function getSessionDurationLabel(session) {
+      const minutes = parseDurationMinutes(session?.duration);
+      return session?.duration || `${minutes} mins`;
     }
 
     let currentStudent = null;
@@ -4089,7 +4108,7 @@ setTimeout(() => {
         if (upcoming.length === 0) {
           _upcomingRetryCount = 0; // genuine empty — reset counter
           startParentNextClassTimer(null);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
           return;
         }
 
@@ -4137,7 +4156,8 @@ setTimeout(() => {
             <td>${serialLabel ? serialLabel : ''}</td>
             <td>${dayName}, ${t.date}</td>
             <td><strong style="color:#B05D9E">${t.time}</strong></td>
-            <td><span style="background:#edf2f7; color:#2d3748; padding:3px 8px; border-radius:8px; font-size:0.8rem; font-weight:700;">${s.duration || `${classDurationMins} mins`}</span></td>
+            <td>${getSessionClassBadge(s)}</td>
+            <td><span style="background:#edf2f7; color:#2d3748; padding:3px 8px; border-radius:8px; font-size:0.8rem; font-weight:700;">${getSessionDurationLabel(s)}</span></td>
             <td>${programName}</td>
             <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${ClassButton}${CancelButton}</div></td>
           </tr>`;
@@ -4147,11 +4167,11 @@ setTimeout(() => {
         console.error(`Error loading upcoming (attempt ${_upcomingRetryCount}):`, e);
         const tbody = document.getElementById('upcomingBody');
         if (_upcomingRetryCount <= 3) {
-          if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#718096; padding:20px;">⏳ Database warming up… retrying (${_upcomingRetryCount}/3) 🔄</td></tr>`;
+          if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#718096; padding:20px;">⏳ Database warming up… retrying (${_upcomingRetryCount}/3) 🔄</td></tr>`;
           setTimeout(() => loadUpcoming(false), 5000);
         } else {
           _upcomingRetryCount = 0;
-          if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#e53e3e; padding:20px;">Could not load classes. <a href="javascript:void(0);" onclick="_upcomingRetryCount=0; loadUpcoming()" style="color:#B05D9E;">Tap to retry</a></td></tr>';
+          if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#e53e3e; padding:20px;">Could not load classes. <a href="javascript:void(0);" onclick="_upcomingRetryCount=0; loadUpcoming()" style="color:#B05D9E;">Tap to retry</a></td></tr>';
         }
       } finally {
         if (showLoadingOverlay) setPortalDbLoading(false);
@@ -4174,7 +4194,7 @@ setTimeout(() => {
       const d = new Date(dateStr + 'T00:00:00');
       const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
 
-      const classTypeLabel = session.session_type === 'Group' ? '👥 Group Class' : '👤 Private Class';
+      const classTypeLabel = getSessionClassType(session) === 'Group' ? '👥 Group Class' : '👤 Private Class';
       document.getElementById('parentTimerClassName').textContent = classTypeLabel + (session.program_name ? ' — ' + session.program_name : '');
       document.getElementById('parentTimerDate').textContent = '📅 ' + dayName + ', ' + t.date + ' at ' + t.time;
 
@@ -4336,7 +4356,7 @@ setTimeout(() => {
         const tbody = document.getElementById('pastBody');
 
         if (past.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #718096;">No past classes found</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #718096;">No past classes found</td></tr>';
           return;
         }
 
@@ -4518,7 +4538,8 @@ setTimeout(() => {
             <td>${serialLabel}${programLabel}</td>
             <td>${t.date}<br><small style="color:#718096; font-size:0.78rem;">📆 ${t.weekday}</small>${s.session_topic ? `<br><small style="color:#B05D9E; font-weight:600; font-size:0.78rem;">📌 ${s.session_topic}</small>` : ''}</td>
             <td>${t.time}</td>
-            <td><span style="background:#edf2f7; color:#2d3748; padding:3px 8px; border-radius:8px; font-size:0.78rem; font-weight:700;">${s.duration || '40 mins'}</span></td>
+            <td>${getSessionClassBadge(s)}</td>
+            <td><span style="background:#edf2f7; color:#2d3748; padding:3px 8px; border-radius:8px; font-size:0.78rem; font-weight:700;">${getSessionDurationLabel(s)}</span></td>
             <td>${attendanceDisplay}</td>
             <td>${materials}</td>
             <td>${hwStatus}</td>

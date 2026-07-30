@@ -8550,6 +8550,8 @@ function normalizeQuizQuestionText(text) {
 function getQuizQuestionSimilarityKey(text) {
   return normalizeQuizQuestionText(text)
     .replace(/\b(a|an|the|is|are|was|were|do|does|did|to|of|in|on|for|with|and|or|this|that|these|those|choose|select|correct|best|answer|option)\b/g, ' ')
+    .replace(/\b(item|set|question|number|no)\s*\d+\b/g, ' ')
+    .replace(/\b\d+\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -8625,7 +8627,7 @@ function isQuizQuestionTooSimilar(questionText, existingTexts) {
       if (existingWords.has(word)) overlap++;
     }
     const similarity = overlap / Math.max(words.size, existingWords.size);
-    if (similarity >= 0.62) return true;
+    if (similarity >= 0.5) return true;
   }
 
   return false;
@@ -9259,8 +9261,8 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     .join('\n');
 
   const preferredCategories = getQuizAllowedCategoriesForLevel(level);
-  const historicalTexts = await getHistoricalQuizQuestionTexts(null, quizDate, pool, { limit: 180 });
-  const historicalOptionSets = await getHistoricalQuizOptionSets(null, quizDate, pool, { limit: 180 });
+  const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
+  const historicalOptionSets = await getHistoricalQuizOptionSets(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
   for (const text of excludeTexts) {
     addQuizQuestionTextToSet(historicalTexts, text);
   }
@@ -9280,6 +9282,8 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
 Requirements:
 - Each question MUST be completely different from others
 - Do NOT repeat or lightly reword any past question listed below
+- Do NOT reuse template questions by only changing the item number, student name, place, tense word, or one vocabulary word
+- Grammar and vocabulary questions must use fresh sentences, fresh target words, fresh answer choices, and fresh contexts for this exact date
 - Use new situations, names, sentences, idioms, examples, and answer choices
 - Do NOT reuse the same option words across questions; every question needs its own answer-choice set
 - ${levelDescriptions[level]}
@@ -9571,19 +9575,31 @@ function createLocalQuizQuestion(level, category, seed) {
     intermediate: 'clear and expressive',
     advanced: 'precise and polished'
   }[level] || 'clear';
+  const names = ['Maya', 'Aarav', 'Riya', 'Kabir', 'Zoya', 'Ishan', 'Leah', 'Omar'];
+  const places = ['library', 'garden', 'museum', 'classroom', 'book fair', 'science lab', 'playground', 'airport'];
+  const objects = ['lantern', 'notebook', 'backpack', 'postcard', 'telescope', 'paintbrush', 'compass', 'story map'];
+  const verbs = ['arranges', 'carries', 'observes', 'shares', 'repairs', 'describes', 'collects', 'protects'];
+  const words = ['precise', 'curious', 'patient', 'generous', 'cautious', 'resilient', 'vivid', 'concise'];
+  const pick = (items, offset = 0) => items[Math.abs(seed + offset) % items.length];
+  const name = pick(names);
+  const place = pick(places, 1);
+  const object = pick(objects, 2);
+  const verb = pick(verbs, 3);
+  const targetWord = pick(words, 4);
+  const targetLabel = targetWord.charAt(0).toUpperCase() + targetWord.slice(1);
 
   const sets = {
     vocabulary: {
-      question_text: `Which word best means "careful and exact" in this ${levelText} sentence?`,
-      options: ['Precise', 'Noisy', 'Brief', 'Dull'],
+      question_text: `In this ${levelText} sentence, which word best describes ${name}'s careful work at the ${place}?`,
+      options: [targetLabel, 'Careless', 'Noisy', 'Hidden'],
       correct_answer: 0,
-      explanation: 'Precise means careful, exact, and accurate.'
+      explanation: `${targetLabel} is the strongest word for the sentence context.`
     },
     grammar: {
-      question_text: `Choose the grammatically correct sentence for item ${seed}.`,
-      options: ['She go to class daily.', 'She goes to class daily.', 'She going to class daily.', 'She gone to class daily.'],
-      correct_answer: 1,
-      explanation: 'Use goes with she in the simple present tense.'
+      question_text: `Choose the grammatically correct sentence about ${name} at the ${place}.`,
+      options: [`${name} ${verb} the ${object} carefully.`, `${name} ${verb.replace(/s$/, '')} the ${object} carefully.`, `${name} is ${verb} the ${object} yesterday.`, `${name} ${verb} carefully the.`],
+      correct_answer: 0,
+      explanation: 'The correct sentence has a clear subject, correct verb form, and complete object.'
     },
     subject_verb_agreement: {
       question_text: `Choose the correct simple present verb: "The children ___ their books carefully."`,
