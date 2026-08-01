@@ -8475,8 +8475,8 @@ const QUIZ_ALLOWED_CATEGORIES = [
 const QUIZ_EXCLUDED_CATEGORIES = ['phonics', 'contextual_reference_sentences'];
 const QUIZ_AI_CATEGORY_GUIDANCE = {
   beginner: ['grammar', 'subject_verb_agreement', 'nouns', 'vocabulary', 'pronouns', 'adjectives', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'punctuation'],
-  intermediate: ['grammar', 'subject_verb_agreement', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'elaboration'],
-  advanced: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'direct_indirect_speech']
+  intermediate: ['grammar', 'subject_verb_agreement', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'elaboration', 'show_dont_tell', 'figures_of_speech', 'types_of_speeches', 'body_language'],
+  advanced: ['grammar', 'vocabulary', 'sentence_correction', 'idioms', 'imagery', 'figures_of_speech', 'show_dont_tell', 'elaboration', 'types_of_speeches', 'body_language', 'direct_indirect_speech']
 };
 const QUIZ_FRESHNESS_STOPWORDS = new Set([
   'about', 'above', 'after', 'again', 'already', 'answer', 'because', 'before', 'being', 'below', 'between',
@@ -8656,6 +8656,48 @@ function randomizeQuizQuestionOptions(question) {
     options: indexedOptions.map(item => item.option),
     correct_answer: indexedOptions.findIndex(item => item.option === correctOption && item.index === correctIndex)
   };
+}
+
+function isQuizQuestionBelowLevel(level, question) {
+  const text = normalizeQuizQuestionText(question?.question_text);
+  const optionsText = Array.isArray(question?.options)
+    ? question.options.map(option => normalizeQuizQuestionText(option)).join(' ')
+    : '';
+  const category = String(question?.category || '').toLowerCase();
+  const combined = `${text} ${optionsText}`;
+
+  const beginnerOnlyPatterns = [
+    /\bwhich word is (a|an) (noun|pronoun|adjective|adverb|preposition|interjection)\b/,
+    /\bchoose the preposition\b/,
+    /\bchoose the pronoun\b/,
+    /\bwhich sense helps you\b/,
+    /\bchoose the correct simple present verb\b/,
+    /\bmy friend and i visited\b/,
+    /\bwhere are you going\b/,
+    /\bunder the weather\b/,
+    /\bpractice makes perfect\b/
+  ];
+
+  if (level === 'advanced') {
+    if (['nouns', 'pronouns', 'prepositions', 'interjections', 'five_senses', 'spelling'].includes(category)) {
+      return true;
+    }
+    if (beginnerOnlyPatterns.some(pattern => pattern.test(combined))) return true;
+    const advancedSignals = [
+      'subjunctive', 'inversion', 'nominalisation', 'parallelism', 'ellipsis', 'register',
+      'rhetorical', 'persuasive', 'delivery', 'modulation', 'metaphor', 'personification',
+      'tone', 'formal', 'informal', 'coherent', 'concise', 'articulate', 'eloquent',
+      'compelling', 'nuance', 'infer', 'implication', 'audience', 'debate', 'mun'
+    ];
+    return !advancedSignals.some(signal => combined.includes(signal)) && text.split(' ').length < 11;
+  }
+
+  if (level === 'intermediate') {
+    if (['interjections', 'five_senses'].includes(category)) return true;
+    return beginnerOnlyPatterns.some(pattern => pattern.test(combined));
+  }
+
+  return false;
 }
 
 function isQuizOptionSetTooSimilar(options, existingOptionSets) {
@@ -9364,9 +9406,9 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   };
 
   const levelDescriptions = {
-    beginner: 'simple English suitable for children ages 4-7, with short clear sentences, but with one or two stretch vocabulary words taught through context',
-    intermediate: 'intermediate English suitable for children ages 8-11, clearly harder than beginner but easier than advanced, with multi-step thinking in some questions',
-    advanced: 'advanced English suitable only for children ages 12 and above, with nuanced expression and deeper language analysis'
+    beginner: 'BEGINNER ONLY: ages 4-7. Use short, friendly sentences, basic grammar, simple everyday contexts, and light vocabulary stretch through context',
+    intermediate: 'INTERMEDIATE ONLY: ages 8-11. Use fuller sentence contexts, applied grammar, expressive vocabulary, idioms, descriptive writing, and public-speaking basics. Do not ask preschool/simple identification questions',
+    advanced: 'ADVANCED ONLY: ages 12+. Use nuanced language analysis, precise vocabulary, register, rhetoric, speech delivery, persuasive language, creative-writing craft, advanced grammar, and reasoning from context. Never generate beginner-style identification questions'
   };
 
   const levelSpecificRequirements = {
@@ -9377,14 +9419,19 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
       'Beginner wording must stay short, but do not make every option obvious'
     ],
     intermediate: [
-      'Intermediate difficulty: make questions noticeably more advanced than beginner but clearly easier than advanced',
-      'Intermediate grammar should include applied usage such as tense choice, subject-verb agreement, sentence correction, adjective/adverb choice, or punctuation in a short context',
-      'Intermediate questions should require one small reasoning step, not just matching a single obvious word',
-      'Intermediate vocabulary must include useful higher-level words in context, such as reluctant, vivid, precise, cautious, persuade, evidence, infer, contrast, resilient, or concise'
+      'Intermediate difficulty: ages 8-11 only; clearly harder than beginner and clearly easier than advanced',
+      'Intermediate grammar should include applied usage such as perfect tenses, transition words, subject-verb agreement, sentence correction, adjective/adverb choice, punctuation, and concise expression in a short context',
+      'Intermediate questions should require one reasoning step, not just matching a single obvious word',
+      'Intermediate vocabulary must include useful higher-level words in context, such as reluctant, vivid, precise, cautious, persuade, evidence, infer, contrast, resilient, articulate, coherent, or concise',
+      'Intermediate public speaking and creative writing questions should be practical: openings, eye contact, body language, show-dont-tell, sensory details, dialogue, and clear conclusions'
     ],
     advanced: [
-      'Advanced questions should test nuance, inference, polished usage, direct/indirect speech, idioms, imagery, and precise vocabulary',
-      'Advanced vocabulary should include challenging but teachable words in context'
+      'Advanced difficulty: ages 12+ only; every question must require nuanced judgment, context analysis, or polished expression',
+      'Advanced grammar should include mixed conditionals, inversion, subjunctive mood, advanced passive voice, nominalisation, parallelism, ellipsis, advanced connectors, register, formal writing, or precision vocabulary',
+      'Advanced vocabulary should frequently include sophisticated words such as eloquent, articulate, meticulous, resilient, tenacious, astute, pragmatic, innovative, versatile, compelling, intriguing, profound, captivating, coherent, concise, persuasive, charismatic, ambiguous, vivid, dynamic, remarkable, benevolent, audacious, ingenious, resourceful, empathetic, candid, assertive, poignant, exemplary, lucid, credible, or intricate',
+      'Advanced public speaking questions should test rhetorical questions, rule of three, strategic pauses, emphasis, audience engagement, persuasive techniques, debate skills, MUN skills, confident openings, and memorable closings',
+      'Advanced creative writing questions should test metaphor, personification, suspense, narrative voice, point of view, character development, dialogue subtext, sensory imagery, powerful verbs, and editing for impact',
+      'Do not ask advanced students to identify basic parts of speech, simple prepositions, simple pronouns, five senses, capitalization of I, basic punctuation, or common beginner idiom meanings'
     ]
   };
 
@@ -9440,6 +9487,8 @@ Requirements:
 - Do not create questions meant for younger or older age groups
 - Category: ${preferredCategories.join(', ')} (only these categories)
 ${level === 'beginner' ? '- For beginner level, do not create direct speech, indirect speech, or reported speech questions\n' : ''}
+${level === 'intermediate' ? '- For intermediate level, include a mix of applied grammar, useful vocabulary, sentence improvement, idioms, show-dont-tell, descriptive word choice, and public-speaking basics. Do not use beginner-only tasks like identifying nouns, pronouns, prepositions, interjections, five senses, or capitalization of I.\n' : ''}
+${level === 'advanced' ? '- For advanced level, include a mix of advanced grammar, advanced vocabulary, powerful alternatives to weak words, tone/register, persuasive language, public speaking, creative writing, figurative language, storytelling, speech delivery, and rhetorical devices. Every question must feel suitable for a strong 12+ learner.\n' : ''}
 - 4 options (A, B, C, D), one correct answer
 ${level === 'advanced' ? '- Advanced must include direct_indirect_speech questions\n' : ''}
 - MCQ options must be interesting and plausible: avoid one correct answer with three silly or unrelated choices
@@ -9487,7 +9536,7 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
           }
         ],
         temperature: 0.8,
-        max_tokens: Math.min(3500, Math.max(1200, count * 450 + 500))
+        max_tokens: Math.min(6000, Math.max(1800, count * 520 + 700))
       },
       {
         headers: {
@@ -9545,6 +9594,10 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       }
       if (!getQuizAllowedCategoriesForLevel(level).includes(q.category)) {
         console.log(`Category not allowed for ${level} "${q.category}": "${q.question_text.substring(0, 40)}..."`);
+        return false;
+      }
+      if (isQuizQuestionBelowLevel(level, q)) {
+        console.log(`Question below ${level} difficulty: "${q.question_text.substring(0, 40)}..."`);
         return false;
       }
       return true;
@@ -9653,7 +9706,12 @@ async function getFallbackPendingQuizQuestions(level, count, options = {}) {
       correctAnswer > 3 ||
       !QUIZ_ALLOWED_CATEGORIES.includes(category) ||
       QUIZ_EXCLUDED_CATEGORIES.includes(category) ||
-      !getQuizAllowedCategoriesForLevel(level).includes(category)
+      !getQuizAllowedCategoriesForLevel(level).includes(category) ||
+      isQuizQuestionBelowLevel(level, {
+        question_text: row.question_text,
+        options: optionsArray,
+        category
+      })
     ) {
       continue;
     }
@@ -9871,7 +9929,13 @@ async function getLocalGeneratedQuizQuestions(level, count, options = {}) {
     const candidate = createLocalQuizQuestion(level, category, seedBase + i + 1);
     const normalized = normalizeQuizQuestionText(candidate.question_text);
     const similarityKey = getQuizQuestionSimilarityKey(candidate.question_text);
-    if (!normalized || historicalTexts.has(normalized) || historicalTexts.has(similarityKey) || isQuizQuestionTooSimilar(candidate.question_text, historicalTexts)) {
+    if (
+      !normalized ||
+      historicalTexts.has(normalized) ||
+      historicalTexts.has(similarityKey) ||
+      isQuizQuestionTooSimilar(candidate.question_text, historicalTexts) ||
+      isQuizQuestionBelowLevel(level, candidate)
+    ) {
       continue;
     }
     historicalTexts.add(normalized);
@@ -9899,7 +9963,7 @@ async function getLastResortLocalQuizQuestions(level, count, options = {}) {
     const candidate = createLocalQuizQuestion(level, category, seedBase + i + 1);
     const normalized = normalizeQuizQuestionText(candidate.question_text);
     const similarityKey = getQuizQuestionSimilarityKey(candidate.question_text);
-    if (!normalized || existingTexts.has(normalized) || existingTexts.has(similarityKey)) {
+    if (!normalized || existingTexts.has(normalized) || existingTexts.has(similarityKey) || isQuizQuestionBelowLevel(level, candidate)) {
       continue;
     }
     existingTexts.add(normalized);
@@ -9977,7 +10041,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
         // Ask for extra candidates because strict variety filters may reject near-duplicates.
         const remaining = neededCount - aiQuestions.length;
-        const requestCount = Math.min(10, Math.max(4, remaining * 2));
+        const requestCount = Math.min(16, Math.max(6, remaining * 3));
         let batch = [];
         try {
           batch = await generateQuizQuestionsWithAI(level, requestCount, {
@@ -10020,6 +10084,10 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           // Skip if empty or already seen
           if (!normalized) {
             console.log(`⏭️ Skipping question with empty text`);
+            continue;
+          }
+          if (isQuizQuestionBelowLevel(level, question)) {
+            console.log(`Skipping below-level ${level} question: "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
           if (!optionSignature || isQuizOptionSetTooSimilar(question.options, localOptionSets)) {
@@ -10079,7 +10147,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
               localSeen.has(similarityKey) ||
               !optionSignature ||
               isQuizOptionSetTooSimilar(question.options, localOptionSets) ||
-              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)
+              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms) ||
+              isQuizQuestionBelowLevel(level, question)
             ) {
               continue;
             }
@@ -10112,7 +10181,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
               localSeen.has(similarityKey) ||
               !optionSignature ||
               isQuizOptionSetTooSimilar(question.options, localOptionSets) ||
-              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)
+              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms) ||
+              isQuizQuestionBelowLevel(level, question)
             ) {
               continue;
             }
@@ -10138,7 +10208,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           for (const question of lastResortQuestions) {
             const normalized = normalizeQuizQuestionText(question.question_text);
             const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)) {
+            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms) || isQuizQuestionBelowLevel(level, question)) {
               continue;
             }
             localSeen.add(normalized);
