@@ -8478,6 +8478,13 @@ const QUIZ_AI_CATEGORY_GUIDANCE = {
   intermediate: ['grammar', 'subject_verb_agreement', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'elaboration'],
   advanced: ['grammar', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'direct_indirect_speech']
 };
+const QUIZ_FRESHNESS_STOPWORDS = new Set([
+  'about', 'above', 'after', 'again', 'already', 'answer', 'because', 'before', 'being', 'below', 'between',
+  'choose', 'correct', 'could', 'daily', 'different', 'english', 'every', 'example', 'fixes', 'following',
+  'grammar', 'helps', 'level', 'means', 'option', 'question', 'sentence', 'should', 'sounds', 'strongest',
+  'their', 'there', 'these', 'thing', 'those', 'through', 'under', 'which', 'while', 'would', 'write',
+  'aarav', 'kabir', 'leah', 'maya', 'omar', 'riya', 'ishan', 'zoya'
+]);
 
 function getQuizAllowedCategoriesForLevel(level) {
   const preferred = QUIZ_AI_CATEGORY_GUIDANCE[level];
@@ -8581,6 +8588,74 @@ function getQuizOptionSignature(options) {
 function addQuizQuestionOptionsToSet(set, options) {
   const signature = getQuizOptionSignature(options);
   if (signature) set.add(signature);
+}
+
+function getQuizFreshnessTerms(questionText, options = []) {
+  const terms = new Set();
+  const addTerm = (value) => {
+    const normalized = normalizeQuizQuestionText(value);
+    if (!normalized) return;
+    const words = normalized.split(' ');
+    if (words.length > 3) return;
+    const compact = words.join(' ');
+    if (
+      compact.length >= 5 &&
+      !QUIZ_FRESHNESS_STOPWORDS.has(compact) &&
+      !/^\d+$/.test(compact)
+    ) {
+      terms.add(compact);
+    }
+  };
+
+  const text = String(questionText || '');
+  for (const match of text.matchAll(/["'“”‘’]([^"'“”‘’]{3,80})["'“”‘’]/g)) {
+    addTerm(match[1]);
+  }
+
+  if (Array.isArray(options)) {
+    options.forEach((option) => addTerm(option));
+  }
+
+  return terms;
+}
+
+function addQuizFreshnessTermsToSet(set, questionText, options = []) {
+  for (const term of getQuizFreshnessTerms(questionText, options)) {
+    set.add(term);
+  }
+}
+
+function hasRepeatedQuizFreshnessTerms(question, existingTerms, maxAllowedOverlap = 0) {
+  const terms = getQuizFreshnessTerms(question?.question_text, question?.options);
+  if (terms.size === 0) return false;
+
+  let overlap = 0;
+  for (const term of terms) {
+    if (existingTerms.has(term)) overlap++;
+  }
+
+  return overlap > maxAllowedOverlap;
+}
+
+function randomizeQuizQuestionOptions(question) {
+  const options = Array.isArray(question?.options) ? question.options : [];
+  const correctIndex = Number(question?.correct_answer);
+  if (options.length !== 4 || !Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
+    return question;
+  }
+
+  const correctOption = options[correctIndex];
+  const indexedOptions = options.map((option, index) => ({ option, index }));
+  for (let i = indexedOptions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indexedOptions[i], indexedOptions[j]] = [indexedOptions[j], indexedOptions[i]];
+  }
+
+  return {
+    ...question,
+    options: indexedOptions.map(item => item.option),
+    correct_answer: indexedOptions.findIndex(item => item.option === correctOption && item.index === correctIndex)
+  };
 }
 
 function isQuizOptionSetTooSimilar(options, existingOptionSets) {
@@ -8931,6 +9006,62 @@ async function getHistoricalQuizOptionSets(level = null, quizDate = null, db = p
   return seen;
 }
 
+async function getHistoricalQuizFreshnessTerms(level = null, quizDate = null, db = pool, options = {}) {
+  const seen = new Set();
+  const normalizedLevel = level ? normalizeStudentQuizLevel(level) : null;
+  const includeQuestionBank = options.includeQuestionBank === true;
+  const limit = Number.isInteger(options.limit) ? Math.max(1, options.limit) : 120;
+
+  const dailyResult = await db.query(
+    `SELECT beginner_questions, intermediate_questions, advanced_questions
+     FROM daily_quizzes
+     ${quizDate ? 'WHERE quiz_date < $1' : ''}
+     ORDER BY quiz_date DESC
+     LIMIT $${quizDate ? 2 : 1}`,
+    quizDate ? [quizDate, limit] : [limit]
+  );
+
+  for (const row of dailyResult.rows) {
+    const columns = normalizedLevel
+      ? [getQuizLevelColumn(normalizedLevel)]
+      : ['beginner_questions', 'intermediate_questions', 'advanced_questions'];
+    const questions = columns.flatMap(column => Array.isArray(row[column]) ? row[column] : []);
+    for (const question of questions) {
+      addQuizFreshnessTermsToSet(seen, question?.question_text, question?.options);
+    }
+  }
+
+  const pendingResult = await db.query(
+    `SELECT question_text, options
+     FROM pending_quiz_questions
+     WHERE ($1::text IS NULL OR level = $1)
+       ${quizDate ? 'AND quiz_date <= $2' : ''}
+       AND status IN ('pending', 'approved', 'rejected')`,
+    quizDate ? [normalizedLevel, quizDate] : [normalizedLevel]
+  );
+
+  for (const row of pendingResult.rows) {
+    addQuizFreshnessTermsToSet(seen, row.question_text, row.options);
+  }
+
+  if (includeQuestionBank) {
+    const bankResult = await db.query(
+      `SELECT question_text, options
+       FROM quiz_questions
+       WHERE ($1::text IS NULL OR level = $1)
+         AND is_active = true
+         AND LOWER(category) <> ALL($2::text[])`,
+      [normalizedLevel, QUIZ_EXCLUDED_CATEGORIES]
+    );
+
+    for (const row of bankResult.rows) {
+      addQuizFreshnessTermsToSet(seen, row.question_text, row.options);
+    }
+  }
+
+  return seen;
+}
+
 async function loadQuizQuestionDetailsByIds(questionIds, db = pool) {
   const normalizedIds = Array.from(new Set(
     (Array.isArray(questionIds) ? questionIds : [])
@@ -9222,6 +9353,7 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     quizDate = null,
     excludeTexts = new Set(),
     excludeOptionSets = new Set(),
+    excludeFreshnessTerms = new Set(),
     theme = null
   } = options;
 
@@ -9263,29 +9395,46 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   const preferredCategories = getQuizAllowedCategoriesForLevel(level);
   const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
   const historicalOptionSets = await getHistoricalQuizOptionSets(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
+  const historicalFreshnessTerms = await getHistoricalQuizFreshnessTerms(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
   for (const text of excludeTexts) {
     addQuizQuestionTextToSet(historicalTexts, text);
+    addQuizFreshnessTermsToSet(historicalFreshnessTerms, text);
   }
   for (const optionSet of excludeOptionSets) {
     if (optionSet) historicalOptionSets.add(optionSet);
   }
+  for (const term of excludeFreshnessTerms) {
+    const normalized = normalizeQuizQuestionText(term);
+    if (normalized && normalized.length >= 5) historicalFreshnessTerms.add(normalized);
+  }
   const bannedExamples = Array.from(historicalTexts)
     .filter(text => text.split(' ').length >= 4)
     .slice(0, 60);
+  const bannedTerms = Array.from(historicalFreshnessTerms)
+    .filter(term => term.split(' ').length <= 3)
+    .slice(0, 120);
 
   const themeInstruction = theme 
     ? `\n\nTheme/Context: ${theme}\nAll questions should relate to or incorporate this theme where possible. Make questions engaging and relevant to this topic.`
     : '';
 
-  const prompt = `Generate exactly ${count} UNIQUE English quiz questions for ${level} level (${levelAgeGroups[level]}).${themeInstruction}
+  const prompt = `You are an expert English assessment creator for a premium English learning platform.
+
+Your task is to generate a completely NEW daily MCQ quiz segment.
+
+Generate exactly ${count} UNIQUE English quiz questions for ${level} level (${levelAgeGroups[level]}).${themeInstruction}
 
 Requirements:
+- Generate ONLY Multiple Choice Questions (MCQs)
+- Every question must have exactly 4 options and exactly ONE correct answer
 - Each question MUST be completely different from others
 - Do NOT repeat or lightly reword any past question listed below
+- Never repeat the same question, sentence, vocabulary word, answer choices, example, or scenario from previous quizzes
 - Do NOT reuse template questions by only changing the item number, student name, place, tense word, or one vocabulary word
 - Grammar and vocabulary questions must use fresh sentences, fresh target words, fresh answer choices, and fresh contexts for this exact date
 - Use new situations, names, sentences, idioms, examples, and answer choices
 - Do NOT reuse the same option words across questions; every question needs its own answer-choice set
+- Randomize the correct answer position across A, B, C, and D
 - ${levelDescriptions[level]}
 - Keep the difficulty strictly appropriate for ${levelAgeGroups[level]} only
 - Do not create questions meant for younger or older age groups
@@ -9296,8 +9445,11 @@ ${level === 'advanced' ? '- Advanced must include direct_indirect_speech questio
 - MCQ options must be interesting and plausible: avoid one correct answer with three silly or unrelated choices
 - Distractors should be close enough to make the child think, but still fair for the level
 - Include vocabulary-related questions in every generated set, including beginner
-- Include a balanced mix: grammar usage, vocabulary in context, sentence correction, punctuation, idioms/proverbs or imagery, and one sentence-building/expression question where allowed
-- Use varied contexts: school, home, travel, nature, friendship, books, sports, festivals, problem-solving, and daily conversation
+- Include a balanced mix from: grammar usage, advanced vocabulary, powerful alternatives to common words, public speaking, creative writing, idioms, phrasal verbs, collocations, sentence improvement, word choice, tone and style, formal vs informal English, figurative language, storytelling, persuasive language, speech delivery, and rhetorical devices
+- Frequently test better alternatives for weak phrases such as very happy, very sad, very good, very bad, very big, very small, very smart, very beautiful, very angry, very tired, very funny, very important, very careful, very interesting, very afraid, very hungry, very rich, very poor, very fast, and very slow
+- Public speaking questions may test eye contact, voice modulation, facial expressions, body language, stage presence, strong openings, memorable closings, confidence, storytelling, persuasion, audience engagement, nervousness, rhetorical questions, rule of three, pauses, emphasis, debate skills, or MUN skills
+- Creative writing questions may test hooks, show-don't-tell, similes, metaphors, personification, hyperbole, dialogue, character development, descriptive vocabulary, plot, conflict, resolution, suspense, sensory language, story endings, narrative voice, point of view, editing, powerful verbs, or creative titles
+- Use engaging real-life situations instead of textbook sentences: school projects, family conversations, stage speeches, debates, messages, announcements, friendship moments, travel, competitions, creative writing scenes, and daily decisions
 - Explain advanced vocabulary in simple language in the explanation
 ${levelRequirementText}
 - Never use contextual_reference_sentences
@@ -9308,6 +9460,9 @@ Format as JSON array:
 
 Past ${level} questions/topics that are already used and must not be repeated or paraphrased:
 ${bannedExamples.length > 0 ? bannedExamples.map((q, i) => `${i + 1}. ${q.substring(0, 140)}`).join('\n') : 'None yet.'}
+
+Previously used target words, option words, idioms, and scenario terms to avoid completely:
+${bannedTerms.length > 0 ? bannedTerms.join(', ') : 'None yet.'}
 
 Return ONLY JSON, no other text. Each question 100% unique.`;
 
@@ -9367,7 +9522,7 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       correct_answer: Number(q.correct_answer) || 0,
       category: String(q.category || 'grammar').toLowerCase(),
       explanation: String(q.explanation || '').trim()
-    })).filter(q => {
+    })).map(randomizeQuizQuestionOptions).filter(q => {
       if (q.question_text.length <= 5) {
         console.log(`⏭️ Question too short: "${q.question_text}"`);
         return false;
@@ -9428,11 +9583,16 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
         console.log(`⏭️ Options too similar to existing questions: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
+      if (hasRepeatedQuizFreshnessTerms(question, historicalFreshnessTerms)) {
+        console.log(`Repeated target word/context: "${question.question_text.substring(0, 40)}..."`);
+        continue;
+      }
       seen.add(normalized);
       if (similarityKey) seen.add(similarityKey);
       seenOptionSets.add(optionSignature);
       historicalTexts.add(normalized);
       if (similarityKey) historicalTexts.add(similarityKey);
+      addQuizFreshnessTermsToSet(historicalFreshnessTerms, question.question_text, question.options);
       deduped.push(question);
       console.log(`✔️ Added question: "${question.question_text.substring(0, 50)}..."`);
       if (deduped.length >= count) break;
@@ -9764,7 +9924,9 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
     : new Set(Array.isArray(options.excludeTexts) ? options.excludeTexts : []);
   const globalSeenTexts = new Set();
   const globalSeenOptionSets = new Set();
+  const globalFreshnessTerms = new Set();
   extraExcludeTexts.forEach(text => addQuizQuestionTextToSet(globalSeenTexts, text));
+  extraExcludeTexts.forEach(text => addQuizFreshnessTermsToSet(globalFreshnessTerms, text));
   let totalGenerated = 0;
 
   for (const level of levels) {
@@ -9796,11 +9958,15 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       // Exclude ALL existing questions (including rejected) to prevent duplication
       const localSeen = new Set(globalSeenTexts);
       const localOptionSets = new Set(globalSeenOptionSets);
+      const localFreshnessTerms = new Set(globalFreshnessTerms);
       existingResult.rows.forEach(row => addQuizQuestionTextToSet(localSeen, row.question_text));
       existingResult.rows.forEach(row => addQuizQuestionTextToSet(globalSeenTexts, row.question_text));
       existingResult.rows.forEach(row => addQuizQuestionOptionsToSet(localOptionSets, row.options));
       existingResult.rows.forEach(row => addQuizQuestionOptionsToSet(globalSeenOptionSets, row.options));
+      existingResult.rows.forEach(row => addQuizFreshnessTermsToSet(localFreshnessTerms, row.question_text, row.options));
+      existingResult.rows.forEach(row => addQuizFreshnessTermsToSet(globalFreshnessTerms, row.question_text, row.options));
       extraExcludeTexts.forEach(text => addQuizQuestionTextToSet(localSeen, text));
+      extraExcludeTexts.forEach(text => addQuizFreshnessTermsToSet(localFreshnessTerms, text));
       
       if (localSeen.size > 0) {
         console.log(`📝 Already have ${localSeen.size} existing question text(s) for ${level} to avoid duplicating`);
@@ -9818,6 +9984,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             quizDate,
             excludeTexts: localSeen,
             excludeOptionSets: localOptionSets,
+            excludeFreshnessTerms: localFreshnessTerms,
             theme: theme
           });
           // Reset rate limit counter on success
@@ -9859,6 +10026,10 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             console.log(`⏭️ Skipping question with repeated option pattern: "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
+          if (hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)) {
+            console.log(`Skipping repeated target word/context: "${question.question_text.substring(0, 50)}..."`);
+            continue;
+          }
           if (localSeen.has(normalized)) {
             console.log(`⏭️ Skipping duplicate (exact match): "${question.question_text.substring(0, 50)}..."`);
             continue;
@@ -9875,6 +10046,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           if (similarityKey) globalSeenTexts.add(similarityKey);
           localOptionSets.add(optionSignature);
           globalSeenOptionSets.add(optionSignature);
+          addQuizFreshnessTermsToSet(localFreshnessTerms, question.question_text, question.options);
+          addQuizFreshnessTermsToSet(globalFreshnessTerms, question.question_text, question.options);
           aiQuestions.push(question);
           addedThisBatch++;
           
@@ -9900,7 +10073,14 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             const normalized = normalizeQuizQuestionText(question.question_text);
             const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
             const optionSignature = getQuizOptionSignature(question.options);
-            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || !optionSignature || isQuizOptionSetTooSimilar(question.options, localOptionSets)) {
+            if (
+              !normalized ||
+              localSeen.has(normalized) ||
+              localSeen.has(similarityKey) ||
+              !optionSignature ||
+              isQuizOptionSetTooSimilar(question.options, localOptionSets) ||
+              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)
+            ) {
               continue;
             }
             localSeen.add(normalized);
@@ -9909,6 +10089,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             if (similarityKey) globalSeenTexts.add(similarityKey);
             localOptionSets.add(optionSignature);
             globalSeenOptionSets.add(optionSignature);
+            addQuizFreshnessTermsToSet(localFreshnessTerms, question.question_text, question.options);
+            addQuizFreshnessTermsToSet(globalFreshnessTerms, question.question_text, question.options);
             aiQuestions.push(question);
             if (aiQuestions.length >= neededCount) break;
           }
@@ -9924,7 +10106,14 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             const normalized = normalizeQuizQuestionText(question.question_text);
             const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
             const optionSignature = getQuizOptionSignature(question.options);
-            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || !optionSignature || isQuizOptionSetTooSimilar(question.options, localOptionSets)) {
+            if (
+              !normalized ||
+              localSeen.has(normalized) ||
+              localSeen.has(similarityKey) ||
+              !optionSignature ||
+              isQuizOptionSetTooSimilar(question.options, localOptionSets) ||
+              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)
+            ) {
               continue;
             }
             localSeen.add(normalized);
@@ -9933,6 +10122,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             if (similarityKey) globalSeenTexts.add(similarityKey);
             localOptionSets.add(optionSignature);
             globalSeenOptionSets.add(optionSignature);
+            addQuizFreshnessTermsToSet(localFreshnessTerms, question.question_text, question.options);
+            addQuizFreshnessTermsToSet(globalFreshnessTerms, question.question_text, question.options);
             aiQuestions.push(question);
             if (aiQuestions.length >= neededCount) break;
           }
@@ -9947,7 +10138,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           for (const question of lastResortQuestions) {
             const normalized = normalizeQuizQuestionText(question.question_text);
             const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey)) {
+            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)) {
               continue;
             }
             localSeen.add(normalized);
@@ -9956,6 +10147,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             if (similarityKey) globalSeenTexts.add(similarityKey);
             addQuizQuestionOptionsToSet(localOptionSets, question.options);
             addQuizQuestionOptionsToSet(globalSeenOptionSets, question.options);
+            addQuizFreshnessTermsToSet(localFreshnessTerms, question.question_text, question.options);
+            addQuizFreshnessTermsToSet(globalFreshnessTerms, question.question_text, question.options);
             aiQuestions.push(question);
             if (aiQuestions.length >= neededCount) break;
           }
@@ -9988,7 +10181,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       }
 
       // Insert into pending_quiz_questions table
-      for (const q of questionsToInsert) {
+      for (const originalQuestion of questionsToInsert) {
+        const q = randomizeQuizQuestionOptions(originalQuestion);
         await pool.query(`
           INSERT INTO pending_quiz_questions (quiz_date, level, question_text, options, correct_answer, category, explanation, status)
           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
@@ -21122,8 +21316,10 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
     );
     const existingTexts = await getHistoricalQuizQuestionTexts(null, quizDate);
     const existingOptionSets = await getHistoricalQuizOptionSets(null, quizDate);
+    const existingFreshnessTerms = await getHistoricalQuizFreshnessTerms(null, quizDate);
     existingTexts.add(normalizeQuizQuestionText(existing.question_text));
     addQuizQuestionOptionsToSet(existingOptionSets, existing.options);
+    addQuizFreshnessTermsToSet(existingFreshnessTerms, existing.question_text, existing.options);
     const currentSimilarityKey = getQuizQuestionSimilarityKey(existing.question_text);
     if (currentSimilarityKey) existingTexts.add(currentSimilarityKey);
     siblingResult.rows.forEach((row) => {
@@ -21132,6 +21328,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
       if (normalized) existingTexts.add(normalized);
       if (similarityKey) existingTexts.add(similarityKey);
       addQuizQuestionOptionsToSet(existingOptionSets, row.options);
+      addQuizFreshnessTermsToSet(existingFreshnessTerms, row.question_text, row.options);
     });
 
     let replacement = null;
@@ -21141,7 +21338,8 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
         generated = await generateQuizQuestionsWithAI(existing.level, 3, {
           quizDate,
           excludeTexts: existingTexts,
-          excludeOptionSets: existingOptionSets
+          excludeOptionSets: existingOptionSets,
+          excludeFreshnessTerms: existingFreshnessTerms
         });
       } catch (err) {
         if (isGroqRateLimitError(err)) {
@@ -21159,7 +21357,8 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
           !existingTexts.has(normalized) &&
           !existingTexts.has(similarityKey) &&
           !isQuizQuestionTooSimilar(q.question_text, existingTexts) &&
-          !isQuizOptionSetTooSimilar(q.options, existingOptionSets);
+          !isQuizOptionSetTooSimilar(q.options, existingOptionSets) &&
+          !hasRepeatedQuizFreshnessTerms(q, existingFreshnessTerms);
       }) || null;
 
       for (const q of generated) {
@@ -21168,6 +21367,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
         if (normalized) existingTexts.add(normalized);
         if (similarityKey) existingTexts.add(similarityKey);
         addQuizQuestionOptionsToSet(existingOptionSets, q.options);
+        addQuizFreshnessTermsToSet(existingFreshnessTerms, q.question_text, q.options);
       }
     }
     if (!replacement && req.body?.allowQuestionBankFallback === true) {
@@ -21187,6 +21387,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
     if (!replacement) {
       return res.status(429).json({ error: 'Groq is rate-limited right now and could not return a fresh AI question after retries. Please try refresh again in a minute.' });
     }
+    replacement = randomizeQuizQuestionOptions(replacement);
 
     const updateResult = await pool.query(
       `UPDATE pending_quiz_questions
