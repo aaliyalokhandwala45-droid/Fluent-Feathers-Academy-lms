@@ -8637,6 +8637,10 @@ function hasRepeatedQuizFreshnessTerms(question, existingTerms, maxAllowedOverla
   return overlap > maxAllowedOverlap;
 }
 
+function getQuizFreshnessOverlapLimit(level) {
+  return level === 'advanced' ? 0 : 1;
+}
+
 function randomizeQuizQuestionOptions(question) {
   const options = Array.isArray(question?.options) ? question.options : [];
   const correctIndex = Number(question?.correct_answer);
@@ -9442,7 +9446,7 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   const preferredCategories = getQuizAllowedCategoriesForLevel(level);
   const historicalTexts = await getHistoricalQuizQuestionTexts(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
   const historicalOptionSets = await getHistoricalQuizOptionSets(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
-  const historicalFreshnessTerms = await getHistoricalQuizFreshnessTerms(level, quizDate, pool, { limit: 365, includeQuestionBank: true });
+  const historicalFreshnessTerms = await getHistoricalQuizFreshnessTerms(level, quizDate, pool, { limit: 365, includeQuestionBank: false });
   for (const text of excludeTexts) {
     addQuizQuestionTextToSet(historicalTexts, text);
     addQuizFreshnessTermsToSet(historicalFreshnessTerms, text);
@@ -9636,7 +9640,7 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
         console.log(`⏭️ Options too similar to existing questions: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
-      if (hasRepeatedQuizFreshnessTerms(question, historicalFreshnessTerms)) {
+      if (hasRepeatedQuizFreshnessTerms(question, historicalFreshnessTerms, getQuizFreshnessOverlapLimit(level))) {
         console.log(`Repeated target word/context: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
@@ -10094,7 +10098,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             console.log(`⏭️ Skipping question with repeated option pattern: "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
-          if (hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms)) {
+          if (hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms, getQuizFreshnessOverlapLimit(level))) {
             console.log(`Skipping repeated target word/context: "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
@@ -10147,7 +10151,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
               localSeen.has(similarityKey) ||
               !optionSignature ||
               isQuizOptionSetTooSimilar(question.options, localOptionSets) ||
-              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms) ||
+              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms, getQuizFreshnessOverlapLimit(level)) ||
               isQuizQuestionBelowLevel(level, question)
             ) {
               continue;
@@ -10181,7 +10185,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
               localSeen.has(similarityKey) ||
               !optionSignature ||
               isQuizOptionSetTooSimilar(question.options, localOptionSets) ||
-              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms) ||
+              hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms, getQuizFreshnessOverlapLimit(level)) ||
               isQuizQuestionBelowLevel(level, question)
             ) {
               continue;
@@ -10208,7 +10212,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           for (const question of lastResortQuestions) {
             const normalized = normalizeQuizQuestionText(question.question_text);
             const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms) || isQuizQuestionBelowLevel(level, question)) {
+            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms, getQuizFreshnessOverlapLimit(level)) || isQuizQuestionBelowLevel(level, question)) {
               continue;
             }
             localSeen.add(normalized);
@@ -21428,7 +21432,7 @@ app.post('/api/admin/pending-quiz-questions/:id/refresh', async (req, res) => {
           !existingTexts.has(similarityKey) &&
           !isQuizQuestionTooSimilar(q.question_text, existingTexts) &&
           !isQuizOptionSetTooSimilar(q.options, existingOptionSets) &&
-          !hasRepeatedQuizFreshnessTerms(q, existingFreshnessTerms);
+          !hasRepeatedQuizFreshnessTerms(q, existingFreshnessTerms, getQuizFreshnessOverlapLimit(existing.level));
       }) || null;
 
       for (const q of generated) {
