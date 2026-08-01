@@ -9460,10 +9460,10 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   }
   const bannedExamples = Array.from(historicalTexts)
     .filter(text => text.split(' ').length >= 4)
-    .slice(0, 60);
+    .slice(0, 25);
   const bannedTerms = Array.from(historicalFreshnessTerms)
     .filter(term => term.split(' ').length <= 3)
-    .slice(0, 120);
+    .slice(0, 50);
 
   const themeInstruction = theme 
     ? `\n\nTheme/Context: ${theme}\nAll questions should relate to or incorporate this theme where possible. Make questions engaging and relevant to this topic.`
@@ -9540,7 +9540,7 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
           }
         ],
         temperature: 0.8,
-        max_tokens: Math.min(6000, Math.max(1800, count * 520 + 700))
+        max_tokens: Math.min(3200, Math.max(1200, count * 300 + 500))
       },
       {
         headers: {
@@ -10045,7 +10045,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
         // Ask for extra candidates because strict variety filters may reject near-duplicates.
         const remaining = neededCount - aiQuestions.length;
-        const requestCount = Math.min(16, Math.max(6, remaining * 3));
+        const requestCount = Math.min(10, Math.max(5, remaining * 2));
         let batch = [];
         try {
           batch = await generateQuizQuestionsWithAI(level, requestCount, {
