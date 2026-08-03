@@ -8475,7 +8475,7 @@ const QUIZ_ALLOWED_CATEGORIES = [
 const QUIZ_EXCLUDED_CATEGORIES = ['phonics', 'contextual_reference_sentences'];
 const QUIZ_AI_CATEGORY_GUIDANCE = {
   beginner: ['grammar', 'subject_verb_agreement', 'nouns', 'vocabulary', 'pronouns', 'adjectives', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'punctuation'],
-  intermediate: ['grammar', 'subject_verb_agreement', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'elaboration', 'show_dont_tell', 'figures_of_speech', 'types_of_speeches', 'body_language'],
+  intermediate: ['grammar', 'subject_verb_agreement', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'spelling'],
   advanced: ['grammar', 'vocabulary', 'sentence_correction', 'idioms', 'imagery', 'figures_of_speech', 'show_dont_tell', 'elaboration', 'types_of_speeches', 'body_language', 'direct_indirect_speech']
 };
 const QUIZ_FRESHNESS_STOPWORDS = new Set([
@@ -9424,10 +9424,11 @@ async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
     ],
     intermediate: [
       'Intermediate difficulty: ages 8-11 only; clearly harder than beginner and clearly easier than advanced',
-      'Intermediate grammar should include applied usage such as perfect tenses, transition words, subject-verb agreement, sentence correction, adjective/adverb choice, punctuation, and concise expression in a short context',
+      'Intermediate must focus on grammar and vocabulary MCQs only; do not generate show-dont-tell, body language, speech delivery, public-speaking, or broad creative-writing craft questions',
+      'Intermediate grammar should rotate across different topics: perfect tenses, past perfect, conditionals, modal verbs, connectors, subject-verb agreement, pronoun reference, adjective/adverb choice, punctuation, articles, prepositions in context, sentence combining, and sentence correction',
       'Intermediate questions should require one reasoning step, not just matching a single obvious word',
       'Intermediate vocabulary must include useful higher-level words in context, such as reluctant, vivid, precise, cautious, persuade, evidence, infer, contrast, resilient, articulate, coherent, or concise',
-      'Intermediate public speaking and creative writing questions should be practical: openings, eye contact, body language, show-dont-tell, sensory details, dialogue, and clear conclusions'
+      'Every intermediate set should include unique MCQs from different grammar or vocabulary topics; avoid repeated "choose the grammatically correct sentence about a person at a place" templates'
     ],
     advanced: [
       'Advanced difficulty: ages 12+ only; every question must require nuanced judgment, context analysis, or polished expression',
@@ -9491,17 +9492,18 @@ Requirements:
 - Do not create questions meant for younger or older age groups
 - Category: ${preferredCategories.join(', ')} (only these categories)
 ${level === 'beginner' ? '- For beginner level, do not create direct speech, indirect speech, or reported speech questions\n' : ''}
-${level === 'intermediate' ? '- For intermediate level, include a mix of applied grammar, useful vocabulary, sentence improvement, idioms, show-dont-tell, descriptive word choice, and public-speaking basics. Do not use beginner-only tasks like identifying nouns, pronouns, prepositions, interjections, five senses, or capitalization of I.\n' : ''}
+${level === 'intermediate' ? '- For intermediate level, generate grammar and vocabulary MCQs only. Include applied grammar, useful vocabulary, sentence improvement, spelling in context, idioms, proverbs, and punctuation. Do not generate show-dont-tell, body language, speech delivery, public-speaking basics, or broad creative-writing craft questions. Do not use beginner-only tasks like identifying nouns, pronouns, prepositions, interjections, five senses, or capitalization of I.\n' : ''}
 ${level === 'advanced' ? '- For advanced level, include a mix of advanced grammar, advanced vocabulary, powerful alternatives to weak words, tone/register, persuasive language, public speaking, creative writing, figurative language, storytelling, speech delivery, and rhetorical devices. Every question must feel suitable for a strong 12+ learner.\n' : ''}
 - 4 options (A, B, C, D), one correct answer
 ${level === 'advanced' ? '- Advanced must include direct_indirect_speech questions\n' : ''}
 - MCQ options must be interesting and plausible: avoid one correct answer with three silly or unrelated choices
 - Distractors should be close enough to make the child think, but still fair for the level
 - Include vocabulary-related questions in every generated set, including beginner
-- Include a balanced mix from: grammar usage, advanced vocabulary, powerful alternatives to common words, public speaking, creative writing, idioms, phrasal verbs, collocations, sentence improvement, word choice, tone and style, formal vs informal English, figurative language, storytelling, persuasive language, speech delivery, and rhetorical devices
+${level === 'intermediate'
+  ? '- Include a balanced intermediate mix from: grammar usage, vocabulary in context, idioms, proverbs, spelling, punctuation, phrasal verbs, collocations, sentence improvement, and precise word choice'
+  : '- Include a balanced mix from: grammar usage, advanced vocabulary, powerful alternatives to common words, public speaking, creative writing, idioms, phrasal verbs, collocations, sentence improvement, word choice, tone and style, formal vs informal English, figurative language, storytelling, persuasive language, speech delivery, and rhetorical devices'}
 - Frequently test better alternatives for weak phrases such as very happy, very sad, very good, very bad, very big, very small, very smart, very beautiful, very angry, very tired, very funny, very important, very careful, very interesting, very afraid, very hungry, very rich, very poor, very fast, and very slow
-- Public speaking questions may test eye contact, voice modulation, facial expressions, body language, stage presence, strong openings, memorable closings, confidence, storytelling, persuasion, audience engagement, nervousness, rhetorical questions, rule of three, pauses, emphasis, debate skills, or MUN skills
-- Creative writing questions may test hooks, show-don't-tell, similes, metaphors, personification, hyperbole, dialogue, character development, descriptive vocabulary, plot, conflict, resolution, suspense, sensory language, story endings, narrative voice, point of view, editing, powerful verbs, or creative titles
+${level === 'intermediate' ? '' : "- Public speaking questions may test eye contact, voice modulation, facial expressions, body language, stage presence, strong openings, memorable closings, confidence, storytelling, persuasion, audience engagement, nervousness, rhetorical questions, rule of three, pauses, emphasis, debate skills, or MUN skills\n- Creative writing questions may test hooks, show-don't-tell, similes, metaphors, personification, hyperbole, dialogue, character development, descriptive vocabulary, plot, conflict, resolution, suspense, sensory language, story endings, narrative voice, point of view, editing, powerful verbs, or creative titles"}
 - Use engaging real-life situations instead of textbook sentences: school projects, family conversations, stage speeches, debates, messages, announcements, friendship moments, travel, competitions, creative writing scenes, and daily decisions
 - Explain advanced vocabulary in simple language in the explanation
 ${levelRequirementText}
@@ -9810,6 +9812,90 @@ function createLocalQuizQuestion(level, category, seed) {
   const targetWord = pick(words, 4);
   const targetLabel = targetWord.charAt(0).toUpperCase() + targetWord.slice(1);
 
+  const intermediateGrammarSets = [
+    {
+      question_text: 'Choose the sentence that uses the present perfect tense correctly.',
+      options: ['Maya has finished her science notes.', 'Maya have finished her science notes.', 'Maya finished already her science notes.', 'Maya has finish her science notes.'],
+      correct_answer: 0,
+      category: 'grammar',
+      explanation: 'Present perfect uses has or have with the past participle: has finished.'
+    },
+    {
+      question_text: 'Which sentence uses the adverb in the best position?',
+      options: ['Aarav carefully explained the answer to the class.', 'Aarav explained the carefully answer to the class.', 'Carefully Aarav the answer explained to the class.', 'Aarav explained the answer careful to the class.'],
+      correct_answer: 0,
+      category: 'adverbs',
+      explanation: 'Carefully describes how Aarav explained and is placed naturally before the verb.'
+    },
+    {
+      question_text: 'Choose the correct connector for contrast: "Zoya practised daily, ___ she still felt nervous on stage."',
+      options: ['although', 'because', 'so', 'unless'],
+      correct_answer: 0,
+      category: 'grammar',
+      explanation: 'Although introduces a contrast between practising and still feeling nervous.'
+    },
+    {
+      question_text: 'Which sentence has correct subject-verb agreement?',
+      options: ['The list of topics is on the desk.', 'The list of topics are on the desk.', 'The list of topics were on the desk.', 'The list of topics be on the desk.'],
+      correct_answer: 0,
+      category: 'subject_verb_agreement',
+      explanation: 'The subject is list, which is singular, so the verb is is.'
+    },
+    {
+      question_text: 'Choose the correctly punctuated sentence.',
+      options: ['Before the debate began, I checked my notes.', 'Before the debate began I checked, my notes.', 'Before, the debate began I checked my notes.', 'Before the debate began I checked my notes?'],
+      correct_answer: 0,
+      category: 'punctuation',
+      explanation: 'An introductory clause is usually followed by a comma.'
+    },
+    {
+      question_text: 'Which option best combines the ideas without repeating words?',
+      options: ['Riya revised her speech because she wanted a stronger opening.', 'Riya revised her speech she wanted a stronger opening.', 'Riya revised her speech and because wanted opening strong.', 'Riya revised her speech, because, wanted a stronger opening.'],
+      correct_answer: 0,
+      category: 'sentence_correction',
+      explanation: 'Because clearly connects the reason to the action.'
+    },
+    {
+      question_text: 'Choose the adjective that best completes the sentence: "The speaker gave a ___ explanation that everyone understood."',
+      options: ['clear', 'clearly', 'clearness', 'clearerly'],
+      correct_answer: 0,
+      category: 'adjectives',
+      explanation: 'Clear is an adjective that describes explanation.'
+    },
+    {
+      question_text: 'Choose the word that best fits the context: "The team was ___ to give up after one mistake."',
+      options: ['reluctant', 'fragile', 'ancient', 'silent'],
+      correct_answer: 0,
+      category: 'vocabulary',
+      explanation: 'Reluctant means unwilling, which fits not wanting to give up.'
+    },
+    {
+      question_text: 'Which sentence correctly uses past perfect?',
+      options: ['Ishan had packed his bag before the bus arrived.', 'Ishan has packed his bag before the bus arrived.', 'Ishan had pack his bag before the bus arrived.', 'Ishan packed had his bag before the bus arrived.'],
+      correct_answer: 0,
+      category: 'grammar',
+      explanation: 'Past perfect uses had with the past participle to show the earlier past action.'
+    },
+    {
+      question_text: 'Choose the correctly spelled word for this sentence: "Her answer was ___ and easy to follow."',
+      options: ['coherent', 'coherant', 'coharent', 'cohearant'],
+      correct_answer: 0,
+      category: 'spelling',
+      explanation: 'Coherent means clear and logical, and this is the correct spelling.'
+    }
+  ];
+
+  if (level === 'intermediate' && ['grammar', 'subject_verb_agreement', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'vocabulary', 'spelling'].includes(category)) {
+    const set = intermediateGrammarSets[Math.abs(seed) % intermediateGrammarSets.length];
+    return {
+      question_text: set.question_text,
+      options: set.options,
+      correct_answer: set.correct_answer,
+      category: set.category,
+      explanation: set.explanation
+    };
+  }
+
   const sets = {
     vocabulary: {
       question_text: `In this ${levelText} sentence, which word best describes ${name}'s careful work at the ${place}?`,
@@ -9905,7 +9991,7 @@ function createLocalQuizQuestion(level, category, seed) {
 
   const base = sets[category] || sets.grammar;
   return {
-    question_text: `${base.question_text} (${level} set ${seed})`,
+    question_text: base.question_text,
     options: base.options,
     correct_answer: base.correct_answer,
     category,
@@ -10507,6 +10593,12 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
     const [priv, grp, events, demos] = await Promise.all([
       executeQuery(`
         SELECT s.*, st.name as student_name, st.timezone, s.session_number,
+        st.total_sessions, st.completed_sessions, st.remaining_sessions,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM makeup_classes m
+          WHERE m.student_id = st.id AND LOWER(m.status) = 'available'
+        ), 0) AS available_makeup_credits,
         CONCAT(st.program_name, ' - ', COALESCE(s.duration, st.duration)) as class_info,
         'Private' as display_type,
         COALESCE(s.class_link, $1) as class_link
@@ -10628,7 +10720,13 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
    const groupSessionIds = paginatedClasses.filter(s => s.display_type === 'Group').map(s => s.id);
    if (groupSessionIds.length > 0) {
      const studentRows = await executeQuery(`
-       SELECT sa.session_id, sa.attendance, st.name as student_name, st.id as student_id
+       SELECT sa.session_id, sa.attendance, st.name as student_name, st.id as student_id,
+              st.total_sessions, st.completed_sessions, st.remaining_sessions,
+              COALESCE((
+                SELECT COUNT(*)
+                FROM makeup_classes m
+                WHERE m.student_id = st.id AND LOWER(m.status) = 'available'
+              ), 0) AS available_makeup_credits
        FROM session_attendance sa
        JOIN students st ON sa.student_id = st.id
        WHERE sa.session_id = ANY($1)
@@ -10642,7 +10740,11 @@ app.get('/api/dashboard/upcoming-classes', async (req, res) => {
        studentMap[row.session_id].push({
          name: row.student_name,
          student_id: row.student_id,
-         attendance: row.attendance
+         attendance: row.attendance,
+         total_sessions: row.total_sessions,
+         completed_sessions: row.completed_sessions,
+         remaining_sessions: row.remaining_sessions,
+         available_makeup_credits: row.available_makeup_credits
        });
      }
 
