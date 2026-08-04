@@ -14488,11 +14488,59 @@ async function buildHomeworkImageInputForAi(material) {
   return `data:${mime};base64,${buffer.toString('base64')}`;
 }
 
+function stripAiReasoningText(text = '') {
+  return String(text || '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/^\s*<think>[\s\S]*$/i, '')
+    .trim();
+}
+
 function extractJsonObject(text = '') {
-  const content = String(text || '').trim();
+  const content = stripAiReasoningText(text);
   const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const jsonStr = fenceMatch ? fenceMatch[1].trim() : (content.match(/\{[\s\S]*\}/) || [content])[0];
   return JSON.parse(jsonStr);
+}
+
+function parseAiJsonObject(text = '') {
+  const content = stripAiReasoningText(text);
+  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const jsonStr = fenceMatch ? fenceMatch[1].trim() : (content.match(/\{[\s\S]*\}/) || [''])[0].trim();
+  if (!jsonStr) return null;
+  try {
+    return JSON.parse(jsonStr);
+  } catch (_) {
+    const sanitized = jsonStr.replace(/[\r\n]+/g, ' ').replace(/([^\\])\\'/g, "$1'");
+    try {
+      return JSON.parse(sanitized);
+    } catch (err) {
+      return null;
+    }
+  }
+}
+
+function looksLikeHtmlResponse(text = '') {
+  return /^\s*<(?:!doctype|html|head|body)\b/i.test(String(text || ''));
+}
+
+function createFallbackAiHomeworkReview(rawText, studentName = 'the student') {
+  const cleaned = stripAiReasoningText(rawText)
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned || looksLikeHtmlResponse(cleaned)) return null;
+
+  const firstName = String(studentName || 'the student').trim() || 'the student';
+  const feedback = cleaned.startsWith(firstName)
+    ? cleaned
+    : `${firstName}, ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}`;
+
+  return {
+    grade: 'Needs Improvement',
+    feedback: feedback.slice(0, 900),
+    summary: 'AI returned plain text instead of JSON, so the feedback was saved for teacher review.',
+    confidence: 'low'
+  };
 }
 
 function getPersonalisedTeacherFeedbackInstructions(studentName = 'the student') {
@@ -14548,7 +14596,11 @@ async function runAiHomeworkDraftReview(materialId) {
   try {
     let response;
     const feedbackStyle = getPersonalisedTeacherFeedbackInstructions(studentName);
-    const systemPrompt = `You are an English homework teacher. Review the submitted homework and create a draft review for the teacher to approve. Return ONLY valid JSON:
+    const systemPrompt = `You are an English homework teacher. Review the submitted homework and create a draft review for the teacher to approve.
+
+Return ONLY raw JSON. The first character must be { and the last character must be }. Do not include markdown, HTML, <think> tags, reasoning, or explanations outside JSON.
+
+JSON format:
 {
   "grade": "A/B+/B/etc",
   "feedback": "student-facing personalised feedback following the required style",
@@ -14601,7 +14653,10 @@ ${feedbackStyle}`;
     }
 
     const content = response.data.choices?.[0]?.message?.content || '';
-    const parsed = extractJsonObject(content);
+    const parsed = parseAiJsonObject(content) || createFallbackAiHomeworkReview(content, studentName);
+    if (!parsed) {
+      throw new Error('AI returned a non-JSON response that could not be converted into feedback. Please retry AI or review manually.');
+    }
     const grade = String(parsed.grade || '').trim().slice(0, 20);
     const feedback = String(parsed.feedback || '').trim().slice(0, 2000);
     const summary = String(parsed.summary || '').trim().slice(0, 500);
@@ -19420,20 +19475,17 @@ Return ONLY the JSON. No markdown. No explanation.`;
     const content = response.data.choices?.[0]?.message?.content?.trim();
     if (!content) return res.status(500).json({ error: 'Groq returned empty response' });
 
-    // Extract JSON block, strip markdown fences if present
-    let jsonStr = content;
-    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenceMatch) jsonStr = fenceMatch[1].trim();
-    else { const braceMatch = content.match(/\{[\s\S]*\}/); if (braceMatch) jsonStr = braceMatch[0]; }
-
-    let result;
-    try {
-      result = JSON.parse(jsonStr);
-    } catch (parseErr) {
-      // Attempt to sanitize common issues: replace unescaped newlines inside strings
-      const sanitized = jsonStr.replace(/[\r\n]+/g, ' ').replace(/([^\\])\\'/g, "$1'");
-      try { result = JSON.parse(sanitized); }
-      catch (e2) { return res.status(500).json({ error: 'AI returned malformed JSON', raw: jsonStr.slice(0, 300) }); }
+    let result = parseAiJsonObject(content);
+    if (!result) {
+      const fallback = createFallbackAiHomeworkReview(content, student_name || 'the student');
+      if (!fallback) {
+        return res.status(500).json({ error: 'AI returned malformed JSON', raw: stripAiReasoningText(content).slice(0, 300) });
+      }
+      result = {
+        corrections: [],
+        grade: fallback.grade,
+        summary: fallback.feedback
+      };
     }
     const allowedTypes = new Set(['spelling', 'grammar', 'punctuation', 'capitalization']);
     const clampPercent = (value) => {
@@ -19566,9 +19618,9 @@ Return ONLY JSON. No markdown. No explanation.`;
 
     const content = response.data.choices?.[0]?.message?.content?.trim();
     if (!content) return res.status(500).json({ error: 'Groq returned empty response' });
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return res.status(500).json({ error: 'Unexpected AI response', raw: content });
-    res.json(JSON.parse(jsonMatch[0]));
+    const parsed = parseAiJsonObject(content);
+    if (!parsed) return res.status(500).json({ error: 'Unexpected AI response', raw: stripAiReasoningText(content).slice(0, 300) });
+    res.json(parsed);
   } catch (err) {
     console.error('AI assess suggest error:', err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data?.error?.message || err.message });
@@ -19619,9 +19671,9 @@ Teacher prompt: ${teacher_notes}`;
     );
     const content = response.data.choices?.[0]?.message?.content?.trim();
     if (!content) return res.status(500).json({ error: 'AI returned empty response' });
-    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    const jsonStr = fenceMatch ? fenceMatch[1].trim() : (content.match(/\{[\s\S]*\}/) || [content])[0];
-    res.json(JSON.parse(jsonStr));
+    const parsed = parseAiJsonObject(content) || createFallbackAiHomeworkReview(content, firstName);
+    if (!parsed) return res.status(500).json({ error: 'AI returned a response that could not be converted into feedback.' });
+    res.json(parsed);
   } catch (err) {
     res.status(500).json({ error: err.response?.data?.error?.message || err.message });
   }
