@@ -1084,15 +1084,29 @@ app.use(async (req, res, next) => {
 });
 
 // Create upload directories
-['uploads', 'uploads/materials', 'uploads/homework'].forEach(dir => {
+['uploads', 'uploads/materials', 'uploads/homework', 'uploads/challenges'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
 // ==================== FILE UPLOAD SETUP ====================
 // Local disk storage (fallback when Cloudinary is not configured)
+function getUploadType(req) {
+  return String(req.uploadTypeOverride || req.body?.uploadType || '').toLowerCase();
+}
+
+function getUploadFolder(uploadType) {
+  if (uploadType === 'homework') {
+    return { local: 'uploads/homework/', cloudinary: 'fluentfeathers/homework' };
+  }
+  if (uploadType === 'challenge') {
+    return { local: 'uploads/challenges/', cloudinary: 'fluentfeathers/challenges' };
+  }
+  return { local: 'uploads/materials/', cloudinary: 'fluentfeathers/materials' };
+}
+
 const localDiskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dest = req.body.uploadType === 'homework' ? 'uploads/homework/' : 'uploads/materials/';
+    const dest = getUploadFolder(getUploadType(req)).local;
     cb(null, dest);
   },
   filename: (req, file, cb) => {
@@ -1106,7 +1120,7 @@ function buildCloudinaryUploadParams(req, file) {
   const ext = path.extname(file.originalname).toLowerCase();
   const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) || String(file.mimetype || '').startsWith('image/');
   const isVideo = ['.mp4', '.mov', '.avi', '.webm'].includes(ext) || String(file.mimetype || '').startsWith('video/');
-  const folder = req.body.uploadType === 'homework' ? 'fluentfeathers/homework' : 'fluentfeathers/materials';
+  const folder = getUploadFolder(getUploadType(req)).cloudinary;
 
   // Create unique filename - include extension for raw files (PDFs, docs, etc.)
   const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -1210,7 +1224,7 @@ function createSmartUploadStorage() {
   };
 }
 
-async function syncHomeworkFileToCloudinary(materialId, fileInfo) {
+async function syncDeferredUploadToCloudinary(fileInfo, uploadType = 'homework') {
   if (!useCloudinary || !fileInfo?.deferCloudinarySync || !fileInfo?.path) return;
 
   const absolutePath = path.isAbsolute(fileInfo.path)
@@ -1224,7 +1238,7 @@ async function syncHomeworkFileToCloudinary(materialId, fileInfo) {
   const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
 
   const result = await cloudinary.uploader.upload(absolutePath, {
-    folder: 'fluentfeathers/homework',
+    folder: getUploadFolder(uploadType).cloudinary,
     resource_type: isVideo ? 'video' : 'raw',
     public_id: isVideo ? uniqueName : uniqueName + ext,
     chunk_size: CLOUDINARY_LARGE_UPLOAD_CHUNK_SIZE
@@ -1233,10 +1247,17 @@ async function syncHomeworkFileToCloudinary(materialId, fileInfo) {
   const cloudUrl = result.secure_url || result.url;
   if (!cloudUrl) throw new Error('Cloudinary returned no URL');
 
-  await pool.query('UPDATE materials SET file_path = $1 WHERE id = $2', [cloudUrl, materialId]);
   fs.unlink(absolutePath, (err) => {
-    if (err) console.warn('Could not remove local homework file after Cloudinary sync:', err.message);
+    if (err) console.warn(`Could not remove local ${uploadType} file after Cloudinary sync:`, err.message);
   });
+
+  return cloudUrl;
+}
+
+async function syncHomeworkFileToCloudinary(materialId, fileInfo) {
+  const cloudUrl = await syncDeferredUploadToCloudinary(fileInfo, 'homework');
+  if (!cloudUrl) return;
+  await pool.query('UPDATE materials SET file_path = $1 WHERE id = $2', [cloudUrl, materialId]);
 }
 
 function queueHomeworkCloudinarySync(materialId, fileInfo) {
@@ -1246,6 +1267,52 @@ function queueHomeworkCloudinarySync(materialId, fileInfo) {
       console.warn(`Homework Cloudinary sync failed for material ${materialId}:`, err.message);
     });
   });
+}
+
+async function syncChallengeSubmissionToCloudinary(challengeId, studentId, fileInfo) {
+  const cloudUrl = await syncDeferredUploadToCloudinary(fileInfo, 'challenge');
+  if (!cloudUrl) return;
+  await pool.query(
+    `UPDATE student_challenges
+     SET submission_file_path = $1
+     WHERE challenge_id = $2 AND student_id = $3`,
+    [cloudUrl, challengeId, studentId]
+  );
+}
+
+function queueChallengeCloudinarySync(challengeId, studentId, fileInfo) {
+  if (!useCloudinary || !fileInfo?.deferCloudinarySync) return;
+  setImmediate(() => {
+    syncChallengeSubmissionToCloudinary(challengeId, studentId, fileInfo).catch(err => {
+      console.warn(`Challenge Cloudinary sync failed for challenge ${challengeId}, student ${studentId}:`, err.message);
+    });
+  });
+}
+
+async function syncPublicChallengeEntryToCloudinary(entryId, fileInfo) {
+  const cloudUrl = await syncDeferredUploadToCloudinary(fileInfo, 'challenge');
+  if (!cloudUrl) return;
+  await pool.query('UPDATE public_challenge_entries SET video_file_path = $1 WHERE id = $2', [cloudUrl, entryId]);
+}
+
+function queuePublicChallengeEntryCloudinarySync(entryId, fileInfo) {
+  if (!useCloudinary || !fileInfo?.deferCloudinarySync) return;
+  setImmediate(() => {
+    syncPublicChallengeEntryToCloudinary(entryId, fileInfo).catch(err => {
+      console.warn(`Public challenge Cloudinary sync failed for entry ${entryId}:`, err.message);
+    });
+  });
+}
+
+function resolveChallengeStoredFilePath(file) {
+  if (!file) return null;
+  if (file.deferCloudinarySync || (file.filename && !file.secure_url && !String(file.path || '').startsWith('http'))) {
+    return '/uploads/challenges/' + file.filename;
+  }
+  if (useCloudinary) {
+    return file.secure_url || file.path || file.url || null;
+  }
+  return '/uploads/challenges/' + file.filename;
 }
 
 // Cloudinary storage configuration. Videos/raw files use chunked uploads so large
@@ -1393,10 +1460,11 @@ const upload = multer({
 });
 
 // Wrapper to handle multer upload errors properly
-const handleUpload = (fieldName, maxCount = 1) => {
+const handleUpload = (fieldName, maxCount = 1, uploadTypeOverride = null) => {
   return (req, res, next) => {
     req.setTimeout(UPLOAD_TIMEOUT_MS);
     res.setTimeout(UPLOAD_TIMEOUT_MS);
+    if (uploadTypeOverride) req.uploadTypeOverride = uploadTypeOverride;
 
     const uploadHandler = maxCount > 1 ? upload.array(fieldName, maxCount) : upload.single(fieldName);
     uploadHandler(req, res, (err) => {
@@ -8476,7 +8544,7 @@ const QUIZ_EXCLUDED_CATEGORIES = ['phonics', 'contextual_reference_sentences'];
 const QUIZ_AI_CATEGORY_GUIDANCE = {
   beginner: ['grammar', 'subject_verb_agreement', 'nouns', 'vocabulary', 'pronouns', 'adjectives', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'punctuation'],
   intermediate: ['grammar', 'subject_verb_agreement', 'vocabulary', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'idioms', 'proverbs', 'spelling'],
-  advanced: ['grammar', 'vocabulary', 'sentence_correction', 'idioms', 'imagery', 'figures_of_speech', 'show_dont_tell', 'elaboration', 'types_of_speeches', 'body_language', 'direct_indirect_speech']
+  advanced: ['grammar', 'vocabulary', 'sentence_correction', 'idioms', 'proverbs', 'imagery', 'figures_of_speech', 'punctuation', 'direct_indirect_speech']
 };
 const QUIZ_FRESHNESS_STOPWORDS = new Set([
   'about', 'above', 'after', 'again', 'already', 'answer', 'because', 'before', 'being', 'below', 'between',
@@ -8671,6 +8739,7 @@ function isQuizQuestionBelowLevel(level, question) {
   const combined = `${text} ${optionsText}`;
 
   const beginnerOnlyPatterns = [
+    /\bchoose the grammatically correct sentence about\b/,
     /\bwhich word is (a|an) (noun|pronoun|adjective|adverb|preposition|interjection)\b/,
     /\bchoose the preposition\b/,
     /\bchoose the pronoun\b/,
@@ -9887,6 +9956,92 @@ function createLocalQuizQuestion(level, category, seed) {
 
   if (level === 'intermediate' && ['grammar', 'subject_verb_agreement', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'vocabulary', 'spelling'].includes(category)) {
     const set = intermediateGrammarSets[Math.abs(seed) % intermediateGrammarSets.length];
+    return {
+      question_text: set.question_text,
+      options: set.options,
+      correct_answer: set.correct_answer,
+      category: set.category,
+      explanation: set.explanation
+    };
+  }
+
+  const advancedLanguageSets = [
+    {
+      question_text: 'Which sentence uses inversion correctly after a negative adverbial?',
+      options: ['Rarely had the committee seen such a persuasive proposal.', 'Rarely the committee had seen such a persuasive proposal.', 'Rarely had seen the committee such a persuasive proposal.', 'Rarely the committee seen had such a persuasive proposal.'],
+      correct_answer: 0,
+      category: 'grammar',
+      explanation: 'After negative adverbials like rarely, formal English often uses inversion: had the committee seen.'
+    },
+    {
+      question_text: 'Choose the sentence with the most precise formal tone.',
+      options: ['The evidence suggests that the policy requires further review.', 'The evidence kind of says the policy needs another look.', 'The proof is like telling us to check the policy again.', 'The evidence says the policy is maybe not okay.'],
+      correct_answer: 0,
+      category: 'sentence_correction',
+      explanation: 'The correct option is precise, formal, and avoids vague fillers.'
+    },
+    {
+      question_text: 'Which word best completes the sentence: "Her argument was ___ because each claim was supported by evidence."',
+      options: ['credible', 'careless', 'accidental', 'ordinary'],
+      correct_answer: 0,
+      category: 'vocabulary',
+      explanation: 'Credible means believable or trustworthy, especially when supported by evidence.'
+    },
+    {
+      question_text: 'Choose the correctly punctuated sentence with a nonessential clause.',
+      options: ['The report, which was published yesterday, changed the debate.', 'The report which was published yesterday, changed the debate.', 'The report, which was published yesterday changed the debate.', 'The report which, was published yesterday, changed the debate.'],
+      correct_answer: 0,
+      category: 'punctuation',
+      explanation: 'A nonessential clause is set off with commas on both sides.'
+    },
+    {
+      question_text: 'Which option correctly changes the sentence to indirect speech? "She said, \'I will revise the draft tonight.\'"',
+      options: ['She said that she would revise the draft that night.', 'She said that I will revise the draft tonight.', 'She said she will revised the draft that night.', 'She said that she revised the draft tonight.'],
+      correct_answer: 0,
+      category: 'direct_indirect_speech',
+      explanation: 'In reported speech, will usually shifts to would and tonight shifts to that night.'
+    },
+    {
+      question_text: 'Which sentence uses parallel structure correctly?',
+      options: ['The speaker aimed to inform, to persuade, and to inspire.', 'The speaker aimed to inform, persuading, and inspiration.', 'The speaker aimed informing, to persuade, and inspired.', 'The speaker aimed to inform, persuasion, and to inspire.'],
+      correct_answer: 0,
+      category: 'grammar',
+      explanation: 'Parallel structure keeps matching grammatical forms in a list.'
+    },
+    {
+      question_text: 'What does the idiom "draw the line" mean in this context: "I enjoy jokes, but I draw the line at insults"?',
+      options: ['Set a limit', 'Create a picture', 'Change the topic', 'Start a competition'],
+      correct_answer: 0,
+      category: 'idioms',
+      explanation: 'Draw the line means set a boundary or limit.'
+    },
+    {
+      question_text: 'Which interpretation best matches the proverb "A smooth sea never made a skilled sailor"?',
+      options: ['Challenges help people develop skill.', 'Good sailors avoid every challenge.', 'Calm weather is always dangerous.', 'Skill is unrelated to experience.'],
+      correct_answer: 0,
+      category: 'proverbs',
+      explanation: 'The proverb means difficulties can build ability and resilience.'
+    },
+    {
+      question_text: 'Which sentence uses metaphor most effectively?',
+      options: ['Her patience was an anchor during the chaotic meeting.', 'Her patience was very good during the meeting.', 'She was patient at the meeting.', 'The meeting had patience in it.'],
+      correct_answer: 0,
+      category: 'figures_of_speech',
+      explanation: 'The metaphor compares patience to an anchor to show steadiness.'
+    },
+    {
+      question_text: 'Which sentence creates the strongest imagery without becoming wordy?',
+      options: ['Moonlight silvered the empty road after the rain.', 'The road was wet and looked nice in the night.', 'It was a road and there was rain earlier.', 'The night road had some light and water.'],
+      correct_answer: 0,
+      category: 'imagery',
+      explanation: 'The correct option uses vivid visual detail in a concise sentence.'
+    }
+  ];
+
+  if (level === 'advanced') {
+    const matchingSets = advancedLanguageSets.filter(set => set.category === category);
+    const pool = matchingSets.length > 0 ? matchingSets : advancedLanguageSets;
+    const set = pool[Math.abs(seed) % pool.length];
     return {
       question_text: set.question_text,
       options: set.options,
@@ -14340,6 +14495,24 @@ function extractJsonObject(text = '') {
   return JSON.parse(jsonStr);
 }
 
+function getPersonalisedTeacherFeedbackInstructions(studentName = 'the student') {
+  const name = String(studentName || 'the student').trim() || 'the student';
+  return `Feedback style for any student-facing feedback:
+- You are a warm, friendly Creative Writing and English teacher at Fluent Feathers Academy.
+- Write SHORT personalised feedback in British English, 35-70 words.
+- Always start with the student's name: ${name}.
+- Write directly to the student in SECOND PERSON using you/your.
+- Every feedback must feel different. Do not follow the same structure, sentence pattern, opening, or closing every time.
+- Sometimes begin with praise, sometimes with a question, an encouraging remark, a compliment, or a creative expression.
+- Mention specific strengths based on the student's work, such as ideas, imagination, grammar, vocabulary, spelling, punctuation, creativity, sentence structure, presentation, confidence, or effort.
+- If improvement is needed, give only one positive suggestion using language such as "Try...", "Next time...", "You could...", or "Let's polish...".
+- Use rich, natural vocabulary where appropriate, such as imaginative, expressive, thoughtful, engaging, vivid, remarkable, polished, articulate, compelling, confident, blossoming, or creative.
+- Occasionally, but not always, include one suitable idiom or expression naturally, such as "Practice makes perfect", "The sky's the limit", "Think outside the box", "Hit the nail on the head", or "Bring your ideas to life".
+- End differently each time, for example: Keep shining! Keep writing! I'm excited to see what you create next. Your imagination is growing beautifully. Every story makes you a stronger writer. Keep believing in your ideas. You have a wonderful creative spark.
+- Avoid repeating the same opening or closing, using "Good job" or "Well done" in every response, sounding robotic or generic, or comparing students.
+- The feedback should feel personally written by a caring teacher who genuinely read the student's work.`;
+}
+
 async function runAiHomeworkDraftReview(materialId) {
   const materialResult = await pool.query(`
     SELECT m.*, st.name as student_name
@@ -14374,14 +14547,17 @@ async function runAiHomeworkDraftReview(materialId) {
 
   try {
     let response;
+    const feedbackStyle = getPersonalisedTeacherFeedbackInstructions(studentName);
     const systemPrompt = `You are an English homework teacher. Review the submitted homework and create a draft review for the teacher to approve. Return ONLY valid JSON:
 {
   "grade": "A/B+/B/etc",
-  "feedback": "parent-facing feedback in 2-5 clear sentences",
+  "feedback": "student-facing personalised feedback following the required style",
   "summary": "short teacher summary",
   "confidence": "high|medium|low"
 }
-Be fair, encouraging, and specific. If the submission has too little visible content, use confidence "low" and say manual teacher review is needed.`;
+Be fair, encouraging, and specific. If the submission has too little visible content, use confidence "low" and say manual teacher review is needed.
+
+${feedbackStyle}`;
 
     if (isImage) {
       const imageInput = await buildHomeworkImageInputForAi(material);
@@ -19182,6 +19358,7 @@ app.post('/api/homework/ai-annotate', express.json({ limit: '20mb' }), async (re
 
     const studentLabel = student_name ? `Student: ${student_name}. ` : '';
     const minimalMode = minimal === true || minimal === 'true';
+    const feedbackStyle = getPersonalisedTeacherFeedbackInstructions(student_name || 'the student');
     const prompt = `You are an English language teacher reviewing a student's creative writing homework image. ${studentLabel}Carefully read ALL the handwritten or typed text in the image.
 
 Find every spelling mistake, grammar error, punctuation error, and capitalisation error.
@@ -19213,11 +19390,14 @@ Return ONLY a valid JSON object in this exact format (no other text before or af
     }
   ],
   "grade": "B+",
-  "summary": "One sentence overall feedback addressed to ${student_name ? student_name : 'the student'}"
+  "summary": "35-70 word personalised feedback addressed directly to ${student_name ? student_name : 'the student'}"
 }
 
 For x and y: estimate the percentage position (0-100) from the TOP-LEFT corner of the image where that error appears visually.
-If the writing has no errors, return {"corrections": [], "grade": "A+", "summary": "${student_name ? student_name + ', excellent' : 'Excellent'} work! No errors found."}
+For the summary, follow these rules exactly:
+${feedbackStyle}
+
+If the writing has no errors, still return a 35-70 word personalised summary following the feedback style and mention that no corrections were needed.
 Return ONLY the JSON. No markdown. No explanation.`;
 
     const response = await axios.post(
@@ -19331,6 +19511,7 @@ app.post('/api/assessments/ai-suggest', express.json(), async (req, res) => {
       : 'No previous assessments.';
 
     const isDemo = assessment_type === 'demo';
+    const feedbackStyle = getPersonalisedTeacherFeedbackInstructions(studentName);
     const prompt = `You are an expert English language teacher's assistant helping fill out a ${isDemo ? 'demo class' : 'monthly'} student assessment.
 
 Student: ${studentName}${studentAge}
@@ -19361,11 +19542,14 @@ Return ONLY valid JSON in this exact format:
     "Reading": 3
   },
   "certificate_title": "Star of the Month",
-  "performance_summary": "A warm, encouraging 2-3 sentence summary written to the parents about their child's progress this month.",
+  "performance_summary": "35-70 word personalised feedback written directly to the student, following the required style.",
   "grade_suggestion": "A"
 }
 
 For certificate_title, choose the most appropriate from: Star of the Month, Most Improved, Creative Writing Star, Reading Champion, Speaking Star, Spelling Bee Champion, Student of the Week, Student of the Month, Handwriting Excellence, Grammar Guru, or leave as empty string if no award is warranted.
+
+For performance_summary, follow these rules exactly:
+${feedbackStyle}
 
 Return ONLY JSON. No markdown. No explanation.`;
 
@@ -19400,7 +19584,8 @@ app.post('/api/homework/ai-feedback', express.json(), async (req, res) => {
     if (!teacher_notes) return res.status(400).json({ error: 'teacher_notes is required' });
 
     const firstName = (student_name || 'the student').split(' ')[0];
-    const systemPrompt = `You generate homework feedback for a teacher. The teacher will provide their own prompt and desired style. Follow the teacher's prompt closely instead of using one fixed format.
+    const feedbackStyle = getPersonalisedTeacherFeedbackInstructions(firstName);
+    const systemPrompt = `You generate homework feedback for a teacher. Use the teacher's prompt as content guidance, but the final feedback MUST follow the Fluent Feathers Academy personalised feedback style below.
 
 Always return ONLY valid JSON:
 {
@@ -19409,10 +19594,11 @@ Always return ONLY valid JSON:
 }
 
 Rules:
-- The feedback can vary in tone, structure, length, and style based on the teacher prompt.
-- If the teacher prompt does not specify style, choose a clear, parent-friendly style.
+- The feedback field must follow the required style exactly.
 - Always include a grade suggestion from: A+, A, B+, B, C+, C, Needs Improvement.
-- Do not return markdown or extra explanation outside JSON.`;
+- Do not return markdown or extra explanation outside JSON.
+
+${feedbackStyle}`;
 
     const userPrompt = `Student first name: ${firstName}
 Homework file: ${file_name || 'submitted homework'}
@@ -19640,7 +19826,7 @@ app.get('/api/public-challenges/:id', async (req, res) => {
 });
 
 // Public challenge video submission from parents outside the LMS
-app.post('/api/public-challenges/:id/entries', handleUpload('video'), async (req, res) => {
+app.post('/api/public-challenges/:id/entries', handleUpload('video', 1, 'challenge'), async (req, res) => {
   try {
     const challengeId = req.params.id;
     const childName = String(req.body.child_name || '').trim();
@@ -19678,10 +19864,11 @@ app.post('/api/public-challenges/:id/entries', handleUpload('video'), async (req
       return res.status(404).json({ error: 'Challenge not found.' });
     }
 
-    const filePath = useCloudinary
-      ? (req.file.secure_url || req.file.path || req.file.url)
-      : '/' + String(req.file.path || path.join('uploads', 'materials', req.file.filename)).replace(/\\/g, '/');
+    const filePath = resolveChallengeStoredFilePath(req.file);
     const fileName = req.file.originalname;
+    if (!filePath) {
+      return res.status(500).json({ error: 'Upload completed but no file URL was returned. Please try again.' });
+    }
 
     const entry = await pool.query(`
       INSERT INTO public_challenge_entries
@@ -19689,6 +19876,7 @@ app.post('/api/public-challenges/:id/entries', handleUpload('video'), async (req
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, submitted_at
     `, [challengeId, childName, parentName, childAge, parentEmail, filePath, fileName]);
+    queuePublicChallengeEntryCloudinarySync(entry.rows[0].id, req.file);
 
     try {
       await sendPushToAdmins(
@@ -19949,7 +20137,7 @@ app.get('/api/challenges/:id/students', async (req, res) => {
 
 // Parent submits challenge as done (awaiting teacher approval).
 // The parent portal allows any non-executable attachment type.
-app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload('file'), async (req, res) => {
+app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload('file', 1, 'challenge'), async (req, res) => {
   try {
     const { challengeId, studentId } = req.params;
 
@@ -19961,11 +20149,7 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
     let filePath = null;
     let fileName = null;
     if (req.file) {
-      if (useCloudinary) {
-        filePath = req.file.secure_url || req.file.path || req.file.url;
-      } else {
-        filePath = '/' + String(req.file.path || path.join('uploads', 'materials', req.file.filename)).replace(/\\/g, '/');
-      }
+      filePath = resolveChallengeStoredFilePath(req.file);
       fileName = req.file.originalname;
     }
 
@@ -19994,6 +20178,7 @@ app.post('/api/challenges/:challengeId/student/:studentId/submit', handleUpload(
       );
     }
 
+    queueChallengeCloudinarySync(challengeId, studentId, req.file);
     await notifyAdminsOfChallengeSubmission(challengeId, studentId, fileName);
     res.json({ success: true, message: 'Challenge submitted for review!' });
   } catch (err) {
@@ -21174,7 +21359,7 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
       return res.status(400).json({ error: 'Invalid date format' });
     }
 
-    // Only active rows should block regeneration. Rejected rows can be replaced.
+    // Approved rows are protected. Pending/rejected rows can be replaced when admin regenerates.
     const existingCheck = await pool.query(
       `
         SELECT level, status, COUNT(*)::int AS count
@@ -21188,25 +21373,25 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     const quizLevels = ['beginner', 'intermediate', 'advanced'];
     const targetCountByLevel = {};
     const levelsToGenerate = quizLevels.filter(level => {
-      const activeCount = existingCheck.rows
-        .filter(row => row.level === level && ['pending', 'approved'].includes(row.status))
+      const approvedCount = existingCheck.rows
+        .filter(row => row.level === level && row.status === 'approved')
         .reduce((sum, row) => sum + row.count, 0);
-      const remaining = DAILY_QUIZ_QUESTION_COUNT - activeCount;
+      const remaining = DAILY_QUIZ_QUESTION_COUNT - approvedCount;
       targetCountByLevel[level] = Math.max(0, remaining);
       return remaining > 0;
     });
 
     if (levelsToGenerate.length === 0) {
-      return res.status(400).json({ error: `Questions for ${date} already have 10 active questions per level in the pending queue` });
+      return res.status(400).json({ error: `Questions for ${date} already have 10 approved questions per level. Reject or edit approved questions instead of regenerating.` });
     }
 
-    const deletedRejectedResult = await pool.query(
+    const deletedReplaceableResult = await pool.query(
       `DELETE FROM pending_quiz_questions
-       WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status = 'rejected'
+       WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status IN ('pending', 'rejected')
        RETURNING question_text`,
       [date, levelsToGenerate]
     );
-    const rejectedTextsToAvoid = new Set(deletedRejectedResult.rows.map(row => row.question_text).filter(Boolean));
+    const rejectedTextsToAvoid = new Set(deletedReplaceableResult.rows.map(row => row.question_text).filter(Boolean));
 
     console.log(`🤖 Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
     const generated = await generatePendingQuizQuestions(date, levelsToGenerate, {

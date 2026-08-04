@@ -3661,7 +3661,7 @@ setTimeout(() => {
         if (file) {
           // Use POST with FormData for file upload
           const fd = new FormData();
-          fd.append('uploadType', 'homework');
+          fd.append('uploadType', 'challenge');
           fd.append('file', file);
           res = await fetch(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, {
             method: 'POST',
@@ -3781,7 +3781,7 @@ setTimeout(() => {
 
       try {
         const fd = new FormData();
-        fd.append('uploadType', 'homework');
+        fd.append('uploadType', 'challenge');
         fd.append('file', file);
         const res = await uploadFormDataWithProgress(`/api/challenges/${challengeId}/student/${currentStudent.id}/submit`, fd, {
           headers: authHeaders(),
