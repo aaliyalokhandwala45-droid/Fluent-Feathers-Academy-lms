@@ -10226,6 +10226,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
     : ['beginner', 'intermediate', 'advanced'];
   const targetCountByLevel = options.targetCountByLevel || {};
   const theme = options.theme || null;
+  const insertIntoDb = options.insertIntoDb !== false;
   const allowQuestionBankFallback = options.allowQuestionBankFallback !== false;
   const allowLocalFallback = options.allowLocalFallback !== false;
   const extraExcludeTexts = options.excludeTexts instanceof Set
@@ -10237,6 +10238,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
   extraExcludeTexts.forEach(text => addQuizQuestionTextToSet(globalSeenTexts, text));
   extraExcludeTexts.forEach(text => addQuizFreshnessTermsToSet(globalFreshnessTerms, text));
   let totalGenerated = 0;
+  const generatedQuestions = [];
 
   for (const level of levels) {
     try {
@@ -10495,21 +10497,24 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         continue;
       }
 
-      // Insert into pending_quiz_questions table
       for (const originalQuestion of questionsToInsert) {
         const q = randomizeQuizQuestionOptions(originalQuestion);
-        await pool.query(`
-          INSERT INTO pending_quiz_questions (quiz_date, level, question_text, options, correct_answer, category, explanation, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
-        `, [
-          quizDate,
-          level,
-          q.question_text,
-          JSON.stringify(q.options),
-          q.correct_answer,
-          q.category,
-          q.explanation
-        ]);
+        if (insertIntoDb) {
+          await pool.query(`
+            INSERT INTO pending_quiz_questions (quiz_date, level, question_text, options, correct_answer, category, explanation, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+          `, [
+            quizDate,
+            level,
+            q.question_text,
+            JSON.stringify(q.options),
+            q.correct_answer,
+            q.category,
+            q.explanation
+          ]);
+        } else {
+          generatedQuestions.push({ level, ...q });
+        }
         totalGenerated++;
       }
       console.log(`✅ Generated ${questionsToInsert.length} questions for ${level} level`);
@@ -10528,7 +10533,9 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
   }
 
   console.log(`📊 Generation complete: ${totalGenerated} total questions created`);
-  return totalGenerated;
+  return insertIntoDb
+    ? totalGenerated
+    : { totalGenerated, questions: generatedQuestions };
 }
 
 // ==================== API ROUTES ====================
@@ -21437,35 +21444,69 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
       return res.status(400).json({ error: `Questions for ${date} already have 10 approved questions per level. Reject or edit approved questions instead of regenerating.` });
     }
 
-    const deletedReplaceableResult = await pool.query(
-      `DELETE FROM pending_quiz_questions
-       WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status IN ('pending', 'rejected')
-       RETURNING question_text`,
+    const existingReplaceable = await pool.query(
+      `SELECT question_text FROM pending_quiz_questions
+       WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status IN ('pending', 'rejected')`,
       [date, levelsToGenerate]
     );
-    const rejectedTextsToAvoid = new Set(deletedReplaceableResult.rows.map(row => row.question_text).filter(Boolean));
+    const rejectedTextsToAvoid = new Set(existingReplaceable.rows.map(row => row.question_text).filter(Boolean));
 
     console.log(`🤖 Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
-    const generated = await generatePendingQuizQuestions(date, levelsToGenerate, {
+    const generationResult = await generatePendingQuizQuestions(date, levelsToGenerate, {
       targetCountByLevel,
       allowQuestionBankFallback: true,
       allowLocalFallback: true,
       theme: theme || null,
-      excludeTexts: rejectedTextsToAvoid
+      excludeTexts: rejectedTextsToAvoid,
+      insertIntoDb: false
     });
 
-    if (generated === 0) {
-      console.error('❌ No questions were generated!');
+    const totalNeeded = Object.values(targetCountByLevel).reduce((sum, value) => sum + Number(value), 0);
+    if (generationResult.totalGenerated < totalNeeded) {
+      console.error(`❌ Only generated ${generationResult.totalGenerated}/${totalNeeded} questions for ${date}`);
       return res.status(503).json({
-        error: 'Could not create quiz questions from Groq, the question bank, or the local fallback. Please check Groq/API logs and question bank data.',
-        generated: 0
+        error: `Could not create enough quiz questions for ${date}. Generated ${generationResult.totalGenerated} of ${totalNeeded} required questions. Please try again or add manual questions.`,
+        generated: generationResult.totalGenerated,
+        target: totalNeeded
       });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `DELETE FROM pending_quiz_questions
+         WHERE quiz_date = $1 AND level = ANY($2::text[]) AND status IN ('pending', 'rejected')`,
+        [date, levelsToGenerate]
+      );
+
+      for (const question of generationResult.questions) {
+        await client.query(`
+          INSERT INTO pending_quiz_questions (quiz_date, level, question_text, options, correct_answer, category, explanation, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+        `, [
+          date,
+          question.level,
+          question.question_text,
+          JSON.stringify(question.options),
+          question.correct_answer,
+          question.category,
+          question.explanation
+        ]);
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
 
     res.json({
       success: true,
-      message: `Generated ${generated} AI quiz questions for ${date}${theme ? ` with theme: ${theme}` : ''}. Please review and approve them.`,
-      generated,
+      message: `Generated ${generationResult.totalGenerated} AI quiz questions for ${date}${theme ? ` with theme: ${theme}` : ''}. Please review and approve them.`,
+      generated: generationResult.totalGenerated,
       generatedLevels: levelsToGenerate,
       theme: theme || null
     });

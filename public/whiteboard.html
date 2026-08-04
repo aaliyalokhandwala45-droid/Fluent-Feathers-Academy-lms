@@ -117,6 +117,26 @@
       border-color: #2d3748;
       box-shadow: 0 0 0 2px white, 0 0 0 4px #B05D9E;
     }
+    .board-btn {
+      padding: 8px 10px;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #4a5568;
+      min-width: 92px;
+    }
+    .board-btn:hover {
+      border-color: #B05D9E;
+      background: #fdf2f8;
+    }
+    .board-btn.active {
+      border-color: #B05D9E;
+      background: #B05D9E;
+      color: white;
+    }
     .action-buttons {
       display: flex;
       gap: 8px;
@@ -142,6 +162,25 @@
       border: 3px solid #B05D9E;
       border-radius: 8px;
       overflow: hidden;
+    }
+    .canvas-container.board-blank {
+      background: #ffffff;
+    }
+    .canvas-container.board-single-line {
+      background-color: #ffffff;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 37px,
+        #b8d7ff 38px,
+        #b8d7ff 40px
+      );
+    }
+    .canvas-container.board-red-blue {
+      background-color: #ffffff;
+      background-image:
+        linear-gradient(to right, transparent 0, transparent 70px, #ef4444 70px, #ef4444 73px, transparent 73px),
+        repeating-linear-gradient(to bottom, transparent 0, transparent 30px, #9cc9ff 31px, #9cc9ff 33px, transparent 33px, transparent 62px, #ef4444 63px, #ef4444 65px);
     }
     #whiteboardCanvas {
       display: block;
@@ -205,6 +244,11 @@
             <input type="range" id="brushSize" min="1" max="50" value="3" onchange="updateBrushSize(this.value)">
             <span id="brushSizeLabel">3px</span>
           </div>
+          <div class="tools-row">
+            <button onclick="setBoard('blank')" id="boardBlank" class="board-btn active">Plain</button>
+            <button onclick="setBoard('single-line')" id="boardSingleLine" class="board-btn">Single Line</button>
+            <button onclick="setBoard('red-blue')" id="boardRedBlue" class="board-btn">Red + Blue</button>
+          </div>
         </div>
         <div class="action-buttons">
           <button onclick="undo()" class="btn btn-gray">↩ Undo</button>
@@ -214,7 +258,7 @@
         </div>
       </div>
 
-      <div class="canvas-container">
+      <div class="canvas-container board-blank" id="canvasContainer">
         <canvas id="whiteboardCanvas"></canvas>
       </div>
     </div>
