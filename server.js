@@ -9456,6 +9456,41 @@ function verifyDailyQuizToken(token, studentId) {
   }
 }
 
+function parseAiQuizQuestions(rawText = '') {
+  const content = stripAiReasoningText(String(rawText || '')).trim();
+  if (!content) return [];
+
+  const fencedJsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fencedJsonMatch ? fencedJsonMatch[1].trim() : content;
+
+  const tryParse = text => {
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  let parsed = tryParse(candidate);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
+
+  const arrayMatch = candidate.match(/\[([\s\S]*)\]/m);
+  if (arrayMatch) {
+    parsed = tryParse(arrayMatch[0]);
+    if (Array.isArray(parsed)) return parsed;
+  }
+
+  const objectMatch = candidate.match(/\{([\s\S]*)\}/m);
+  if (objectMatch) {
+    parsed = tryParse(objectMatch[0]);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
+  }
+
+  throw new Error('Unable to parse AI quiz question JSON');
+}
+
 // AI-based quiz question generation using Groq
 async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   const groqKey = process.env.GROQ_API_KEY;
@@ -9624,17 +9659,24 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
 
     console.log(`✅ Groq API response received for ${level} level`);
 
-    const content = response.data.choices[0]?.message?.content;
-    if (!content) {
+    const rawContent = response.data.choices[0]?.message?.content || response.data.choices[0]?.text || '';
+    if (!rawContent || !String(rawContent).trim()) {
       console.error('❌ No content in AI response');
-      throw new Error('No content in AI response');
+      return [];
     }
 
     console.log(`📝 Parsing response for ${level}...`);
-    const questions = JSON.parse(content);
+    let questions;
+    try {
+      questions = parseAiQuizQuestions(rawContent);
+    } catch (parseErr) {
+      console.error('❌ Failed to parse AI content for', level, parseErr.message);
+      return [];
+    }
+
     if (!Array.isArray(questions)) {
       console.error('❌ AI response is not an array:', typeof questions);
-      throw new Error('AI response is not an array');
+      return [];
     }
 
     console.log(`📊 Parsed ${questions.length} questions for ${level}, validating...`);
