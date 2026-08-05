@@ -8796,6 +8796,34 @@ function isQuizOptionSetTooSimilar(options, existingOptionSets) {
   return false;
 }
 
+function dedupeQuizQuestions(questions, existingTexts = new Set(), existingOptionSets = new Set()) {
+  const uniqueQuestions = [];
+  const seenNormalized = new Set(existingTexts);
+  const seenSimilarity = new Set();
+  const seenOptionSignatures = new Set(existingOptionSets);
+
+  for (const question of questions) {
+    const normalized = normalizeQuizQuestionText(question.question_text);
+    const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+    const optionSignature = getQuizOptionSignature(question.options);
+
+    if (!normalized || !optionSignature) continue;
+    if (seenNormalized.has(normalized) || (similarityKey && seenNormalized.has(similarityKey))) continue;
+    if (similarityKey && seenSimilarity.has(similarityKey)) continue;
+    if (seenOptionSignatures.has(optionSignature)) continue;
+
+    seenNormalized.add(normalized);
+    if (similarityKey) {
+      seenNormalized.add(similarityKey);
+      seenSimilarity.add(similarityKey);
+    }
+    seenOptionSignatures.add(optionSignature);
+    uniqueQuestions.push(question);
+  }
+
+  return uniqueQuestions;
+}
+
 function isQuizQuestionTooSimilar(questionText, existingTexts) {
   const key = getQuizQuestionSimilarityKey(questionText);
   if (!key) return true;
@@ -9646,7 +9674,7 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
           }
         ],
         temperature: 0.8,
-        max_tokens: Math.min(3200, Math.max(1200, count * 300 + 500))
+        max_tokens: Math.min(2400, Math.max(1000, count * 180 + 400))
       },
       {
         headers: {
@@ -9884,16 +9912,24 @@ const groqUsageTracker = {
 };
 
 function getGroqRetryDelayMs(err, attemptNumber = 0, fallbackMs = 6000) {
-  // Try to extract retry-after header or message
+  const headers = err?.response?.headers || {};
+  const retryAfterHeader = headers['retry-after'] || headers['Retry-After'] || headers['retry-after-seconds'];
+  if (retryAfterHeader) {
+    const seconds = Number(String(retryAfterHeader).trim());
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.min(Math.max(Math.ceil(seconds * 1000) + 500, 1500), 45000);
+    }
+  }
+
   const message = String(err?.response?.data?.error?.message || err?.message || '');
   const match = message.match(/try again in\s+([0-9.]+)s/i);
   if (match) {
     const seconds = Number(match[1]);
     if (Number.isFinite(seconds)) {
-      return Math.min(Math.max(Math.ceil(seconds * 1000) + 500, 1500), 15000);
+      return Math.min(Math.max(Math.ceil(seconds * 1000) + 500, 1500), 45000);
     }
   }
-  
+
   // Exponential backoff: 2s, 4s, 8s, 16s, 30s, 30s...
   const baseDelay = 2000;
   const exponentialDelay = Math.min(baseDelay * Math.pow(2, attemptNumber), 30000);
@@ -10330,7 +10366,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
         // Ask for extra candidates because strict variety filters may reject near-duplicates.
         const remaining = neededCount - aiQuestions.length;
-        const requestCount = Math.min(10, Math.max(5, remaining * 2));
+        const requestCount = Math.min(4, remaining);
         let batch = [];
         try {
           batch = await generateQuizQuestionsWithAI(level, requestCount, {
@@ -10528,8 +10564,15 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       );
       const currentActiveCount = currentActiveResult.rows[0]?.count || 0;
       const remainingSlots = Math.max(0, DAILY_QUIZ_QUESTION_COUNT - currentActiveCount);
-      const questionsToInsert = aiQuestions.slice(0, remainingSlots);
 
+      const dedupedAiQuestions = dedupeQuizQuestions(aiQuestions, localSeen, localOptionSets);
+      if (dedupedAiQuestions.length !== aiQuestions.length) {
+        console.log(`🧹 Removed ${aiQuestions.length - dedupedAiQuestions.length} duplicate ${level} question(s) before inserting for ${quizDate}`);
+      }
+      aiQuestions.length = 0;
+      aiQuestions.push(...dedupedAiQuestions);
+
+      const questionsToInsert = aiQuestions.slice(0, remainingSlots);
       if (questionsToInsert.length < aiQuestions.length) {
         console.warn(`Skipping ${aiQuestions.length - questionsToInsert.length} extra ${level} question(s); ${quizDate} already has ${currentActiveCount} active question(s).`);
       }
