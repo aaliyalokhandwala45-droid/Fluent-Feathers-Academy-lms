@@ -9516,7 +9516,90 @@ function parseAiQuizQuestions(rawText = '') {
     if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
   }
 
+  // If the model returned a JSON-like chunk without strict quoting, try to clean it slightly
+  const looseJson = candidate
+    .replace(/([\w-]+)\s*:/g, '"$1":')
+    .replace(/'/g, '"');
+  parsed = tryParse(looseJson);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
+
   throw new Error('Unable to parse AI quiz question JSON');
+}
+
+function normalizeGeneratedQuizQuestion(raw, level) {
+  if (!raw || typeof raw !== 'object') return null;
+  const getString = value => String(value || '').trim();
+
+  const question_text = getString(raw.question_text || raw.question || raw.questionText || raw.prompt || raw.text || raw.questionText);
+  if (!question_text) return null;
+
+  let options = [];
+  const rawOptions = raw.options || raw.answer_choices || raw.answers || raw.choices || raw.answerOptions || raw.optionsList || raw.answersList;
+  if (Array.isArray(rawOptions)) {
+    options = rawOptions.map(opt => {
+      if (opt == null) return '';
+      if (typeof opt === 'object') {
+        return getString(opt.text || opt.value || opt.label || opt.option || opt.answer);
+      }
+      return getString(opt);
+    });
+  } else if (typeof rawOptions === 'string') {
+    options = rawOptions
+      .split(/\r?\n/)
+      .map(line => line.replace(/^[A-D]\.?\s*/i, '').trim())
+      .filter(Boolean);
+  }
+
+  let correct_answer = Number(raw.correct_answer ?? raw.correctAnswer ?? raw.correct ?? raw.answer_index ?? raw.answerIndex ?? raw.answer);
+  if (!Number.isInteger(correct_answer) || correct_answer < 0 || correct_answer > 3) {
+    const correctString = getString(raw.correct_answer ?? raw.correctAnswer ?? raw.correct ?? raw.answer_index ?? raw.answerIndex ?? raw.answer ?? '');
+    const letterIndex = 'abcd'.indexOf(correctString.toLowerCase().slice(0, 1));
+    if (letterIndex >= 0) {
+      correct_answer = letterIndex;
+    } else {
+      const normalizedCorrect = normalizeQuizQuestionText(correctString);
+      correct_answer = options.findIndex(option => normalizeQuizQuestionText(option) === normalizedCorrect);
+    }
+  }
+
+  const rawCategory = getString(raw.category || raw.category_name || raw.topic || raw.type || raw.kind || 'grammar');
+  let category = rawCategory.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const categoryMap = {
+    sentencecorrection: 'sentence_correction',
+    sentence_correction: 'sentence_correction',
+    direct_speech: 'direct_indirect_speech',
+    indirect_speech: 'direct_indirect_speech',
+    direct_indirect_speech: 'direct_indirect_speech',
+    body_language: 'body_language',
+    figures_of_speech: 'figures_of_speech',
+    figurative_language: 'figures_of_speech',
+    show_dont_tell: 'show_dont_tell',
+    five_senses: 'five_senses',
+    speaking: 'body_language',
+    grammar: 'grammar',
+    vocabulary: 'vocabulary',
+    idioms: 'idioms',
+    proverbs: 'proverbs',
+    punctuation: 'punctuation',
+    spelling: 'spelling',
+    elaboration: 'elaboration',
+    imagery: 'imagery'
+  };
+  category = categoryMap[category] || category;
+  if (!QUIZ_ALLOWED_CATEGORIES.includes(category)) {
+    category = getQuizAllowedCategoriesForLevel(level)[0] || 'grammar';
+  }
+
+  if (options.length !== 4) return null;
+
+  return {
+    question_text,
+    options,
+    correct_answer: Number.isInteger(correct_answer) && correct_answer >= 0 && correct_answer <= 3 ? correct_answer : 0,
+    category,
+    explanation: getString(raw.explanation || raw.hint || raw.note || raw.details || raw.answer_explanation || raw.explanation_text)
+  };
 }
 
 // AI-based quiz question generation using Groq
@@ -9687,23 +9770,33 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
 
     console.log(`✅ Groq API response received for ${level} level`);
 
-    const rawContent = response.data.choices[0]?.message?.content || response.data.choices[0]?.text || '';
+    const choice = response.data.choices?.[0] || {};
+    const rawContent = choice.message?.content || choice.content || choice.text || '';
     if (!rawContent || !String(rawContent).trim()) {
       console.error('❌ No content in AI response');
       return [];
     }
 
     console.log(`📝 Parsing response for ${level}...`);
-    let questions;
+    let rawQuestions;
     try {
-      questions = parseAiQuizQuestions(rawContent);
+      rawQuestions = parseAiQuizQuestions(rawContent);
     } catch (parseErr) {
       console.error('❌ Failed to parse AI content for', level, parseErr.message);
       return [];
     }
 
-    if (!Array.isArray(questions)) {
-      console.error('❌ AI response is not an array:', typeof questions);
+    if (!Array.isArray(rawQuestions)) {
+      console.error('❌ AI response did not parse as an array:', typeof rawQuestions);
+      return [];
+    }
+
+    const questions = rawQuestions
+      .map(item => normalizeGeneratedQuizQuestion(item, level))
+      .filter(Boolean);
+
+    if (questions.length === 0) {
+      console.error('❌ No valid quiz questions could be normalized from AI response');
       return [];
     }
 
@@ -10363,10 +10456,10 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       
       let consecutiveRateLimits = 0;
       const maxConsecutiveRateLimits = 3;
-      for (let attempt = 0; attempt < 8 && aiQuestions.length < neededCount; attempt++) {
+      for (let attempt = 0; attempt < 12 && aiQuestions.length < neededCount; attempt++) {
         // Ask for extra candidates because strict variety filters may reject near-duplicates.
         const remaining = neededCount - aiQuestions.length;
-        const requestCount = Math.min(4, remaining);
+        const requestCount = Math.min(6, Math.ceil(remaining * 1.5));
         let batch = [];
         try {
           batch = await generateQuizQuestionsWithAI(level, requestCount, {
