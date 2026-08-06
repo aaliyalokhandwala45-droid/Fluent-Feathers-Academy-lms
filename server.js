@@ -8796,11 +8796,12 @@ function isQuizOptionSetTooSimilar(options, existingOptionSets) {
   return false;
 }
 
-function dedupeQuizQuestions(questions, existingTexts = new Set(), existingOptionSets = new Set()) {
+function dedupeQuizQuestions(questions, existingTexts = new Set(), existingOptionSets = new Set(), options = {}) {
   const uniqueQuestions = [];
   const seenNormalized = new Set(existingTexts);
   const seenSimilarity = new Set();
   const seenOptionSignatures = new Set(existingOptionSets);
+  const allowRepeatedNewOptionSets = options.allowRepeatedNewOptionSets === true;
 
   for (const question of questions) {
     const normalized = normalizeQuizQuestionText(question.question_text);
@@ -8817,7 +8818,7 @@ function dedupeQuizQuestions(questions, existingTexts = new Set(), existingOptio
       seenNormalized.add(similarityKey);
       seenSimilarity.add(similarityKey);
     }
-    seenOptionSignatures.add(optionSignature);
+    if (!allowRepeatedNewOptionSets) seenOptionSignatures.add(optionSignature);
     uniqueQuestions.push(question);
   }
 
@@ -9489,7 +9490,9 @@ function parseAiQuizQuestions(rawText = '') {
   if (!content) return [];
 
   const fencedJsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fencedJsonMatch ? fencedJsonMatch[1].trim() : content;
+  const candidate = (fencedJsonMatch ? fencedJsonMatch[1].trim() : content)
+    .replace(/^\s*(?:json|javascript)\s*/i, '')
+    .trim();
 
   const tryParse = text => {
     try {
@@ -9503,21 +9506,24 @@ function parseAiQuizQuestions(rawText = '') {
   if (Array.isArray(parsed)) return parsed;
   if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
 
-  const arrayMatch = candidate.match(/\[([\s\S]*)\]/m);
-  if (arrayMatch) {
-    parsed = tryParse(arrayMatch[0]);
+  const firstArray = candidate.indexOf('[');
+  const lastArray = candidate.lastIndexOf(']');
+  if (firstArray >= 0 && lastArray > firstArray) {
+    parsed = tryParse(candidate.slice(firstArray, lastArray + 1));
     if (Array.isArray(parsed)) return parsed;
   }
 
-  const objectMatch = candidate.match(/\{([\s\S]*)\}/m);
-  if (objectMatch) {
-    parsed = tryParse(objectMatch[0]);
+  const firstObject = candidate.indexOf('{');
+  const lastObject = candidate.lastIndexOf('}');
+  if (firstObject >= 0 && lastObject > firstObject) {
+    parsed = tryParse(candidate.slice(firstObject, lastObject + 1));
     if (Array.isArray(parsed)) return parsed;
     if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
   }
 
   // If the model returned a JSON-like chunk without strict quoting, try to clean it slightly
   const looseJson = candidate
+    .replace(/,\s*([}\]])/g, '$1')
     .replace(/([\w-]+)\s*:/g, '"$1":')
     .replace(/'/g, '"');
   parsed = tryParse(looseJson);
@@ -9974,6 +9980,18 @@ function isGroqRateLimitError(err) {
   return Number(err?.response?.status) === 429 || String(err?.message || '').includes('status code 429');
 }
 
+function isGroqDailyTokenLimitError(err) {
+  const data = err?.response?.data || {};
+  const message = String(data?.error?.message || err?.message || '').toLowerCase();
+  const code = String(data?.error?.code || '').toLowerCase();
+  return isGroqRateLimitError(err) && (
+    code === 'rate_limit_exceeded' ||
+    message.includes('tokens per day') ||
+    message.includes('tpd') ||
+    message.includes('try again in') && /m\d+s|h\d+m|hour|minute/.test(message)
+  );
+}
+
 // Track Groq API calls to prevent exceeding daily limits
 const groqUsageTracker = {
   dailyCount: 0,
@@ -10031,6 +10049,31 @@ function getGroqRetryDelayMs(err, attemptNumber = 0, fallbackMs = 6000) {
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function addLocalQuizScenario(question, seed) {
+  if (!question || typeof question !== 'object') return question;
+  const contexts = [
+    'During a class presentation',
+    'While preparing for a debate',
+    'In a creative writing workshop',
+    'During a school assembly practice',
+    'While editing a group project',
+    'In a library discussion',
+    'During a storytelling activity',
+    'While planning a speech',
+    'In a magazine writing task',
+    'During an English club challenge',
+    'While reviewing a notice draft',
+    'In a classroom speaking game'
+  ];
+  const context = contexts[Math.abs(seed) % contexts.length];
+  const text = String(question.question_text || '').trim();
+  if (!text || text.toLowerCase().startsWith(context.toLowerCase())) return question;
+  return {
+    ...question,
+    question_text: `${context}, ${text.charAt(0).toLowerCase()}${text.slice(1)}`
+  };
 }
 
 function createLocalQuizQuestion(level, category, seed) {
@@ -10127,13 +10170,13 @@ function createLocalQuizQuestion(level, category, seed) {
 
   if (level === 'intermediate' && ['grammar', 'subject_verb_agreement', 'adjectives', 'adverbs', 'punctuation', 'sentence_correction', 'vocabulary', 'spelling'].includes(category)) {
     const set = intermediateGrammarSets[Math.abs(seed) % intermediateGrammarSets.length];
-    return {
+    return addLocalQuizScenario({
       question_text: set.question_text,
       options: set.options,
       correct_answer: set.correct_answer,
       category: set.category,
       explanation: set.explanation
-    };
+    }, seed);
   }
 
   const advancedLanguageSets = [
@@ -10213,13 +10256,13 @@ function createLocalQuizQuestion(level, category, seed) {
     const matchingSets = advancedLanguageSets.filter(set => set.category === category);
     const pool = matchingSets.length > 0 ? matchingSets : advancedLanguageSets;
     const set = pool[Math.abs(seed) % pool.length];
-    return {
+    return addLocalQuizScenario({
       question_text: set.question_text,
       options: set.options,
       correct_answer: set.correct_answer,
       category: set.category,
       explanation: set.explanation
-    };
+    }, seed);
   }
 
   const sets = {
@@ -10316,13 +10359,14 @@ function createLocalQuizQuestion(level, category, seed) {
   };
 
   const base = sets[category] || sets.grammar;
-  return {
+  const question = {
     question_text: base.question_text,
     options: base.options,
     correct_answer: base.correct_answer,
     category,
     explanation: base.explanation
   };
+  return level === 'beginner' ? question : addLocalQuizScenario(question, seed);
 }
 
 async function getLocalGeneratedQuizQuestions(level, count, options = {}) {
@@ -10475,6 +10519,10 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           consecutiveRateLimits = 0;
         } catch (err) {
           if (isGroqRateLimitError(err)) {
+            if (isGroqDailyTokenLimitError(err)) {
+              console.error('Groq daily token limit reached. Skipping more AI retries and using fallback question generation.');
+              break;
+            }
             consecutiveRateLimits++;
             if (consecutiveRateLimits >= maxConsecutiveRateLimits) {
               console.error(`❌ Hit Groq rate limit ${maxConsecutiveRateLimits} times consecutively. Stopping to avoid API spam.`);
@@ -10628,7 +10676,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           for (const question of lastResortQuestions) {
             const normalized = normalizeQuizQuestionText(question.question_text);
             const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms, getQuizFreshnessOverlapLimit(level)) || isQuizQuestionBelowLevel(level, question)) {
+            if (!normalized || localSeen.has(normalized) || localSeen.has(similarityKey) || isQuizQuestionBelowLevel(level, question)) {
               continue;
             }
             localSeen.add(normalized);
@@ -10658,9 +10706,13 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         [quizDate, level]
       );
       const currentActiveCount = currentActiveResult.rows[0]?.count || 0;
-      const remainingSlots = Math.max(0, DAILY_QUIZ_QUESTION_COUNT - currentActiveCount);
+      const remainingSlots = insertIntoDb
+        ? Math.max(0, DAILY_QUIZ_QUESTION_COUNT - currentActiveCount)
+        : neededCount;
 
-      const dedupedAiQuestions = dedupeQuizQuestions(aiQuestions, preGenerationSeenTexts, preGenerationOptionSets);
+      const dedupedAiQuestions = dedupeQuizQuestions(aiQuestions, preGenerationSeenTexts, preGenerationOptionSets, {
+        allowRepeatedNewOptionSets: true
+      });
       if (dedupedAiQuestions.length !== aiQuestions.length) {
         console.log(`🧹 Removed ${aiQuestions.length - dedupedAiQuestions.length} duplicate ${level} question(s) before inserting for ${quizDate}`);
       }
@@ -21644,9 +21696,20 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     const totalNeeded = Object.values(targetCountByLevel).reduce((sum, value) => sum + Number(value), 0);
     if (generationResult.totalGenerated < totalNeeded) {
       console.error(`❌ Only generated ${generationResult.totalGenerated}/${totalNeeded} questions for ${date}`);
+      if (generationResult.totalGenerated === 0) {
+        return res.status(503).json({
+          error: `Could not create quiz questions for ${date}. Groq may be rate-limited and fallback generation could not find usable questions. Please try again later or add manual questions.`,
+          generated: generationResult.totalGenerated,
+          target: totalNeeded
+        });
+      }
+      console.warn(`Saving partial quiz generation for ${date}: ${generationResult.totalGenerated}/${totalNeeded} questions.`);
+    }
+
+    if (!Array.isArray(generationResult.questions) || generationResult.questions.length === 0) {
       return res.status(503).json({
-        error: `Could not create enough quiz questions for ${date}. Generated ${generationResult.totalGenerated} of ${totalNeeded} required questions. Please try again or add manual questions.`,
-        generated: generationResult.totalGenerated,
+        error: `Could not create quiz questions for ${date}. Please try again or add manual questions.`,
+        generated: 0,
         target: totalNeeded
       });
     }
