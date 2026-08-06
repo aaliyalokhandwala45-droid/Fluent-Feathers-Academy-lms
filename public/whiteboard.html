@@ -276,6 +276,7 @@
     let lastY = 0;
     let history = [];
     let historyIndex = -1;
+    let currentBoard = localStorage.getItem('whiteboard_board_style') || 'blank';
 
     // Set canvas size
     function resizeCanvas() {
@@ -292,8 +293,7 @@
       canvas.style.height = '600px';
 
       ctx.scale(dpr, dpr);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Restore drawing if exists
       if (imageData.data.some(d => d !== 0)) {
@@ -318,6 +318,7 @@
     // Set initial cursor
     document.addEventListener('DOMContentLoaded', () => {
       canvas.classList.add('cursor-pen');
+      setBoard(currentBoard);
     });
 
     function setColor(color) {
@@ -330,6 +331,23 @@
     function updateBrushSize(size) {
       brushSize = parseInt(size);
       document.getElementById('brushSizeLabel').textContent = size + 'px';
+    }
+
+    function setBoard(board) {
+      currentBoard = ['blank', 'single-line', 'red-blue'].includes(board) ? board : 'blank';
+      localStorage.setItem('whiteboard_board_style', currentBoard);
+
+      const container = document.getElementById('canvasContainer');
+      container.classList.remove('board-blank', 'board-single-line', 'board-red-blue');
+      container.classList.add('board-' + currentBoard);
+
+      document.querySelectorAll('.board-btn').forEach(btn => btn.classList.remove('active'));
+      const activeId = currentBoard === 'single-line'
+        ? 'boardSingleLine'
+        : currentBoard === 'red-blue'
+          ? 'boardRedBlue'
+          : 'boardBlank';
+      document.getElementById(activeId)?.classList.add('active');
     }
 
     function getPos(e) {
@@ -367,9 +385,10 @@
       ctx.beginPath();
       ctx.moveTo(lastX, lastY);
       ctx.lineTo(pos.x, pos.y);
+      ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
 
       if (currentTool === 'eraser') {
-        ctx.strokeStyle = 'white';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
         ctx.lineWidth = brushSize * 3;
       } else if (currentTool === 'highlighter') {
         ctx.strokeStyle = currentColor;
@@ -389,6 +408,7 @@
       ctx.lineJoin = 'round';
       ctx.stroke();
       ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
 
       lastX = pos.x;
       lastY = pos.y;
@@ -432,8 +452,7 @@
     }
 
     function clearCanvas() {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       saveState();
     }
 

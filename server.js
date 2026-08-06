@@ -10449,6 +10449,8 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       existingResult.rows.forEach(row => addQuizFreshnessTermsToSet(globalFreshnessTerms, row.question_text, row.options));
       extraExcludeTexts.forEach(text => addQuizQuestionTextToSet(localSeen, text));
       extraExcludeTexts.forEach(text => addQuizFreshnessTermsToSet(localFreshnessTerms, text));
+      const preGenerationSeenTexts = new Set(localSeen);
+      const preGenerationOptionSets = new Set(localOptionSets);
       
       if (localSeen.size > 0) {
         console.log(`📝 Already have ${localSeen.size} existing question text(s) for ${level} to avoid duplicating`);
@@ -10658,7 +10660,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       const currentActiveCount = currentActiveResult.rows[0]?.count || 0;
       const remainingSlots = Math.max(0, DAILY_QUIZ_QUESTION_COUNT - currentActiveCount);
 
-      const dedupedAiQuestions = dedupeQuizQuestions(aiQuestions, localSeen, localOptionSets);
+      const dedupedAiQuestions = dedupeQuizQuestions(aiQuestions, preGenerationSeenTexts, preGenerationOptionSets);
       if (dedupedAiQuestions.length !== aiQuestions.length) {
         console.log(`🧹 Removed ${aiQuestions.length - dedupedAiQuestions.length} duplicate ${level} question(s) before inserting for ${quizDate}`);
       }
