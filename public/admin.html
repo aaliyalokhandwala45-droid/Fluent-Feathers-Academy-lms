@@ -1670,6 +1670,52 @@
           </div>
         </div>
 
+        <!-- Paste Quiz Import -->
+        <div style="background: #ffffff; border: 2px solid #d6bcfa; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 6px 18px rgba(0,0,0,0.06);">
+          <h3 style="margin: 0 0 12px; color: #553c9a;">📋 Paste Quiz Import</h3>
+          <p style="margin: 0 0 14px; color: #4a5568;">Paste questions from another app. They will be added as pending questions for the selected quiz date, then you can review and approve them.</p>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px;">
+            <select id="bulkQuizLevel" style="padding:10px 12px; border-radius:8px; border:1px solid #cbd5e0;">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+            <select id="bulkQuizCategory" style="padding:10px 12px; border-radius:8px; border:1px solid #cbd5e0;">
+              <option value="grammar">Grammar</option>
+              <option value="vocabulary">Vocabulary</option>
+              <option value="punctuation">Punctuation</option>
+              <option value="spelling">Spelling</option>
+              <option value="idioms">Idioms</option>
+              <option value="proverbs">Proverbs</option>
+              <option value="sentence_correction">Sentence Correction</option>
+              <option value="figures_of_speech">Figures Of Speech</option>
+              <option value="imagery">Imagery</option>
+              <option value="direct_indirect_speech">Direct/Indirect Speech</option>
+              <option value="body_language">Body Language</option>
+              <option value="subject_verb_agreement">Subject Verb Agreement</option>
+            </select>
+          </div>
+          <textarea id="bulkQuizText" placeholder="Example:
+1. Choose the correct sentence.
+A. She go to school.
+B. She goes to school.
+C. She going to school.
+D. She gone to school.
+Answer: B
+Explanation: Singular subject uses goes.
+
+2. Which word means very big?
+A. Tiny
+B. Enormous
+C. Quiet
+D. Quick
+Answer: B" style="width:100%; min-height:220px; padding:12px; border:1px solid #cbd5e0; border-radius:10px; resize:vertical; font-family: Consolas, monospace; font-size:0.9rem; margin-bottom:12px;"></textarea>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;">
+            <div style="color:#718096; font-size:0.9rem;">Format: numbered question, A-D options, Answer line. JSON arrays also work.</div>
+            <button onclick="importPastedQuizQuestions()" class="btn" style="background:#6b46c1; color:white; font-weight:bold;">📥 Import to Pending</button>
+          </div>
+        </div>
+
         <!-- Pending AI Questions (For Approval) -->
         <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 25px;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
@@ -16167,6 +16213,43 @@ async function generateAIQuiz() {
   } catch (error) {
     console.error('Error generating AI quiz:', error);
     alert('❌ Error: ' + error.message);
+  }
+}
+
+async function importPastedQuizQuestions() {
+  const dateInput = document.getElementById('pendingQuestionsDate');
+  const date = dateInput?.value || getLocalDateString();
+  const level = document.getElementById('bulkQuizLevel')?.value || 'beginner';
+  const category = document.getElementById('bulkQuizCategory')?.value || 'grammar';
+  const rawText = document.getElementById('bulkQuizText')?.value?.trim() || '';
+  if (dateInput) dateInput.value = date;
+
+  if (!rawText) {
+    alert('Paste quiz questions first.');
+    return;
+  }
+  if (!confirm(`Import pasted questions as ${level} level for ${date}? They will be added to pending review.`)) return;
+
+  try {
+    const response = await fetch('/api/admin/import-pending-quiz-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quizDate: date, level, category, rawText })
+    });
+    const result = await readApiResponse(response);
+    if (!response.ok) throw new Error(result.error || 'Failed to import pasted quiz');
+
+    const skippedCount = Array.isArray(result.skipped) ? result.skipped.length : 0;
+    const skippedText = skippedCount > 0
+      ? `\n\nSkipped ${skippedCount} question(s):\n` + result.skipped.slice(0, 5).map(item => `- ${item.reason}`).join('\n')
+      : '';
+    alert(`✅ ${result.message}${skippedText}`);
+    document.getElementById('bulkQuizText').value = '';
+    loadPendingQuizQuestions(date);
+    loadQuizStats();
+  } catch (error) {
+    console.error('Error importing pasted quiz:', error);
+    alert('❌ Import failed: ' + error.message);
   }
 }
 

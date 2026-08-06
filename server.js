@@ -9608,6 +9608,124 @@ function normalizeGeneratedQuizQuestion(raw, level) {
   };
 }
 
+function stripQuizOptionPrefix(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^\s*(?:option\s*)?[A-D][\).:\-]\s*/i, '')
+    .trim();
+}
+
+function parseBulkQuizAnswerIndex(answerText, options) {
+  const raw = String(answerText || '').trim();
+  if (!raw) return -1;
+
+  const letterMatch = raw.match(/^\s*(?:option\s*)?([A-D])\b/i);
+  if (letterMatch) return letterMatch[1].toUpperCase().charCodeAt(0) - 65;
+
+  const numberMatch = raw.match(/^\s*([1-4])\b/);
+  if (numberMatch) return Number(numberMatch[1]) - 1;
+
+  const normalizedAnswer = normalizeQuizQuestionText(stripQuizOptionPrefix(raw));
+  return Array.isArray(options)
+    ? options.findIndex(option => normalizeQuizQuestionText(option) === normalizedAnswer)
+    : -1;
+}
+
+function parseBulkQuizQuestions(rawText, level, fallbackCategory = 'grammar') {
+  const text = String(rawText || '').trim();
+  if (!text) return [];
+
+  try {
+    const parsed = parseAiQuizQuestions(text)
+      .map(item => normalizeGeneratedQuizQuestion({ category: fallbackCategory, ...item }, level))
+      .filter(Boolean);
+    if (parsed.length > 0) return parsed;
+  } catch (_) {}
+
+  const normalizedInput = text
+    .replace(/\r\n?/g, '\n')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+((?:option\s*)?[A-D][\).:\-])\s+/gi, '\n$1 ')
+    .replace(/\s+((?:correct\s+answer|answer|ans)\s*[:\-])\s*/gi, '\n$1 ')
+    .replace(/\s+((?:explanation|reason)\s*[:\-])\s*/gi, '\n$1 ');
+
+  const lines = normalizedInput
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const questions = [];
+  let current = null;
+  const startQuestion = (textValue) => {
+    if (current) questions.push(current);
+    current = {
+      question_text: String(textValue || '').trim(),
+      options: [],
+      answerText: '',
+      category: fallbackCategory,
+      explanation: ''
+    };
+  };
+
+  for (const line of lines) {
+    const questionMatch = line.match(/^(?:Q(?:uestion)?\s*)?\d{1,2}[\).:\-]\s*(.+)$/i);
+    const optionMatch = line.match(/^(?:option\s*)?([A-D])[\).:\-]\s*(.+)$/i);
+    const answerMatch = line.match(/^(?:correct\s+answer|answer|ans)\s*[:\-]\s*(.+)$/i);
+    const explanationMatch = line.match(/^(?:explanation|reason)\s*[:\-]\s*(.+)$/i);
+    const categoryMatch = line.match(/^category\s*[:\-]\s*(.+)$/i);
+
+    if (questionMatch && (!current || current.options.length > 0 || current.answerText)) {
+      startQuestion(questionMatch[1]);
+      continue;
+    }
+    if (!current) {
+      startQuestion(questionMatch ? questionMatch[1] : line);
+      continue;
+    }
+    if (questionMatch && current.options.length === 0 && !current.answerText) {
+      current.question_text = `${current.question_text} ${questionMatch[1]}`.trim();
+      continue;
+    }
+    if (optionMatch) {
+      current.options.push(stripQuizOptionPrefix(optionMatch[2]));
+      continue;
+    }
+    if (answerMatch) {
+      current.answerText = answerMatch[1].trim();
+      continue;
+    }
+    if (explanationMatch) {
+      current.explanation = `${current.explanation} ${explanationMatch[1]}`.trim();
+      continue;
+    }
+    if (categoryMatch) {
+      current.category = categoryMatch[1].trim();
+      continue;
+    }
+    if (current.options.length > 0 && !current.answerText) {
+      current.options[current.options.length - 1] = `${current.options[current.options.length - 1]} ${line}`.trim();
+    } else if (current.answerText && !current.explanation) {
+      current.explanation = line;
+    } else {
+      current.question_text = `${current.question_text} ${line}`.trim();
+    }
+  }
+  if (current) questions.push(current);
+
+  return questions.map(item => {
+    const options = item.options.map(stripQuizOptionPrefix).filter(Boolean).slice(0, 4);
+    const correct_answer = parseBulkQuizAnswerIndex(item.answerText, options);
+    return normalizeGeneratedQuizQuestion({
+      question_text: item.question_text,
+      options,
+      correct_answer,
+      category: item.category || fallbackCategory,
+      explanation: item.explanation
+    }, level);
+  }).filter(question => Number.isInteger(question.correct_answer) && question.correct_answer >= 0 && question.correct_answer <= 3);
+}
+
 // AI-based quiz question generation using Groq
 async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   const groqKey = process.env.GROQ_API_KEY;
@@ -21885,6 +22003,132 @@ app.delete('/api/admin/pending-quiz-questions/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('Delete pending question error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Import pasted quiz questions in bulk for review/approval
+app.post('/api/admin/import-pending-quiz-questions', async (req, res) => {
+  try {
+    const { quizDate, level, category, rawText } = req.body || {};
+    const date = quizDate || new Date().toISOString().split('T')[0];
+    const validLevels = ['beginner', 'intermediate', 'advanced'];
+    const normalizedCategory = String(category || 'grammar').trim().toLowerCase();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+    if (!validLevels.includes(level)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+    if (!QUIZ_ALLOWED_CATEGORIES.includes(normalizedCategory)) {
+      return res.status(400).json({ error: 'Invalid quiz category' });
+    }
+    if (!getQuizAllowedCategoriesForLevel(level).includes(normalizedCategory)) {
+      return res.status(400).json({ error: `Category is not allowed for ${level} level` });
+    }
+
+    const parsedQuestions = parseBulkQuizQuestions(rawText, level, normalizedCategory);
+    if (parsedQuestions.length === 0) {
+      return res.status(400).json({
+        error: 'No valid questions found. Use numbered questions with A/B/C/D options and an Answer line, or paste a JSON array.'
+      });
+    }
+
+    const existingResult = await pool.query(
+      `SELECT question_text
+       FROM pending_quiz_questions
+       WHERE quiz_date = $1
+         AND level = $2
+         AND status IN ('pending', 'approved', 'rejected')
+       ORDER BY id`,
+      [date, level]
+    );
+    const existingTexts = new Set();
+    existingResult.rows.forEach(row => addQuizQuestionTextToSet(existingTexts, row.question_text));
+
+    const activeCountResult = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM pending_quiz_questions
+       WHERE quiz_date = $1 AND level = $2 AND status IN ('pending', 'approved')`,
+      [date, level]
+    );
+    const activeCount = activeCountResult.rows[0]?.count || 0;
+    const remainingSlots = Math.max(0, DAILY_QUIZ_QUESTION_COUNT - activeCount);
+    if (remainingSlots === 0) {
+      return res.status(400).json({ error: `This level already has ${DAILY_QUIZ_QUESTION_COUNT} pending/approved questions` });
+    }
+
+    const skipped = [];
+    const toInsert = [];
+    for (const question of parsedQuestions) {
+      if (toInsert.length >= remainingSlots) {
+        skipped.push({ question_text: question.question_text, reason: 'No remaining slots for this level/date' });
+        continue;
+      }
+      const normalized = normalizeQuizQuestionText(question.question_text);
+      const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
+      if (!normalized || existingTexts.has(normalized) || existingTexts.has(similarityKey)) {
+        skipped.push({ question_text: question.question_text, reason: 'Duplicate or very similar question' });
+        continue;
+      }
+      if (isQuizQuestionBelowLevel(level, question)) {
+        skipped.push({ question_text: question.question_text, reason: `Question looks below ${level} level` });
+        continue;
+      }
+      if (!getQuizAllowedCategoriesForLevel(level).includes(question.category)) {
+        question.category = normalizedCategory;
+      }
+      existingTexts.add(normalized);
+      if (similarityKey) existingTexts.add(similarityKey);
+      toInsert.push(question);
+    }
+
+    if (toInsert.length === 0) {
+      return res.status(400).json({
+        error: 'Parsed questions, but none could be added.',
+        parsed: parsedQuestions.length,
+        added: 0,
+        skipped
+      });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const question of toInsert) {
+        await client.query(
+          `INSERT INTO pending_quiz_questions (
+            quiz_date, level, question_text, options, correct_answer, category, explanation, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')`,
+          [
+            date,
+            level,
+            question.question_text,
+            JSON.stringify(question.options),
+            question.correct_answer,
+            question.category || normalizedCategory,
+            question.explanation || null
+          ]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    res.json({
+      success: true,
+      message: `Imported ${toInsert.length} question(s) for ${level}. Review and approve them when ready.`,
+      parsed: parsedQuestions.length,
+      added: toInsert.length,
+      skipped
+    });
+  } catch (err) {
+    console.error('Bulk quiz import error:', err);
     res.status(500).json({ error: err.message });
   }
 });
