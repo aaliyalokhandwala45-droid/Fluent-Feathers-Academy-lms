@@ -9732,7 +9732,10 @@ function parseBulkQuizQuestions(rawText, level, fallbackCategory = 'grammar') {
   for (const chunk of chunks) parseChunk(chunk);
 
   return questions.map(item => {
-    const options = item.options.map(stripQuizOptionPrefix).filter(Boolean).slice(0, 4);
+    if (!item || typeof item !== 'object') return null;
+    const options = Array.isArray(item.options)
+      ? item.options.map(stripQuizOptionPrefix).filter(Boolean).slice(0, 4)
+      : [];
     const correct_answer = parseBulkQuizAnswerIndex(item.answerText, options);
     return normalizeGeneratedQuizQuestion({
       question_text: item.question_text,
@@ -9741,7 +9744,7 @@ function parseBulkQuizQuestions(rawText, level, fallbackCategory = 'grammar') {
       category: item.category || fallbackCategory,
       explanation: item.explanation
     }, level);
-  }).filter(question => Number.isInteger(question.correct_answer) && question.correct_answer >= 0 && question.correct_answer <= 3);
+  }).filter(question => question && Number.isInteger(question.correct_answer) && question.correct_answer >= 0 && question.correct_answer <= 3);
 }
 
 // AI-based quiz question generation using Groq
