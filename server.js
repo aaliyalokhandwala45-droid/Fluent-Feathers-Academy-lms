@@ -22046,10 +22046,12 @@ app.post('/api/admin/import-pending-quiz-questions', async (req, res) => {
       return res.status(400).json({ error: `Category is not allowed for ${level} level` });
     }
 
-    const parsedQuestions = parseBulkQuizQuestions(rawText, level, normalizedCategory);
+    let parsedQuestions = parseBulkQuizQuestions(rawText, level, normalizedCategory);
+    if (!Array.isArray(parsedQuestions)) parsedQuestions = [];
+    parsedQuestions = parsedQuestions.filter(Boolean);
     if (parsedQuestions.length === 0) {
       return res.status(400).json({
-        error: 'No valid questions found. Use numbered questions with A/B/C/D options and an Answer line, or paste a JSON array.'
+        error: 'No valid questions found. Use numbered questions with A-D options and an Answer line, or paste a JSON array.'
       });
     }
 
