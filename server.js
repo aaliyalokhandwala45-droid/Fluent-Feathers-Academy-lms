@@ -9650,68 +9650,86 @@ function parseBulkQuizQuestions(rawText, level, fallbackCategory = 'grammar') {
     .replace(/\s+((?:correct\s+answer|answer|ans)\s*[:\-])\s*/gi, '\n$1 ')
     .replace(/\s+((?:explanation|reason)\s*[:\-])\s*/gi, '\n$1 ');
 
-  const lines = normalizedInput
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean);
+  const chunks = normalizedInput
+    .split(/\n\s*\n+/)
+    .map(chunk => chunk.trim())
+    .filter(Boolean)
+    .flatMap(chunk => {
+      const splitByQuestion = chunk
+        .split(/(?=(?:^|\n)(?:Q(?:uestion)?\s*)?\d{1,2}[\).:\-]\s*)/i)
+        .map(part => part.trim())
+        .filter(Boolean);
+      return splitByQuestion.length > 1 ? splitByQuestion : [chunk];
+    });
 
   const questions = [];
-  let current = null;
-  const startQuestion = (textValue) => {
-    if (current) questions.push(current);
-    current = {
-      question_text: String(textValue || '').trim(),
-      options: [],
-      answerText: '',
-      category: fallbackCategory,
-      explanation: ''
+
+  const parseChunk = (chunk) => {
+    const lines = chunk
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    let current = null;
+    const startQuestion = (textValue) => {
+      if (current) questions.push(current);
+      current = {
+        question_text: String(textValue || '').trim(),
+        options: [],
+        answerText: '',
+        category: fallbackCategory,
+        explanation: ''
+      };
     };
+
+    for (const line of lines) {
+      const questionMatch = line.match(/^(?:Q(?:uestion)?\s*)?\d{1,2}[\).:\-]\s*(.+)$/i);
+      const optionMatch = line.match(/^(?:option\s*)?([A-D])[\).:\-]\s*(.+)$/i);
+      const answerMatch = line.match(/^(?:correct\s+answer|answer|ans)\s*[:\-]\s*(.+)$/i);
+      const explanationMatch = line.match(/^(?:explanation|reason)\s*[:\-]\s*(.+)$/i);
+      const categoryMatch = line.match(/^category\s*[:\-]\s*(.+)$/i);
+
+      if (questionMatch && (!current || current.options.length > 0 || current.answerText)) {
+        startQuestion(questionMatch[1]);
+        continue;
+      }
+      if (!current) {
+        startQuestion(questionMatch ? questionMatch[1] : line);
+        continue;
+      }
+      if (questionMatch && current.options.length === 0 && !current.answerText) {
+        current.question_text = `${current.question_text} ${questionMatch[1]}`.trim();
+        continue;
+      }
+      if (optionMatch) {
+        current.options.push(stripQuizOptionPrefix(optionMatch[2]));
+        continue;
+      }
+      if (answerMatch) {
+        current.answerText = answerMatch[1].trim();
+        continue;
+      }
+      if (explanationMatch) {
+        current.explanation = `${current.explanation} ${explanationMatch[1]}`.trim();
+        continue;
+      }
+      if (categoryMatch) {
+        current.category = categoryMatch[1].trim();
+        continue;
+      }
+      if (current.options.length > 0 && !current.answerText) {
+        current.options[current.options.length - 1] = `${current.options[current.options.length - 1]} ${line}`.trim();
+      } else if (current.answerText && !current.explanation) {
+        current.explanation = line;
+      } else {
+        current.question_text = `${current.question_text} ${line}`.trim();
+      }
+    }
+
+    if (current) questions.push(current);
   };
 
-  for (const line of lines) {
-    const questionMatch = line.match(/^(?:Q(?:uestion)?\s*)?\d{1,2}[\).:\-]\s*(.+)$/i);
-    const optionMatch = line.match(/^(?:option\s*)?([A-D])[\).:\-]\s*(.+)$/i);
-    const answerMatch = line.match(/^(?:correct\s+answer|answer|ans)\s*[:\-]\s*(.+)$/i);
-    const explanationMatch = line.match(/^(?:explanation|reason)\s*[:\-]\s*(.+)$/i);
-    const categoryMatch = line.match(/^category\s*[:\-]\s*(.+)$/i);
-
-    if (questionMatch && (!current || current.options.length > 0 || current.answerText)) {
-      startQuestion(questionMatch[1]);
-      continue;
-    }
-    if (!current) {
-      startQuestion(questionMatch ? questionMatch[1] : line);
-      continue;
-    }
-    if (questionMatch && current.options.length === 0 && !current.answerText) {
-      current.question_text = `${current.question_text} ${questionMatch[1]}`.trim();
-      continue;
-    }
-    if (optionMatch) {
-      current.options.push(stripQuizOptionPrefix(optionMatch[2]));
-      continue;
-    }
-    if (answerMatch) {
-      current.answerText = answerMatch[1].trim();
-      continue;
-    }
-    if (explanationMatch) {
-      current.explanation = `${current.explanation} ${explanationMatch[1]}`.trim();
-      continue;
-    }
-    if (categoryMatch) {
-      current.category = categoryMatch[1].trim();
-      continue;
-    }
-    if (current.options.length > 0 && !current.answerText) {
-      current.options[current.options.length - 1] = `${current.options[current.options.length - 1]} ${line}`.trim();
-    } else if (current.answerText && !current.explanation) {
-      current.explanation = line;
-    } else {
-      current.question_text = `${current.question_text} ${line}`.trim();
-    }
-  }
-  if (current) questions.push(current);
+  for (const chunk of chunks) parseChunk(chunk);
 
   return questions.map(item => {
     const options = item.options.map(stripQuizOptionPrefix).filter(Boolean).slice(0, 4);
@@ -22036,7 +22054,7 @@ app.post('/api/admin/import-pending-quiz-questions', async (req, res) => {
     }
 
     const existingResult = await pool.query(
-      `SELECT question_text
+      `SELECT question_text, options, correct_answer
        FROM pending_quiz_questions
        WHERE quiz_date = $1
          AND level = $2
@@ -22044,8 +22062,23 @@ app.post('/api/admin/import-pending-quiz-questions', async (req, res) => {
        ORDER BY id`,
       [date, level]
     );
-    const existingTexts = new Set();
-    existingResult.rows.forEach(row => addQuizQuestionTextToSet(existingTexts, row.question_text));
+    const existingQuestionSignatures = new Set();
+    for (const row of existingResult.rows) {
+      const normalized = normalizeQuizQuestionText(row.question_text);
+      let options = Array.isArray(row.options) ? row.options : [];
+      if (!Array.isArray(options) && typeof row.options === 'string') {
+        try {
+          options = JSON.parse(row.options);
+        } catch (_) {
+          options = [];
+        }
+      }
+      const optionSignature = getQuizOptionSignature(options);
+      const correctAnswer = Number.isInteger(Number(row.correct_answer)) ? Number(row.correct_answer) : null;
+      if (normalized && optionSignature && Number.isInteger(correctAnswer)) {
+        existingQuestionSignatures.add(`${normalized}||${optionSignature}||${correctAnswer}`);
+      }
+    }
 
     const activeCountResult = await pool.query(
       `SELECT COUNT(*)::int AS count
@@ -22067,9 +22100,22 @@ app.post('/api/admin/import-pending-quiz-questions', async (req, res) => {
         continue;
       }
       const normalized = normalizeQuizQuestionText(question.question_text);
-      const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
-      if (!normalized || existingTexts.has(normalized) || existingTexts.has(similarityKey)) {
-        skipped.push({ question_text: question.question_text, reason: 'Duplicate or very similar question' });
+      const optionSignature = getQuizOptionSignature(question.options);
+      const correctAnswer = Number.isInteger(Number(question.correct_answer)) ? Number(question.correct_answer) : null;
+      const questionSignature = normalized && optionSignature && Number.isInteger(correctAnswer)
+        ? `${normalized}||${optionSignature}||${correctAnswer}`
+        : null;
+
+      if (!normalized) {
+        skipped.push({ question_text: question.question_text, reason: 'Invalid question text' });
+        continue;
+      }
+      if (!optionSignature || !Number.isInteger(correctAnswer)) {
+        skipped.push({ question_text: question.question_text, reason: 'Incomplete question options or answer' });
+        continue;
+      }
+      if (questionSignature && existingQuestionSignatures.has(questionSignature)) {
+        skipped.push({ question_text: question.question_text, reason: 'Exact duplicate question with same options and answer' });
         continue;
       }
       if (isQuizQuestionBelowLevel(level, question)) {
@@ -22079,8 +22125,7 @@ app.post('/api/admin/import-pending-quiz-questions', async (req, res) => {
       if (!getQuizAllowedCategoriesForLevel(level).includes(question.category)) {
         question.category = normalizedCategory;
       }
-      existingTexts.add(normalized);
-      if (similarityKey) existingTexts.add(similarityKey);
+      if (questionSignature) existingQuestionSignatures.add(questionSignature);
       toInsert.push(question);
     }
 
