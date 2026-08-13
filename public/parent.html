@@ -1515,6 +1515,71 @@
             </div>
           </div>
         </div>
+
+          <!-- Writing Studio Panel -->
+          <div id="writingStudioPanel" style="display: none; margin-top: 24px;">
+            <div class="learning-lab-hero" style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 55%, #eff6ff 100%);">
+              <h2 style="color: #047857;">Writing Studio</h2>
+              <p style="margin: 0; color: #065f46; line-height: 1.6;">Write a creative story from today's prompt, use the helper words, attach a picture, and get feedback on your writing.</p>
+            </div>
+
+            <div id="writingPromptCard" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 16px; padding: 20px; margin-bottom: 18px;">
+              <div style="font-size: 0.85rem; font-weight: 800; color: #0f766e; text-transform: uppercase; margin-bottom: 8px;">Today's Writing Prompt</div>
+              <div id="writingGenreBadge" style="display:inline-block; background:#ccfbf1; color:#115e59; padding:6px 12px; border-radius:999px; font-weight:700; font-size:0.82rem; margin-bottom:10px;">Loading</div>
+              <h3 id="writingPromptText" style="margin: 0 0 14px; color: #1f2937; line-height: 1.45;">Loading prompt...</h3>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                <div style="background:white; border-radius:12px; padding:14px;">
+                  <div style="font-weight:800; color:#334155; margin-bottom:8px;">Story Structure</div>
+                  <ol id="writingStructureList" style="margin:0; padding-left:20px; color:#475569; line-height:1.6;"></ol>
+                </div>
+                <div style="background:white; border-radius:12px; padding:14px;">
+                  <div style="font-weight:800; color:#334155; margin-bottom:8px;">Phrases</div>
+                  <div id="writingPhraseBank" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+                </div>
+                <div style="background:white; border-radius:12px; padding:14px;">
+                  <div style="font-weight:800; color:#334155; margin-bottom:8px;">Idioms & Proverbs</div>
+                  <div id="writingIdiomsProverbs" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+                </div>
+                <div style="background:white; border-radius:12px; padding:14px;">
+                  <div style="font-weight:800; color:#334155; margin-bottom:8px;">Vocabulary</div>
+                  <div id="writingVocabulary" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 18px;">
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px;">
+                <div>
+                  <label style="display:block; font-weight:700; color:#374151; margin-bottom:6px;">Story Title</label>
+                  <input id="writingStoryTitle" type="text" maxlength="120" placeholder="Give your story a title" style="width:100%; padding:12px; border:2px solid #e5e7eb; border-radius:10px; font-size:1rem;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:700; color:#374151; margin-bottom:6px;">Attach Image</label>
+                  <input id="writingImageFile" type="file" accept="image/*" style="width:100%; padding:10px; border:2px solid #e5e7eb; border-radius:10px; background:#f9fafb;">
+                </div>
+              </div>
+              <label style="display:block; font-weight:700; color:#374151; margin-bottom:6px;">Your Story</label>
+              <textarea id="writingStoryText" rows="12" placeholder="Start writing your story here..." oninput="updateWritingWordCount()" style="width:100%; padding:14px; border:2px solid #e5e7eb; border-radius:12px; font-size:1rem; line-height:1.6; resize:vertical;"></textarea>
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap;">
+                <div id="writingWordCount" style="color:#64748b; font-size:0.9rem;">0 words</div>
+                <button id="submitWritingBtn" onclick="submitWritingStory()" class="btn" style="background: linear-gradient(135deg, #059669 0%, #0f766e 100%); color:white; font-weight:800; padding:12px 18px;">Submit for Feedback</button>
+              </div>
+              <div id="writingSubmitStatus" style="display:none; margin-top:12px; color:#0f766e; font-weight:700;">Reviewing your story...</div>
+            </div>
+
+            <div id="writingFeedbackSection" style="display:none; background:#f0fdf4; border:1.5px solid #86efac; border-radius:16px; padding:20px; margin-bottom:22px;">
+              <h3 style="margin:0 0 14px; color:#166534;">My Writing Feedback</h3>
+              <div id="writingScoreBadge" style="display:inline-block; background:#dcfce7; color:#166534; padding:7px 12px; border-radius:999px; font-weight:800; margin-bottom:12px;">Score: --</div>
+              <div id="writingFeedbackGrid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;"></div>
+            </div>
+
+            <div style="margin-top: 26px;">
+              <h3 style="color:#2d3748; margin-bottom:14px;">Your Writing History</h3>
+              <div id="writingHistoryList" style="display:grid; gap:12px;">
+                <p style="color:#718096; text-align:center; padding:20px;">No writing submissions yet. Start your first story above!</p>
+              </div>
+            </div>
+          </div>
       </div>
 
       <!-- Profile Tab -->
@@ -2992,7 +3057,7 @@ setTimeout(() => {
       { id: 'spell-bee', name: 'Spell Bee', icon: '🐝', description: 'Word challenge fun with spelling boosts and practice rounds.', status: 'coming-soon' },
       { id: 'speaking', name: 'Speaking Practice', icon: '🎤', description: 'Record a short answer, review it, and get speaking feedback.', status: 'active' },
       { id: 'vocabulary', name: 'Vocabulary Games', icon: '🧠', description: 'Word-building activities that help new vocabulary stick.', status: 'coming-soon' },
-      { id: 'writing', name: 'Writing Studio', icon: '✍️', description: 'Creative writing tasks designed for early English learners.', status: 'coming-soon' }
+      { id: 'writing', name: 'Writing Studio', icon: '✍️', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' }
     ];
 
     function renderLearningLabCards() {
@@ -3021,14 +3086,185 @@ setTimeout(() => {
     }
 
     function openLearningLabModule(moduleId) {
+      const speakingPanel = document.getElementById('speakingLabPanel');
+      const writingPanel = document.getElementById('writingStudioPanel');
+      if (speakingPanel) speakingPanel.style.display = 'none';
+      if (writingPanel) writingPanel.style.display = 'none';
+
+      if (moduleId === 'writing') {
+        if (writingPanel) writingPanel.style.display = 'block';
+        initWritingStudio();
+        setTimeout(() => writingPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+        return;
+      }
+
       if (moduleId !== 'speaking') {
         alert('This activity is not available in this phase yet.');
         return;
       }
-      const panel = document.getElementById('speakingLabPanel');
-      if (panel) panel.style.display = 'block';
+      if (speakingPanel) speakingPanel.style.display = 'block';
       initSpeakingLab();
-      setTimeout(() => panel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      setTimeout(() => speakingPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
+
+    // ============================================================================
+    // WRITING STUDIO FUNCTIONS
+    // ============================================================================
+
+    let currentWritingPrompt = null;
+
+    function renderWritingChips(containerId, items) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const list = Array.isArray(items) ? items : [];
+      container.innerHTML = list.length
+        ? list.map(item => `<span style="background:#eef2ff; color:#3730a3; padding:6px 10px; border-radius:999px; font-size:0.84rem; font-weight:700;">${escapeHtml(item)}</span>`).join('')
+        : '<span style="color:#94a3b8;">None listed</span>';
+    }
+
+    async function initWritingStudio() {
+      currentStudentId = currentStudent?.id;
+      if (!currentStudentId) return;
+      await loadWritingPrompt();
+      await loadWritingHistory();
+      updateWritingWordCount();
+    }
+
+    async function loadWritingPrompt() {
+      try {
+        const res = await fetch(`/api/writing/today-prompt?student_id=${currentStudentId}`, {
+          headers: studentAuthHeaders()
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Could not load writing prompt');
+        }
+        const data = await res.json();
+        currentWritingPrompt = data.prompt;
+        document.getElementById('writingGenreBadge').textContent = `${currentWritingPrompt.genre || 'Creative Writing'} - ${currentWritingPrompt.difficulty || 'Practice'}`;
+        document.getElementById('writingPromptText').textContent = currentWritingPrompt.prompt_text || 'Write a creative story.';
+        const steps = Array.isArray(currentWritingPrompt.structure_steps) ? currentWritingPrompt.structure_steps : [];
+        document.getElementById('writingStructureList').innerHTML = steps.map(step => `<li>${escapeHtml(step)}</li>`).join('');
+        renderWritingChips('writingPhraseBank', currentWritingPrompt.phrase_bank);
+        renderWritingChips('writingIdiomsProverbs', [
+          ...(currentWritingPrompt.idioms || []),
+          ...(currentWritingPrompt.proverbs || [])
+        ]);
+        renderWritingChips('writingVocabulary', currentWritingPrompt.vocabulary);
+      } catch (err) {
+        console.error('Error loading writing prompt:', err);
+        document.getElementById('writingPromptText').textContent = 'Error loading prompt. Please refresh.';
+      }
+    }
+
+    function updateWritingWordCount() {
+      const text = document.getElementById('writingStoryText')?.value || '';
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const el = document.getElementById('writingWordCount');
+      if (el) el.textContent = `${words} word${words === 1 ? '' : 's'}`;
+    }
+
+    function displayWritingFeedback(feedback) {
+      const section = document.getElementById('writingFeedbackSection');
+      const score = Number(feedback.score);
+      document.getElementById('writingScoreBadge').textContent = Number.isFinite(score) ? `Score: ${score}/100` : 'Score: Review complete';
+      const risk = String(feedback.originality_risk || 'low').toLowerCase();
+      const riskColor = risk === 'high' ? '#991b1b' : risk === 'medium' ? '#92400e' : '#166534';
+      const items = [
+        ['Grammar', feedback.grammar_feedback],
+        ['Sentence Formation', feedback.sentence_feedback],
+        ['Punctuation', feedback.punctuation_feedback],
+        ['Vocabulary', feedback.vocabulary_feedback],
+        ['Story Structure', feedback.structure_feedback],
+        ['Strength', feedback.strengths_summary],
+        ['Next Improvement', feedback.improvement_suggestion],
+        ['Originality Check', feedback.originality_notes || 'No strong AI-writing pattern was detected.']
+      ];
+      document.getElementById('writingFeedbackGrid').innerHTML = items.map(([title, text]) => `
+        <div style="background:white; border-radius:12px; padding:14px; border:1px solid #dcfce7;">
+          <div style="font-weight:800; color:${title === 'Originality Check' ? riskColor : '#334155'}; margin-bottom:7px;">${escapeHtml(title)}${title === 'Originality Check' ? `: ${escapeHtml(risk.toUpperCase())}` : ''}</div>
+          <div style="color:#475569; line-height:1.55; font-size:0.94rem;">${escapeHtml(text || 'Keep practicing this skill.')}</div>
+        </div>
+      `).join('');
+      section.style.display = 'block';
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function submitWritingStory() {
+      if (!currentWritingPrompt || !currentStudentId) {
+        alert('Please wait for the writing prompt to load.');
+        return;
+      }
+      const storyText = document.getElementById('writingStoryText').value.trim();
+      if (storyText.length < 80) {
+        alert('Please write a little more before submitting. Aim for at least a few complete sentences.');
+        return;
+      }
+
+      const btn = document.getElementById('submitWritingBtn');
+      const status = document.getElementById('writingSubmitStatus');
+      try {
+        btn.disabled = true;
+        status.style.display = 'block';
+        status.textContent = 'Reviewing your story...';
+        const fd = new FormData();
+        fd.append('student_id', currentStudentId);
+        fd.append('prompt_id', currentWritingPrompt.id);
+        fd.append('story_title', document.getElementById('writingStoryTitle').value.trim());
+        fd.append('story_text', storyText);
+        const imageFile = document.getElementById('writingImageFile').files[0];
+        if (imageFile) fd.append('image', imageFile);
+
+        const res = await uploadFormDataWithProgress('/api/writing/submit', fd, {
+          headers: authHeaders(),
+          onProgress: (progress) => {
+            status.textContent = progress.phase === 'processing'
+              ? 'Upload complete - checking your writing...'
+              : `Uploading image ${progress.percent}%...`;
+          }
+        });
+        if (!res.ok) throw new Error(getUploadFailureMessage(res, 'Could not submit writing.'));
+        displayWritingFeedback(res.data.feedback || {});
+        await loadWritingHistory();
+        status.style.display = 'none';
+      } catch (err) {
+        alert('Error submitting writing: ' + err.message);
+        status.style.display = 'none';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function loadWritingHistory() {
+      try {
+        const res = await fetch(`/api/writing/history?student_id=${currentStudentId}`, {
+          headers: studentAuthHeaders()
+        });
+        if (!res.ok) return;
+        const history = await res.json();
+        const container = document.getElementById('writingHistoryList');
+        if (!history.length) {
+          container.innerHTML = '<p style="color:#718096; text-align:center; padding:20px;">No writing submissions yet. Start your first story above!</p>';
+          return;
+        }
+        container.innerHTML = history.map(item => `
+          <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px;">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:start; flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:800; color:#2d3748;">${escapeHtml(item.story_title || item.genre || 'Writing Practice')}</div>
+                <div style="font-size:0.86rem; color:#64748b; margin-top:4px;">${escapeHtml(item.genre || 'Creative Writing')} - ${new Date(item.created_at || item.submission_date).toLocaleDateString()}</div>
+              </div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <span style="background:#dcfce7; color:#166534; padding:5px 9px; border-radius:999px; font-weight:800; font-size:0.8rem;">${item.score || '--'}/100</span>
+                <span style="background:#fef3c7; color:#92400e; padding:5px 9px; border-radius:999px; font-weight:800; font-size:0.8rem;">AI risk: ${escapeHtml(item.originality_risk || 'low')}</span>
+              </div>
+            </div>
+            ${item.improvement_suggestion ? `<div style="margin-top:10px; color:#475569; line-height:1.5; font-size:0.92rem;"><strong>Try next:</strong> ${escapeHtml(item.improvement_suggestion)}</div>` : ''}
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Error loading writing history:', err);
+      }
     }
 
     // ============================================================================

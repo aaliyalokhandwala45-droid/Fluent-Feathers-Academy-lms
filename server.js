@@ -1084,7 +1084,7 @@ app.use(async (req, res, next) => {
 });
 
 // Create upload directories
-['uploads', 'uploads/materials', 'uploads/homework', 'uploads/challenges', 'uploads/speaking-temp'].forEach(dir => {
+['uploads', 'uploads/materials', 'uploads/homework', 'uploads/challenges', 'uploads/speaking-temp', 'uploads/writing'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -1100,6 +1100,9 @@ function getUploadFolder(uploadType) {
   }
   if (uploadType === 'challenge') {
     return { local: 'uploads/challenges/', cloudinary: 'fluentfeathers/challenges' };
+  }
+  if (uploadType === 'writing') {
+    return { local: 'uploads/writing/', cloudinary: 'fluentfeathers/writing' };
   }
   return { local: 'uploads/materials/', cloudinary: 'fluentfeathers/materials' };
 }
@@ -3670,6 +3673,153 @@ async function runMigrations() {
       console.log('✅ Migration 58: Speaking Practice tables and indexes created successfully');
     } catch (err) {
       console.log('ℹ️ Migration 58 note:', err.message);
+    }
+
+    // Migration 59: Writing Studio
+    try {
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS writing_prompts (
+          id SERIAL PRIMARY KEY,
+          age_group VARCHAR(20) NOT NULL CHECK (age_group IN ('young', 'intermediate', 'advanced')),
+          difficulty VARCHAR(20) NOT NULL CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+          genre VARCHAR(50) NOT NULL,
+          prompt_text TEXT NOT NULL,
+          structure_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+          phrase_bank JSONB NOT NULL DEFAULT '[]'::jsonb,
+          idioms JSONB NOT NULL DEFAULT '[]'::jsonb,
+          proverbs JSONB NOT NULL DEFAULT '[]'::jsonb,
+          vocabulary JSONB NOT NULL DEFAULT '[]'::jsonb,
+          active BOOLEAN DEFAULT true,
+          approved_by_admin BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS writing_submissions (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          prompt_id INTEGER NOT NULL REFERENCES writing_prompts(id),
+          submission_date DATE NOT NULL,
+          story_title TEXT,
+          story_text TEXT NOT NULL,
+          image_file_path TEXT,
+          image_file_name TEXT,
+          ai_feedback JSONB,
+          grammar_feedback TEXT,
+          sentence_feedback TEXT,
+          punctuation_feedback TEXT,
+          vocabulary_feedback TEXT,
+          structure_feedback TEXT,
+          strengths_summary TEXT,
+          improvement_suggestion TEXT,
+          originality_risk VARCHAR(30),
+          originality_notes TEXT,
+          score INTEGER CHECK (score >= 0 AND score <= 100),
+          completion_status VARCHAR(20) DEFAULT 'submitted' CHECK (completion_status IN ('submitted', 'reviewed')),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          reviewed_at TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_prompts_age_active ON writing_prompts(age_group, active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_submissions_student ON writing_submissions(student_id)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_submissions_date ON writing_submissions(submission_date)`);
+
+      const writingPrompts = [
+        {
+          age: 'young',
+          diff: 'beginner',
+          genre: 'Adventure Story',
+          prompt: 'A tiny door appears in your classroom. What happens when you open it?',
+          structure: ['Beginning: where you found the door', 'Middle: who or what you met', 'Problem: one surprising challenge', 'Ending: how you came back'],
+          phrases: ['To my surprise', 'Step by step', 'In the blink of an eye', 'I could hardly believe it'],
+          idioms: ['a piece of cake', 'hold your breath'],
+          proverbs: ['Every cloud has a silver lining'],
+          vocab: ['mysterious', 'sparkling', 'tiptoe', 'brave', 'secret']
+        },
+        {
+          age: 'young',
+          diff: 'beginner',
+          genre: 'Animal Tale',
+          prompt: 'Write a story about a lost puppy who becomes a hero for one day.',
+          structure: ['Beginning: introduce the puppy', 'Middle: show the problem', 'Climax: the puppy helps someone', 'Ending: the puppy finds home'],
+          phrases: ['All of a sudden', 'With a wagging tail', 'Luckily', 'From that day on'],
+          idioms: ['as quick as a flash', 'safe and sound'],
+          proverbs: ['Kindness is never wasted'],
+          vocab: ['curious', 'gentle', 'rescue', 'neighbourhood', 'proud']
+        },
+        {
+          age: 'intermediate',
+          diff: 'intermediate',
+          genre: 'Mystery',
+          prompt: 'The school library book returned itself with a strange note inside.',
+          structure: ['Hook: begin with the strange note', 'Clues: add two clues', 'Suspects: introduce possible explanations', 'Resolution: reveal the truth'],
+          phrases: ['Something felt unusual', 'The clue pointed towards', 'After a closer look', 'The mystery was solved'],
+          idioms: ['get to the bottom of it', 'piece together'],
+          proverbs: ['Look before you leap'],
+          vocab: ['evidence', 'whispered', 'suspicious', 'discovered', 'message']
+        },
+        {
+          age: 'intermediate',
+          diff: 'intermediate',
+          genre: 'Fantasy',
+          prompt: 'You receive a map that changes every time you ask it a question.',
+          structure: ['Setting: describe the world', 'Character goal: explain what you need', 'Obstacle: the map creates trouble', 'Ending: what you learn'],
+          phrases: ['Beyond the hills', 'Without warning', 'To make matters worse', 'At last'],
+          idioms: ['follow your heart', 'a blessing in disguise'],
+          proverbs: ['Where there is a will, there is a way'],
+          vocab: ['enchanted', 'journey', 'vanished', 'destination', 'courage']
+        },
+        {
+          age: 'advanced',
+          diff: 'advanced',
+          genre: 'Persuasive Narrative',
+          prompt: 'A student tries to convince the town to save an old community garden.',
+          structure: ['Opening scene: show why the garden matters', 'Conflict: explain who disagrees and why', 'Persuasion: use examples and emotion', 'Resolution: show the result'],
+          phrases: ['More importantly', 'On the other hand', 'It became clear that', 'Against all odds'],
+          idioms: ['plant the seeds of change', 'stand your ground'],
+          proverbs: ['Actions speak louder than words'],
+          vocab: ['community', 'neglected', 'argument', 'preserve', 'determination']
+        },
+        {
+          age: 'advanced',
+          diff: 'advanced',
+          genre: 'Science Fiction',
+          prompt: 'In 2090, children attend school on a space station, but one lesson changes everything.',
+          structure: ['World-building: describe space school', 'Inciting event: the unusual lesson', 'Complication: something goes wrong', 'Ending: connect the lesson to a bigger idea'],
+          phrases: ['In the distance', 'The discovery changed', 'For the first time', 'No one expected'],
+          idioms: ['think outside the box', 'reach for the stars'],
+          proverbs: ['Necessity is the mother of invention'],
+          vocab: ['orbit', 'simulation', 'gravity', 'invention', 'mission']
+        }
+      ];
+
+      for (const item of writingPrompts) {
+        await executeQuery(
+          `INSERT INTO writing_prompts (age_group, difficulty, genre, prompt_text, structure_steps, phrase_bank, idioms, proverbs, vocabulary, active, approved_by_admin)
+           SELECT $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true
+           WHERE NOT EXISTS (
+             SELECT 1 FROM writing_prompts
+             WHERE age_group = $1 AND LOWER(TRIM(prompt_text)) = LOWER(TRIM($4))
+           )`,
+          [
+            item.age,
+            item.diff,
+            item.genre,
+            item.prompt,
+            JSON.stringify(item.structure),
+            JSON.stringify(item.phrases),
+            JSON.stringify(item.idioms),
+            JSON.stringify(item.proverbs),
+            JSON.stringify(item.vocab)
+          ]
+        );
+      }
+
+      console.log('✅ Migration 59: Writing Studio tables and seed prompts created successfully');
+    } catch (err) {
+      console.log('ℹ️ Migration 59 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -25162,6 +25312,302 @@ app.get('/api/live-points/leaderboard', async (req, res) => {
 // ============================================================================
 // SPEAKING PRACTICE ENDPOINTS (Phase 2)
 // ============================================================================
+
+function getStudentAgeGroup(student) {
+  const dob = student?.date_of_birth ? new Date(student.date_of_birth) : null;
+  const gradeAge = String(student?.grade || '').match(/\d+/);
+  const age = dob && !Number.isNaN(dob.getTime())
+    ? calculateAge(student.date_of_birth)
+    : (gradeAge ? Number(gradeAge[0]) : 10);
+  return age < 8 ? 'young' : age < 12 ? 'intermediate' : 'advanced';
+}
+
+function normalizeJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function buildWritingPromptResponse(prompt) {
+  if (!prompt) return null;
+  return {
+    id: prompt.id,
+    age_group: prompt.age_group,
+    difficulty: prompt.difficulty,
+    genre: prompt.genre,
+    prompt_text: prompt.prompt_text,
+    structure_steps: normalizeJsonArray(prompt.structure_steps),
+    phrase_bank: normalizeJsonArray(prompt.phrase_bank),
+    idioms: normalizeJsonArray(prompt.idioms),
+    proverbs: normalizeJsonArray(prompt.proverbs),
+    vocabulary: normalizeJsonArray(prompt.vocabulary)
+  };
+}
+
+function localWritingImagePath(file) {
+  if (!file) return null;
+  if (file.deferCloudinarySync || (file.filename && !file.secure_url && !String(file.path || '').startsWith('http'))) {
+    return '/uploads/writing/' + file.filename;
+  }
+  if (useCloudinary) return file.secure_url || file.path || file.url || null;
+  return '/uploads/writing/' + file.filename;
+}
+
+function estimateWritingOriginalityRisk(storyText) {
+  const text = String(storyText || '');
+  const words = text.toLowerCase().match(/[a-z']+/g) || [];
+  const unique = new Set(words);
+  const uniqueRatio = words.length ? unique.size / words.length : 1;
+  const polishedSignals = [
+    /in conclusion/i,
+    /as an ai/i,
+    /it is important to note/i,
+    /moreover/i,
+    /furthermore/i,
+    /testament to/i
+  ].filter(rx => rx.test(text)).length;
+  const longSentenceCount = text.split(/[.!?]+/).filter(s => s.trim().split(/\s+/).length > 35).length;
+  if (polishedSignals >= 2 || (words.length > 180 && uniqueRatio < 0.38 && longSentenceCount >= 2)) return 'high';
+  if (polishedSignals >= 1 || (words.length > 120 && uniqueRatio < 0.45)) return 'medium';
+  return 'low';
+}
+
+function getDefaultWritingFeedback(storyText) {
+  const wordCount = (String(storyText || '').match(/\b\w+\b/g) || []).length;
+  const risk = estimateWritingOriginalityRisk(storyText);
+  return {
+    score: wordCount >= 120 ? 78 : wordCount >= 60 ? 70 : 58,
+    grammar_feedback: 'Check subject-verb agreement and reread each sentence aloud to catch missing words.',
+    sentence_feedback: 'Try mixing short and longer sentences so the story has better rhythm.',
+    punctuation_feedback: 'Review full stops, commas, capital letters, and quotation marks if characters speak.',
+    vocabulary_feedback: 'Use at least three words from the vocabulary bank and add stronger describing words.',
+    structure_feedback: 'Make sure the story has a clear beginning, middle, problem, and ending.',
+    strengths_summary: 'You submitted a complete creative writing attempt and stayed connected to the prompt.',
+    improvement_suggestion: 'Add more sensory details and show what the character feels through actions.',
+    originality_risk: risk,
+    originality_notes: risk === 'high'
+      ? 'Possible AI-generated or plagiarised content. This is a review flag, so please ask the child to explain or rewrite parts in their own voice.'
+      : risk === 'medium'
+        ? 'Some wording feels unusually polished or repetitive. Treat this as a review flag, not proof of plagiarism.'
+        : 'No strong AI-writing pattern was detected, but originality should still be confirmed by discussion.'
+  };
+}
+
+async function reviewWritingWithAI({ prompt, storyTitle, storyText, imageUrl }) {
+  let feedback = getDefaultWritingFeedback(storyText);
+  if (!process.env.GROQ_API_KEY) return feedback;
+
+  const aiPrompt = `You are an English teacher reviewing a child's creative writing.
+Prompt genre: ${prompt.genre}
+Prompt: ${prompt.prompt_text}
+Story title: ${storyTitle || 'Untitled'}
+Story:
+${storyText}
+Attached image URL if available: ${imageUrl || 'none'}
+
+Give kind, specific feedback for grammar, sentence formation, punctuation, vocabulary, structure, and originality.
+Originality/AI detection must be cautious: use "low", "medium", or "high" risk and explain that it is a signal, not proof. If the risk is high, say "Possible AI-generated or plagiarised content" in originality_notes.
+Respond only as JSON:
+{
+  "score": 0,
+  "grammar_feedback": "",
+  "sentence_feedback": "",
+  "punctuation_feedback": "",
+  "vocabulary_feedback": "",
+  "structure_feedback": "",
+  "strengths_summary": "",
+  "improvement_suggestion": "",
+  "originality_risk": "low|medium|high",
+  "originality_notes": ""
+}`;
+
+  const groqResponse = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+    model: GROQ_TEXT_MODEL,
+    messages: [{ role: 'user', content: aiPrompt }],
+    max_tokens: 900,
+    temperature: 0.2
+  }, {
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }
+  });
+
+  const text = groqResponse.data.choices[0]?.message?.content || '{}';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+  const score = Number(parsed.score);
+  feedback = {
+    ...feedback,
+    ...parsed,
+    score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : feedback.score,
+    originality_risk: ['low', 'medium', 'high'].includes(String(parsed.originality_risk || '').toLowerCase())
+      ? String(parsed.originality_risk).toLowerCase()
+      : feedback.originality_risk
+  };
+  return feedback;
+}
+
+/**
+ * GET /api/writing/today-prompt
+ * Get today's Writing Studio prompt for a student
+ */
+app.get('/api/writing/today-prompt', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+
+    const student = await executeQuery(
+      `SELECT id, date_of_birth, grade FROM students WHERE id = $1`,
+      [studentId]
+    );
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+
+    const ageGroup = getStudentAgeGroup(student.rows[0]);
+    const today = new Date().toISOString().split('T')[0];
+    const promptResult = await executeQuery(
+      `SELECT *
+       FROM writing_prompts
+       WHERE age_group = $1 AND active = true AND approved_by_admin = true
+       ORDER BY md5(id::text || $2)
+       LIMIT 1`,
+      [ageGroup, today]
+    );
+    const prompt = promptResult.rows[0];
+    if (!prompt) return res.status(503).json({ error: 'No writing prompts available' });
+
+    const submitted = await executeQuery(
+      `SELECT id, completion_status, score, created_at
+       FROM writing_submissions
+       WHERE student_id = $1 AND prompt_id = $2 AND submission_date = $3
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [studentId, prompt.id, today]
+    );
+
+    res.json({
+      prompt: buildWritingPromptResponse(prompt),
+      submission: submitted.rows[0] || null
+    });
+  } catch (err) {
+    console.error('Error fetching writing prompt:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/writing/submit
+ * Submit a story with an optional image and receive AI writing feedback
+ */
+app.post('/api/writing/submit', handleUpload('image', 1, 'writing'), async (req, res) => {
+  try {
+    const studentId = req.body.student_id || req.headers['x-student-id'];
+    const promptId = req.body.prompt_id;
+    const storyTitle = String(req.body.story_title || '').trim();
+    const storyText = String(req.body.story_text || '').trim();
+
+    if (!studentId || !promptId) return res.status(400).json({ error: 'student_id and prompt_id required' });
+    if (storyText.length < 80) return res.status(400).json({ error: 'Please write at least 80 characters before submitting.' });
+    if (storyText.length > 12000) return res.status(400).json({ error: 'Story is too long. Please keep it under 12,000 characters.' });
+    if (req.file) {
+      const ext = path.extname(req.file.originalname || req.file.filename || '').toLowerCase();
+      const mime = String(req.file.mimetype || '').toLowerCase();
+      if (!mime.startsWith('image/') && !['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+        return res.status(400).json({ error: 'Please attach an image file only.' });
+      }
+    }
+
+    const promptResult = await executeQuery(`SELECT * FROM writing_prompts WHERE id = $1 AND active = true`, [promptId]);
+    if (promptResult.rows.length === 0) return res.status(404).json({ error: 'Writing prompt not found' });
+    const prompt = buildWritingPromptResponse(promptResult.rows[0]);
+    const imagePath = localWritingImagePath(req.file);
+    const imageName = req.file?.originalname || req.file?.filename || null;
+    const today = new Date().toISOString().split('T')[0];
+
+    let feedback = getDefaultWritingFeedback(storyText);
+    try {
+      const aiImageUrl = imagePath && /^https?:\/\//i.test(imagePath) ? imagePath : null;
+      feedback = await reviewWritingWithAI({ prompt, storyTitle, storyText, imageUrl: aiImageUrl });
+    } catch (aiErr) {
+      console.warn('Writing AI review failed, using default feedback:', aiErr.message);
+    }
+
+    const saved = await executeQuery(
+      `INSERT INTO writing_submissions (
+        student_id, prompt_id, submission_date, story_title, story_text, image_file_path, image_file_name,
+        ai_feedback, grammar_feedback, sentence_feedback, punctuation_feedback, vocabulary_feedback,
+        structure_feedback, strengths_summary, improvement_suggestion, originality_risk, originality_notes,
+        score, completion_status, reviewed_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'reviewed', CURRENT_TIMESTAMP)
+      RETURNING id, created_at`,
+      [
+        studentId,
+        promptId,
+        today,
+        storyTitle || null,
+        storyText,
+        imagePath,
+        imageName,
+        JSON.stringify(feedback),
+        feedback.grammar_feedback,
+        feedback.sentence_feedback,
+        feedback.punctuation_feedback,
+        feedback.vocabulary_feedback,
+        feedback.structure_feedback,
+        feedback.strengths_summary,
+        feedback.improvement_suggestion,
+        feedback.originality_risk,
+        feedback.originality_notes,
+        feedback.score
+      ]
+    );
+
+    res.json({
+      success: true,
+      submission_id: saved.rows[0].id,
+      created_at: saved.rows[0].created_at,
+      image_file_path: imagePath,
+      feedback
+    });
+  } catch (err) {
+    console.error('Error submitting writing:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/writing/history
+ * Get student's recent Writing Studio submissions
+ */
+app.get('/api/writing/history', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+
+    const history = await executeQuery(
+      `SELECT ws.id, ws.submission_date, ws.story_title, ws.score, ws.originality_risk,
+              ws.strengths_summary, ws.improvement_suggestion, ws.created_at,
+              wp.genre, wp.prompt_text
+       FROM writing_submissions ws
+       JOIN writing_prompts wp ON wp.id = ws.prompt_id
+       WHERE ws.student_id = $1
+       ORDER BY ws.created_at DESC
+       LIMIT 20`,
+      [studentId]
+    );
+
+    res.json(history.rows);
+  } catch (err) {
+    console.error('Error fetching writing history:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * Helper function: Schedule recording deletion from Cloudinary after review period
