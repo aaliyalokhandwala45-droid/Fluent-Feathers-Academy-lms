@@ -25190,6 +25190,7 @@ app.get('/api/speaking/today-topic', async (req, res) => {
   try {
     const studentId = req.query.student_id || req.headers['x-student-id'];
     if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    const spinRequested = String(req.query.spin || '').toLowerCase() === '1' || String(req.query.spin || '').toLowerCase() === 'true';
 
     const student = await executeQuery(
       `SELECT id, date_of_birth, grade FROM students WHERE id = $1`,
@@ -25207,56 +25208,80 @@ app.get('/api/speaking/today-topic', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
     const existingAttempt = await executeQuery(
-      `SELECT sa.id, sa.topic_id, st.topic_text, st.difficulty FROM speaking_attempts sa
+      `SELECT sa.id, sa.topic_id, sa.completion_status, st.topic_text, st.difficulty FROM speaking_attempts sa
        JOIN speaking_topics st ON sa.topic_id = st.id
        WHERE sa.student_id = $1 AND sa.attempt_date = $2
        LIMIT 1`,
       [studentId, today]
     );
 
-    if (existingAttempt.rows.length > 0) {
+    const existingAttemptRow = existingAttempt.rows[0] || null;
+    const canSpinExistingAttempt = spinRequested && existingAttemptRow && existingAttemptRow.completion_status === 'incomplete';
+
+    if (existingAttemptRow && !canSpinExistingAttempt) {
       return res.json({
-        attempt_id: existingAttempt.rows[0].id,
-        topic_id: existingAttempt.rows[0].topic_id,
-        topic_text: existingAttempt.rows[0].topic_text,
-        difficulty: existingAttempt.rows[0].difficulty,
+        attempt_id: existingAttemptRow.id,
+        topic_id: existingAttemptRow.topic_id,
+        topic_text: existingAttemptRow.topic_text,
+        difficulty: existingAttemptRow.difficulty,
         is_new: false
       });
     }
 
+    const excludedTopicId = canSpinExistingAttempt ? Number(existingAttemptRow.topic_id) : 0;
     const unusedTopics = await executeQuery(
       `SELECT st.* FROM speaking_topics st
        WHERE st.age_group = $1 AND st.active = true AND st.approved_by_admin = true
+       AND st.id <> $3
        AND st.id NOT IN (
          SELECT topic_id FROM speaking_topics_used
          WHERE student_id = $2 AND used_date >= CURRENT_DATE - INTERVAL '30 days'
        )
        ORDER BY RANDOM()
        LIMIT 1`,
-      [ageGroup, studentId]
+      [ageGroup, studentId, excludedTopicId]
     );
 
     let topic;
     if (unusedTopics.rows.length === 0) {
       const fallbackTopic = await executeQuery(
         `SELECT * FROM speaking_topics WHERE age_group = $1 AND active = true
+         AND id <> $2
          ORDER BY RANDOM() LIMIT 1`,
-        [ageGroup]
+        [ageGroup, excludedTopicId]
       );
       if (fallbackTopic.rows.length === 0) {
-        return res.status(503).json({ error: 'No speaking topics available' });
+        const anyFallbackTopic = await executeQuery(
+          `SELECT * FROM speaking_topics
+           WHERE age_group = $1 AND active = true
+           ORDER BY RANDOM() LIMIT 1`,
+          [ageGroup]
+        );
+        if (anyFallbackTopic.rows.length === 0) {
+          return res.status(503).json({ error: 'No speaking topics available' });
+        }
+        topic = anyFallbackTopic.rows[0];
+      } else {
+        topic = fallbackTopic.rows[0];
       }
-      topic = fallbackTopic.rows[0];
     } else {
       topic = unusedTopics.rows[0];
     }
 
-    const attempt = await executeQuery(
-      `INSERT INTO speaking_attempts (student_id, topic_id, attempt_date, difficulty, completion_status)
-       VALUES ($1, $2, $3, $4, 'incomplete')
-       RETURNING id`,
-      [studentId, topic.id, today, topic.difficulty]
-    );
+    const attempt = canSpinExistingAttempt
+      ? await executeQuery(
+          `UPDATE speaking_attempts
+           SET topic_id = $1, difficulty = $2, temp_storage_id = NULL, temp_storage_deleted_at = NULL
+           WHERE id = $3 AND student_id = $4 AND completion_status = 'incomplete'
+           RETURNING id`,
+          [topic.id, topic.difficulty, existingAttemptRow.id, studentId]
+        )
+      : await executeQuery(
+          `INSERT INTO speaking_attempts (student_id, topic_id, attempt_date, difficulty, completion_status)
+           VALUES ($1, $2, $3, $4, 'incomplete')
+           RETURNING id`,
+          [studentId, topic.id, today, topic.difficulty]
+        );
 
     await executeQuery(
       `INSERT INTO speaking_topics_used (student_id, topic_id, used_date) VALUES ($1, $2, $3)
@@ -25269,7 +25294,8 @@ app.get('/api/speaking/today-topic', async (req, res) => {
       topic_id: topic.id,
       topic_text: topic.topic_text,
       difficulty: topic.difficulty,
-      is_new: true
+      is_new: !canSpinExistingAttempt,
+      spun: canSpinExistingAttempt
     });
   } catch (err) {
     console.error('Error fetching speaking topic:', err.message);
@@ -25477,11 +25503,15 @@ app.post('/api/speaking/reflection', async (req, res) => {
   try {
     const { attempt_id, student_id, confidence_rating, reflection_responses } = req.body;
     if (!attempt_id || !student_id) return res.status(400).json({ error: 'attempt_id and student_id required' });
+    const safeConfidenceRating = Number(confidence_rating);
+    if (!Number.isInteger(safeConfidenceRating) || safeConfidenceRating < 1 || safeConfidenceRating > 5) {
+      return res.status(400).json({ error: 'Please choose a confidence rating from 1 to 5 stars.' });
+    }
 
     await executeQuery(
       `UPDATE speaking_attempts SET confidence_rating = $1, reflection_data = $2, completion_status = 'completed'
        WHERE id = $3 AND student_id = $4`,
-      [confidence_rating, JSON.stringify(reflection_responses), attempt_id, student_id]
+      [safeConfidenceRating, JSON.stringify(reflection_responses), attempt_id, student_id]
     );
 
     return res.json({ success: true });

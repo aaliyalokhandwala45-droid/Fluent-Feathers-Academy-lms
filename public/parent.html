@@ -854,7 +854,6 @@
         <button class="tab-btn" id="tabBtnQuiz" onclick="showTab('quiz', event)">🧠 Daily Quiz<span class="red-dot" id="dotQuiz"></span></button>
         <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">📚 Resources<span class="red-dot" id="dotResources"></span></button>
         <button class="tab-btn" onclick="showTab('learningLab', event)">🧠 Learning Lab</button>
-        <button class="tab-btn" onclick="showTab('speakingLab', event)">🎤 Speaking Lab</button>
         <button class="tab-btn" onclick="showTab('pointsTracker', event)">⭐ Points Tracker</button>
         <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">🏆 Achievements<span class="red-dot" id="dotAchievements"></span></button>
         <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">📢 News<span class="red-dot" id="dotAnnouncements"></span></button>
@@ -1302,12 +1301,9 @@
             <p style="margin: 0; color: #4a5568; line-height: 1.6;">A cozy hub for playful English practice, where your child can grow their reading, speaking, and writing confidence step by step.</p>
           </div>
           <div id="learningLabCards" class="learning-lab-grid"></div>
-        </div>
-      </div>
 
-      <!-- Speaking Practice Lab Tab -->
-      <div id="speakingLabTab" class="tab-content">
-        <div class="section">
+          <!-- Speaking Practice Lab Panel -->
+          <div id="speakingLabPanel" style="display: none; margin-top: 24px;">
           <!-- Hero Section -->
           <div class="learning-lab-hero" style="background: linear-gradient(135deg, #fce7f3 0%, #fdf2f8 50%, #faf5ff 100%);">
             <h2 style="color: #9333ea;">🎤 Speaking Practice</h2>
@@ -1340,7 +1336,7 @@
 
           <!-- Spinner Wheel (Placeholder) -->
           <div id="spinnerContainer" style="text-align: center; margin-bottom: 20px;">
-            <button onclick="spinTopicWheel()" class="btn" style="background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); color: white; font-size: 1rem; padding: 12px 28px;">
+            <button id="spinTopicBtn" onclick="spinTopicWheel()" class="btn" style="background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); color: white; font-size: 1rem; padding: 12px 28px;">
               🎡 Spin the Wheel for Another Topic
             </button>
           </div>
@@ -2998,7 +2994,7 @@ setTimeout(() => {
       { id: 'phonics', name: 'Phonics Lab', icon: '🔤', description: 'Playful sound practice and letter-building games.', status: 'coming-soon' },
       { id: 'reading', name: 'Reading Zone', icon: '📖', description: 'Short stories and reading adventures to build confidence.', status: 'coming-soon' },
       { id: 'spell-bee', name: 'Spell Bee', icon: '🐝', description: 'Word challenge fun with spelling boosts and practice rounds.', status: 'coming-soon' },
-      { id: 'speaking', name: 'Speaking Practice', icon: '🎤', description: 'Sentence prompts and speaking fluency practice for little learners.', status: 'coming-soon' },
+      { id: 'speaking', name: 'Speaking Practice', icon: '🎤', description: 'Record a short answer, review it, and get speaking feedback.', status: 'active' },
       { id: 'vocabulary', name: 'Vocabulary Games', icon: '🧠', description: 'Word-building activities that help new vocabulary stick.', status: 'coming-soon' },
       { id: 'writing', name: 'Writing Studio', icon: '✍️', description: 'Creative writing tasks designed for early English learners.', status: 'coming-soon' }
     ];
@@ -3009,6 +3005,9 @@ setTimeout(() => {
 
       container.innerHTML = LEARNING_LAB_MODULES.map((module) => {
         const isLocked = module.status === 'coming-soon';
+        const buttonAction = isLocked
+          ? "event.preventDefault(); alert('This Learning Lab activity is coming soon.')"
+          : `openLearningLabModule('${module.id}')`;
         return `
           <div class="learning-card ${isLocked ? 'locked' : ''}">
             <div class="learning-card-top">
@@ -3017,12 +3016,23 @@ setTimeout(() => {
             </div>
             <h3>${module.name}</h3>
             <p>${module.description}</p>
-            <button class="${isLocked ? 'locked-btn' : 'primary'}" ${isLocked ? 'disabled' : ''} onclick="${isLocked ? 'event.preventDefault(); alert(\'This Learning Lab activity is coming soon.\')' : 'alert(\'This activity is not available in this phase yet.\')'}">
+            <button class="${isLocked ? 'locked-btn' : 'primary'}" ${isLocked ? 'disabled' : ''} onclick="${buttonAction}">
               ${isLocked ? 'Coming Soon' : 'Start'}
             </button>
           </div>
         `;
       }).join('');
+    }
+
+    function openLearningLabModule(moduleId) {
+      if (moduleId !== 'speaking') {
+        alert('This activity is not available in this phase yet.');
+        return;
+      }
+      const panel = document.getElementById('speakingLabPanel');
+      if (panel) panel.style.display = 'block';
+      initSpeakingLab();
+      setTimeout(() => panel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     }
 
     // ============================================================================
@@ -3074,6 +3084,40 @@ setTimeout(() => {
           }
         }).catch(() => {});
       }
+    }
+
+    function resetSpeakingRecordingUI() {
+      recordedChunks = [];
+      window.recordedBlob = null;
+      const playbackVideo = document.getElementById('playbackVideo');
+      if (playbackVideo) {
+        playbackVideo.pause();
+        playbackVideo.removeAttribute('src');
+        playbackVideo.load();
+      }
+      const progressBar = document.getElementById('uploadProgressBar');
+      if (progressBar) progressBar.style.width = '0%';
+      document.getElementById('playbackSection').style.display = 'none';
+      document.getElementById('submitRecordingBtn').style.display = 'none';
+      document.getElementById('submitRecordingBtn').disabled = false;
+      document.getElementById('uploadProgress').style.display = 'none';
+      document.getElementById('feedbackSection').style.display = 'none';
+      document.getElementById('recordingSection').style.display = 'block';
+      document.getElementById('startRecordBtn').style.display = 'block';
+      document.getElementById('stopRecordBtn').style.display = 'none';
+      document.getElementById('pauseRecordBtn').style.display = 'none';
+      document.getElementById('resumeRecordBtn').style.display = 'none';
+      document.getElementById('recordingDuration').style.display = 'none';
+      document.getElementById('recordingDuration').textContent = '00:00';
+      selectedConfidenceRating = 0;
+      for (let i = 1; i <= 5; i++) {
+        const btn = document.getElementById(`conf-${i}`);
+        if (btn) btn.style.opacity = '0.4';
+      }
+      ['ref-clear', 'ref-vocab', 'ref-examples', 'ref-gestures', 'ref-expression', 'ref-ending'].forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (checkbox) checkbox.checked = false;
+      });
     }
 
     function hasMediaDevices() {
@@ -3267,6 +3311,10 @@ setTimeout(() => {
 
     async function submitReflection() {
       try {
+        if (selectedConfidenceRating < 1 || selectedConfidenceRating > 5) {
+          alert('Please choose how confident you felt by tapping 1 to 5 stars.');
+          return;
+        }
         const reflectionData = {
           spoke_clearly: document.getElementById('ref-clear').checked,
           used_vocab: document.getElementById('ref-vocab').checked,
@@ -3293,6 +3341,9 @@ setTimeout(() => {
           document.getElementById('submitRecordingBtn').style.display = 'none';
           document.getElementById('startRecordBtn').style.display = 'block';
           await loadTodaysTopic();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || 'Could not save reflection. Please try again.');
         }
       } catch (err) {
         alert('Error saving reflection: ' + err.message);
@@ -3336,8 +3387,41 @@ setTimeout(() => {
       }
     }
 
-    function spinTopicWheel() {
-      alert('🎡 Spin wheel feature coming soon! You\'ll be able to try different topics.');
+    async function spinTopicWheel() {
+      if (!currentStudentId) return;
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        alert('Please stop the current recording before changing the topic.');
+        return;
+      }
+
+      const btn = document.getElementById('spinTopicBtn');
+      const originalText = btn ? btn.textContent : '';
+      try {
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = '🎡 Spinning...';
+          btn.style.transform = 'rotate(6deg)';
+        }
+        resetSpeakingRecordingUI();
+        const res = await fetch(`/api/speaking/today-topic?student_id=${currentStudentId}&spin=1`, {
+          headers: studentAuthHeaders()
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not load another topic');
+        currentAttemptId = data.attempt_id;
+        document.getElementById('speakingTopicText').textContent = data.topic_text;
+        document.getElementById('speakingDifficultyBadge').textContent =
+          (data.difficulty || 'Beginner').charAt(0).toUpperCase() + (data.difficulty || 'beginner').slice(1);
+      } catch (err) {
+        alert(err.message || 'Could not spin a new topic. Please try again.');
+        await loadTodaysTopic();
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = originalText || '🎡 Spin the Wheel for Another Topic';
+          btn.style.transform = '';
+        }
+      }
     }
 
     async function sendOTP() {
@@ -3375,7 +3459,6 @@ setTimeout(() => {
       if (name === 'pointsTracker') { loadClassPoints(); loadScoreHistory(); }
       if (name === 'announcements') loadAnnouncements();
       if (name === 'learningLab') renderLearningLabCards();
-      if (name === 'speakingLab') initSpeakingLab();
     }
 
     function showDashboard() {
@@ -3450,6 +3533,7 @@ setTimeout(() => {
       // Map old tab names to new ones
       if (savedTab === 'updates') savedTab = 'announcements';
       if (savedTab === 'homework') savedTab = 'past';
+      if (savedTab === 'speakingLab') savedTab = 'learningLab';
       if (savedTab && document.getElementById(savedTab + 'Tab')) {
         showTab(savedTab);
       }
