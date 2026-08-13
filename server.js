@@ -3798,10 +3798,10 @@ async function runMigrations() {
       for (const item of writingPrompts) {
         await executeQuery(
           `INSERT INTO writing_prompts (age_group, difficulty, genre, prompt_text, structure_steps, phrase_bank, idioms, proverbs, vocabulary, active, approved_by_admin)
-           SELECT $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true
+           SELECT $1::varchar, $2::varchar, $3::varchar, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true
            WHERE NOT EXISTS (
              SELECT 1 FROM writing_prompts
-             WHERE age_group = $1 AND LOWER(TRIM(prompt_text)) = LOWER(TRIM($4))
+             WHERE age_group = $1::varchar AND LOWER(TRIM(prompt_text)) = LOWER(TRIM($4::text))
            )`,
           [
             item.age,
@@ -25453,6 +25453,100 @@ Respond only as JSON:
   return feedback;
 }
 
+function getWritingStudioSeedPrompts() {
+  return [
+    {
+      age: 'young',
+      diff: 'beginner',
+      genre: 'Adventure Story',
+      prompt: 'A tiny door appears in your classroom. What happens when you open it?',
+      structure: ['Beginning: where you found the door', 'Middle: who or what you met', 'Problem: one surprising challenge', 'Ending: how you came back'],
+      phrases: ['To my surprise', 'Step by step', 'In the blink of an eye', 'I could hardly believe it'],
+      idioms: ['a piece of cake', 'hold your breath'],
+      proverbs: ['Every cloud has a silver lining'],
+      vocab: ['mysterious', 'sparkling', 'tiptoe', 'brave', 'secret']
+    },
+    {
+      age: 'young',
+      diff: 'beginner',
+      genre: 'Animal Tale',
+      prompt: 'Write a story about a lost puppy who becomes a hero for one day.',
+      structure: ['Beginning: introduce the puppy', 'Middle: show the problem', 'Climax: the puppy helps someone', 'Ending: the puppy finds home'],
+      phrases: ['All of a sudden', 'With a wagging tail', 'Luckily', 'From that day on'],
+      idioms: ['as quick as a flash', 'safe and sound'],
+      proverbs: ['Kindness is never wasted'],
+      vocab: ['curious', 'gentle', 'rescue', 'neighbourhood', 'proud']
+    },
+    {
+      age: 'intermediate',
+      diff: 'intermediate',
+      genre: 'Mystery',
+      prompt: 'The school library book returned itself with a strange note inside.',
+      structure: ['Hook: begin with the strange note', 'Clues: add two clues', 'Suspects: introduce possible explanations', 'Resolution: reveal the truth'],
+      phrases: ['Something felt unusual', 'The clue pointed towards', 'After a closer look', 'The mystery was solved'],
+      idioms: ['get to the bottom of it', 'piece together'],
+      proverbs: ['Look before you leap'],
+      vocab: ['evidence', 'whispered', 'suspicious', 'discovered', 'message']
+    },
+    {
+      age: 'intermediate',
+      diff: 'intermediate',
+      genre: 'Fantasy',
+      prompt: 'You receive a map that changes every time you ask it a question.',
+      structure: ['Setting: describe the world', 'Character goal: explain what you need', 'Obstacle: the map creates trouble', 'Ending: what you learn'],
+      phrases: ['Beyond the hills', 'Without warning', 'To make matters worse', 'At last'],
+      idioms: ['follow your heart', 'a blessing in disguise'],
+      proverbs: ['Where there is a will, there is a way'],
+      vocab: ['enchanted', 'journey', 'vanished', 'destination', 'courage']
+    },
+    {
+      age: 'advanced',
+      diff: 'advanced',
+      genre: 'Persuasive Narrative',
+      prompt: 'A student tries to convince the town to save an old community garden.',
+      structure: ['Opening scene: show why the garden matters', 'Conflict: explain who disagrees and why', 'Persuasion: use examples and emotion', 'Resolution: show the result'],
+      phrases: ['More importantly', 'On the other hand', 'It became clear that', 'Against all odds'],
+      idioms: ['plant the seeds of change', 'stand your ground'],
+      proverbs: ['Actions speak louder than words'],
+      vocab: ['community', 'neglected', 'argument', 'preserve', 'determination']
+    },
+    {
+      age: 'advanced',
+      diff: 'advanced',
+      genre: 'Science Fiction',
+      prompt: 'In 2090, children attend school on a space station, but one lesson changes everything.',
+      structure: ['World-building: describe space school', 'Inciting event: the unusual lesson', 'Complication: something goes wrong', 'Ending: connect the lesson to a bigger idea'],
+      phrases: ['In the distance', 'The discovery changed', 'For the first time', 'No one expected'],
+      idioms: ['think outside the box', 'reach for the stars'],
+      proverbs: ['Necessity is the mother of invention'],
+      vocab: ['orbit', 'simulation', 'gravity', 'invention', 'mission']
+    }
+  ];
+}
+
+async function seedWritingPromptsIfEmpty() {
+  const countResult = await executeQuery(`SELECT COUNT(*)::int AS count FROM writing_prompts`);
+  if (Number(countResult.rows[0]?.count || 0) > 0) return;
+
+  for (const item of getWritingStudioSeedPrompts()) {
+    await executeQuery(
+      `INSERT INTO writing_prompts (age_group, difficulty, genre, prompt_text, structure_steps, phrase_bank, idioms, proverbs, vocabulary, active, approved_by_admin)
+       VALUES ($1::varchar, $2::varchar, $3::varchar, $4::text, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true)`,
+      [
+        item.age,
+        item.diff,
+        item.genre,
+        item.prompt,
+        JSON.stringify(item.structure),
+        JSON.stringify(item.phrases),
+        JSON.stringify(item.idioms),
+        JSON.stringify(item.proverbs),
+        JSON.stringify(item.vocab)
+      ]
+    );
+  }
+}
+
 /**
  * GET /api/writing/today-prompt
  * Get today's Writing Studio prompt for a student
@@ -25478,7 +25572,19 @@ app.get('/api/writing/today-prompt', async (req, res) => {
        LIMIT 1`,
       [ageGroup, today]
     );
-    const prompt = promptResult.rows[0];
+    let prompt = promptResult.rows[0];
+    if (!prompt) {
+      await seedWritingPromptsIfEmpty();
+      const retryPromptResult = await executeQuery(
+        `SELECT *
+         FROM writing_prompts
+         WHERE age_group = $1 AND active = true AND approved_by_admin = true
+         ORDER BY md5(id::text || $2)
+         LIMIT 1`,
+        [ageGroup, today]
+      );
+      prompt = retryPromptResult.rows[0];
+    }
     if (!prompt) return res.status(503).json({ error: 'No writing prompts available' });
 
     const submitted = await executeQuery(
