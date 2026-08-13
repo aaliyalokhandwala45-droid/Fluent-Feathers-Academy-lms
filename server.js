@@ -15035,12 +15035,13 @@ function createFallbackAiHomeworkReview(rawText, studentName = 'the student') {
     .replace(/```[\s\S]*?```/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (!cleaned || looksLikeHtmlResponse(cleaned)) return null;
+  if (looksLikeHtmlResponse(cleaned)) return null;
 
   const firstName = String(studentName || 'the student').trim() || 'the student';
-  const feedback = cleaned.startsWith(firstName)
-    ? cleaned
-    : `${firstName}, ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}`;
+  const feedbackSource = cleaned || 'Your work has been received. A teacher should review the details manually because the AI response did not include enough readable feedback.';
+  const feedback = feedbackSource.startsWith(firstName)
+    ? feedbackSource
+    : `${firstName}, ${feedbackSource.charAt(0).toLowerCase()}${feedbackSource.slice(1)}`;
 
   return {
     grade: 'Needs Improvement',
@@ -15048,6 +15049,18 @@ function createFallbackAiHomeworkReview(rawText, studentName = 'the student') {
     summary: 'AI returned plain text instead of JSON, so the feedback was saved for teacher review.',
     confidence: 'low'
   };
+}
+
+function getFriendlyAiHomeworkError(err) {
+  const rawMessage = String(err?.response?.data?.error?.message || err?.message || 'AI review failed.');
+  const status = Number(err?.response?.status || 0);
+  if (status === 429 || /rate limit|tokens per minute|TPM|too many requests/i.test(rawMessage)) {
+    return 'AI is temporarily rate-limited. Please retry in a minute or review manually.';
+  }
+  if (/non-JSON|malformed JSON|Unexpected token|could not be converted/i.test(rawMessage)) {
+    return 'AI returned text instead of the expected format. Retry AI or review manually.';
+  }
+  return rawMessage.slice(0, 240);
 }
 
 function getPersonalisedTeacherFeedbackInstructions(studentName = 'the student') {
@@ -15132,7 +15145,7 @@ ${feedbackStyle}`;
               { type: 'image_url', image_url: { url: imageInput } }
             ]
           }],
-          max_tokens: 1200,
+          max_tokens: 600,
           temperature: 0.2
         },
         { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 45000 }
@@ -15146,7 +15159,7 @@ ${feedbackStyle}`;
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Student: ${studentName}\nFile: ${fileName || 'text/link/manual submission'}\nParent comment/manual note: ${comment || fileName || ''}\nSubmitted link: ${link || (filePath?.startsWith('LINK:') ? filePath.replace('LINK:', '') : '')}\nCreate a draft review. If you cannot inspect the linked content, say manual teacher review is needed and use low confidence.` }
           ],
-          max_tokens: 900,
+          max_tokens: 500,
           temperature: 0.25
         },
         { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 20000 }
@@ -15183,9 +15196,10 @@ ${feedbackStyle}`;
     `, [grade, feedback, summary, JSON.stringify({ confidence, raw: parsed }), materialId]);
   } catch (err) {
     console.error('AI homework draft review failed:', err.response?.data || err.message);
+    const friendlyError = getFriendlyAiHomeworkError(err);
     await pool.query(
       `UPDATE materials SET ai_review_status = 'failed', ai_review_error = $1, ai_reviewed_at = CURRENT_TIMESTAMP WHERE id = $2`,
-      [err.response?.data?.error?.message || err.message, materialId]
+      [friendlyError, materialId]
     );
   }
 }
@@ -19973,7 +19987,7 @@ Return ONLY the JSON. No markdown. No explanation.`;
             { type: 'image_url', image_url: { url: image_data } }
           ]
         }],
-        max_tokens: 4096,
+        max_tokens: 900,
         temperature: 0.1
       },
       { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 45000 }
@@ -20023,8 +20037,9 @@ Return ONLY the JSON. No markdown. No explanation.`;
     });
   } catch (err) {
     console.error('AI annotate error:', err.response?.data || err.message);
-    const msg = err.response?.data?.error?.message || err.message;
-    res.status(500).json({ error: msg });
+    const status = Number(err.response?.status || 0);
+    const friendlyError = getFriendlyAiHomeworkError(err);
+    res.status(status === 429 ? 429 : 500).json({ error: friendlyError });
   }
 });
 
@@ -25190,7 +25205,6 @@ app.get('/api/speaking/today-topic', async (req, res) => {
   try {
     const studentId = req.query.student_id || req.headers['x-student-id'];
     if (!studentId) return res.status(400).json({ error: 'student_id required' });
-    const spinRequested = String(req.query.spin || '').toLowerCase() === '1' || String(req.query.spin || '').toLowerCase() === 'true';
 
     const student = await executeQuery(
       `SELECT id, date_of_birth, grade FROM students WHERE id = $1`,
@@ -25206,82 +25220,94 @@ app.get('/api/speaking/today-topic', async (req, res) => {
     let ageGroup = age < 8 ? 'young' : age < 12 ? 'intermediate' : 'advanced';
 
     const today = new Date().toISOString().split('T')[0];
+    const attemptLimitResult = await executeQuery(
+      `SELECT COUNT(*)::int AS used_attempts
+       FROM speaking_attempts
+       WHERE student_id = $1
+         AND created_at >= NOW() - INTERVAL '24 hours'
+         AND completion_status IN ('recorded', 'analyzed', 'completed')`,
+      [studentId]
+    );
+    const usedAttempts = Number(attemptLimitResult.rows[0]?.used_attempts || 0);
+    const attemptsRemaining = Math.max(0, 2 - usedAttempts);
+
+    const dailyTopicResult = await executeQuery(
+      `SELECT *
+       FROM speaking_topics
+       WHERE age_group = $1 AND active = true AND approved_by_admin = true
+       ORDER BY md5(id::text || $2)
+       LIMIT 1`,
+      [ageGroup, today]
+    );
+
+    let topic = dailyTopicResult.rows[0];
+    if (!topic) {
+      const fallbackTopicResult = await executeQuery(
+        `SELECT *
+         FROM speaking_topics
+         WHERE age_group = $1 AND active = true
+         ORDER BY md5(id::text || $2)
+         LIMIT 1`,
+        [ageGroup, today]
+      );
+      topic = fallbackTopicResult.rows[0];
+    }
+
+    if (!topic) {
+      return res.status(503).json({ error: 'No speaking topics available' });
+    }
 
     const existingAttempt = await executeQuery(
       `SELECT sa.id, sa.topic_id, sa.completion_status, st.topic_text, st.difficulty FROM speaking_attempts sa
        JOIN speaking_topics st ON sa.topic_id = st.id
-       WHERE sa.student_id = $1 AND sa.attempt_date = $2
+       WHERE sa.student_id = $1
+         AND sa.attempt_date = $2
+         AND sa.completion_status = 'incomplete'
        LIMIT 1`,
       [studentId, today]
     );
 
     const existingAttemptRow = existingAttempt.rows[0] || null;
-    const canSpinExistingAttempt = spinRequested && existingAttemptRow && existingAttemptRow.completion_status === 'incomplete';
-
-    if (existingAttemptRow && !canSpinExistingAttempt) {
+    if (existingAttemptRow) {
+      if (Number(existingAttemptRow.topic_id) !== Number(topic.id)) {
+        await executeQuery(
+          `UPDATE speaking_attempts
+           SET topic_id = $1, difficulty = $2
+           WHERE id = $3 AND student_id = $4 AND completion_status = 'incomplete'`,
+          [topic.id, topic.difficulty, existingAttemptRow.id, studentId]
+        );
+      }
       return res.json({
         attempt_id: existingAttemptRow.id,
-        topic_id: existingAttemptRow.topic_id,
-        topic_text: existingAttemptRow.topic_text,
-        difficulty: existingAttemptRow.difficulty,
-        is_new: false
+        topic_id: topic.id,
+        topic_text: topic.topic_text,
+        difficulty: topic.difficulty,
+        is_new: false,
+        attempts_used: usedAttempts,
+        attempts_remaining: attemptsRemaining,
+        limit_reached: attemptsRemaining <= 0
       });
     }
 
-    const excludedTopicId = canSpinExistingAttempt ? Number(existingAttemptRow.topic_id) : 0;
-    const unusedTopics = await executeQuery(
-      `SELECT st.* FROM speaking_topics st
-       WHERE st.age_group = $1 AND st.active = true AND st.approved_by_admin = true
-       AND st.id <> $3
-       AND st.id NOT IN (
-         SELECT topic_id FROM speaking_topics_used
-         WHERE student_id = $2 AND used_date >= CURRENT_DATE - INTERVAL '30 days'
-       )
-       ORDER BY RANDOM()
-       LIMIT 1`,
-      [ageGroup, studentId, excludedTopicId]
-    );
-
-    let topic;
-    if (unusedTopics.rows.length === 0) {
-      const fallbackTopic = await executeQuery(
-        `SELECT * FROM speaking_topics WHERE age_group = $1 AND active = true
-         AND id <> $2
-         ORDER BY RANDOM() LIMIT 1`,
-        [ageGroup, excludedTopicId]
-      );
-      if (fallbackTopic.rows.length === 0) {
-        const anyFallbackTopic = await executeQuery(
-          `SELECT * FROM speaking_topics
-           WHERE age_group = $1 AND active = true
-           ORDER BY RANDOM() LIMIT 1`,
-          [ageGroup]
-        );
-        if (anyFallbackTopic.rows.length === 0) {
-          return res.status(503).json({ error: 'No speaking topics available' });
-        }
-        topic = anyFallbackTopic.rows[0];
-      } else {
-        topic = fallbackTopic.rows[0];
-      }
-    } else {
-      topic = unusedTopics.rows[0];
+    if (attemptsRemaining <= 0) {
+      return res.json({
+        attempt_id: null,
+        topic_id: topic.id,
+        topic_text: topic.topic_text,
+        difficulty: topic.difficulty,
+        is_new: false,
+        attempts_used: usedAttempts,
+        attempts_remaining: 0,
+        limit_reached: true
+      });
     }
 
-    const attempt = canSpinExistingAttempt
-      ? await executeQuery(
-          `UPDATE speaking_attempts
-           SET topic_id = $1, difficulty = $2, temp_storage_id = NULL, temp_storage_deleted_at = NULL
-           WHERE id = $3 AND student_id = $4 AND completion_status = 'incomplete'
-           RETURNING id`,
-          [topic.id, topic.difficulty, existingAttemptRow.id, studentId]
-        )
-      : await executeQuery(
-          `INSERT INTO speaking_attempts (student_id, topic_id, attempt_date, difficulty, completion_status)
-           VALUES ($1, $2, $3, $4, 'incomplete')
-           RETURNING id`,
-          [studentId, topic.id, today, topic.difficulty]
-        );
+    const attempt = await executeQuery(
+      `INSERT INTO speaking_attempts (student_id, topic_id, attempt_date, difficulty, completion_status)
+       VALUES ($1, $2, $3, $4, 'incomplete')
+       RETURNING id`,
+      [studentId, topic.id, today, topic.difficulty]
+    );
 
     await executeQuery(
       `INSERT INTO speaking_topics_used (student_id, topic_id, used_date) VALUES ($1, $2, $3)
@@ -25294,8 +25320,10 @@ app.get('/api/speaking/today-topic', async (req, res) => {
       topic_id: topic.id,
       topic_text: topic.topic_text,
       difficulty: topic.difficulty,
-      is_new: !canSpinExistingAttempt,
-      spun: canSpinExistingAttempt
+      is_new: true,
+      attempts_used: usedAttempts,
+      attempts_remaining: attemptsRemaining,
+      limit_reached: false
     });
   } catch (err) {
     console.error('Error fetching speaking topic:', err.message);
@@ -25313,10 +25341,27 @@ app.post('/api/speaking/upload-recording', speakingRecordingUpload.single('recor
     if (!attempt_id || !req.file) return res.status(400).json({ error: 'attempt_id and recording file required' });
 
     const attempt = await executeQuery(
-      `SELECT student_id FROM speaking_attempts WHERE id = $1`,
+      `SELECT id, student_id, completion_status FROM speaking_attempts WHERE id = $1`,
       [attempt_id]
     );
     if (attempt.rows.length === 0) return res.status(404).json({ error: 'Attempt not found' });
+    const attemptRow = attempt.rows[0];
+    if (attemptRow.completion_status !== 'incomplete') {
+      return res.status(400).json({ error: 'This speaking attempt was already submitted.' });
+    }
+
+    const recentAttempts = await executeQuery(
+      `SELECT COUNT(*)::int AS used_attempts
+       FROM speaking_attempts
+       WHERE student_id = $1
+         AND id <> $2
+         AND created_at >= NOW() - INTERVAL '24 hours'
+         AND completion_status IN ('recorded', 'analyzed', 'completed')`,
+      [attemptRow.student_id, attempt_id]
+    );
+    if (Number(recentAttempts.rows[0]?.used_attempts || 0) >= 2) {
+      return res.status(429).json({ error: 'You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.' });
+    }
 
     let storageId = `/uploads/speaking-temp/${req.file.filename}`;
     if (useCloudinary) {

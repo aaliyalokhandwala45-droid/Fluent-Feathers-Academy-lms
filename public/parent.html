@@ -1330,16 +1330,12 @@
               <div id="speakingTopicText" style="font-size: 1.4rem; color: #2d3748; font-weight: 700; line-height: 1.5; margin-bottom: 12px;">Loading topic...</div>
               <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
                 <span id="speakingDifficultyBadge" style="background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">Beginner</span>
+                <span id="speakingAttemptsBadge" style="background: #fef3c7; color: #92400e; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">2 attempts left</span>
               </div>
             </div>
           </div>
 
-          <!-- Spinner Wheel (Placeholder) -->
-          <div id="spinnerContainer" style="text-align: center; margin-bottom: 20px;">
-            <button id="spinTopicBtn" onclick="spinTopicWheel()" class="btn" style="background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); color: white; font-size: 1rem; padding: 12px 28px;">
-              🎡 Spin the Wheel for Another Topic
-            </button>
-          </div>
+          <div id="speakingLimitNotice" style="display:none; background:#fff5f5; border:1px solid #feb2b2; color:#9b2c2c; border-radius:12px; padding:12px 14px; margin-bottom:16px; font-weight:700;"></div>
 
           <!-- Recording Controls Section -->
           <div id="recordingSection" style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
@@ -3066,6 +3062,29 @@ setTimeout(() => {
         document.getElementById('speakingTopicText').textContent = data.topic_text;
         document.getElementById('speakingDifficultyBadge').textContent = 
           (data.difficulty || 'Beginner').charAt(0).toUpperCase() + (data.difficulty || 'beginner').slice(1);
+        const attemptsRemaining = Number(data.attempts_remaining ?? 2);
+        const attemptsBadge = document.getElementById('speakingAttemptsBadge');
+        if (attemptsBadge) {
+          attemptsBadge.textContent = `${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} left`;
+        }
+        const limitNotice = document.getElementById('speakingLimitNotice');
+        const startBtn = document.getElementById('startRecordBtn');
+        if (data.limit_reached || !data.attempt_id) {
+          if (limitNotice) {
+            limitNotice.textContent = 'You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.';
+            limitNotice.style.display = 'block';
+          }
+          if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.style.opacity = '0.6';
+          }
+        } else {
+          if (limitNotice) limitNotice.style.display = 'none';
+          if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.style.opacity = '1';
+          }
+        }
         if (!hasMediaDevices()) {
           document.getElementById('permissionPrompt').style.display = 'block';
         }
@@ -3154,6 +3173,10 @@ setTimeout(() => {
 
     async function startRecording() {
       try {
+        if (!currentAttemptId) {
+          alert('You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.');
+          return;
+        }
         let stream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 320, height: 240 } });
@@ -3263,14 +3286,20 @@ setTimeout(() => {
           headers: authHeaders(),
           body: formData
         });
-        if (!uploadRes.ok) throw new Error('Upload failed');
+        if (!uploadRes.ok) {
+          const uploadError = await uploadRes.json().catch(() => ({}));
+          throw new Error(uploadError.error || 'Upload failed');
+        }
         document.getElementById('uploadProgressBar').style.width = '50%';
         const analysisRes = await fetch('/api/speaking/analyze', {
           method: 'POST',
           headers: studentAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ attempt_id: currentAttemptId, student_id: currentStudentId })
         });
-        if (!analysisRes.ok) throw new Error('Analysis failed');
+        if (!analysisRes.ok) {
+          const analysisError = await analysisRes.json().catch(() => ({}));
+          throw new Error(analysisError.error || 'Analysis failed');
+        }
         const feedback = await analysisRes.json();
         document.getElementById('uploadProgressBar').style.width = '100%';
         displayFeedback(feedback.feedback || {});
@@ -3384,43 +3413,6 @@ setTimeout(() => {
         `).join('');
       } catch (err) {
         console.error('Error loading history:', err);
-      }
-    }
-
-    async function spinTopicWheel() {
-      if (!currentStudentId) return;
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        alert('Please stop the current recording before changing the topic.');
-        return;
-      }
-
-      const btn = document.getElementById('spinTopicBtn');
-      const originalText = btn ? btn.textContent : '';
-      try {
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = '🎡 Spinning...';
-          btn.style.transform = 'rotate(6deg)';
-        }
-        resetSpeakingRecordingUI();
-        const res = await fetch(`/api/speaking/today-topic?student_id=${currentStudentId}&spin=1`, {
-          headers: studentAuthHeaders()
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Could not load another topic');
-        currentAttemptId = data.attempt_id;
-        document.getElementById('speakingTopicText').textContent = data.topic_text;
-        document.getElementById('speakingDifficultyBadge').textContent =
-          (data.difficulty || 'Beginner').charAt(0).toUpperCase() + (data.difficulty || 'beginner').slice(1);
-      } catch (err) {
-        alert(err.message || 'Could not spin a new topic. Please try again.');
-        await loadTodaysTopic();
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = originalText || '🎡 Spin the Wheel for Another Topic';
-          btn.style.transform = '';
-        }
       }
     }
 
