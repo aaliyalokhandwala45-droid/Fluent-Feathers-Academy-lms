@@ -78,6 +78,24 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
+    .learning-lab-hero { background: linear-gradient(135deg, #fff7ed 0%, #fdf2f8 50%, #f5f3ff 100%); border: 1.5px solid #f3d7f4; border-radius: 18px; padding: 24px 22px; margin-bottom: 22px; }
+    .learning-lab-hero h2 { color: #7c3aed; margin: 0 0 8px; font-size: clamp(1.4rem, 2vw, 2rem); }
+    .learning-lab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+    .learning-card { background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%); border: 1.5px solid #e9d5ff; border-radius: 18px; padding: 18px 16px; display: flex; flex-direction: column; min-height: 220px; box-shadow: 0 8px 18px rgba(124, 58, 237, 0.08); }
+    .learning-card.locked { background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); border-color: #dbeafe; }
+    .learning-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .learning-card-icon { width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: linear-gradient(135deg, #f9a8d4 0%, #c4b5fd 100%); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.6); }
+    .learning-card-badge { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 5px 10px; font-size: 0.72rem; font-weight: 700; }
+    .learning-card h3 { margin: 0 0 10px; color: #2d3748; font-size: 1.25rem; }
+    .learning-card p { color: #4a5568; font-size: 0.9rem; line-height: 1.55; margin: 0 0 18px; flex: 1; }
+    .learning-card button { margin-top: auto; width: 100%; border: none; border-radius: 12px; padding: 11px 14px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; }
+    .learning-card button:hover { transform: translateY(-1px); }
+    .learning-card button.primary { background: linear-gradient(135deg, #B05D9E 0%, #7c3aed 100%); color: white; }
+    .learning-card button.locked-btn { background: #e2e8f0; color: #4a5568; cursor: not-allowed; }
+    @media (max-width: 768px) {
+      .learning-lab-grid { grid-template-columns: 1fr; }
+      .learning-card { min-height: unset; }
+    }
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568; }
     .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; }
@@ -835,6 +853,8 @@
         <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">🎯 Challenges<span class="red-dot" id="dotChallenges"></span></button>
         <button class="tab-btn" id="tabBtnQuiz" onclick="showTab('quiz', event)">🧠 Daily Quiz<span class="red-dot" id="dotQuiz"></span></button>
         <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">📚 Resources<span class="red-dot" id="dotResources"></span></button>
+        <button class="tab-btn" onclick="showTab('learningLab', event)">🧠 Learning Lab</button>
+        <button class="tab-btn" onclick="showTab('speakingLab', event)">🎤 Speaking Lab</button>
         <button class="tab-btn" onclick="showTab('pointsTracker', event)">⭐ Points Tracker</button>
         <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">🏆 Achievements<span class="red-dot" id="dotAchievements"></span></button>
         <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">📢 News<span class="red-dot" id="dotAnnouncements"></span></button>
@@ -1271,6 +1291,236 @@
           <!-- Resources Grid -->
           <div id="parentResourcesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
             <p style="color: #718096; text-align: center; padding: 40px; grid-column: 1/-1;">Loading resources...</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="learningLabTab" class="tab-content">
+        <div class="section">
+          <div class="learning-lab-hero">
+            <h2>🧠 Learning Lab</h2>
+            <p style="margin: 0; color: #4a5568; line-height: 1.6;">A cozy hub for playful English practice, where your child can grow their reading, speaking, and writing confidence step by step.</p>
+          </div>
+          <div id="learningLabCards" class="learning-lab-grid"></div>
+        </div>
+      </div>
+
+      <!-- Speaking Practice Lab Tab -->
+      <div id="speakingLabTab" class="tab-content">
+        <div class="section">
+          <!-- Hero Section -->
+          <div class="learning-lab-hero" style="background: linear-gradient(135deg, #fce7f3 0%, #fdf2f8 50%, #faf5ff 100%);">
+            <h2 style="color: #9333ea;">🎤 Speaking Practice</h2>
+            <p style="margin: 0; color: #6b21a8; line-height: 1.6;">
+              Record yourself speaking about today's topic and get AI-powered feedback to help you improve your English!
+            </p>
+          </div>
+
+          <!-- Permission Status Indicator -->
+          <div id="permissionStatus" style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; display: none;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.2rem;">⚠️</span>
+              <div>
+                <div style="font-weight: 700; color: #92400e; font-size: 0.95rem;" id="permissionText">Camera permission required</div>
+                <div style="font-size: 0.85rem; color: #b45309;">Your browser needs permission to record audio and video. We'll ask when you start recording.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's Topic Display -->
+          <div id="speakingTopicContainer" style="background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%); border: 1.5px solid #c7d2fe; border-radius: 16px; padding: 20px 22px; margin-bottom: 20px;">
+            <div style="text-align: center;">
+              <div style="font-size: 0.85rem; font-weight: 700; color: #6366f1; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px;">🎯 Today's Speaking Challenge</div>
+              <div id="speakingTopicText" style="font-size: 1.4rem; color: #2d3748; font-weight: 700; line-height: 1.5; margin-bottom: 12px;">Loading topic...</div>
+              <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <span id="speakingDifficultyBadge" style="background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">Beginner</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Spinner Wheel (Placeholder) -->
+          <div id="spinnerContainer" style="text-align: center; margin-bottom: 20px;">
+            <button onclick="spinTopicWheel()" class="btn" style="background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); color: white; font-size: 1rem; padding: 12px 28px;">
+              🎡 Spin the Wheel for Another Topic
+            </button>
+          </div>
+
+          <!-- Recording Controls Section -->
+          <div id="recordingSection" style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #2d3748; margin: 0 0 18px; font-size: 1.2rem;">🎤 Start Recording</h3>
+
+            <!-- Permission Request -->
+            <div id="permissionPrompt" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px; margin-bottom: 14px; display: none;">
+              <div style="color: #991b1b; font-weight: 600; margin-bottom: 8px;">Microphone & Camera Permission Needed</div>
+              <div style="color: #7f1d1d; font-size: 0.9rem; margin-bottom: 10px;">
+                Click "Start Recording" below and your browser will ask for permission to access your microphone and camera.
+              </div>
+              <button id="acceptPermissionsBtn" onclick="requestPermissions()" class="btn" style="background: #dc2626; color: white; width: 100%;">
+                ✓ I Understand, Let's Start
+              </button>
+            </div>
+
+            <!-- Recording Indicator -->
+            <div id="recordingIndicator" style="display: none; background: #fee2e2; border-left: 4px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 14px; align-items: center; gap: 10px;">
+              <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%; animation: pulse 1s infinite;"></div>
+              <div style="font-weight: 700; color: #991b1b;">🔴 Recording in progress...</div>
+            </div>
+
+            <!-- Video Preview -->
+            <video id="recordingPreview" style="width: 100%; height: auto; background: #000; border-radius: 12px; margin-bottom: 14px; max-height: 300px; display: none;"></video>
+
+            <!-- Recording Controls -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px;">
+              <button id="startRecordBtn" onclick="startRecording()" class="btn" style="background: #10b981; color: white; font-weight: 700;">
+                ▶️ Start Recording
+              </button>
+              <button id="stopRecordBtn" onclick="stopRecording()" class="btn" style="background: #ef4444; color: white; display: none; font-weight: 700;">
+                ⏹️ Stop Recording
+              </button>
+              <button id="pauseRecordBtn" onclick="pauseRecording()" class="btn" style="background: #f59e0b; color: white; display: none; font-weight: 700;">
+                ⏸️ Pause
+              </button>
+              <button id="resumeRecordBtn" onclick="resumeRecording()" class="btn" style="background: #3b82f6; color: white; display: none; font-weight: 700;">
+                ▶️ Resume
+              </button>
+            </div>
+
+            <!-- Duration Display -->
+            <div id="recordingDuration" style="text-align: center; font-size: 1.8rem; font-weight: 800; color: #2d3748; font-family: monospace; margin-bottom: 12px; display: none;">
+              00:00
+            </div>
+
+            <!-- Playback Section (After Recording) -->
+            <div id="playbackSection" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+              <div style="font-weight: 700; color: #0369a1; margin-bottom: 10px;">✓ Recording Complete - Review Before Submitting</div>
+              <video id="playbackVideo" style="width: 100%; height: auto; border-radius: 8px; background: #000; margin-bottom: 10px; max-height: 250px;"></video>
+              <button onclick="replayRecording()" class="btn" style="background: #0ea5e9; color: white; width: 100%; margin-bottom: 8px;">
+                ▶️ Play Again
+              </button>
+              <button onclick="discardRecording()" class="btn" style="background: #e5e7eb; color: #374151; width: 100%; font-weight: 600;">
+                🔄 Re-record
+              </button>
+            </div>
+
+            <!-- Upload Button -->
+            <button id="submitRecordingBtn" onclick="submitRecording()" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; width: 100%; font-size: 1.05rem; font-weight: 700; padding: 14px; display: none;">
+              📤 Submit Recording for Feedback
+            </button>
+
+            <!-- Upload Progress -->
+            <div id="uploadProgress" style="display: none; margin-top: 14px;">
+              <div style="font-weight: 600; color: #2d3748; margin-bottom: 6px;">Uploading & Analyzing...</div>
+              <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div id="uploadProgressBar" style="background: linear-gradient(90deg, #10b981 0%, #059669 100%); height: 100%; width: 0%; transition: width 0.3s;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feedback Section (After Analysis) -->
+          <div id="feedbackSection" style="display: none;">
+            <div style="background: linear-gradient(135deg, #d1fae5 0%, #c6f6d5 100%); border: 1.5px solid #6ee7b7; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+              <h3 style="color: #065f46; margin: 0 0 16px; font-size: 1.3rem;">🎤 My Speaking Feedback</h3>
+
+              <!-- Voice Section -->
+              <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">🔊 Voice & Delivery</div>
+                <div id="voiceFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
+                  Your voice was clear and easy to understand.
+                </div>
+              </div>
+
+              <!-- Gestures Section -->
+              <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">🙌 Gestures & Movement</div>
+                <div id="gesturesFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
+                  You used hand gestures to support your ideas.
+                </div>
+              </div>
+
+              <!-- Expression Section -->
+              <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">😊 Facial Expressions</div>
+                <div id="expressionFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
+                  You appeared engaged and interested while speaking.
+                </div>
+              </div>
+
+              <!-- Language Section -->
+              <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">🗣️ Language Use</div>
+                <div id="languageFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
+                  Your vocabulary choices were appropriate for the topic.
+                </div>
+              </div>
+
+              <!-- Strengths -->
+              <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                <div style="font-weight: 700; color: #92400e; margin-bottom: 6px;">🌟 One Thing You Did Well</div>
+                <div id="strengthsSummary" style="color: #78350f; line-height: 1.6; font-size: 0.95rem;">
+                  Great job maintaining consistent eye contact!
+                </div>
+              </div>
+
+              <!-- Improvement -->
+              <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 12px; padding: 14px;">
+                <div style="font-weight: 700; color: #0369a1; margin-bottom: 6px;">💡 Try This Next Time</div>
+                <div id="improvementSuggestion" style="color: #164e63; line-height: 1.6; font-size: 0.95rem;">
+                  Try adding a few more descriptive details when explaining your ideas.
+                </div>
+              </div>
+            </div>
+
+            <!-- Self-Reflection -->
+            <div style="background: white; border: 1.5px solid #e5e7eb; border-radius: 16px; padding: 18px; margin-bottom: 20px;">
+              <h4 style="color: #2d3748; margin: 0 0 14px; font-size: 1.1rem;">📝 Your Self-Reflection</h4>
+
+              <div style="margin-bottom: 14px;">
+                <div style="font-weight: 700; color: #4a5568; margin-bottom: 8px;">How confident did you feel? (1-5 stars)</div>
+                <div style="display: flex; gap: 8px;">
+                  <button onclick="setConfidence(1)" id="conf-1" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">⭐</button>
+                  <button onclick="setConfidence(2)" id="conf-2" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">⭐</button>
+                  <button onclick="setConfidence(3)" id="conf-3" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">⭐</button>
+                  <button onclick="setConfidence(4)" id="conf-4" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">⭐</button>
+                  <button onclick="setConfidence(5)" id="conf-5" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">⭐</button>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 14px;">
+                <div style="font-weight: 700; color: #4a5568; margin-bottom: 8px;">What went well? (Check all that apply)</div>
+                <div style="display: grid; gap: 8px;">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="ref-clear" style="width: 18px; height: 18px;"> I spoke clearly
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="ref-vocab" style="width: 18px; height: 18px;"> I used good vocabulary
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="ref-examples" style="width: 18px; height: 18px;"> I gave examples
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="ref-gestures" style="width: 18px; height: 18px;"> I used gestures
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="ref-expression" style="width: 18px; height: 18px;"> I showed expression
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="ref-ending" style="width: 18px; height: 18px;"> I had a good ending
+                  </label>
+                </div>
+              </div>
+
+              <button onclick="submitReflection()" class="btn" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; width: 100%; font-weight: 700;">
+                ✓ Complete Practice Session
+              </button>
+            </div>
+          </div>
+
+          <!-- History Section -->
+          <div style="margin-top: 30px;">
+            <h3 style="color: #2d3748; margin-bottom: 14px;">📊 Your Speaking History</h3>
+            <div id="speakingHistoryList" style="display: grid; gap: 12px;">
+              <p style="color: #718096; text-align: center; padding: 20px;">No speaking practices yet. Start your first one above!</p>
+            </div>
           </div>
         </div>
       </div>
@@ -2744,6 +2994,332 @@ setTimeout(() => {
       }
     }
 
+    const LEARNING_LAB_MODULES = [
+      { id: 'phonics', name: 'Phonics Lab', icon: '🔤', description: 'Playful sound practice and letter-building games.', status: 'coming-soon' },
+      { id: 'reading', name: 'Reading Zone', icon: '📖', description: 'Short stories and reading adventures to build confidence.', status: 'coming-soon' },
+      { id: 'spell-bee', name: 'Spell Bee', icon: '🐝', description: 'Word challenge fun with spelling boosts and practice rounds.', status: 'coming-soon' },
+      { id: 'speaking', name: 'Speaking Practice', icon: '🎤', description: 'Sentence prompts and speaking fluency practice for little learners.', status: 'coming-soon' },
+      { id: 'vocabulary', name: 'Vocabulary Games', icon: '🧠', description: 'Word-building activities that help new vocabulary stick.', status: 'coming-soon' },
+      { id: 'writing', name: 'Writing Studio', icon: '✍️', description: 'Creative writing tasks designed for early English learners.', status: 'coming-soon' }
+    ];
+
+    function renderLearningLabCards() {
+      const container = document.getElementById('learningLabCards');
+      if (!container) return;
+
+      container.innerHTML = LEARNING_LAB_MODULES.map((module) => {
+        const isLocked = module.status === 'coming-soon';
+        return `
+          <div class="learning-card ${isLocked ? 'locked' : ''}">
+            <div class="learning-card-top">
+              <div class="learning-card-icon">${module.icon}</div>
+              <span class="learning-card-badge">${isLocked ? 'Coming Soon' : 'Active'}</span>
+            </div>
+            <h3>${module.name}</h3>
+            <p>${module.description}</p>
+            <button class="${isLocked ? 'locked-btn' : 'primary'}" ${isLocked ? 'disabled' : ''} onclick="${isLocked ? 'event.preventDefault(); alert(\'This Learning Lab activity is coming soon.\')' : 'alert(\'This activity is not available in this phase yet.\')'}">
+              ${isLocked ? 'Coming Soon' : 'Start'}
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ============================================================================
+    // SPEAKING PRACTICE FUNCTIONS
+    // ============================================================================
+
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordingStartTime = null;
+    let recordingDurationInterval = null;
+    let currentAttemptId = null;
+    let currentStudentId = null;
+    let selectedConfidenceRating = 0;
+
+    async function initSpeakingLab() {
+      currentStudentId = currentStudent?.id;
+      if (!currentStudentId) return;
+      await loadTodaysTopic();
+      await loadSpeakingHistory();
+      checkMediaPermissions();
+    }
+
+    async function loadTodaysTopic() {
+      try {
+        const res = await fetch(`/api/speaking/today-topic?student_id=${currentStudentId}`, {
+          headers: studentAuthHeaders()
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        currentAttemptId = data.attempt_id;
+        document.getElementById('speakingTopicText').textContent = data.topic_text;
+        document.getElementById('speakingDifficultyBadge').textContent = 
+          (data.difficulty || 'Beginner').charAt(0).toUpperCase() + (data.difficulty || 'beginner').slice(1);
+        if (!hasMediaDevices()) {
+          document.getElementById('permissionPrompt').style.display = 'block';
+        }
+      } catch (e) {
+        console.error('Error loading topic:', e);
+        document.getElementById('speakingTopicText').textContent = 'Error loading topic. Please refresh.';
+      }
+    }
+
+    function checkMediaPermissions() {
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'camera' }).then(perm => {
+          if (perm.state === 'denied') {
+            document.getElementById('permissionStatus').style.display = 'flex';
+            document.getElementById('permissionText').textContent = 'Camera access denied - Audio-only recording available';
+          }
+        }).catch(() => {});
+      }
+    }
+
+    function hasMediaDevices() {
+      return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    }
+
+    async function requestPermissions() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 320, height: 240 } });
+        document.getElementById('recordingPreview').srcObject = stream;
+        document.getElementById('permissionPrompt').style.display = 'none';
+        document.getElementById('startRecordBtn').style.display = 'block';
+        stream.getTracks().forEach(track => track.stop());
+      } catch (err) {
+        alert('Could not access microphone/camera: ' + err.message);
+      }
+    }
+
+    async function startRecording() {
+      try {
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 320, height: 240 } });
+        } catch (videoErr) {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          document.getElementById('permissionStatus').style.display = 'flex';
+          document.getElementById('permissionText').textContent = 'Recording audio only - camera was not available';
+        }
+        mediaRecorder = new MediaRecorder(stream);
+        recordedChunks = [];
+        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+        mediaRecorder.onstop = () => handleRecordingStop();
+        mediaRecorder.start();
+        recordingStartTime = Date.now();
+        recordingDurationInterval = setInterval(updateRecordingDuration, 100);
+        document.getElementById('recordingIndicator').style.display = 'flex';
+        document.getElementById('recordingPreview').srcObject = stream;
+        document.getElementById('recordingPreview').style.display = 'block';
+        document.getElementById('startRecordBtn').style.display = 'none';
+        document.getElementById('stopRecordBtn').style.display = 'block';
+        document.getElementById('pauseRecordBtn').style.display = 'block';
+        document.getElementById('recordingDuration').style.display = 'block';
+      } catch (err) {
+        alert('Could not start recording: ' + err.message);
+      }
+    }
+
+    function updateRecordingDuration() {
+      const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      document.getElementById('recordingDuration').textContent = 
+        `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function pauseRecording() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.pause();
+        clearInterval(recordingDurationInterval);
+        document.getElementById('pauseRecordBtn').style.display = 'none';
+        document.getElementById('resumeRecordBtn').style.display = 'block';
+      }
+    }
+
+    function resumeRecording() {
+      if (mediaRecorder && mediaRecorder.state === 'paused') {
+        mediaRecorder.resume();
+        recordingDurationInterval = setInterval(updateRecordingDuration, 100);
+        document.getElementById('pauseRecordBtn').style.display = 'block';
+        document.getElementById('resumeRecordBtn').style.display = 'none';
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        clearInterval(recordingDurationInterval);
+        if (mediaRecorder.stream) {
+          mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+        document.getElementById('recordingIndicator').style.display = 'none';
+        document.getElementById('stopRecordBtn').style.display = 'none';
+        document.getElementById('pauseRecordBtn').style.display = 'none';
+        document.getElementById('resumeRecordBtn').style.display = 'none';
+        document.getElementById('recordingPreview').style.display = 'none';
+      }
+    }
+
+    function handleRecordingStop() {
+      const blob = new Blob(recordedChunks, { type: 'video/webm;codecs=vp9' });
+      const url = URL.createObjectURL(blob);
+      document.getElementById('playbackVideo').src = url;
+      document.getElementById('playbackSection').style.display = 'block';
+      document.getElementById('submitRecordingBtn').style.display = 'block';
+      document.getElementById('startRecordBtn').style.display = 'none';
+      document.getElementById('recordingDuration').style.display = 'none';
+      window.recordedBlob = blob;
+    }
+
+    function replayRecording() {
+      document.getElementById('playbackVideo').play();
+    }
+
+    function discardRecording() {
+      recordedChunks = [];
+      document.getElementById('playbackSection').style.display = 'none';
+      document.getElementById('submitRecordingBtn').style.display = 'none';
+      document.getElementById('startRecordBtn').style.display = 'block';
+      document.getElementById('recordingDuration').style.display = 'block';
+      document.getElementById('recordingDuration').textContent = '00:00';
+    }
+
+    async function submitRecording() {
+      if (!window.recordedBlob || !currentAttemptId) return;
+      try {
+        document.getElementById('uploadProgress').style.display = 'block';
+        document.getElementById('submitRecordingBtn').disabled = true;
+        const formData = new FormData();
+        formData.append('recording', window.recordedBlob, 'speaking-practice.webm');
+        formData.append('attempt_id', currentAttemptId);
+        const uploadRes = await fetch('/api/speaking/upload-recording', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: formData
+        });
+        if (!uploadRes.ok) throw new Error('Upload failed');
+        document.getElementById('uploadProgressBar').style.width = '50%';
+        const analysisRes = await fetch('/api/speaking/analyze', {
+          method: 'POST',
+          headers: studentAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ attempt_id: currentAttemptId, student_id: currentStudentId })
+        });
+        if (!analysisRes.ok) throw new Error('Analysis failed');
+        const feedback = await analysisRes.json();
+        document.getElementById('uploadProgressBar').style.width = '100%';
+        displayFeedback(feedback.feedback || {});
+        document.getElementById('uploadProgress').style.display = 'none';
+        document.getElementById('recordingSection').style.display = 'none';
+        document.getElementById('feedbackSection').style.display = 'block';
+      } catch (err) {
+        alert('Error submitting recording: ' + err.message);
+        document.getElementById('uploadProgress').style.display = 'none';
+        document.getElementById('submitRecordingBtn').disabled = false;
+      }
+    }
+
+    function displayFeedback(feedback) {
+      document.getElementById('voiceFeedback').textContent = feedback.voice_pace === 'fast' 
+        ? 'Try slowing down slightly to make your ideas clearer.' 
+        : 'Your voice was clear and easy to understand.';
+      document.getElementById('gesturesFeedback').textContent = feedback.hand_gestures_detected
+        ? 'You used hand gestures to support your ideas. Keep this up!'
+        : 'Consider adding a few hand gestures to emphasize your main points.';
+      document.getElementById('expressionFeedback').textContent = feedback.facial_expressiveness === 'engaged'
+        ? 'You appeared engaged and interested while speaking. Great!'
+        : 'Try to maintain more eye contact with the camera.';
+      document.getElementById('languageFeedback').textContent = feedback.vocabulary_variety === 'varied'
+        ? 'Your vocabulary choices were great for the topic!'
+        : feedback.improvement_suggestion || 'Your language use was clear.';
+      document.getElementById('strengthsSummary').textContent = feedback.strengths_summary || 'Great job on this speaking practice!';
+      document.getElementById('improvementSuggestion').textContent = feedback.improvement_suggestion || 'Keep practicing regularly to build confidence.';
+    }
+
+    function setConfidence(rating) {
+      selectedConfidenceRating = rating;
+      for (let i = 1; i <= 5; i++) {
+        const btn = document.getElementById(`conf-${i}`);
+        btn.style.opacity = i <= rating ? '1' : '0.4';
+      }
+    }
+
+    async function submitReflection() {
+      try {
+        const reflectionData = {
+          spoke_clearly: document.getElementById('ref-clear').checked,
+          used_vocab: document.getElementById('ref-vocab').checked,
+          gave_examples: document.getElementById('ref-examples').checked,
+          used_gestures: document.getElementById('ref-gestures').checked,
+          showed_expression: document.getElementById('ref-expression').checked,
+          had_ending: document.getElementById('ref-ending').checked
+        };
+        const res = await fetch('/api/speaking/reflection', {
+          method: 'POST',
+          headers: studentAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            attempt_id: currentAttemptId,
+            student_id: currentStudentId,
+            confidence_rating: selectedConfidenceRating,
+            reflection_responses: reflectionData
+          })
+        });
+        if (res.ok) {
+          alert('✅ Practice session complete! Great job!');
+          await loadSpeakingHistory();
+          document.getElementById('feedbackSection').style.display = 'none';
+          document.getElementById('recordingSection').style.display = 'block';
+          document.getElementById('submitRecordingBtn').style.display = 'none';
+          document.getElementById('startRecordBtn').style.display = 'block';
+          await loadTodaysTopic();
+        }
+      } catch (err) {
+        alert('Error saving reflection: ' + err.message);
+      }
+    }
+
+    async function loadSpeakingHistory() {
+      try {
+        const res = await fetch(`/api/speaking/history?student_id=${currentStudentId}`, {
+          headers: studentAuthHeaders()
+        });
+        if (!res.ok) return;
+        const history = await res.json();
+        const container = document.getElementById('speakingHistoryList');
+        if (history.length === 0) {
+          container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">No speaking practices yet. Start your first one above!</p>';
+          return;
+        }
+        container.innerHTML = history.map(h => `
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+              <div>
+                <div style="font-weight: 700; color: #2d3748;">${h.topic_text}</div>
+                <div style="font-size: 0.85rem; color: #718096; margin-top: 4px;">📅 ${new Date(h.attempt_date).toLocaleDateString()}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 0.8rem; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
+                  ${h.difficulty || 'N/A'}
+                </div>
+              </div>
+            </div>
+            ${h.strengths_summary ? `
+              <div style="margin-top: 10px; font-size: 0.9rem; color: #4a5568; line-height: 1.5;">
+                <strong>Feedback:</strong> ${h.strengths_summary}
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Error loading history:', err);
+      }
+    }
+
+    function spinTopicWheel() {
+      alert('🎡 Spin wheel feature coming soon! You\'ll be able to try different topics.');
+    }
+
     async function sendOTP() {
       const email = document.getElementById('parentEmail').value.trim();
       try {
@@ -2778,6 +3354,8 @@ setTimeout(() => {
       if (name === 'challenges') loadStudentChallenges();
       if (name === 'pointsTracker') { loadClassPoints(); loadScoreHistory(); }
       if (name === 'announcements') loadAnnouncements();
+      if (name === 'learningLab') renderLearningLabCards();
+      if (name === 'speakingLab') initSpeakingLab();
     }
 
     function showDashboard() {

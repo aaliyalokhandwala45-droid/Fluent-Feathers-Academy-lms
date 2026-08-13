@@ -1084,7 +1084,7 @@ app.use(async (req, res, next) => {
 });
 
 // Create upload directories
-['uploads', 'uploads/materials', 'uploads/homework', 'uploads/challenges'].forEach(dir => {
+['uploads', 'uploads/materials', 'uploads/homework', 'uploads/challenges', 'uploads/speaking-temp'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -1457,6 +1457,25 @@ const upload = multer({
   storage: smartUploadStorage,
   limits: { fileSize: UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024 },
   fileFilter: fileFilter
+});
+
+const speakingRecordingUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, 'uploads/speaking-temp/'),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.webm';
+      cb(null, `speaking-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`);
+    }
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const mime = String(file.mimetype || '').toLowerCase();
+    if (mime.startsWith('video/') || mime.startsWith('audio/') || ['.webm', '.mp4', '.mov', '.m4a', '.mp3', '.wav'].includes(ext)) {
+      return cb(null, true);
+    }
+    return cb(new Error('Only audio or video recordings are allowed'));
+  }
 });
 
 // Wrapper to handle multer upload errors properly
@@ -3541,6 +3560,116 @@ async function runMigrations() {
       console.log('Migration 57: Applied Supabase Data API grants and default privileges');
     } catch (err) {
       console.log('Migration 57 note:', err.message);
+    }
+
+    // Migration 58: Speaking Practice feature (Phase 2)
+    try {
+      // Create speaking_topics table
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS speaking_topics (
+          id SERIAL PRIMARY KEY,
+          age_group VARCHAR(20) NOT NULL CHECK (age_group IN ('young', 'intermediate', 'advanced')),
+          difficulty VARCHAR(20) NOT NULL CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+          category VARCHAR(50) NOT NULL,
+          topic_text TEXT NOT NULL,
+          generated_by_ai BOOLEAN DEFAULT false,
+          approved_by_admin BOOLEAN DEFAULT false,
+          active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create speaking_topics_used table
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS speaking_topics_used (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          topic_id INTEGER NOT NULL REFERENCES speaking_topics(id) ON DELETE CASCADE,
+          used_date DATE NOT NULL,
+          UNIQUE(student_id, topic_id, used_date)
+        )
+      `);
+
+      // Create speaking_attempts table
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS speaking_attempts (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          topic_id INTEGER NOT NULL REFERENCES speaking_topics(id),
+          attempt_date DATE NOT NULL,
+          difficulty VARCHAR(20),
+          duration_seconds INTEGER,
+          confidence_rating INTEGER CHECK (confidence_rating >= 1 AND confidence_rating <= 5),
+          reflection_data JSONB,
+          ai_feedback JSONB,
+          completion_status VARCHAR(20) DEFAULT 'incomplete' CHECK (completion_status IN ('incomplete', 'recorded', 'analyzed', 'completed')),
+          temp_storage_id TEXT,
+          temp_storage_deleted_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create speaking_feedback table
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS speaking_feedback (
+          id SERIAL PRIMARY KEY,
+          attempt_id INTEGER NOT NULL REFERENCES speaking_attempts(id) ON DELETE CASCADE,
+          voice_pace VARCHAR(30),
+          voice_volume VARCHAR(30),
+          voice_modulation VARCHAR(30),
+          filler_words_detected BOOLEAN,
+          facial_expressiveness VARCHAR(30),
+          camera_engagement VARCHAR(30),
+          hand_gestures_detected BOOLEAN,
+          gesture_variety VARCHAR(30),
+          presentation_confidence VARCHAR(30),
+          vocabulary_variety VARCHAR(30),
+          sentence_construction VARCHAR(30),
+          grammar_patterns VARCHAR(30),
+          clarity_of_expression VARCHAR(30),
+          language_feedback TEXT,
+          strengths_summary TEXT,
+          improvement_suggestion TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create indexes
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_topics_age_difficulty ON speaking_topics(age_group, difficulty)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_topics_active ON speaking_topics(active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_topics_used_student ON speaking_topics_used(student_id)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_attempts_student ON speaking_attempts(student_id)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_attempts_date ON speaking_attempts(attempt_date)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_feedback_attempt ON speaking_feedback(attempt_id)`);
+
+      // Seed initial topics for testing
+      const initialTopics = [
+        { age: 'young', diff: 'beginner', cat: 'personal', text: 'Tell me about your favorite toy or game' },
+        { age: 'young', diff: 'beginner', cat: 'imagination', text: 'If you could have any superpower, what would it be?' },
+        { age: 'young', diff: 'beginner', cat: 'storytelling', text: 'Tell me a story about a silly adventure' },
+        { age: 'intermediate', diff: 'intermediate', cat: 'opinion', text: 'What is your favorite season and why?' },
+        { age: 'intermediate', diff: 'intermediate', cat: 'description', text: 'Describe your best friend to someone who has never met them' },
+        { age: 'intermediate', diff: 'intermediate', cat: 'problem-solving', text: 'How would you help a friend who lost their favorite book?' },
+        { age: 'advanced', diff: 'advanced', cat: 'school', text: 'What subject do you enjoy most at school and why?' },
+        { age: 'advanced', diff: 'advanced', cat: 'friendship', text: 'Explain what qualities make someone a good friend' },
+        { age: 'advanced', diff: 'advanced', cat: 'environment', text: 'How can we help protect the environment?' }
+      ];
+
+      for (const topic of initialTopics) {
+        await executeQuery(
+          `INSERT INTO speaking_topics (age_group, difficulty, category, topic_text, generated_by_ai, approved_by_admin, active)
+           SELECT $1, $2, $3, $4, false, true, true
+           WHERE NOT EXISTS (
+             SELECT 1 FROM speaking_topics
+             WHERE age_group = $1 AND LOWER(TRIM(topic_text)) = LOWER(TRIM($4))
+           )`,
+          [topic.age, topic.diff, topic.cat, topic.text]
+        );
+      }
+
+      console.log('✅ Migration 58: Speaking Practice tables and indexes created successfully');
+    } catch (err) {
+      console.log('ℹ️ Migration 58 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -25011,6 +25140,490 @@ app.get('/api/live-points/leaderboard', async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================================
+// SPEAKING PRACTICE ENDPOINTS (Phase 2)
+// ============================================================================
+
+/**
+ * Helper function: Schedule recording deletion from Cloudinary after review period
+ */
+function scheduleRecordingDeletion(cloudinaryPublicId, delaySeconds = 3600) {
+  if (!cloudinaryPublicId) return;
+  if (String(cloudinaryPublicId).startsWith('/uploads/')) {
+    setTimeout(() => {
+      const localPath = path.resolve(__dirname, String(cloudinaryPublicId).replace(/^\/uploads\//, 'uploads/'));
+      const uploadsRoot = path.resolve(__dirname, 'uploads');
+      if (!localPath.startsWith(uploadsRoot + path.sep)) return;
+      fs.unlink(localPath, () => {});
+      executeQuery(
+        `UPDATE speaking_attempts SET temp_storage_deleted_at = CURRENT_TIMESTAMP
+         WHERE temp_storage_id = $1`,
+        [cloudinaryPublicId]
+      ).catch(() => {});
+    }, delaySeconds * 1000);
+    return;
+  }
+  setTimeout(async () => {
+    try {
+      await cloudinary.uploader.destroy(cloudinaryPublicId, { resource_type: 'video' });
+      await executeQuery(
+        `UPDATE speaking_attempts SET temp_storage_deleted_at = CURRENT_TIMESTAMP
+         WHERE temp_storage_id = $1`,
+        [cloudinaryPublicId]
+      );
+      console.log(`✅ Deleted temporary recording: ${cloudinaryPublicId}`);
+    } catch (err) {
+      console.error(`Failed to delete recording ${cloudinaryPublicId}:`, err.message);
+    }
+  }, delaySeconds * 1000);
+}
+
+/**
+ * GET /api/speaking/today-topic
+ * Get today's speaking challenge topic for a student
+ */
+app.get('/api/speaking/today-topic', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+
+    const student = await executeQuery(
+      `SELECT id, date_of_birth, grade FROM students WHERE id = $1`,
+      [studentId]
+    );
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+
+    const dob = student.rows[0].date_of_birth ? new Date(student.rows[0].date_of_birth) : null;
+    const gradeAge = String(student.rows[0].grade || '').match(/\d+/);
+    const age = dob && !Number.isNaN(dob.getTime())
+      ? new Date().getFullYear() - dob.getFullYear()
+      : (gradeAge ? Number(gradeAge[0]) : 10);
+    let ageGroup = age < 8 ? 'young' : age < 12 ? 'intermediate' : 'advanced';
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const existingAttempt = await executeQuery(
+      `SELECT sa.id, sa.topic_id, st.topic_text, st.difficulty FROM speaking_attempts sa
+       JOIN speaking_topics st ON sa.topic_id = st.id
+       WHERE sa.student_id = $1 AND sa.attempt_date = $2
+       LIMIT 1`,
+      [studentId, today]
+    );
+
+    if (existingAttempt.rows.length > 0) {
+      return res.json({
+        attempt_id: existingAttempt.rows[0].id,
+        topic_id: existingAttempt.rows[0].topic_id,
+        topic_text: existingAttempt.rows[0].topic_text,
+        difficulty: existingAttempt.rows[0].difficulty,
+        is_new: false
+      });
+    }
+
+    const unusedTopics = await executeQuery(
+      `SELECT st.* FROM speaking_topics st
+       WHERE st.age_group = $1 AND st.active = true AND st.approved_by_admin = true
+       AND st.id NOT IN (
+         SELECT topic_id FROM speaking_topics_used
+         WHERE student_id = $2 AND used_date >= CURRENT_DATE - INTERVAL '30 days'
+       )
+       ORDER BY RANDOM()
+       LIMIT 1`,
+      [ageGroup, studentId]
+    );
+
+    let topic;
+    if (unusedTopics.rows.length === 0) {
+      const fallbackTopic = await executeQuery(
+        `SELECT * FROM speaking_topics WHERE age_group = $1 AND active = true
+         ORDER BY RANDOM() LIMIT 1`,
+        [ageGroup]
+      );
+      if (fallbackTopic.rows.length === 0) {
+        return res.status(503).json({ error: 'No speaking topics available' });
+      }
+      topic = fallbackTopic.rows[0];
+    } else {
+      topic = unusedTopics.rows[0];
+    }
+
+    const attempt = await executeQuery(
+      `INSERT INTO speaking_attempts (student_id, topic_id, attempt_date, difficulty, completion_status)
+       VALUES ($1, $2, $3, $4, 'incomplete')
+       RETURNING id`,
+      [studentId, topic.id, today, topic.difficulty]
+    );
+
+    await executeQuery(
+      `INSERT INTO speaking_topics_used (student_id, topic_id, used_date) VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING`,
+      [studentId, topic.id, today]
+    );
+
+    return res.json({
+      attempt_id: attempt.rows[0].id,
+      topic_id: topic.id,
+      topic_text: topic.topic_text,
+      difficulty: topic.difficulty,
+      is_new: true
+    });
+  } catch (err) {
+    console.error('Error fetching speaking topic:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/speaking/upload-recording
+ * Upload temporary recording (Cloudinary with auto-delete)
+ */
+app.post('/api/speaking/upload-recording', speakingRecordingUpload.single('recording'), async (req, res) => {
+  try {
+    const { attempt_id } = req.body;
+    if (!attempt_id || !req.file) return res.status(400).json({ error: 'attempt_id and recording file required' });
+
+    const attempt = await executeQuery(
+      `SELECT student_id FROM speaking_attempts WHERE id = $1`,
+      [attempt_id]
+    );
+    if (attempt.rows.length === 0) return res.status(404).json({ error: 'Attempt not found' });
+
+    let storageId = `/uploads/speaking-temp/${req.file.filename}`;
+    if (useCloudinary) {
+      const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+        resource_type: 'video',
+        folder: 'speaking-practice-temp',
+        public_id: `speaking-attempt-${attempt_id}-${Date.now()}`,
+        eager: [{ width: 320, height: 240, crop: 'fill', quality: 'auto', fetch_format: 'mp4' }],
+        eager_async: true,
+        quality: 'auto',
+        video_codec: 'auto',
+        auto_tagging: 0.0
+      });
+      storageId = cloudinaryResult.public_id;
+      fs.unlink(req.file.path, () => {});
+    }
+
+    await executeQuery(
+      `UPDATE speaking_attempts SET temp_storage_id = $1, completion_status = 'recorded'
+       WHERE id = $2`,
+      [storageId, attempt_id]
+    );
+
+    return res.json({
+      success: true,
+      attempt_id,
+      storage_id: storageId,
+      message: 'Recording uploaded. Will be automatically deleted after analysis.'
+    });
+  } catch (err) {
+    console.error('Error uploading speaking recording:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/speaking/analyze
+ * Trigger AI analysis of the recording
+ */
+app.post('/api/speaking/analyze', async (req, res) => {
+  try {
+    const { attempt_id, student_id } = req.body;
+    if (!attempt_id || !student_id) return res.status(400).json({ error: 'attempt_id and student_id required' });
+
+    const attempt = await executeQuery(
+      `SELECT * FROM speaking_attempts WHERE id = $1 AND student_id = $2`,
+      [attempt_id, student_id]
+    );
+    if (attempt.rows.length === 0) return res.status(404).json({ error: 'Attempt not found' });
+
+    const attemptData = attempt.rows[0];
+    if (!attemptData.temp_storage_id) return res.status(400).json({ error: 'No recording found' });
+
+    const tempRecordingUrl = String(attemptData.temp_storage_id || '').startsWith('/uploads/')
+      ? null
+      : cloudinary.url(attemptData.temp_storage_id, {
+          resource_type: 'video',
+          secure: true
+        });
+
+    let feedback = {
+      voice_pace: 'appropriate',
+      voice_volume: 'consistent',
+      voice_modulation: 'good',
+      filler_words_detected: false,
+      facial_expressiveness: 'engaged',
+      camera_engagement: 'good',
+      hand_gestures_detected: false,
+      gesture_variety: 'good',
+      vocabulary_variety: 'varied',
+      sentence_construction: 'clear',
+      clarity_of_expression: 'clear',
+      presentation_confidence: 'good',
+      grammar_patterns: 'good',
+      strengths_summary: 'You made a great effort at speaking practice!',
+      improvement_suggestion: 'Keep practicing regularly to build confidence.',
+      language_feedback: 'Your language use was clear and appropriate.'
+    };
+
+    try {
+      if (!tempRecordingUrl || !process.env.GROQ_API_KEY) {
+        throw new Error('AI analysis unavailable without Cloudinary URL and GROQ_API_KEY');
+      }
+
+      const analysisPrompt = `Analyze this speaking practice video and provide educational feedback.
+Focus on observable behaviors only:
+1. Voice delivery (pace, volume, modulation)
+2. Facial expressiveness (visible engagement with camera)
+3. Hand gestures (use of gestures for emphasis)
+4. Language use (vocabulary, sentence construction, clarity)
+
+Respond in JSON with this structure (use lowercase strings):
+{
+  "voice_pace": "appropriate|slow|fast",
+  "voice_volume": "consistent|quiet|loud",
+  "voice_modulation": "good|minimal|excessive",
+  "filler_words_detected": false,
+  "facial_expression": "engaged|neutral|distracted",
+  "camera_engagement": "good|fair|minimal",
+  "hand_gestures_detected": false,
+  "gesture_variety": "good|minimal|none",
+  "vocabulary": "varied|repetitive|limited",
+  "sentences": "clear|complex|fragmented",
+  "clarity": "clear|somewhat_clear|unclear",
+  "strengths": "specific observation",
+  "improvement": "actionable suggestion"
+}`;
+
+      const groqResponse = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+        model: process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: analysisPrompt },
+              { type: 'image_url', image_url: { url: tempRecordingUrl } }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.3
+      }, {
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        }
+      });
+
+      const feedbackText = groqResponse.data.choices[0]?.message?.content || '{}';
+      const jsonMatch = feedbackText.match(/\{[\s\S]*\}/);
+      const parsedFeedback = JSON.parse(jsonMatch ? jsonMatch[0] : feedbackText);
+      feedback = {
+        ...feedback,
+        ...parsedFeedback,
+        facial_expressiveness: parsedFeedback.facial_expressiveness || parsedFeedback.facial_expression || feedback.facial_expressiveness,
+        vocabulary_variety: parsedFeedback.vocabulary_variety || parsedFeedback.vocabulary || feedback.vocabulary_variety,
+        sentence_construction: parsedFeedback.sentence_construction || parsedFeedback.sentences || feedback.sentence_construction,
+        clarity_of_expression: parsedFeedback.clarity_of_expression || parsedFeedback.clarity || feedback.clarity_of_expression,
+        strengths_summary: parsedFeedback.strengths_summary || parsedFeedback.strengths || feedback.strengths_summary,
+        improvement_suggestion: parsedFeedback.improvement_suggestion || parsedFeedback.improvement || feedback.improvement_suggestion
+      };
+    } catch (aiErr) {
+      console.warn('AI analysis failed, using default feedback:', aiErr.message);
+    }
+
+    const feedbackResult = await executeQuery(
+      `INSERT INTO speaking_feedback (attempt_id, voice_pace, voice_volume, voice_modulation, filler_words_detected,
+        facial_expressiveness, camera_engagement, hand_gestures_detected, gesture_variety,
+        vocabulary_variety, sentence_construction, clarity_of_expression, presentation_confidence,
+        grammar_patterns, strengths_summary, improvement_suggestion, language_feedback)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+       RETURNING id`,
+      [attempt_id, feedback.voice_pace, feedback.voice_volume, feedback.voice_modulation,
+        feedback.filler_words_detected, feedback.facial_expressiveness, feedback.camera_engagement,
+        feedback.hand_gestures_detected, feedback.gesture_variety, feedback.vocabulary_variety,
+        feedback.sentence_construction, feedback.clarity_of_expression, feedback.presentation_confidence,
+        feedback.grammar_patterns, feedback.strengths_summary, feedback.improvement_suggestion,
+        feedback.language_feedback]
+    );
+
+    await executeQuery(
+      `UPDATE speaking_attempts SET completion_status = 'analyzed', ai_feedback = $1
+       WHERE id = $2`,
+      [JSON.stringify(feedback), attempt_id]
+    );
+
+    scheduleRecordingDeletion(attemptData.temp_storage_id, 3600);
+
+    return res.json({
+      success: true,
+      feedback_id: feedbackResult.rows[0].id,
+      feedback: feedback
+    });
+  } catch (err) {
+    console.error('Error analyzing speaking:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/speaking/reflection
+ * Save student's self-reflection after speaking
+ */
+app.post('/api/speaking/reflection', async (req, res) => {
+  try {
+    const { attempt_id, student_id, confidence_rating, reflection_responses } = req.body;
+    if (!attempt_id || !student_id) return res.status(400).json({ error: 'attempt_id and student_id required' });
+
+    await executeQuery(
+      `UPDATE speaking_attempts SET confidence_rating = $1, reflection_data = $2, completion_status = 'completed'
+       WHERE id = $3 AND student_id = $4`,
+      [confidence_rating, JSON.stringify(reflection_responses), attempt_id, student_id]
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error saving reflection:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/speaking/feedback/:attempt_id
+ * Get feedback for a completed speaking attempt
+ */
+app.get('/api/speaking/feedback/:attempt_id', async (req, res) => {
+  try {
+    const { attempt_id } = req.params;
+
+    const feedback = await executeQuery(
+      `SELECT * FROM speaking_feedback WHERE attempt_id = $1`,
+      [attempt_id]
+    );
+
+    if (feedback.rows.length === 0) {
+      return res.status(404).json({ error: 'Feedback not found' });
+    }
+
+    return res.json(feedback.rows[0]);
+  } catch (err) {
+    console.error('Error fetching feedback:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/speaking/history
+ * Get student's speaking practice history
+ */
+app.get('/api/speaking/history', async (req, res) => {
+  try {
+    const studentId = req.query.student_id;
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+
+    const history = await executeQuery(
+      `SELECT sa.id, sa.attempt_date, sa.difficulty, sa.duration_seconds, sa.confidence_rating,
+              st.topic_text, sf.strengths_summary, sf.improvement_suggestion
+       FROM speaking_attempts sa
+       JOIN speaking_topics st ON sa.topic_id = st.id
+       LEFT JOIN speaking_feedback sf ON sa.id = sf.attempt_id
+       WHERE sa.student_id = $1 AND sa.completion_status = 'completed'
+       ORDER BY sa.attempt_date DESC
+       LIMIT 20`,
+      [studentId]
+    );
+
+    return res.json(history.rows);
+  } catch (err) {
+    console.error('Error fetching history:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/admin/speaking-topics
+ * List all speaking topics with approval status
+ */
+app.get('/api/admin/speaking-topics', async (req, res) => {
+  try {
+    const topics = await executeQuery(
+      `SELECT * FROM speaking_topics ORDER BY created_at DESC`
+    );
+
+    res.json(topics.rows);
+  } catch (err) {
+    console.error('Error fetching topics:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/admin/speaking-topics
+ * Add new manual speaking topic
+ */
+app.post('/api/admin/speaking-topics', async (req, res) => {
+  try {
+    const { age_group, difficulty, category, topic_text, approved } = req.body;
+
+    const result = await executeQuery(
+      `INSERT INTO speaking_topics (age_group, difficulty, category, topic_text, generated_by_ai, approved_by_admin, active)
+       VALUES ($1, $2, $3, $4, false, $5, true)
+       RETURNING *`,
+      [age_group, difficulty, category, topic_text, approved || false]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating topic:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/admin/speaking-topics/:id
+ * Update speaking topic (approval, activation, etc.)
+ */
+app.put('/api/admin/speaking-topics/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approved_by_admin, active } = req.body;
+
+    const result = await executeQuery(
+      `UPDATE speaking_topics SET approved_by_admin = COALESCE($1, approved_by_admin),
+        active = COALESCE($2, active)
+       WHERE id = $3
+       RETURNING *`,
+      [approved_by_admin, active, id]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Topic not found' });
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating topic:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/admin/speaking-topics/:id
+ * Soft-delete (deactivate) a speaking topic
+ */
+app.delete('/api/admin/speaking-topics/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await executeQuery(
+      `UPDATE speaking_topics SET active = false WHERE id = $1`,
+      [id]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting topic:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

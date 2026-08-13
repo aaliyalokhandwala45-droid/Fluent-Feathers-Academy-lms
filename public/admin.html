@@ -421,6 +421,7 @@
         <button class="nav-btn" onclick="showTab('challenges', event)">🎯 <span>Challenges</span></button>
         <button class="nav-btn" onclick="showTab('quiz', event)">🧠 <span>Daily Quiz</span></button>
         <button class="nav-btn" onclick="showTab('resources', event)">📚 <span>Resources</span></button>
+        <button class="nav-btn" onclick="showTab('learningLab', event)">🧠 <span>Learning Lab</span></button>
         <button class="nav-btn" onclick="window.location.href='social-media-admin.html'">🎬 <span>Social Media</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
         <button class="nav-btn" onclick="showTab('financials', event)">💰 <span>Financial Reports</span></button>
@@ -505,6 +506,28 @@
         <button class="tab-btn" onclick="window.location.href='social-media-admin.html'">🎬 Social Media</button>
         <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
       </div>
+
+    <div id="learningLabTab" class="tab-content">
+      <div class="section">
+        <h2 style="margin: 0 0 10px; color: #B05D9E;">🧠 Learning Lab</h2>
+        <p style="color: #718096; margin: 0 0 20px;">Track the available learning activities and their rollout status for the parent portal.</p>
+        <div id="learningLabAdminOverview" style="display: grid; gap: 14px;"></div>
+        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <h3 style="margin:0; color:#2d3748;">🎤 Speaking Topics</h3>
+            <button onclick="loadSpeakingTopicsAdmin()" class="btn btn-primary">Refresh Topics</button>
+          </div>
+          <form id="speakingTopicForm" onsubmit="createSpeakingTopicAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
+            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="speakingTopicAge"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="speakingTopicDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Category</label><input id="speakingTopicCategory" type="text" placeholder="personal" required></div>
+            <div class="form-group" style="margin:0; grid-column:span 2;"><label>Topic</label><input id="speakingTopicTextInput" type="text" placeholder="Tell me about..." required></div>
+            <button class="btn btn-success" type="submit">Add Topic</button>
+          </form>
+          <div id="speakingTopicsAdminList" style="display:grid; gap:10px;"></div>
+        </div>
+      </div>
+    </div>
 
     <div id="upcomingTab" class="tab-content active">
       <div class="section">
@@ -4776,10 +4799,126 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
+      if (tabName === 'learningLab') { renderLearningLabAdminOverview(); loadSpeakingTopicsAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
       }
+    }
+
+    const LEARNING_LAB_ADMIN_MODULES = [
+      { id: 'phonics', name: 'Phonics Lab', icon: '🔤', status: 'coming-soon' },
+      { id: 'reading', name: 'Reading Zone', icon: '📖', status: 'coming-soon' },
+      { id: 'spell-bee', name: 'Spell Bee', icon: '🐝', status: 'coming-soon' },
+      { id: 'speaking', name: 'Speaking Practice', icon: '🎤', status: 'coming-soon' },
+      { id: 'vocabulary', name: 'Vocabulary Games', icon: '🧠', status: 'coming-soon' },
+      { id: 'writing', name: 'Writing Studio', icon: '✍️', status: 'coming-soon' }
+    ];
+
+    function renderLearningLabAdminOverview() {
+      const container = document.getElementById('learningLabAdminOverview');
+      if (!container) return;
+
+      const activeCount = LEARNING_LAB_ADMIN_MODULES.filter((module) => module.status === 'active').length;
+      const comingSoonCount = LEARNING_LAB_ADMIN_MODULES.filter((module) => module.status === 'coming-soon').length;
+
+      container.innerHTML = `
+        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:8px;">
+          <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border:1px solid #6ee7b7; color: #065f46; border-radius: 12px; padding: 10px 14px; font-weight:700;">✅ Active: ${activeCount}</div>
+          <div style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border:1px solid #fdba74; color: #9a5b00; border-radius: 12px; padding: 10px 14px; font-weight:700;">⏳ Coming Soon: ${comingSoonCount}</div>
+        </div>
+        ${LEARNING_LAB_ADMIN_MODULES.map((module) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:14px 16px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+              <div style="width:42px; height:42px; border-radius:12px; background: linear-gradient(135deg, #f9a8d4 0%, #c4b5fd 100%); display:flex; align-items:center; justify-content:center; font-size:1.4rem;">${module.icon}</div>
+              <div>
+                <div style="font-weight:700; color:#2d3748;">${module.name}</div>
+                <div style="font-size:0.8rem; color:#718096;">${module.status === 'active' ? 'Available to learners' : 'Planned rollout'}</div>
+              </div>
+            </div>
+            <span style="padding:6px 12px; border-radius:999px; font-size:0.78rem; font-weight:700; ${module.status === 'active' ? 'background:#dcfce7;color:#166534;' : 'background:#fef3c7;color:#92400e;'}">
+              ${module.status === 'active' ? 'Active' : 'Coming Soon'}
+            </span>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    async function loadSpeakingTopicsAdmin() {
+      const container = document.getElementById('speakingTopicsAdminList');
+      if (!container) return;
+      container.innerHTML = '<p style="color:#718096; margin:0;">Loading speaking topics...</p>';
+      try {
+        const res = await fetch('/api/admin/speaking-topics');
+        if (!res.ok) throw new Error('Failed to load speaking topics');
+        const topics = await res.json();
+        if (!topics.length) {
+          container.innerHTML = '<p style="color:#718096; margin:0;">No speaking topics yet.</p>';
+          return;
+        }
+        container.innerHTML = topics.map(topic => `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; background:${topic.active ? '#ffffff' : '#f8fafc'}; flex-wrap:wrap;">
+            <div style="min-width:220px; flex:1;">
+              <div style="font-weight:700; color:#2d3748;">${escapeHtml(topic.topic_text)}</div>
+              <div style="font-size:0.8rem; color:#718096; margin-top:4px;">${escapeHtml(topic.age_group)} • ${escapeHtml(topic.difficulty)} • ${escapeHtml(topic.category)}</div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <span style="padding:5px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; ${topic.approved_by_admin ? 'background:#dcfce7;color:#166534;' : 'background:#fef3c7;color:#92400e;'}">${topic.approved_by_admin ? 'Approved' : 'Pending'}</span>
+              <span style="padding:5px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; ${topic.active ? 'background:#dbeafe;color:#1d4ed8;' : 'background:#e5e7eb;color:#4b5563;'}">${topic.active ? 'Active' : 'Inactive'}</span>
+              <button class="btn btn-sm" onclick="toggleSpeakingTopicApproval(${Number(topic.id)}, ${!topic.approved_by_admin})" style="background:#667eea;color:white;">${topic.approved_by_admin ? 'Unapprove' : 'Approve'}</button>
+              <button class="btn btn-sm" onclick="toggleSpeakingTopicActive(${Number(topic.id)}, ${!topic.active})" style="background:#4a5568;color:white;">${topic.active ? 'Deactivate' : 'Activate'}</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<p style="color:#e53e3e; margin:0;">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    async function createSpeakingTopicAdmin(event) {
+      event.preventDefault();
+      const payload = {
+        age_group: document.getElementById('speakingTopicAge').value,
+        difficulty: document.getElementById('speakingTopicDifficulty').value,
+        category: document.getElementById('speakingTopicCategory').value.trim(),
+        topic_text: document.getElementById('speakingTopicTextInput').value.trim(),
+        approved: true
+      };
+      if (!payload.category || !payload.topic_text) return;
+      const res = await fetch('/api/admin/speaking-topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to add topic');
+        return;
+      }
+      document.getElementById('speakingTopicForm').reset();
+      loadSpeakingTopicsAdmin();
+    }
+
+    async function updateSpeakingTopicAdmin(id, updates) {
+      const res = await fetch(`/api/admin/speaking-topics/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to update topic');
+        return;
+      }
+      loadSpeakingTopicsAdmin();
+    }
+
+    function toggleSpeakingTopicApproval(id, approved) {
+      updateSpeakingTopicAdmin(id, { approved_by_admin: approved });
+    }
+
+    function toggleSpeakingTopicActive(id, active) {
+      updateSpeakingTopicAdmin(id, { active });
     }
 
     function showModalTab(tabName, e) {
