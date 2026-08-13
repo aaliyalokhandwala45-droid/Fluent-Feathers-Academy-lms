@@ -1367,7 +1367,7 @@
             </div>
 
             <!-- Video Preview -->
-            <video id="recordingPreview" style="width: 100%; height: auto; background: #000; border-radius: 12px; margin-bottom: 14px; max-height: 300px; display: none;"></video>
+            <video id="recordingPreview" autoplay muted playsinline style="width: 100%; height: auto; background: #000; border-radius: 12px; margin-bottom: 14px; max-height: 300px; display: none; object-fit: contain;"></video>
 
             <!-- Recording Controls -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px;">
@@ -3080,10 +3080,26 @@ setTimeout(() => {
       return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     }
 
+    async function showRecordingPreview(stream) {
+      const preview = document.getElementById('recordingPreview');
+      if (!preview) return;
+      preview.muted = true;
+      preview.autoplay = true;
+      preview.playsInline = true;
+      preview.srcObject = stream;
+      preview.style.display = stream.getVideoTracks().length > 0 ? 'block' : 'none';
+      if (stream.getVideoTracks().length > 0) {
+        try {
+          await preview.play();
+        } catch (err) {
+          console.warn('Live recording preview could not autoplay:', err.message);
+        }
+      }
+    }
+
     async function requestPermissions() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 320, height: 240 } });
-        document.getElementById('recordingPreview').srcObject = stream;
         document.getElementById('permissionPrompt').style.display = 'none';
         document.getElementById('startRecordBtn').style.display = 'block';
         stream.getTracks().forEach(track => track.stop());
@@ -3110,8 +3126,7 @@ setTimeout(() => {
         recordingStartTime = Date.now();
         recordingDurationInterval = setInterval(updateRecordingDuration, 100);
         document.getElementById('recordingIndicator').style.display = 'flex';
-        document.getElementById('recordingPreview').srcObject = stream;
-        document.getElementById('recordingPreview').style.display = 'block';
+        await showRecordingPreview(stream);
         document.getElementById('startRecordBtn').style.display = 'none';
         document.getElementById('stopRecordBtn').style.display = 'block';
         document.getElementById('pauseRecordBtn').style.display = 'block';
@@ -3158,7 +3173,12 @@ setTimeout(() => {
         document.getElementById('stopRecordBtn').style.display = 'none';
         document.getElementById('pauseRecordBtn').style.display = 'none';
         document.getElementById('resumeRecordBtn').style.display = 'none';
-        document.getElementById('recordingPreview').style.display = 'none';
+        const preview = document.getElementById('recordingPreview');
+        if (preview) {
+          preview.pause();
+          preview.srcObject = null;
+          preview.style.display = 'none';
+        }
       }
     }
 
