@@ -1298,8 +1298,9 @@
         <div class="section">
           <div class="learning-lab-hero">
             <h2>🧠 Learning Lab</h2>
-            <p style="margin: 0; color: #4a5568; line-height: 1.6;">A cozy hub for playful English practice, where your child can grow their reading, speaking, and writing confidence step by step.</p>
+            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Hub activities are coming soon. We are preparing speaking, writing, reading, and vocabulary practice for learners.</p>
           </div>
+          <div id="learningHubAccessNotice" style="display:none; background:#fffbeb; border:1px solid #fbbf24; color:#92400e; border-radius:12px; padding:12px 14px; margin:0 0 16px; font-weight:700;"></div>
           <div id="learningLabCards" class="learning-lab-grid"></div>
 
           <!-- Speaking Practice Lab Panel -->
@@ -3051,6 +3052,9 @@ setTimeout(() => {
       }
     }
 
+    const LEARNING_HUB_PARENT_LIVE = false;
+    const LEARNING_HUB_COMING_SOON_MESSAGE = 'Learning Hub is coming soon. We are preparing these activities and will make them live later.';
+
     const LEARNING_LAB_MODULES = [
       { id: 'phonics', name: 'Phonics Lab', icon: '🔤', description: 'Playful sound practice and letter-building games.', status: 'coming-soon' },
       { id: 'reading', name: 'Reading Zone', icon: '📖', description: 'Short stories and reading adventures to build confidence.', status: 'coming-soon' },
@@ -3060,32 +3064,124 @@ setTimeout(() => {
       { id: 'writing', name: 'Writing Studio', icon: '✍️', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' }
     ];
 
-    function renderLearningLabCards() {
+    let learningHubAccess = null;
+
+    function getLearningHubTaskAccess(moduleId) {
+      return learningHubAccess?.tasks?.[moduleId] || null;
+    }
+
+    function learningHubPriceLabel() {
+      return `$${Number(learningHubAccess?.monthly_price_usd || 5).toFixed(0)}/month`;
+    }
+
+    async function loadLearningHubAccess() {
+      if (!currentStudent?.id) return null;
+      try {
+        const res = await fetch(`/api/learning-hub/access?student_id=${currentStudent.id}`, {
+          headers: studentAuthHeaders()
+        });
+        if (!res.ok) return learningHubAccess;
+        learningHubAccess = await res.json();
+      } catch (err) {
+        console.warn('Could not load Learning Hub access:', err.message);
+      }
+      return learningHubAccess;
+    }
+
+    function updateLearningHubAccessNotice() {
+      const notice = document.getElementById('learningHubAccessNotice');
+      if (!notice) return;
+      if (!learningHubAccess) {
+        notice.style.display = 'none';
+        return;
+      }
+      const lockedTasks = ['speaking', 'writing'].filter(id => learningHubAccess.tasks?.[id]?.locked);
+      if (learningHubAccess.paid) {
+        notice.textContent = `Learning Hub subscription active. Speaking and Writing are unlocked.`;
+        notice.style.display = 'block';
+        notice.style.background = '#ecfdf5';
+        notice.style.borderColor = '#6ee7b7';
+        notice.style.color = '#065f46';
+        return;
+      }
+      notice.textContent = lockedTasks.length
+        ? `Free trial used for ${lockedTasks.map(id => id === 'speaking' ? 'Speaking' : 'Writing').join(' and ')}. Continue Learning Hub for ${learningHubPriceLabel()}.`
+        : `Free trial: 1 Speaking task and 1 Writing task included. Continue after that for ${learningHubPriceLabel()}.`;
+      notice.style.display = 'block';
+      notice.style.background = '#fffbeb';
+      notice.style.borderColor = '#fbbf24';
+      notice.style.color = '#92400e';
+    }
+
+    async function renderLearningLabCards() {
       const container = document.getElementById('learningLabCards');
       if (!container) return;
-
-      container.innerHTML = LEARNING_LAB_MODULES.map((module) => {
-        const isLocked = module.status === 'coming-soon';
-        const buttonAction = isLocked
-          ? "event.preventDefault(); alert('This Learning Lab activity is coming soon.')"
-          : `openLearningLabModule('${module.id}')`;
-        return `
-          <div class="learning-card ${isLocked ? 'locked' : ''}">
+      if (!LEARNING_HUB_PARENT_LIVE) {
+        const notice = document.getElementById('learningHubAccessNotice');
+        if (notice) {
+          notice.textContent = LEARNING_HUB_COMING_SOON_MESSAGE;
+          notice.style.display = 'block';
+          notice.style.background = '#f8fafc';
+          notice.style.borderColor = '#cbd5e1';
+          notice.style.color = '#475569';
+        }
+        container.innerHTML = LEARNING_LAB_MODULES.map((module) => `
+          <div class="learning-card locked">
             <div class="learning-card-top">
               <div class="learning-card-icon">${module.icon}</div>
-              <span class="learning-card-badge">${isLocked ? 'Coming Soon' : 'Active'}</span>
+              <span class="learning-card-badge">Coming Soon</span>
             </div>
             <h3>${module.name}</h3>
             <p>${module.description}</p>
-            <button class="${isLocked ? 'locked-btn' : 'primary'}" ${isLocked ? 'disabled' : ''} onclick="${buttonAction}">
-              ${isLocked ? 'Coming Soon' : 'Start'}
+            <button class="locked-btn" disabled onclick="event.preventDefault();">Coming Soon</button>
+          </div>
+        `).join('');
+        return;
+      }
+      await loadLearningHubAccess();
+      updateLearningHubAccessNotice();
+
+      container.innerHTML = LEARNING_LAB_MODULES.map((module) => {
+        const taskAccess = getLearningHubTaskAccess(module.id);
+        const isPayLocked = !!taskAccess?.locked;
+        const isLocked = module.status === 'coming-soon';
+        const buttonAction = isLocked
+          ? "event.preventDefault(); alert('This Learning Lab activity is coming soon.')"
+          : isPayLocked
+          ? `event.preventDefault(); showLearningHubPaywall('${module.id}')`
+          : `openLearningLabModule('${module.id}')`;
+        const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : taskAccess && !learningHubAccess?.paid ? 'Free Trial' : 'Active';
+        const helperText = isPayLocked
+          ? `Free trial used. Continue for ${learningHubPriceLabel()}.`
+          : taskAccess && !learningHubAccess?.paid
+          ? `${taskAccess.remaining_free} free task${taskAccess.remaining_free === 1 ? '' : 's'} left`
+          : module.description;
+        return `
+          <div class="learning-card ${isLocked || isPayLocked ? 'locked' : ''}">
+            <div class="learning-card-top">
+              <div class="learning-card-icon">${module.icon}</div>
+              <span class="learning-card-badge">${badgeText}</span>
+            </div>
+            <h3>${module.name}</h3>
+            <p>${helperText}</p>
+            <button class="${isLocked || isPayLocked ? 'locked-btn' : 'primary'}" ${isLocked ? 'disabled' : ''} onclick="${buttonAction}">
+              ${isLocked ? 'Coming Soon' : isPayLocked ? 'Unlock' : 'Start'}
             </button>
           </div>
         `;
       }).join('');
     }
 
+    function showLearningHubPaywall(moduleId) {
+      const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : 'Learning Hub';
+      alert(`${taskName} free trial is complete. Continue Learning Hub for ${learningHubPriceLabel()}.`);
+    }
+
     function openLearningLabModule(moduleId) {
+      if (!LEARNING_HUB_PARENT_LIVE) {
+        alert(LEARNING_HUB_COMING_SOON_MESSAGE);
+        return;
+      }
       const speakingPanel = document.getElementById('speakingLabPanel');
       const writingPanel = document.getElementById('writingStudioPanel');
       if (speakingPanel) speakingPanel.style.display = 'none';
@@ -3141,6 +3237,10 @@ setTimeout(() => {
         }
         const data = await res.json();
         currentWritingPrompt = data.prompt;
+        if (data.access) {
+          learningHubAccess = data.access;
+          updateLearningHubAccessNotice();
+        }
         document.getElementById('writingGenreBadge').textContent = `${currentWritingPrompt.genre || 'Creative Writing'} - ${currentWritingPrompt.difficulty || 'Practice'}`;
         document.getElementById('writingPromptText').textContent = currentWritingPrompt.prompt_text || 'Write a creative story.';
         const steps = Array.isArray(currentWritingPrompt.structure_steps) ? currentWritingPrompt.structure_steps : [];
@@ -3223,9 +3323,18 @@ setTimeout(() => {
               : `Uploading image ${progress.percent}%...`;
           }
         });
-        if (!res.ok) throw new Error(getUploadFailureMessage(res, 'Could not submit writing.'));
+        if (!res.ok) {
+          if (res.status === 402 || res.data?.paywall_required) {
+            await loadLearningHubAccess();
+            updateLearningHubAccessNotice();
+            renderLearningLabCards();
+            throw new Error(res.data?.error || `Free Writing Studio trial is complete. Continue for ${learningHubPriceLabel()}.`);
+          }
+          throw new Error(getUploadFailureMessage(res, 'Could not submit writing.'));
+        }
         displayWritingFeedback(res.data.feedback || {});
         await loadWritingHistory();
+        await renderLearningLabCards();
         status.style.display = 'none';
       } catch (err) {
         alert('Error submitting writing: ' + err.message);
@@ -3294,6 +3403,10 @@ setTimeout(() => {
         });
         if (!res.ok) return;
         const data = await res.json();
+        if (data.access) {
+          learningHubAccess = data.access;
+          updateLearningHubAccessNotice();
+        }
         currentAttemptId = data.attempt_id;
         document.getElementById('speakingTopicText').textContent = data.topic_text;
         document.getElementById('speakingDifficultyBadge').textContent = 
@@ -3305,9 +3418,12 @@ setTimeout(() => {
         }
         const limitNotice = document.getElementById('speakingLimitNotice');
         const startBtn = document.getElementById('startRecordBtn');
+        const paywallMessage = data.paywall_required
+          ? `Your free Speaking Practice trial is complete. Continue Learning Hub for ${learningHubPriceLabel()}.`
+          : 'You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.';
         if (data.limit_reached || !data.attempt_id) {
           if (limitNotice) {
-            limitNotice.textContent = 'You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.';
+            limitNotice.textContent = paywallMessage;
             limitNotice.style.display = 'block';
           }
           if (startBtn) {
@@ -3542,6 +3658,7 @@ setTimeout(() => {
         document.getElementById('uploadProgress').style.display = 'none';
         document.getElementById('recordingSection').style.display = 'none';
         document.getElementById('feedbackSection').style.display = 'block';
+        await renderLearningLabCards();
       } catch (err) {
         alert('Error submitting recording: ' + err.message);
         document.getElementById('uploadProgress').style.display = 'none';

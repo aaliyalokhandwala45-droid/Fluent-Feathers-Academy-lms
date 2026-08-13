@@ -33,6 +33,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEFAULT_CLASS = process.env.DEFAULT_CLASS_LINK || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
 const GROQ_TEXT_MODEL = String(process.env.GROQ_TEXT_MODEL || process.env.GROQ_MODEL || 'openai/gpt-oss-120b').trim();
 const DEFAULT_GROQ_VISION_MODEL = 'qwen/qwen3.6-27b';
+const LEARNING_HUB_MONTHLY_PRICE_USD = 5;
 const DEPRECATED_GROQ_MODEL_REPLACEMENTS = {
   'meta-llama/llama-4-scout-17b-16e-instruct': DEFAULT_GROQ_VISION_MODEL,
   'meta-llama/llama-4-maverick-17b-128e-instruct': 'openai/gpt-oss-120b',
@@ -3722,9 +3723,23 @@ async function runMigrations() {
         )
       `);
 
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS learning_hub_subscriptions (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          status VARCHAR(20) NOT NULL DEFAULT 'inactive' CHECK (status IN ('inactive', 'active', 'cancelled', 'expired')),
+          monthly_price_usd NUMERIC(8,2) NOT NULL DEFAULT 5.00,
+          starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_prompts_age_active ON writing_prompts(age_group, active)`);
       await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_submissions_student ON writing_submissions(student_id)`);
       await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_submissions_date ON writing_submissions(submission_date)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_learning_hub_subscriptions_student ON learning_hub_subscriptions(student_id, status)`);
 
       const writingPrompts = [
         {
@@ -25547,6 +25562,72 @@ async function seedWritingPromptsIfEmpty() {
   }
 }
 
+async function getLearningHubAccess(studentId) {
+  const subscriptionResult = await executeQuery(
+    `SELECT id, status, monthly_price_usd, starts_at, expires_at
+     FROM learning_hub_subscriptions
+     WHERE student_id = $1
+       AND status = 'active'
+       AND (expires_at IS NULL OR expires_at > NOW())
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [studentId]
+  );
+  const subscription = subscriptionResult.rows[0] || null;
+
+  const usageResult = await executeQuery(
+    `SELECT
+       (SELECT COUNT(*)::int FROM speaking_attempts
+        WHERE student_id = $1 AND completion_status IN ('recorded', 'analyzed', 'completed')) AS speaking_used,
+       (SELECT COUNT(*)::int FROM writing_submissions
+        WHERE student_id = $1) AS writing_used`,
+    [studentId]
+  );
+  const usage = usageResult.rows[0] || {};
+  const speakingUsed = Number(usage.speaking_used || 0);
+  const writingUsed = Number(usage.writing_used || 0);
+  const paid = !!subscription;
+
+  return {
+    paid,
+    monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
+    subscription,
+    tasks: {
+      speaking: { used: speakingUsed, free_limit: 1, remaining_free: paid ? null : Math.max(0, 1 - speakingUsed), locked: !paid && speakingUsed >= 1 },
+      writing: { used: writingUsed, free_limit: 1, remaining_free: paid ? null : Math.max(0, 1 - writingUsed), locked: !paid && writingUsed >= 1 }
+    }
+  };
+}
+
+function learningHubPaywallPayload(task, access) {
+  return {
+    error: `Your free ${task} trial is complete. Learning Hub costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month to continue.`,
+    code: 'LEARNING_HUB_PAYMENT_REQUIRED',
+    paywall_required: true,
+    monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
+    access
+  };
+}
+
+async function requireLearningHubTaskAccess(studentId, task) {
+  const access = await getLearningHubAccess(studentId);
+  if (access.paid || !access.tasks[task]?.locked) return { allowed: true, access };
+  return { allowed: false, access, payload: learningHubPaywallPayload(task, access) };
+}
+
+app.get('/api/learning-hub/access', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    const student = await executeQuery(`SELECT id FROM students WHERE id = $1`, [studentId]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    res.json(await getLearningHubAccess(studentId));
+  } catch (err) {
+    console.error('Error fetching Learning Hub access:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /**
  * GET /api/writing/today-prompt
  * Get today's Writing Studio prompt for a student
@@ -25598,7 +25679,8 @@ app.get('/api/writing/today-prompt', async (req, res) => {
 
     res.json({
       prompt: buildWritingPromptResponse(prompt),
-      submission: submitted.rows[0] || null
+      submission: submitted.rows[0] || null,
+      access: await getLearningHubAccess(studentId)
     });
   } catch (err) {
     console.error('Error fetching writing prompt:', err.message);
@@ -25620,6 +25702,8 @@ app.post('/api/writing/submit', handleUpload('image', 1, 'writing'), async (req,
     if (!studentId || !promptId) return res.status(400).json({ error: 'student_id and prompt_id required' });
     if (storyText.length < 80) return res.status(400).json({ error: 'Please write at least 80 characters before submitting.' });
     if (storyText.length > 12000) return res.status(400).json({ error: 'Story is too long. Please keep it under 12,000 characters.' });
+    const writingAccess = await requireLearningHubTaskAccess(studentId, 'writing');
+    if (!writingAccess.allowed) return res.status(402).json(writingAccess.payload);
     if (req.file) {
       const ext = path.extname(req.file.originalname || req.file.filename || '').toLowerCase();
       const mime = String(req.file.mimetype || '').toLowerCase();
@@ -25772,6 +25856,23 @@ app.get('/api/speaking/today-topic', async (req, res) => {
     let ageGroup = age < 8 ? 'young' : age < 12 ? 'intermediate' : 'advanced';
 
     const today = new Date().toISOString().split('T')[0];
+    const speakingAccess = await requireLearningHubTaskAccess(studentId, 'speaking');
+    if (!speakingAccess.allowed) {
+      return res.json({
+        attempt_id: null,
+        topic_id: null,
+        topic_text: `Your free speaking trial is complete. Learning Hub costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month to continue.`,
+        difficulty: 'locked',
+        is_new: false,
+        attempts_used: speakingAccess.access.tasks.speaking.used,
+        attempts_remaining: 0,
+        limit_reached: true,
+        paywall_required: true,
+        monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
+        access: speakingAccess.access
+      });
+    }
+
     const attemptLimitResult = await executeQuery(
       `SELECT COUNT(*)::int AS used_attempts
        FROM speaking_attempts
@@ -25901,6 +26002,8 @@ app.post('/api/speaking/upload-recording', speakingRecordingUpload.single('recor
     if (attemptRow.completion_status !== 'incomplete') {
       return res.status(400).json({ error: 'This speaking attempt was already submitted.' });
     }
+    const speakingAccess = await requireLearningHubTaskAccess(attemptRow.student_id, 'speaking');
+    if (!speakingAccess.allowed) return res.status(402).json(speakingAccess.payload);
 
     const recentAttempts = await executeQuery(
       `SELECT COUNT(*)::int AS used_attempts
