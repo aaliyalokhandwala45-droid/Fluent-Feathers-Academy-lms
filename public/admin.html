@@ -8346,6 +8346,10 @@ if (dueEl) {
         .replace(/'/g, '&#39;');
     }
 
+    function jsString(value) {
+      return JSON.stringify(String(value || '')).replace(/</g, '\\u003c');
+    }
+
     // ==================== RESCHEDULE FUNCTIONS ====================
     function openRescheduleModal() {
       const session = window.currentRescheduleSession;
@@ -12988,17 +12992,18 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                   const st = s.effective_status || s.status || 'In Progress';
                   if (statusCounts[st] !== undefined) statusCounts[st]++; else statusCounts['In Progress']++;
                 });
+                const defaultFilter = statusCounts.Submitted > 0 ? 'Submitted' : 'All';
                 const filterBtnStyle = (active, color) =>
                   `cursor:pointer; border:none; border-radius:20px; padding:5px 14px; font-size:0.78rem; font-weight:600; margin:0 3px; background:${active ? color : '#e2e8f0'}; color:${active ? 'white' : '#4a5568'}; transition:all 0.15s;`;
                 return `
                 <div id="csf-bar" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:14px; align-items:center;">
                   <span style="font-size:0.8rem; color:#718096; margin-right:4px;">Filter:</span>
-                  <button id="csf-All" style="${filterBtnStyle(true,'#667eea')}" onclick="filterChallengeStudents('All')">All <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.All}</span></button>
-                  ${statusCounts.Submitted > 0 ? `<button id="csf-Submitted" style="${filterBtnStyle(false,'#ed8936')}" onclick="filterChallengeStudents('Submitted')">📩 Submitted <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Submitted}</span></button>` : ''}
-                  ${statusCounts.Finished > 0 ? `<button id="csf-Finished" style="${filterBtnStyle(false,'#718096')}" onclick="filterChallengeStudents('Finished')">🏁 Finished <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Finished}</span></button>` : ''}
-                  ${statusCounts.Completed > 0 ? `<button id="csf-Completed" style="${filterBtnStyle(false,'#38a169')}" onclick="filterChallengeStudents('Completed')">✅ Completed <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Completed}</span></button>` : ''}
-                  ${statusCounts['Not Approved'] > 0 ? `<button id="csf-Not Approved" style="${filterBtnStyle(false,'#e53e3e')}" onclick="filterChallengeStudents('Not Approved')">❌ Not Approved <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts['Not Approved']}</span></button>` : ''}
-                  ${statusCounts['In Progress'] > 0 ? `<button id="csf-In Progress" style="${filterBtnStyle(false,'#3182ce')}" onclick="filterChallengeStudents('In Progress')">⏳ Not Started <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts['In Progress']}</span></button>` : ''}
+                  <button id="csf-All" style="${filterBtnStyle(defaultFilter === 'All','#667eea')}" onclick="filterChallengeStudents('All')">All <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.All}</span></button>
+                  ${statusCounts.Submitted > 0 ? `<button id="csf-Submitted" style="${filterBtnStyle(defaultFilter === 'Submitted','#ed8936')}" onclick="filterChallengeStudents('Submitted')">📩 Submitted <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Submitted}</span></button>` : ''}
+                  ${statusCounts.Finished > 0 ? `<button id="csf-Finished" style="${filterBtnStyle(defaultFilter === 'Finished','#718096')}" onclick="filterChallengeStudents('Finished')">🏁 Finished <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Finished}</span></button>` : ''}
+                  ${statusCounts.Completed > 0 ? `<button id="csf-Completed" style="${filterBtnStyle(defaultFilter === 'Completed','#38a169')}" onclick="filterChallengeStudents('Completed')">✅ Completed <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts.Completed}</span></button>` : ''}
+                  ${statusCounts['Not Approved'] > 0 ? `<button id="csf-Not Approved" style="${filterBtnStyle(defaultFilter === 'Not Approved','#e53e3e')}" onclick="filterChallengeStudents('Not Approved')">❌ Not Approved <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts['Not Approved']}</span></button>` : ''}
+                  ${statusCounts['In Progress'] > 0 ? `<button id="csf-In Progress" style="${filterBtnStyle(defaultFilter === 'In Progress','#3182ce')}" onclick="filterChallengeStudents('In Progress')">⏳ Not Started <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:0 5px;">${statusCounts['In Progress']}</span></button>` : ''}
                 </div>
                 <table id="csf-table" style="width: 100%; border-collapse: collapse;">
                   <thead>
@@ -13020,6 +13025,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                       // Build submission file display
                       if (s.submission_file_path) {
                         const fname = s.submission_file_name || 'Submission';
+                        const visibleFname = fname.length > 20 ? fname.substring(0,20) + '...' : fname;
                         const ext = fname.split('.').pop().toLowerCase();
                         const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
                         const isVideo = ['mp4','mov','avi','webm'].includes(ext);
@@ -13034,10 +13040,10 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                         }
 
                         submissionCol = '<div style="display:flex; flex-direction:column; gap:4px; align-items:center;">' +
-                          '<span style="font-size:0.8rem; color:#4a5568;">' + fileIcon + ' ' + (fname.length > 20 ? fname.substring(0,20) + '...' : fname) + '</span>' +
+                          '<span style="font-size:0.8rem; color:#4a5568;">' + fileIcon + ' ' + escapeHtml(visibleFname) + '</span>' +
                           '<div style="display:flex; gap:4px;">' +
-                            '<button onclick="previewFile(\'' + fileUrl + '\', \'' + fileType + '\', decodeURIComponent(\'' + encodeURIComponent(fname) + '\'))" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px;">View</button>' +
-                            '<button onclick="downloadFileFromUrl(\'' + fileUrl.replace(/'/g, "\\'") + '\', decodeURIComponent(\'' + encodeURIComponent(fname) + '\'))" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px;">⬇️ Download</button>' +
+                            '<button onclick="previewFile(' + jsString(fileUrl) + ', ' + jsString(fileType) + ', ' + jsString(fname) + ')" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px;">View</button>' +
+                            '<button onclick="downloadFileFromUrl(' + jsString(fileUrl) + ', ' + jsString(fname) + ')" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px;">⬇️ Download</button>' +
                           '</div>' +
                         '</div>';
                       }
@@ -13062,11 +13068,12 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                         actionBtn = '<button onclick="markChallengeComplete(' + challengeId + ', ' + s.student_id + ', decodeURIComponent(\'' + encodeURIComponent(s.student_name) + '\'), decodeURIComponent(\'' + encodeURIComponent(badgeReward) + '\'))" class="btn btn-sm" style="background: #718096; color: white;">✅ Mark Complete</button>';
                       }
 
-                      return '<tr class="' + rowClass + '" data-status="' + effectiveStatus + '">' +
+                      const initialDisplay = defaultFilter === 'All' || effectiveStatus === defaultFilter ? '' : ' style="display:none;"';
+                      return '<tr class="' + rowClass + '" data-status="' + effectiveStatus + '"' + initialDisplay + '>' +
                         '<td style="padding: 12px;">' +
-                          '<strong>' + s.student_name + '</strong>' +
+                          '<strong>' + escapeHtml(s.student_name) + '</strong>' +
                           (effectiveStatus === 'Submitted' ? ' <span class="needs-review-badge">NEEDS REVIEW</span>' : '') +
-                          '<br><small style="color: #718096;">' + (s.program_name || '') + '</small>' +
+                          '<br><small style="color: #718096;">' + escapeHtml(s.program_name || '') + '</small>' +
                         '</td>' +
                         '<td style="padding: 12px; text-align: center;">' + statusBadge + '</td>' +
                         '<td style="padding: 12px; text-align: center;">' + submissionCol + '</td>' +
