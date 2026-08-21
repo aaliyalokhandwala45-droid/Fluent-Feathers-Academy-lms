@@ -12698,7 +12698,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                   ${c.submitted_count > 0 ? `<span style="background: #e53e3e; color: white; padding: 4px 8px; border-radius: 50%; font-size: 0.75rem; font-weight: bold;">${c.submitted_count}</span>` : ''}
                   <button onclick="copyPublicChallengeLink(${jsString(publicLink)})" class="btn btn-sm" style="background: #0f766e; color: white;">🔗 Copy Public Link</button>
                   <button onclick="viewPublicChallengeEntries(${c.id}, ${jsString(c.title)})" class="btn btn-sm" style="background: #14b8a6; color: white;">🌐 Public Entries (${c.public_entry_count || 0})</button>
-                  <button onclick="viewChallengeStudents(${c.id}, ${jsString(c.title)}, ${jsString(badgeReward)})" class="btn btn-sm ${c.submitted_count > 0 ? 'btn-challenge-review' : 'btn-challenge-track'}">${c.submitted_count > 0 ? '🔔 Review Submissions' : '👥 Track Progress'}</button>
+                  <button type="button" onclick="openChallengeStudentsById(${c.id}); return false;" data-challenge-id="${c.id}" class="btn btn-sm ${c.submitted_count > 0 ? 'btn-challenge-review' : 'btn-challenge-track'}" style="position:relative; z-index:2; pointer-events:auto;">${c.submitted_count > 0 ? '🔔 Review Submissions' : '👥 Track Progress'}</button>
                   <button onclick="openEditChallengeModal(${c.id})" class="btn btn-sm" style="background: #2d3748; color: white;">✏️ Edit</button>
                   <button onclick="extendChallenge(${c.id}, '${c.week_end}')" class="btn btn-sm" style="background: #667eea; color: white;">📅 Edit End</button>
                   <button onclick="deleteChallenge(${c.id})" class="btn btn-sm" style="background: #e53e3e; color: white;">🗑️</button>
@@ -12707,6 +12707,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             </div>
           `;
         }).join('');
+
       } catch (err) {
         console.error('Error loading challenges:', err);
         document.getElementById('challengesList').innerHTML = '<p style="color: #e53e3e; text-align: center;">Error loading challenges</p>';
@@ -12962,12 +12963,21 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       });
     }
 
+    function openChallengeStudentsById(challengeIdValue) {
+      const challengeId = Number(challengeIdValue);
+      const challenge = (window.challengeCache || []).find(item => Number(item.id) === challengeId);
+      const title = challenge && challenge.title ? challenge.title : 'Challenge';
+      const reward = challenge && challenge.badge_reward ? challenge.badge_reward : '🎯 Challenge Champion';
+      viewChallengeStudents(challengeId, title, reward);
+    }
+
     // View Challenge Students - Track who completed
     async function viewChallengeStudents(challengeId, challengeTitle, badgeReward) {
       currentChallengeTitle = challengeTitle; // Store for refresh
       try {
         const res = await fetch(`/api/challenges/${challengeId}/students`);
         const students = await res.json();
+        if (!res.ok) throw new Error(students.error || 'Failed to load challenge students');
 
         // Create modal
         const existingModal = document.getElementById('challengeStudentsModal');
