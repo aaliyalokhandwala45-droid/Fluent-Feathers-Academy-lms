@@ -13052,7 +13052,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                         submissionCol = '<div style="display:flex; flex-direction:column; gap:4px; align-items:center;">' +
                           '<span style="font-size:0.8rem; color:#4a5568;">' + fileIcon + ' ' + escapeHtml(visibleFname) + '</span>' +
                           '<div style="display:flex; gap:4px;">' +
-                            '<button onclick="previewFile(' + jsString(fileUrl) + ', ' + jsString(fileType) + ', ' + jsString(fname) + ')" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px;">View</button>' +
+                            '<a href="' + escapeHtml(fileUrl) + '" target="_blank" rel="noopener" class="btn btn-sm" style="background:#9f7aea; color:white; font-size:0.75rem; padding:3px 8px; text-decoration:none;">View</a>' +
                             '<button onclick="downloadFileFromUrl(' + jsString(fileUrl) + ', ' + jsString(fname) + ')" class="btn btn-sm" style="background:#667eea; color:white; font-size:0.75rem; padding:3px 8px;">⬇️ Download</button>' +
                           '</div>' +
                         '</div>';
