@@ -1,4 +1,4 @@
-
+﻿
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -846,19 +846,19 @@
       </div>
 
       <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('upcoming', event)"> Upcoming</button>
-        <button class="tab-btn" onclick="showTab('past', event)"> Past Classes</button>
-        <button class="tab-btn" onclick="showTab('makeup', event)"> Makeup</button>
-        <button class="tab-btn" onclick="showTab('assessments', event)"> Report Cards</button>
-        <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)"> Challenges<span class="red-dot" id="dotChallenges"></span></button>
-        <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)"> Resources<span class="red-dot" id="dotResources"></span></button>
-        <button class="tab-btn" onclick="showTab('learningLab', event)"> Learning Lab</button>
-        <button class="tab-btn" onclick="showTab('pointsTracker', event)"> Points Tracker</button>
-        <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)"> Achievements<span class="red-dot" id="dotAchievements"></span></button>
-        <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)"> News<span class="red-dot" id="dotAnnouncements"></span></button>
-        <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)"> Events<span class="red-dot" id="dotEvents"></span></button>
-        <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)"> Payments<span class="red-dot" id="dotPayments"></span></button>
-        <button class="tab-btn" onclick="showTab('profile', event)"> Profile / Expectations</button>
+        <button class="tab-btn active" onclick="showTab('upcoming', event)">&#128197; Upcoming</button>
+        <button class="tab-btn" onclick="showTab('past', event)">&#128218; Past Classes</button>
+        <button class="tab-btn" onclick="showTab('makeup', event)">&#127873; Makeup</button>
+        <button class="tab-btn" onclick="showTab('assessments', event)">&#128202; Report Cards</button>
+        <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">&#127919; Challenges<span class="red-dot" id="dotChallenges"></span></button>
+        <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">&#128218; Resources<span class="red-dot" id="dotResources"></span></button>
+        <button class="tab-btn" onclick="showTab('learningLab', event)">&#129504; Learning Lab</button>
+        <button class="tab-btn" onclick="showTab('pointsTracker', event)">&#11088; Points Tracker</button>
+        <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">&#127942; Achievements<span class="red-dot" id="dotAchievements"></span></button>
+        <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">&#128226; News<span class="red-dot" id="dotAnnouncements"></span></button>
+        <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">&#127881; Events<span class="red-dot" id="dotEvents"></span></button>
+        <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">&#128179; Payments<span class="red-dot" id="dotPayments"></span></button>
+        <button class="tab-btn" onclick="showTab('profile', event)">&#128100; Profile / Expectations</button>
       </div>
 
       <div id="upcomingTab" class="tab-content active">
@@ -1296,15 +1296,15 @@
       <div id="learningLabTab" class="tab-content">
         <div class="section">
           <div class="learning-lab-hero">
-            <h2> Learning Lab</h2>
-            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Hub activities are coming soon. We are preparing speaking, writing, reading, and vocabulary practice for learners.</p>
+            <h2>&#129504; Learning Lab</h2>
+            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Lab includes Daily Quiz, Vocabulary, Spelling Bee, Speaking Practice, and Writing Studio. Pay $5/month for the full Learning Lab subscription after the free trial. Contact your teacher to activate Learning Lab access.</p>
           </div>
           <div id="learningHubAccessNotice" style="display:none; background:#fffbeb; border:1px solid #fbbf24; color:#92400e; border-radius:12px; padding:12px 14px; margin:0 0 16px; font-weight:700;"></div>
           <div id="learningLabCards" class="learning-lab-grid"></div>
 
           <div id="vocabularyLabPanel" style="display:none; margin-top:24px;">
             <div style="background:#ecfeff;border:1.5px solid #67e8f9;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <h2 style="margin:0 0 8px;color:#155e75;"> Vocabulary Lab</h2>
+              <h2 style="margin:0 0 8px;color:#155e75;">&#128218; Vocabulary Lab</h2>
               <p style="margin:0;color:#0f766e;line-height:1.5;">Learn one new word every day, practise its meaning, and write your own sentence.</p>
             </div>
             <div id="vocabularyWordCard" style="background:white;border:2px solid #e5e7eb;border-radius:16px;padding:20px;margin-bottom:16px;">
@@ -1326,7 +1326,7 @@
 
           <div id="spellingBeePanel" style="display:none; margin-top:24px;">
             <div style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <h2 style="margin:0 0 8px;color:#9a3412;"> Spelling Bee</h2>
+              <h2 style="margin:0 0 8px;color:#9a3412;">&#128288; Spelling Bee</h2>
               <p style="margin:0;color:#9a3412;line-height:1.5;">Listen to the word, read the clue, and type the spelling.</p>
             </div>
             <div id="spellingGame" style="background:white;border:2px solid #e5e7eb;border-radius:16px;padding:20px;margin-bottom:16px;">
@@ -3091,15 +3091,15 @@ setTimeout(() => {
     }
 
     let learningHubSettings = { live: false, fees_enabled: true, monthly_price_usd: 5 };
-    const LEARNING_HUB_COMING_SOON_MESSAGE = 'Learning Hub is coming soon. We are preparing these activities and will make them live later.';
+    const LEARNING_HUB_COMING_SOON_MESSAGE = 'Learning Lab is coming soon. Contact your teacher for Learning Lab subscription details.';
 
     const LEARNING_LAB_MODULES = [
-      { id: 'quiz', name: 'Daily Quiz', icon: 'Quiz', description: 'Daily English questions for grammar, vocabulary, spelling, and punctuation.', status: 'active' },
-      { id: 'reading', name: 'Reading Zone', icon: '', description: 'Short stories and reading adventures to build confidence.', status: 'coming-soon' },
-      { id: 'spelling', name: 'Spelling Bee', icon: '', description: 'Listen, spell, and master tricky words.', status: 'active' },
-      { id: 'speaking', name: 'Speaking Practice', icon: '', description: 'Record a short answer, review it, and get speaking feedback.', status: 'active' },
-      { id: 'vocabulary', name: 'Vocabulary Games', icon: '', description: 'Daily word practice with meaning, sentence, and synonym games.', status: 'active' },
-      { id: 'writing', name: 'Writing Studio', icon: '', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' }
+      { id: 'quiz', name: 'Daily Quiz', icon: '&#129504;', description: 'Daily English questions for grammar, vocabulary, spelling, and punctuation.', status: 'active' },
+      { id: 'spelling', name: 'Spelling Bee', icon: '&#128288;', description: 'Listen, spell, and master tricky words.', status: 'active' },
+      { id: 'speaking', name: 'Speaking Practice', icon: '&#127908;', description: 'Record a short answer and get speaking feedback.', status: 'active' },
+      { id: 'vocabulary', name: 'Vocabulary Games', icon: '&#128218;', description: 'Daily word practice with meaning, sentence, and synonym games.', status: 'active' },
+      { id: 'writing', name: 'Writing Studio', icon: '&#9997;', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' },
+      { id: 'reading', name: 'Reading Zone', icon: '&#128214;', description: 'Short stories and reading adventures to build confidence.', status: 'coming-soon' }
     ];
 
     let learningHubAccess = null;
@@ -3151,7 +3151,7 @@ setTimeout(() => {
       }
       const lockedTasks = ['quiz', 'vocabulary', 'spelling', 'speaking', 'writing'].filter(id => learningHubAccess.tasks?.[id]?.locked);
       if (!learningHubAccess.fees_enabled) {
-        notice.textContent = 'Learning Hub is live with fees off. All available activities are open.';
+        notice.textContent = 'Learning Lab is live with fees off. All available activities are open.';
         notice.style.display = 'block';
         notice.style.background = '#ecfdf5';
         notice.style.borderColor = '#6ee7b7';
@@ -3159,7 +3159,7 @@ setTimeout(() => {
         return;
       }
       if (learningHubAccess.paid) {
-        notice.textContent = `Learning Hub subscription active. Daily Quiz, Vocabulary, Spelling Bee, Speaking and Writing are unlocked.`;
+        notice.textContent = `Learning Lab subscription active. Daily Quiz, Vocabulary, Spelling Bee, Speaking and Writing are unlocked.`;
         notice.style.display = 'block';
         notice.style.background = '#ecfdf5';
         notice.style.borderColor = '#6ee7b7';
@@ -3167,8 +3167,8 @@ setTimeout(() => {
         return;
       }
       notice.textContent = lockedTasks.length
-        ? `Free trial used for ${lockedTasks.map(id => id === 'speaking' ? 'Speaking' : id === 'writing' ? 'Writing' : id === 'quiz' ? 'Daily Quiz' : id === 'vocabulary' ? 'Vocabulary' : 'Spelling Bee').join(', ')}. Continue Learning Hub for ${learningHubPriceLabel()}.`
-        : `Free trial: 1 task each for Daily Quiz, Vocabulary, Spelling Bee, Speaking and Writing. Continue after that for ${learningHubPriceLabel()}.`;
+        ? `Free trial used. Learning Lab is $5/month for full access to all activities. Contact your teacher for Learning Lab subscription.`
+        : `Free trial: 1 task each for Daily Quiz, Vocabulary, Spelling Bee, Speaking and Writing. After that, Learning Lab is $5/month for full access to all activities. Contact your teacher for subscription.`;
       notice.style.display = 'block';
       notice.style.background = '#fffbeb';
       notice.style.borderColor = '#fbbf24';
@@ -3191,7 +3191,7 @@ setTimeout(() => {
         container.innerHTML = LEARNING_LAB_MODULES.map((module) => `
           <div class="learning-card locked">
             <div class="learning-card-top">
-              <div class="learning-card-icon">${module.icon}</div>
+              <div class="learning-card-icon" style="background:transparent;box-shadow:none;border:none;width:auto;height:auto;font-size:2rem;">${module.icon}</div>
               <span class="learning-card-badge">Coming Soon</span>
             </div>
             <h3>${module.name}</h3>
@@ -3215,14 +3215,14 @@ setTimeout(() => {
           : `openLearningLabModule('${module.id}')`;
         const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : taskAccess && learningHubAccess?.fees_enabled && !learningHubAccess?.paid ? 'Free Trial' : 'Active';
         const helperText = isPayLocked
-          ? `Free trial used. Continue for ${learningHubPriceLabel()}.`
+          ? `Free trial used. Learning Lab is $5/month for full access.`
           : taskAccess && !learningHubAccess?.paid
           ? `${taskAccess.remaining_free} free task${taskAccess.remaining_free === 1 ? '' : 's'} left`
           : module.description;
         return `
           <div class="learning-card ${isLocked || isPayLocked ? 'locked' : ''}">
             <div class="learning-card-top">
-              <div class="learning-card-icon">${module.icon}</div>
+              <div class="learning-card-icon" style="background:transparent;box-shadow:none;border:none;width:auto;height:auto;font-size:2rem;">${module.icon}</div>
               <span class="learning-card-badge">${badgeText}</span>
             </div>
             <h3>${module.name}</h3>
@@ -3237,7 +3237,7 @@ setTimeout(() => {
 
     function showLearningHubPaywall(moduleId) {
       const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : moduleId === 'quiz' ? 'Daily Quiz' : moduleId === 'vocabulary' ? 'Vocabulary Games' : moduleId === 'spelling' ? 'Spelling Bee' : 'Learning Hub';
-      alert(`${taskName} free trial is complete. Continue Learning Hub for ${learningHubPriceLabel()}.`);
+      alert(`${taskName} free trial is complete. Learning Lab is $5/month for full access. Contact your teacher for subscription.`);
     }
 
     // ============================================================================
@@ -3671,7 +3671,7 @@ setTimeout(() => {
         const limitNotice = document.getElementById('speakingLimitNotice');
         const startBtn = document.getElementById('startRecordBtn');
         const paywallMessage = data.paywall_required
-          ? `Your free Speaking Practice trial is complete. Continue Learning Hub for ${learningHubPriceLabel()}.`
+          ? `Your free Speaking Practice trial is complete. Learning Lab is $5/month for full access. Contact your teacher for subscription.`
           : 'You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.';
         if (data.limit_reached || !data.attempt_id) {
           if (limitNotice) {
@@ -7889,6 +7889,12 @@ setTimeout(() => {
     // Start the daily quiz
     async function startQuiz() {
       try {
+        await loadLearningHubAccess();
+        const quizAccess = learningHubAccess?.tasks?.quiz;
+        if (learningHubAccess?.fees_enabled && quizAccess?.locked) {
+          alert('Your free Daily Quiz trial is complete. Learning Lab is $5/month for full access. Contact your teacher for subscription.');
+          return;
+        }
         const selectedLevel = document.getElementById('dailyQuizLevelSelect')?.value || 'beginner';
         const response = await fetch('/api/daily-quiz/start', {
           method: 'POST',
@@ -8402,6 +8408,8 @@ setTimeout(() => {
   </footer>
 </body>
 </html>
+
+
 
 
 

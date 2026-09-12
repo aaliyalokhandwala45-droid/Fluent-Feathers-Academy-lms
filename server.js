@@ -25859,6 +25859,7 @@ async function getLearningHubAccess(studentId) {
     [studentId]
   );
   const usage = usageResult.rows[0] || {};
+  const quizUsed = Number(usage.quiz_used || 0);
   const speakingUsed = Number(usage.speaking_used || 0);
   const writingUsed = Number(usage.writing_used || 0);
   const phonicsUsed = Number(usage.phonics_used || 0);
@@ -27355,6 +27356,7 @@ app.listen(PORT, () => {
     backfillQuizChampionBadges();
   }, 2000); // Wait 2 seconds after startup
 });
+
 
 
 
