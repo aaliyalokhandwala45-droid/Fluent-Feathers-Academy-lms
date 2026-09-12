@@ -532,6 +532,22 @@
         <div id="learningLabAdminOverview" style="display: grid; gap: 14px;"></div>
         <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <div>
+              <h3 style="margin:0; color:#2d3748;">Learning Lab Subscriptions</h3>
+              <p style="margin:4px 0 0; color:#718096; font-size:0.9rem;">Activate $5/month access for one student. Access automatically stops after the expiry date.</p>
+            </div>
+            <button type="button" onclick="loadLearningLabSubscriptions(true)" class="btn btn-primary">Refresh Subscriptions</button>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 120px auto;gap:10px;align-items:end;margin-bottom:14px;">
+            <div class="form-group" style="margin:0;"><label>Select Student</label><select id="learningLabSubscriptionStudent"><option value="">Select student...</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Months</label><input id="learningLabSubscriptionMonths" type="number" min="1" max="12" value="1"></div>
+            <button type="button" onclick="activateLearningLabSubscription()" class="btn btn-success">Activate Access</button>
+          </div>
+          <div id="learningLabSubscriptionStatus" style="color:#718096;font-size:0.9rem;margin-bottom:10px;">Enter admin password when prompted to load subscription status.</div>
+          <div id="learningLabSubscriptionsList" style="display:grid;gap:10px;"></div>
+        </div>
+        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
             <h3 style="margin:0; color:#2d3748;">🎤 Speaking Topics</h3>
             <button onclick="loadSpeakingTopicsAdmin()" class="btn btn-primary">Refresh Topics</button>
           </div>
@@ -587,6 +603,25 @@
       </div>
     </div>
 
+        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <h3 style="margin:0; color:#2d3748;">📖 Reading Stories</h3>
+            <button onclick="loadReadingStoriesAdmin()" class="btn btn-primary">Refresh Stories</button>
+          </div>
+          <form id="readingStoryForm" onsubmit="saveReadingStoryAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
+            <input type="hidden" id="readingStoryId">
+            <div class="form-group" style="margin:0;"><label>Title</label><input id="readingTitle" type="text" required placeholder="The Rainy Day Plan"></div>
+            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="readingAgeGroup"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="readingDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Category</label><input id="readingCategory" type="text" required placeholder="comprehension"></div>
+            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Story Text</label><textarea id="readingStoryTextInput" rows="5" required placeholder="Paste the short story here..."></textarea></div>
+            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Moral / Teaching Point</label><input id="readingMoral" type="text" placeholder="Optional"></div>
+            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Questions JSON</label><textarea id="readingQuestionsJson" rows="8" required></textarea><small>Use question types: inference, grammar, vocabulary, reference_context, contextual_clues.</small></div>
+            <button class="btn btn-success" type="submit">Save Story</button>
+            <button class="btn" type="button" onclick="resetReadingStoryForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
+          </form>
+          <div id="readingStoriesAdminList" style="display:grid; gap:10px;"></div>
+        </div>
     <div id="upcomingTab" class="tab-content active">
       <div class="section">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -1606,12 +1641,11 @@
                 <th style="padding: 15px; text-align: center;">Total Points</th>
                 <th style="padding: 15px; text-align: center;">Homework Pts</th>
                 <th style="padding: 15px; text-align: center;">Challenge Pts</th>
-                <th style="padding: 15px; text-align: center;">Daily Quiz Pts</th>
                 <th style="padding: 15px; text-align: center;">Badge Pts</th>
               </tr>
             </thead>
             <tbody id="leaderboardBody">
-              <tr><td colspan="7" style="text-align: center; padding: 30px; color: #718096;">Loading...</td></tr>
+              <tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1707,7 +1741,7 @@
     <div id="quizTab" class="tab-content">
       <div class="section">
         <h2>🧠 Daily Quiz Management</h2>
-        <p style="color: #718096; margin-bottom: 20px;">Create and manage daily English quizzes for students. Questions rotate daily with score-based points.</p>
+        <p style="color: #718096; margin-bottom: 20px;">Create and manage daily English quizzes for students. Questions rotate daily as Learning Lab practice only.</p>
 
         <!-- Quiz Stats -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
@@ -4857,7 +4891,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
-      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadSpeakingTopicsAdmin(); loadVocabularyWordsAdmin(); loadSpellingWordsAdmin(); }
+      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadVocabularyWordsAdmin(); loadSpellingWordsAdmin(); loadReadingStoriesAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
@@ -4869,7 +4903,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       { id: 'spelling', name: 'Spelling Bee', icon: '🔠', status: 'active' },
       { id: 'speaking', name: 'Speaking Practice', icon: '🎤', status: 'active' },
       { id: 'writing', name: 'Writing Studio', icon: '✍️', status: 'active' },
-      { id: 'reading', name: 'Reading Zone', icon: '📖', status: 'coming-soon' }
+      { id: 'reading', name: 'Reading Zone', icon: '📖', status: 'active' }
     ];
 
     function renderLearningLabAdminOverview() {
@@ -12803,7 +12837,6 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
               </td>
               <td style="padding: 15px; text-align: center; color: #3182ce; font-weight: 600;">${student.homework_points || 0}</td>
               <td style="padding: 15px; text-align: center; color: #9f7aea; font-weight: 600;">${student.challenge_points || 0}</td>
-              <td style="padding: 15px; text-align: center; color: #d69e2e; font-weight: 600;">${student.quiz_points || 0}</td>
               <td style="padding: 15px; text-align: center; color: #38a169; font-weight: 600;">${student.badge_points || 0}</td>
             </tr>
           `;
@@ -17293,6 +17326,170 @@ function initializeQuizTab() {
       } catch (err) {
         alert('Error updating Learning Hub setting: ' + err.message);
       }
+    }
+
+    function getLearningLabAdminPassword(forcePrompt = false) {
+      let pass = sessionStorage.getItem('learningLabAdminPassword') || '';
+      if (forcePrompt || !pass) {
+        pass = prompt('Enter admin password for Learning Lab subscription controls:') || '';
+        if (pass) sessionStorage.setItem('learningLabAdminPassword', pass);
+      }
+      return pass;
+    }
+
+    function populateLearningLabSubscriptionStudents(rows) {
+      const select = document.getElementById('learningLabSubscriptionStudent');
+      if (!select) return;
+      const source = Array.isArray(rows) && rows.length ? rows : (Array.isArray(allStudents) ? allStudents : []);
+      select.innerHTML = '<option value="">Select student...</option>' + source.map(student => `<option value="${student.student_id || student.id}">${student.name || 'Student'}${student.parent_email ? ` (${student.parent_email})` : ''}</option>`).join('');
+    }
+
+    async function loadLearningLabSubscriptions(forcePrompt = false) {
+      const container = document.getElementById('learningLabSubscriptionsList');
+      const status = document.getElementById('learningLabSubscriptionStatus');
+      if (!container) return;
+      const pass = getLearningLabAdminPassword(forcePrompt);
+      if (!pass) {
+        if (status) status.textContent = 'Admin password is required to load subscription status.';
+        populateLearningLabSubscriptionStudents();
+        return;
+      }
+      container.innerHTML = '<p style="color:#718096;margin:0;">Loading subscriptions...</p>';
+      try {
+        const res = await fetch('/api/admin/learning-hub/subscriptions', { headers: { 'x-admin-password': pass } });
+        const rows = await res.json();
+        if (!res.ok) {
+          if (res.status === 403) sessionStorage.removeItem('learningLabAdminPassword');
+          throw new Error(rows.error || 'Could not load subscriptions');
+        }
+        populateLearningLabSubscriptionStudents(rows);
+        if (status) status.textContent = 'Subscription access is $5/month. Paid access expires automatically after the expiry date.';
+        container.innerHTML = rows.map(row => {
+          const active = row.is_active === true || row.is_active === 'true';
+          const expires = row.expires_at ? new Date(row.expires_at).toLocaleDateString() : 'No expiry';
+          const starts = row.starts_at ? new Date(row.starts_at).toLocaleDateString() : '-';
+          return `<div style="background:${active ? '#ecfdf5' : '#f8fafc'};border:1px solid ${active ? '#6ee7b7' : '#e2e8f0'};border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+            <div><strong style="color:#1f2937;">${row.name}</strong><div style="color:#718096;font-size:0.85rem;">${row.parent_email || ''}</div><div style="color:#4b5563;font-size:0.85rem;">Status: ${active ? 'Active' : (row.status || 'No subscription')} | Start: ${starts} | Expiry: ${expires}</div></div>
+            ${active && row.subscription_id ? `<button type="button" class="btn btn-sm" style="background:#b91c1c;color:white;" onclick="pauseLearningLabSubscription(${row.subscription_id})">Pause Access</button>` : ''}
+          </div>`;
+        }).join('') || '<p style="color:#718096;margin:0;">No students found.</p>';
+      } catch (err) {
+        if (status) status.textContent = err.message;
+        container.innerHTML = `<p style="color:#c53030;margin:0;">${err.message}</p>`;
+      }
+    }
+
+    async function activateLearningLabSubscription() {
+      const studentId = document.getElementById('learningLabSubscriptionStudent')?.value;
+      const months = Number(document.getElementById('learningLabSubscriptionMonths')?.value || 1);
+      if (!studentId) return alert('Please select a student.');
+      const pass = getLearningLabAdminPassword(true);
+      if (!pass) return;
+      if (!confirm(`Activate Learning Lab for ${months} month${months > 1 ? 's' : ''}?`)) return;
+      const res = await fetch('/api/admin/learning-hub/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': pass },
+        body: JSON.stringify({ student_id: studentId, months })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data.error || 'Could not activate subscription');
+      alert(data.message || 'Learning Lab subscription activated.');
+      loadLearningLabSubscriptions();
+    }
+
+    async function pauseLearningLabSubscription(subscriptionId) {
+      const pass = getLearningLabAdminPassword(true);
+      if (!pass) return;
+      if (!confirm('Pause this Learning Lab subscription now?')) return;
+      const res = await fetch(`/api/admin/learning-hub/subscriptions/${subscriptionId}/pause`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': pass }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data.error || 'Could not pause subscription');
+      alert(data.message || 'Learning Lab subscription paused.');
+      loadLearningLabSubscriptions();
+    }
+    function defaultReadingQuestionsAdmin() {
+      return [
+        { type: 'reference_context', question: 'Where does the story begin?', options: ['At school', 'At home', 'In a park', 'In a shop'], correct_answer: 0, explanation: 'Find the exact place named in the story.' },
+        { type: 'inference', question: 'What can we infer about the main character?', options: ['They are thoughtful', 'They are careless', 'They are angry', 'They are asleep'], correct_answer: 0, explanation: 'Use actions in the story to infer character traits.' },
+        { type: 'vocabulary', question: 'What does the highlighted word mean?', options: ['Meaning one', 'Meaning two', 'Meaning three', 'Meaning four'], correct_answer: 0, explanation: 'Use the sentence to understand the word.' },
+        { type: 'grammar', question: 'Which sentence is grammatically correct?', options: ['She walked home.', 'She walk home.', 'She walking home.', 'She walks yesterday.'], correct_answer: 0, explanation: 'Choose the correct tense and sentence form.' },
+        { type: 'contextual_clues', question: 'Which clue helped you answer?', options: ['A detail from the text', 'A random guess', 'The title only', 'A picture'], correct_answer: 0, explanation: 'Use clues inside the text.' }
+      ];
+    }
+
+    function resetReadingStoryForm() {
+      const form = document.getElementById('readingStoryForm');
+      if (form) form.reset();
+      const id = document.getElementById('readingStoryId');
+      if (id) id.value = '';
+      const q = document.getElementById('readingQuestionsJson');
+      if (q) q.value = JSON.stringify(defaultReadingQuestionsAdmin(), null, 2);
+    }
+
+    async function loadReadingStoriesAdmin() {
+      const container = document.getElementById('readingStoriesAdminList');
+      if (!container) return;
+      resetReadingStoryForm();
+      container.innerHTML = '<p style="color:#718096; margin:0;">Loading reading stories...</p>';
+      try {
+        const res = await fetch('/api/admin/reading-stories');
+        if (!res.ok) throw new Error('Failed to load reading stories');
+        const stories = await res.json();
+        window.__readingAdminStories = stories;
+        if (!stories.length) { container.innerHTML = '<p style="color:#718096; margin:0;">No reading stories yet.</p>'; return; }
+        container.innerHTML = stories.map(story => `
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="min-width:220px;flex:1;">
+              <div style="font-weight:800;color:#1f2937;">${escapeHtml(story.title || '')}</div>
+              <div style="font-size:0.82rem;color:#718096;margin-top:4px;">${escapeHtml(story.age_group || '')} • ${escapeHtml(story.difficulty || '')} • ${escapeHtml(story.category || '')}</div>
+              <div style="font-size:0.82rem;color:#64748b;margin-top:4px;">${escapeHtml(String(story.story_text || '').slice(0, 180))}${String(story.story_text || '').length > 180 ? '...' : ''}</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-sm" onclick="editReadingStoryAdmin(${Number(story.id)})">Edit</button>
+              <button class="btn btn-sm" onclick="toggleReadingStoryActive(${Number(story.id)}, ${!story.active})" style="background:#4a5568;color:white;">${story.active ? 'Deactivate' : 'Activate'}</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<p style="color:#c53030;margin:0;">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function editReadingStoryAdmin(id) {
+      const story = (window.__readingAdminStories || []).find(item => Number(item.id) === Number(id));
+      if (!story) return;
+      document.getElementById('readingStoryId').value = story.id;
+      document.getElementById('readingTitle').value = story.title || '';
+      document.getElementById('readingStoryTextInput').value = story.story_text || '';
+      document.getElementById('readingMoral').value = story.moral || '';
+      document.getElementById('readingAgeGroup').value = story.age_group || 'young';
+      document.getElementById('readingDifficulty').value = story.difficulty || 'beginner';
+      document.getElementById('readingCategory').value = story.category || 'comprehension';
+      document.getElementById('readingQuestionsJson').value = JSON.stringify(Array.isArray(story.questions) ? story.questions : [], null, 2);
+      document.getElementById('readingStoryForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function saveReadingStoryAdmin(event) {
+      event.preventDefault();
+      let questions;
+      try { questions = JSON.parse(document.getElementById('readingQuestionsJson').value); } catch (err) { alert('Questions JSON is invalid.'); return; }
+      const id = document.getElementById('readingStoryId').value;
+      const payload = { title: document.getElementById('readingTitle').value.trim(), story_text: document.getElementById('readingStoryTextInput').value.trim(), moral: document.getElementById('readingMoral').value.trim(), age_group: document.getElementById('readingAgeGroup').value, difficulty: document.getElementById('readingDifficulty').value, category: document.getElementById('readingCategory').value.trim(), questions };
+      if (!payload.title || !payload.story_text || !payload.category || !Array.isArray(questions) || questions.length < 3) { alert('Please add title, story, category, and at least 3 questions.'); return; }
+      const res = await fetch(id ? `/api/admin/reading-stories/${id}` : '/api/admin/reading-stories', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.error || 'Failed to save reading story'); return; }
+      loadReadingStoriesAdmin();
+    }
+
+    async function toggleReadingStoryActive(id, active) {
+      const res = await fetch(`/api/admin/reading-stories/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) alert(data.error || 'Failed to update reading story');
+      loadReadingStoriesAdmin();
     }</script>
 <div id="bulkRescheduleModal" class="modal">
   <div class="modal-content" style="max-width: 750px;">
@@ -17355,6 +17552,9 @@ function initializeQuizTab() {
   </div>
 </body>
 </html>
+
+
+
 
 
 

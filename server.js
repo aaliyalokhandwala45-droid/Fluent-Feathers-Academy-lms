@@ -1914,6 +1914,7 @@ app.use('/api/learning-hub', verifyParentAccess);
 app.use('/api/phonics', verifyParentAccess);
 app.use('/api/vocabulary', verifyParentAccess);
 app.use('/api/spelling', verifyParentAccess);
+app.use('/api/reading', verifyParentAccess);
 
 // Protect admin-only endpoints: only allow requests from same origin (not external)
 function requireSameOrigin(req, res, next) {
@@ -3532,9 +3533,7 @@ async function runMigrations() {
               AND table_name = 'quiz_attempts'
               AND column_name = 'points_earned'
           ) THEN
-            EXECUTE 'UPDATE quiz_attempts
-                     SET points_awarded = COALESCE(points_awarded, points_earned, 0)
-                     WHERE points_awarded IS NULL OR points_awarded = 0';
+            EXECUTE 'UPDATE quiz_attempts SET points_awarded = COALESCE(points_awarded, points_earned, 0) WHERE points_awarded IS NULL';
           END IF;
 
           IF EXISTS (
@@ -4084,6 +4083,95 @@ async function runMigrations() {
       console.log('Migration 61: Vocabulary and Spelling Bee tables and seed content created successfully');
     } catch (err) {
       console.log('Migration 61 note:', err.message);
+    }
+
+
+    // Migration 62: Learning Hub Reading Zone
+    try {
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS reading_stories (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(180) NOT NULL,
+          story_text TEXT NOT NULL,
+          moral TEXT,
+          questions JSONB NOT NULL DEFAULT '[]'::jsonb,
+          difficulty VARCHAR(20) NOT NULL DEFAULT 'beginner' CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+          age_group VARCHAR(20) NOT NULL DEFAULT 'young' CHECK (age_group IN ('young', 'intermediate', 'advanced')),
+          category VARCHAR(80) NOT NULL DEFAULT 'comprehension',
+          active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS reading_attempts (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          story_id INTEGER REFERENCES reading_stories(id) ON DELETE SET NULL,
+          score INTEGER NOT NULL DEFAULT 0,
+          total_questions INTEGER NOT NULL DEFAULT 0,
+          correct_answers INTEGER NOT NULL DEFAULT 0,
+          incorrect_answers INTEGER NOT NULL DEFAULT 0,
+          accuracy NUMERIC(5,2) NOT NULL DEFAULT 0,
+          answers_data JSONB NOT NULL DEFAULT '[]'::jsonb,
+          completion_status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (completion_status IN ('started', 'completed')),
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_reading_stories_age_active ON reading_stories(age_group, active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_reading_attempts_student_story ON reading_attempts(student_id, story_id)`);
+
+      const readingSeeds = [
+        {
+          age: 'young', diff: 'beginner', title: 'The Lost Lunchbox', category: 'school story', moral: 'Small clues can solve big problems.',
+          story: 'Riya placed her blue lunchbox under the classroom window before art class. When she returned, it was gone. She looked under every desk, but only found a trail of tiny rice grains near the reading corner. Then she noticed Kabir holding a blue box, but it had a sticker of a rocket. Riya smiled because her lunchbox had a moon sticker. At last, she saw her box beside the plant shelf. The class hamster had pushed it while nibbling a grain of rice.',
+          questions: [
+            { type: 'reference_context', question: 'Where did Riya first place her lunchbox?', options: ['Under the classroom window', 'In the reading corner', 'Beside the plant shelf', 'Inside her bag'], correct_answer: 0, explanation: 'The story says she placed it under the classroom window.' },
+            { type: 'inference', question: 'Why did Riya follow the rice grains?', options: ['They were a clue', 'She wanted to eat them', 'Kabir dropped them', 'The teacher asked her'], correct_answer: 0, explanation: 'The grains helped her understand where the lunchbox may have moved.' },
+            { type: 'vocabulary', question: 'What does trail mean in the story?', options: ['A line of marks or things to follow', 'A lunch bag', 'A window', 'A plant'], correct_answer: 0, explanation: 'A trail is something that shows a path.' },
+            { type: 'grammar', question: 'Choose the correct past tense verb: Riya ___ under every desk.', options: ['looked', 'looks', 'looking', 'look'], correct_answer: 0, explanation: 'Looked is the past tense verb.' },
+            { type: 'contextual_clues', question: 'How do we know Kabir did not have Riya lunchbox?', options: ['His box had a rocket sticker', 'He was absent', 'He had no lunch', 'He sat near the window'], correct_answer: 0, explanation: 'Riya box had a moon sticker, not a rocket sticker.' }
+          ]
+        },
+        {
+          age: 'intermediate', diff: 'intermediate', title: 'The Rainy Day Plan', category: 'realistic fiction', moral: 'A changed plan can still become a good memory.',
+          story: 'The class picnic was cancelled because heavy rain covered the playground. Anaya felt disappointed because she had packed a kite. Instead of complaining, she asked the teacher if they could build a picnic indoors. The students spread mats near the library shelves, shared fruit, and created paper kites. Later, they wrote weather poems and read them aloud. By the end of the day, Anaya realised the rain had not spoiled the picnic. It had simply changed it into something unexpected.',
+          questions: [
+            { type: 'reference_context', question: 'Why was the picnic cancelled?', options: ['Heavy rain covered the playground', 'The teacher was absent', 'No one brought food', 'The library was closed'], correct_answer: 0, explanation: 'The story states heavy rain covered the playground.' },
+            { type: 'inference', question: 'What does Anaya action show about her?', options: ['She is flexible and creative', 'She dislikes books', 'She wanted to go home', 'She forgot her kite'], correct_answer: 0, explanation: 'She found a new solution instead of complaining.' },
+            { type: 'vocabulary', question: 'What does disappointed mean?', options: ['Sad because something did not happen', 'Very sleepy', 'Angry without reason', 'Ready to run'], correct_answer: 0, explanation: 'Anaya felt sad because the picnic plan changed.' },
+            { type: 'grammar', question: 'Which sentence uses past tense correctly?', options: ['The students spread mats near the shelves.', 'The students spreads mats near the shelves.', 'The students spreading mats near the shelves.', 'The students is spread mats near the shelves.'], correct_answer: 0, explanation: 'Spread is correct past tense here.' },
+            { type: 'contextual_clues', question: 'What helped Anaya realise the day was still special?', options: ['The indoor picnic, paper kites, and poems', 'The closed playground', 'The missing food', 'The cancelled class'], correct_answer: 0, explanation: 'Those activities changed the rainy day into a good memory.' }
+          ]
+        },
+        {
+          age: 'advanced', diff: 'advanced', title: 'The Empty Notice Board', category: 'school mystery', moral: 'Careful observation can reveal what noise hides.',
+          story: 'Every Friday, the school notice board displayed the winners of the writing challenge. This week, the board was empty, although the principal had promised a special announcement. Students hurried past it, guessing that the results had been delayed. Sara paused and noticed four pinholes in the corners and a faint rectangle where paper had protected the board from dust. She concluded that the announcement had been posted and then removed. Later, the principal explained that strong wind from the open corridor had lifted the sheet away. Sara found it folded behind the trophy cabinet.',
+          questions: [
+            { type: 'reference_context', question: 'What was usually displayed every Friday?', options: ['Writing challenge winners', 'Lunch menus', 'Sports teams', 'Library rules'], correct_answer: 0, explanation: 'The board displayed writing challenge winners.' },
+            { type: 'inference', question: 'Why did Sara think the announcement had already been posted?', options: ['She saw pinholes and a faint rectangle', 'The principal told her first', 'Students were cheering', 'The board was newly painted'], correct_answer: 0, explanation: 'The physical clues showed paper had been attached there.' },
+            { type: 'vocabulary', question: 'What does concluded mean?', options: ['Decided after thinking about clues', 'Copied from a book', 'Forgot quickly', 'Asked loudly'], correct_answer: 0, explanation: 'Sara used clues to decide what probably happened.' },
+            { type: 'grammar', question: 'Identify the conjunction in: The board was empty, although the principal had promised an announcement.', options: ['although', 'empty', 'principal', 'announcement'], correct_answer: 0, explanation: 'Although connects contrasting ideas.' },
+            { type: 'contextual_clues', question: 'What does the faint rectangle suggest?', options: ['A paper had covered that part of the board', 'Someone drew a frame', 'The board was broken', 'The results were never ready'], correct_answer: 0, explanation: 'The protected area had less dust, so it left a rectangle.' }
+          ]
+        }
+      ];
+
+      for (const item of readingSeeds) {
+        await executeQuery(
+          `INSERT INTO reading_stories (title, story_text, moral, questions, difficulty, age_group, category, active)
+           SELECT $1, $2, $3, $4::jsonb, $5, $6, $7, true
+           WHERE NOT EXISTS (SELECT 1 FROM reading_stories WHERE LOWER(TRIM(title)) = LOWER(TRIM($1::varchar)))`,
+          [item.title, item.story, item.moral, JSON.stringify(item.questions), item.diff, item.age, item.category]
+        );
+      }
+
+      console.log('Migration 62: Reading Zone tables and seed stories created successfully');
+    } catch (err) {
+      console.log('Migration 62 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -9465,7 +9553,7 @@ async function loadQuizAnswerKeysByQuestionIds(questionIds, db = pool) {
 }
 
 async function repairHistoricalQuizAttempts(db = pool, options = {}) {
-  const syncBadges = options.syncBadges !== false;
+  const syncBadges = false;
   const attemptsResult = await db.query(`
     SELECT id, student_id, quiz_date, level, answers, score, points_awarded
     FROM quiz_attempts
@@ -9541,7 +9629,7 @@ async function repairHistoricalQuizAttempts(db = pool, options = {}) {
       continue;
     }
 
-    const correctedPoints = correctedScore * QUIZ_POINT_VALUE;
+    const correctedPoints = 0;
     const previousScore = Number(attempt.score) || 0;
     const previousPoints = Number(attempt.points_awarded) || 0;
 
@@ -15452,16 +15540,16 @@ function createFallbackAiHomeworkReview(rawText, studentName = 'the student') {
   if (looksLikeHtmlResponse(cleaned)) return null;
 
   const firstName = String(studentName || 'the student').trim() || 'the student';
-  const feedbackSource = cleaned || 'Your work has been received. A teacher should review the details manually because the AI response did not include enough readable feedback.';
+  const feedbackSource = cleaned || 'The submitted work was received, but the available text was not clear enough for a confident automated review. A teacher should review it before sharing feedback with the parent.';
   const feedback = feedbackSource.startsWith(firstName)
     ? feedbackSource
     : `${firstName}, ${feedbackSource.charAt(0).toLowerCase()}${feedbackSource.slice(1)}`;
 
   return {
-    grade: 'Needs Improvement',
+    grade: 'Review Needed',
     feedback: feedback.slice(0, 900),
-    summary: 'AI returned plain text instead of JSON, so the feedback was saved for teacher review.',
-    confidence: 'low'
+    summary: 'AI reviewed the readable content and prepared a draft. Teacher review is recommended before sending.',
+    confidence: cleaned ? 'medium' : 'low'
   };
 }
 
@@ -19130,17 +19218,17 @@ async function calculateStudentScores(startDate, endDate) {
       s.parent_name,
       COALESCE(h.pts, 0) as homework_score,
       COALESCE(c.pts, 0) as challenge_score,
-      COALESCE(q.pts, 0) as quiz_score,
+      0 as quiz_score,
       COALESCE(b.pts, 0) as badge_score,
-      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
     LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, homework_score DESC, challenge_score DESC, quiz_score DESC, badge_score DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+    ORDER BY total_score DESC, homework_score DESC, challenge_score DESC, badge_score DESC, s.name ASC
   `, [startDate, endDate]);
   return result.rows;
 }
@@ -19365,9 +19453,9 @@ app.get('/api/leaderboard', async (req, res) => {
         s.program_name,
         COALESCE(h.pts, 0) as homework_points,
         COALESCE(c.pts, 0) as challenge_points,
-        COALESCE(q.pts, 0) as quiz_points,
+        0 as quiz_points,
         COALESCE(b.pts, 0) as badge_points,
-        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score,
+        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score,
         COALESCE(bc.badge_count, 0) as total_badges,
         (SELECT badge_name FROM student_badges WHERE student_id = s.id ${bdgLatestFilter} ORDER BY earned_date DESC LIMIT 1) as latest_badge
       FROM students s
@@ -19377,8 +19465,8 @@ app.get('/api/leaderboard', async (req, res) => {
       LEFT JOIN badge_pts b ON s.id = b.student_id
       LEFT JOIN badge_counts bc ON s.id = bc.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, quiz_points DESC, badge_points DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, badge_points DESC, s.name ASC
     `, params);
     res.json({ leaderboard: result.rows });
   } catch (err) {
@@ -19439,7 +19527,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
         SELECT
           COALESCE((SELECT points FROM homework_scores), 0) AS homework_points,
           COALESCE((SELECT points FROM challenge_scores), 0) AS challenge_points,
-          COALESCE((SELECT points FROM quiz_scores), 0) AS quiz_points,
+          0 AS quiz_points,
           COALESCE((SELECT points FROM badge_scores), 0) AS badge_points,
           COALESCE((SELECT points FROM class_points_total), 0) AS class_points,
           COALESCE((SELECT count FROM pending_challenges), 0) AS pending_challenges
@@ -19499,18 +19587,6 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           WHERE sc.student_id = $1
             AND sc.status = 'Submitted'
         ),
-        quiz_history AS (
-          SELECT
-            'leaderboard'::text AS score_group,
-            'quiz'::text AS score_type,
-            COALESCE(qa.points_awarded, 0)::int AS points,
-            qa.completed_at AS occurred_at,
-            'Daily quiz attempted'::text AS title,
-            'Quiz date: ' || qa.quiz_date::text || ' â€¢ Score: ' || COALESCE(qa.score, 0)::text || '/10' AS detail,
-            'awarded'::text AS status
-          FROM quiz_attempts qa
-          WHERE qa.student_id = $1
-        ),
         badge_history AS (
           SELECT
             'leaderboard'::text AS score_group,
@@ -19543,8 +19619,6 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           UNION ALL
           SELECT * FROM pending_challenge_history
           UNION ALL
-          SELECT * FROM quiz_history
-          UNION ALL
           SELECT * FROM badge_history
           UNION ALL
           SELECT * FROM class_points_history
@@ -19557,13 +19631,13 @@ app.get('/api/students/:id/score-history', async (req, res) => {
     const totalsRow = totalsResult.rows[0] || {};
     const homeworkPoints = parseInt(totalsRow.homework_points) || 0;
     const challengePoints = parseInt(totalsRow.challenge_points) || 0;
-    const quizPoints = parseInt(totalsRow.quiz_points) || 0;
+    const quizPoints = 0;
     const badgePoints = parseInt(totalsRow.badge_points) || 0;
     const classPoints = parseInt(totalsRow.class_points) || 0;
 
     res.json({
       totals: {
-        leaderboard_total: homeworkPoints + challengePoints + quizPoints + badgePoints,
+        leaderboard_total: homeworkPoints + challengePoints + badgePoints,
         homework_points: homeworkPoints,
         challenge_points: challengePoints,
         quiz_points: quizPoints,
@@ -19638,17 +19712,17 @@ app.get('/api/awards/current', async (req, res) => {
     SELECT s.id, s.name,
       COALESCE(h.pts, 0) as homework,
       COALESCE(c.pts, 0) as challenges,
-      COALESCE(q.pts, 0) as quizzes,
+      0 as quizzes,
       COALESCE(b.pts, 0) as badges,
-      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
     LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, homework DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+    ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
     LIMIT 1
   `, [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]);
   return result.rows[0] || null;
@@ -19673,7 +19747,7 @@ app.get('/api/awards/current', async (req, res) => {
         studentId: winner.id,
         badge: label,
         period: periodLabel,
-        description: `${winner.homework} pts homework, ${winner.challenges} pts challenges, ${winner.quizzes || 0} pts daily quiz, ${winner.badges} pts badges`,
+        description: `${winner.homework} pts homework, ${winner.challenges} pts challenges, ${winner.badges} pts badges`,
         homework: parseInt(winner.homework),
         challenges: parseInt(winner.challenges),
         quizzes: parseInt(winner.quizzes) || 0,
@@ -19746,17 +19820,17 @@ app.get('/api/awards/by-period', async (req, res) => {
       SELECT s.id, s.name,
         COALESCE(h.pts, 0) as homework,
         COALESCE(c.pts, 0) as challenges,
-        COALESCE(q.pts, 0) as quizzes,
+        0 as quizzes,
         COALESCE(b.pts, 0) as badges,
-        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
+        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
       FROM students s
       LEFT JOIN homework_pts h ON s.id = h.student_id
       LEFT JOIN challenge_pts c ON s.id = c.student_id
       LEFT JOIN quiz_pts q ON s.id = q.student_id
       LEFT JOIN badge_pts b ON s.id = b.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
       LIMIT 1
     `, [start, end]);
     res.json({ winner: result.rows[0] || null });
@@ -20499,7 +20573,13 @@ app.post('/api/assessments/ai-suggest', express.json(), async (req, res) => {
       : 'No previous assessments.';
 
     const isDemo = assessment_type === 'demo';
-    const feedbackStyle = getPersonalisedTeacherFeedbackInstructions(studentName);
+    const feedbackStyle = `Assessment feedback style:
+- Write formally for parents, not directly to the child.
+- Use third person only: use the child's name, he/she/they, and avoid first person and second person wording such as I, we, you, your, my, our.
+- Keep the tone professional, specific, and supportive.
+- Write in British English, 45-80 words.
+- Summarise learning progress, strengths, and one clear improvement focus.
+- Do not use casual phrases, emojis, slang, or overly enthusiastic language.`;
     const prompt = `You are an expert English language teacher's assistant helping fill out a ${isDemo ? 'demo class' : 'monthly'} student assessment.
 
 Student: ${studentName}${studentAge}
@@ -20530,13 +20610,13 @@ Return ONLY valid JSON in this exact format:
     "Reading": 3
   },
   "certificate_title": "Star of the Month",
-  "performance_summary": "35-70 word personalised feedback written directly to the student, following the required style.",
+  "performance_summary": "45-80 word formal parent-facing feedback in third person.",
   "grade_suggestion": "A"
 }
 
 For certificate_title, choose the most appropriate from: Star of the Month, Most Improved, Creative Writing Star, Reading Champion, Speaking Star, Spelling Bee Champion, Student of the Week, Student of the Month, Handwriting Excellence, Grammar Guru, or leave as empty string if no award is warranted.
 
-For performance_summary, follow these rules exactly:
+For performance_summary, follow these rules exactly. It must read like formal feedback for parents about the child, not a message to the child:
 ${feedbackStyle}
 
 Return ONLY JSON. No markdown. No explanation.`;
@@ -21363,7 +21443,7 @@ app.get('/api/daily-quiz/status', async (req, res) => {
           quiz_date,
           score,
           10 AS total_questions,
-          points_awarded AS points_earned,
+          0 AS points_earned,
           completed_at AS created_at,
           time_taken_seconds AS time_spent,
           level,
@@ -21396,7 +21476,7 @@ app.get('/api/daily-quiz/status', async (req, res) => {
       lastAttempt: lastAttempt ? {
         score: lastAttempt.score,
         total_questions: lastAttempt.total_questions,
-        points_earned: lastAttempt.points_earned,
+        points_earned: 0,
         created_at: lastAttempt.created_at,
         time_spent: lastAttempt.time_spent,
         level: lastAttempt.level,
@@ -21644,7 +21724,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
 
     const perfectScore = correctAnswers === DAILY_QUIZ_QUESTION_COUNT;
     const bonusPoints = 0;
-    const pointsEarned = correctAnswers * QUIZ_POINT_VALUE;
+    const pointsEarned = 0;
 
     // Save attempt
     await pool.query(`
@@ -21660,31 +21740,20 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       elapsedSeconds
     ]);
 
-    let badgeAwarded = false;
-    if (perfectScore) {
-      const uniqueBadgeType = `${DAILY_QUIZ_BADGE_TYPE}_${quizDate}`;
-      badgeAwarded = await awardBadge(
-        studentId,
-        uniqueBadgeType,
-        DAILY_QUIZ_BADGE_NAME,
-        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${quizDate})`
-      );
-    }
-
     res.json({
       score: correctAnswers,
       total_questions: DAILY_QUIZ_QUESTION_COUNT,
       points_earned: pointsEarned,
-      base_points: correctAnswers * QUIZ_POINT_VALUE,
+      base_points: 0,
       bonus_points: bonusPoints,
-      badge_awarded: badgeAwarded,
-      badge_name: perfectScore ? DAILY_QUIZ_BADGE_NAME : null,
+      badge_awarded: false,
+      badge_name: null,
       perfect_score: perfectScore,
       time_spent: elapsedSeconds,
       review,
       message: perfectScore
-        ? `Perfect score! You earned ${pointsEarned} points and unlocked ${DAILY_QUIZ_BADGE_NAME}.`
-        : `Great job! You scored ${correctAnswers}/10 and earned ${pointsEarned} points!`
+        ? 'Perfect score! Your quiz practice is complete.'
+        : `Great job! You scored ${correctAnswers}/10.`
     });
   } catch (err) {
     console.error('Quiz submission error:', err);
@@ -21694,38 +21763,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
 
 // Backfill Quiz Champion badges for existing perfect scores
 async function backfillQuizChampionBadges() {
-  try {
-    console.log('ðŸ”„ Backfilling Quiz Champion badges for existing perfect scores...');
-
-    // Find all perfect quiz attempts that don't have badges
-    const result = await pool.query(`
-      SELECT qa.student_id, qa.quiz_date
-      FROM quiz_attempts qa
-      LEFT JOIN student_badges sb ON qa.student_id = sb.student_id
-        AND sb.badge_type = CONCAT('daily_quiz_champion_', qa.quiz_date::text)
-      WHERE qa.score = 10 AND sb.id IS NULL
-    `);
-
-    console.log(`Found ${result.rows.length} perfect quiz attempts without badges`);
-
-    let awarded = 0;
-    for (const row of result.rows) {
-      const uniqueBadgeType = `daily_quiz_champion_${row.quiz_date}`;
-      const badgeAwarded = await awardBadge(
-        row.student_id,
-        uniqueBadgeType,
-        DAILY_QUIZ_BADGE_NAME,
-        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${row.quiz_date})`
-      );
-      if (badgeAwarded) awarded++;
-    }
-
-    console.log(`âœ… Awarded ${awarded} Quiz Champion badges`);
-    return awarded;
-  } catch (err) {
-    console.error('Error backfilling quiz badges:', err);
-    return 0;
-  }
+  return 0;
 }
 
 // Get student's quiz history
@@ -21742,7 +21780,7 @@ app.get('/api/daily-quiz/history', async (req, res) => {
         quiz_date,
         score,
         10 AS total_questions,
-        points_awarded AS points_earned,
+        0 AS points_earned,
         time_taken_seconds AS time_spent,
         completed_at AS created_at,
         level,
@@ -22229,7 +22267,7 @@ app.put('/api/admin/daily-quiz-questions', async (req, res) => {
         const answer = Number.isInteger(Number(answers[index])) ? Number(answers[index]) : -1;
         if (answer === Number(question.correct_answer)) correctedScore++;
       });
-      const correctedPoints = correctedScore * QUIZ_POINT_VALUE;
+      const correctedPoints = 0;
 
       if (Number(attempt.score) !== correctedScore || Number(attempt.points_awarded) !== correctedPoints) {
         await pool.query(
@@ -22238,23 +22276,6 @@ app.put('/api/admin/daily-quiz-questions', async (req, res) => {
         );
         recalculatedAttempts++;
       }
-
-      if (correctedScore === DAILY_QUIZ_QUESTION_COUNT) {
-        const badgeAwarded = await awardBadge(
-          attempt.student_id,
-          `${DAILY_QUIZ_BADGE_TYPE}_${date}`,
-          DAILY_QUIZ_BADGE_NAME,
-          `${DAILY_QUIZ_BADGE_DESCRIPTION} (${date})`
-        );
-        if (badgeAwarded) badgesAwarded++;
-      } else {
-        const removedBadgeResult = await pool.query(
-          `DELETE FROM student_badges
-           WHERE student_id = $1 AND badge_type = $2`,
-          [attempt.student_id, `${DAILY_QUIZ_BADGE_TYPE}_${date}`]
-        );
-        badgesRemoved += removedBadgeResult.rowCount || 0;
-      }
     }
 
     res.json({
@@ -22262,8 +22283,8 @@ app.put('/api/admin/daily-quiz-questions', async (req, res) => {
       message: 'Live quiz question updated',
       question: updatedQuestion,
       recalculatedAttempts,
-      badgesAwarded,
-      badgesRemoved
+      badgesAwarded: 0,
+      badgesRemoved: 0
     });
   } catch (err) {
     console.error('Live quiz question edit error:', err);
@@ -25846,37 +25867,41 @@ async function getLearningHubAccess(studentId) {
 
   const usageResult = await executeQuery(
     `SELECT
+       (SELECT COUNT(*)::int FROM quiz_attempts
+        WHERE student_id = $1) AS quiz_used,
        (SELECT COUNT(*)::int FROM speaking_attempts
         WHERE student_id = $1 AND completion_status IN ('recorded', 'analyzed', 'completed')) AS speaking_used,
        (SELECT COUNT(*)::int FROM writing_submissions
         WHERE student_id = $1) AS writing_used,
-       (SELECT COUNT(*)::int FROM phonics_attempts
-        WHERE student_id = $1 AND completion_status = 'completed') AS phonics_used,
        (SELECT COUNT(*)::int FROM vocabulary_attempts
         WHERE student_id = $1 AND completion_status = 'completed') AS vocabulary_used,
        (SELECT COUNT(*)::int FROM spelling_attempts
-        WHERE student_id = $1 AND completion_status = 'completed') AS spelling_used`,
+        WHERE student_id = $1 AND completion_status = 'completed') AS spelling_used,
+       (SELECT COUNT(*)::int FROM reading_attempts
+        WHERE student_id = $1 AND completion_status = 'completed') AS reading_used`,
     [studentId]
   );
   const usage = usageResult.rows[0] || {};
   const quizUsed = Number(usage.quiz_used || 0);
   const speakingUsed = Number(usage.speaking_used || 0);
   const writingUsed = Number(usage.writing_used || 0);
-  const phonicsUsed = Number(usage.phonics_used || 0);
   const vocabularyUsed = Number(usage.vocabulary_used || 0);
   const spellingUsed = Number(usage.spelling_used || 0);
+  const readingUsed = Number(usage.reading_used || 0);
   const hubSettings = await getLearningHubSettings();
   const feesEnabled = hubSettings.fees_enabled;
   const paid = !!subscription;
 
   return {
     paid,
+    fees_enabled: feesEnabled,
     monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
     subscription,
     tasks: {
-      phonics: { used: phonicsUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - phonicsUsed), locked: feesEnabled && !paid && phonicsUsed >= 1 },
+      quiz: { used: quizUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - quizUsed), locked: feesEnabled && !paid && quizUsed >= 1 },
       vocabulary: { used: vocabularyUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - vocabularyUsed), locked: feesEnabled && !paid && vocabularyUsed >= 1 },
       spelling: { used: spellingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - spellingUsed), locked: feesEnabled && !paid && spellingUsed >= 1 },
+      reading: { used: readingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - readingUsed), locked: feesEnabled && !paid && readingUsed >= 1 },
       speaking: { used: speakingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - speakingUsed), locked: feesEnabled && !paid && speakingUsed >= 1 },
       writing: { used: writingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - writingUsed), locked: feesEnabled && !paid && writingUsed >= 1 }
     }
@@ -25909,6 +25934,80 @@ app.get('/api/learning-hub/access', async (req, res) => {
     res.json(await getLearningHubAccess(studentId));
   } catch (err) {
     console.error('Error fetching Learning Hub access:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+function requireAdminPasswordHeader(req, res) {
+  const adminPass = req.headers['x-admin-password'];
+  if (!adminPass || adminPass !== ADMIN_PASSWORD) {
+    res.status(403).json({ error: 'Forbidden: invalid admin password' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/admin/learning-hub/subscriptions', async (req, res) => {
+  if (!requireAdminPasswordHeader(req, res)) return;
+  try {
+    const result = await executeQuery(`
+      SELECT s.id AS student_id, s.name, s.parent_email,
+             lhs.id AS subscription_id, lhs.status, lhs.monthly_price_usd, lhs.starts_at, lhs.expires_at,
+             CASE WHEN lhs.id IS NOT NULL AND lhs.status = 'active' AND (lhs.expires_at IS NULL OR lhs.expires_at > NOW()) THEN true ELSE false END AS is_active
+      FROM students s
+      LEFT JOIN LATERAL (
+        SELECT * FROM learning_hub_subscriptions sub
+        WHERE sub.student_id = s.id
+        ORDER BY sub.created_at DESC
+        LIMIT 1
+      ) lhs ON true
+      WHERE s.is_active = true
+      ORDER BY s.name ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Learning Hub subscription list error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/learning-hub/subscriptions', express.json(), async (req, res) => {
+  if (!requireAdminPasswordHeader(req, res)) return;
+  try {
+    const studentId = Number(req.body.student_id);
+    const months = Math.max(1, Math.min(12, Number(req.body.months || 1)));
+    if (!Number.isInteger(studentId) || studentId <= 0) return res.status(400).json({ error: 'Valid student_id is required' });
+
+    const student = await executeQuery('SELECT id, name FROM students WHERE id = $1 AND is_active = true', [studentId]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+
+    await executeQuery(`UPDATE learning_hub_subscriptions SET status = 'expired', updated_at = CURRENT_TIMESTAMP WHERE student_id = $1 AND status = 'active'`, [studentId]);
+    const result = await executeQuery(
+      `INSERT INTO learning_hub_subscriptions (student_id, status, monthly_price_usd, starts_at, expires_at)
+       VALUES ($1, 'active', $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + ($3::int * INTERVAL '1 month'))
+       RETURNING *`,
+      [studentId, LEARNING_HUB_MONTHLY_PRICE_USD, months]
+    );
+    res.json({ success: true, subscription: result.rows[0], message: `Learning Lab subscription activated for ${student.rows[0].name}.` });
+  } catch (err) {
+    console.error('Learning Hub subscription activate error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/learning-hub/subscriptions/:id/pause', express.json(), async (req, res) => {
+  if (!requireAdminPasswordHeader(req, res)) return;
+  try {
+    const result = await executeQuery(
+      `UPDATE learning_hub_subscriptions
+       SET status = 'expired', expires_at = COALESCE(expires_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Subscription not found' });
+    res.json({ success: true, subscription: result.rows[0], message: 'Learning Lab subscription paused.' });
+  } catch (err) {
+    console.error('Learning Hub subscription pause error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -27348,14 +27447,16 @@ app.delete('/api/admin/speaking-topics/:id', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`ðŸš€ LMS Running on port ${PORT}`);
   startKeepAlive();
-
-  // Backfill Quiz Champion badges for existing perfect scores
-  console.log('Starting backfill in 2 seconds...');
-  setTimeout(() => {
-    console.log('Running backfill now...');
-    backfillQuizChampionBadges();
-  }, 2000); // Wait 2 seconds after startup
 });
+
+
+
+
+
+
+
+
+
 
 
 
