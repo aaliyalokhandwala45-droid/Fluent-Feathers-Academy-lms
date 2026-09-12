@@ -511,6 +511,24 @@
       <div class="section">
         <h2 style="margin: 0 0 10px; color: #B05D9E;">🧠 Learning Lab</h2>
         <p style="color: #718096; margin: 0 0 20px;">Track the available learning activities and their rollout status for the parent portal.</p>
+                <div id="learningHubLaunchControls" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:16px;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
+            <div style="font-weight:800;color:#2d3748;margin-bottom:6px;">Parent Portal Visibility</div>
+            <div id="learningHubLiveStatus" style="color:#718096;font-size:0.9rem;margin-bottom:12px;">Loading...</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn-success" onclick="setLearningHubAdminSetting('learning_hub_live', true)">Make Live</button>
+              <button type="button" class="btn" onclick="setLearningHubAdminSetting('learning_hub_live', false)" style="background:#4a5568;color:white;">Unlive</button>
+            </div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
+            <div style="font-weight:800;color:#2d3748;margin-bottom:6px;">Learning Hub Fees</div>
+            <div id="learningHubFeesStatus" style="color:#718096;font-size:0.9rem;margin-bottom:12px;">Loading...</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn-success" onclick="setLearningHubAdminSetting('learning_hub_fees_enabled', true)">Fees On</button>
+              <button type="button" class="btn" onclick="setLearningHubAdminSetting('learning_hub_fees_enabled', false)" style="background:#4a5568;color:white;">No Fees</button>
+            </div>
+          </div>
+        </div>
         <div id="learningLabAdminOverview" style="display: grid; gap: 14px;"></div>
         <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
@@ -525,6 +543,66 @@
             <button class="btn btn-success" type="submit">Add Topic</button>
           </form>
           <div id="speakingTopicsAdminList" style="display:grid; gap:10px;"></div>
+        </div>
+        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <h3 style="margin:0; color:#2d3748;">🔤 Phonics Questions</h3>
+            <button onclick="loadPhonicsQuestionsAdmin()" class="btn btn-primary">Refresh Questions</button>
+          </div>
+          <form id="phonicsQuestionForm" onsubmit="savePhonicsQuestionAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
+            <input type="hidden" id="phonicsQuestionId">
+            <div class="form-group" style="margin:0;"><label>Sound</label><input id="phonicsSound" type="text" placeholder="SH" required></div>
+            <div class="form-group" style="margin:0;"><label>Display Label</label><input id="phonicsDisplayLabel" type="text" placeholder="SH" required></div>
+            <div class="form-group" style="margin:0;"><label>Correct Answer</label><input id="phonicsCorrectAnswer" type="text" placeholder="SH" required></div>
+            <div class="form-group" style="margin:0;"><label>Incorrect Options</label><input id="phonicsIncorrectOptions" type="text" placeholder="CH, TH, WH" required></div>
+            <div class="form-group" style="margin:0;"><label>Audio URL</label><input id="phonicsAudioUrl" type="url" placeholder="https://.../sh.mp3"></div>
+            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="phonicsAgeGroup"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="phonicsDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Category</label><input id="phonicsCategory" type="text" placeholder="consonant digraphs" required></div>
+            <button class="btn btn-success" type="submit">Save Question</button>
+            <button class="btn" type="button" onclick="resetPhonicsQuestionForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
+          </form>
+          <div id="phonicsQuestionsAdminList" style="display:grid; gap:10px;"></div>
+        </div>
+        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <h3 style="margin:0; color:#2d3748;">📚 Vocabulary Words</h3>
+            <button onclick="loadVocabularyWordsAdmin()" class="btn btn-primary">Refresh Words</button>
+          </div>
+          <form id="vocabularyWordForm" onsubmit="saveVocabularyWordAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
+            <input type="hidden" id="vocabularyWordId">
+            <div class="form-group" style="margin:0;"><label>Word</label><input id="vocabularyWord" type="text" placeholder="curious" required></div>
+            <div class="form-group" style="margin:0; grid-column:span 2;"><label>Meaning</label><input id="vocabularyMeaning" type="text" placeholder="wanting to know or learn something" required></div>
+            <div class="form-group" style="margin:0; grid-column:span 2;"><label>Example Sentence</label><input id="vocabularyExample" type="text" placeholder="The curious child opened the old map." required></div>
+            <div class="form-group" style="margin:0;"><label>Synonyms</label><input id="vocabularySynonyms" type="text" placeholder="interested, eager"></div>
+            <div class="form-group" style="margin:0;"><label>Antonyms</label><input id="vocabularyAntonyms" type="text" placeholder="bored"></div>
+            <div class="form-group" style="margin:0;"><label>Word Family</label><input id="vocabularyFamily" type="text" placeholder="curiosity, curiously"></div>
+            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="vocabularyAgeGroup"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="vocabularyDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Category</label><input id="vocabularyCategory" type="text" placeholder="character traits" required></div>
+            <button class="btn btn-success" type="submit">Save Word</button>
+            <button class="btn" type="button" onclick="resetVocabularyWordForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
+          </form>
+          <div id="vocabularyWordsAdminList" style="display:grid; gap:10px;"></div>
+        </div>
+        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <h3 style="margin:0; color:#2d3748;">🔠 Spelling Bee Words</h3>
+            <button onclick="loadSpellingWordsAdmin()" class="btn btn-primary">Refresh Words</button>
+          </div>
+          <form id="spellingWordForm" onsubmit="saveSpellingWordAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
+            <input type="hidden" id="spellingWordId">
+            <div class="form-group" style="margin:0;"><label>Word</label><input id="spellingWord" type="text" placeholder="journey" required></div>
+            <div class="form-group" style="margin:0; grid-column:span 2;"><label>Clue</label><input id="spellingClue" type="text" placeholder="A trip from one place to another." required></div>
+            <div class="form-group" style="margin:0; grid-column:span 2;"><label>Example Sentence</label><input id="spellingExample" type="text" placeholder="Their journey began before sunrise."></div>
+            <div class="form-group" style="margin:0;"><label>Audio URL</label><input id="spellingAudioUrl" type="url" placeholder="https://.../journey.mp3"></div>
+            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="spellingAgeGroup"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="spellingDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            <div class="form-group" style="margin:0;"><label>Category</label><input id="spellingCategory" type="text" placeholder="tricky vowels" required></div>
+            <button class="btn btn-success" type="submit">Save Word</button>
+            <button class="btn" type="button" onclick="resetSpellingWordForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
+          </form>
+          <div id="spellingWordsAdminList" style="display:grid; gap:10px;"></div>
         </div>
       </div>
     </div>
@@ -4799,7 +4877,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
-      if (tabName === 'learningLab') { renderLearningLabAdminOverview(); loadSpeakingTopicsAdmin(); }
+      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadSpeakingTopicsAdmin(); loadPhonicsQuestionsAdmin(); loadVocabularyWordsAdmin(); loadSpellingWordsAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
@@ -4807,12 +4885,12 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     const LEARNING_LAB_ADMIN_MODULES = [
-      { id: 'phonics', name: 'Phonics Lab', icon: '🔤', status: 'coming-soon' },
-      { id: 'reading', name: 'Reading Zone', icon: '📖', status: 'coming-soon' },
-      { id: 'spell-bee', name: 'Spell Bee', icon: '🐝', status: 'coming-soon' },
+      { id: 'phonics', name: 'Phonics Lab', icon: '🔤', status: 'active' },
+      { id: 'vocabulary', name: 'Vocabulary Games', icon: '📚', status: 'active' },
+      { id: 'spelling', name: 'Spelling Bee', icon: '🔠', status: 'active' },
       { id: 'speaking', name: 'Speaking Practice', icon: '🎤', status: 'active' },
-      { id: 'vocabulary', name: 'Vocabulary Games', icon: '🧠', status: 'coming-soon' },
-      { id: 'writing', name: 'Writing Studio', icon: '✍️', status: 'active' }
+      { id: 'writing', name: 'Writing Studio', icon: '✍️', status: 'active' },
+      { id: 'reading', name: 'Reading Zone', icon: '📖', status: 'coming-soon' }
     ];
 
     function renderLearningLabAdminOverview() {
@@ -4833,7 +4911,7 @@ I'm passionate about helping children develop confidence in communication!"></te
               <div style="width:42px; height:42px; border-radius:12px; background: linear-gradient(135deg, #f9a8d4 0%, #c4b5fd 100%); display:flex; align-items:center; justify-content:center; font-size:1.4rem;">${module.icon}</div>
               <div>
                 <div style="font-weight:700; color:#2d3748;">${module.name}</div>
-                <div style="font-size:0.8rem; color:#718096;">${module.status === 'active' ? 'Available to learners' : 'Planned rollout'}</div>
+                <div style="font-size:0.8rem; color:#718096;">${module.status === 'active' ? 'Built / ready for testing' : 'Planned rollout'}</div>
               </div>
             </div>
             <span style="padding:6px 12px; border-radius:999px; font-size:0.78rem; font-weight:700; ${module.status === 'active' ? 'background:#dcfce7;color:#166534;' : 'background:#fef3c7;color:#92400e;'}">
@@ -4919,6 +4997,113 @@ I'm passionate about helping children develop confidence in communication!"></te
 
     function toggleSpeakingTopicActive(id, active) {
       updateSpeakingTopicAdmin(id, { active });
+    }
+
+    function resetPhonicsQuestionForm() {
+      const form = document.getElementById('phonicsQuestionForm');
+      if (form) form.reset();
+      document.getElementById('phonicsQuestionId').value = '';
+    }
+
+    function phonicsOptionsToText(options) {
+      return Array.isArray(options) ? options.join(', ') : '';
+    }
+
+    async function loadPhonicsQuestionsAdmin() {
+      const container = document.getElementById('phonicsQuestionsAdminList');
+      if (!container) return;
+      container.innerHTML = '<p style="color:#718096; margin:0;">Loading phonics questions...</p>';
+      try {
+        const res = await fetch('/api/admin/phonics-questions');
+        if (!res.ok) throw new Error('Failed to load phonics questions');
+        const questions = await res.json();
+        if (!questions.length) {
+          container.innerHTML = '<p style="color:#718096; margin:0;">No phonics questions yet.</p>';
+          return;
+        }
+        container.innerHTML = questions.map(q => {
+          const options = Array.isArray(q.incorrect_options) ? q.incorrect_options : [];
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; background:${q.active ? '#ffffff' : '#f8fafc'}; flex-wrap:wrap;">
+              <div style="min-width:240px; flex:1;">
+                <div style="font-weight:800; color:#2d3748;">${escapeHtml(q.display_label || q.sound)} <span style="font-size:0.85rem;color:#718096;">(${escapeHtml(q.sound)})</span></div>
+                <div style="font-size:0.8rem; color:#718096; margin-top:4px;">${escapeHtml(q.age_group)} • ${escapeHtml(q.difficulty)} • ${escapeHtml(q.phonics_category || '')}</div>
+                <div style="font-size:0.8rem; color:#4a5568; margin-top:4px;">Correct: <strong>${escapeHtml(q.correct_answer)}</strong> | Options: ${escapeHtml(options.join(', '))}</div>
+                <div style="font-size:0.78rem; color:${q.audio_url ? '#166534' : '#92400e'}; margin-top:4px;">${q.audio_url ? 'Audio asset attached' : 'No audio URL yet'}</div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <span style="padding:5px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; ${q.active ? 'background:#dcfce7;color:#166534;' : 'background:#e5e7eb;color:#4b5563;'}">${q.active ? 'Active' : 'Inactive'}</span>
+                <button class="btn btn-sm" onclick="editPhonicsQuestionAdmin(${Number(q.id)})" style="background:#667eea;color:white;">Edit</button>
+                <button class="btn btn-sm" onclick="togglePhonicsQuestionActive(${Number(q.id)}, ${!q.active})" style="background:#4a5568;color:white;">${q.active ? 'Deactivate' : 'Activate'}</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+        window.__phonicsAdminQuestions = questions;
+      } catch (err) {
+        container.innerHTML = `<p style="color:#e53e3e; margin:0;">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function editPhonicsQuestionAdmin(id) {
+      const q = (window.__phonicsAdminQuestions || []).find(item => Number(item.id) === Number(id));
+      if (!q) return;
+      document.getElementById('phonicsQuestionId').value = q.id;
+      document.getElementById('phonicsSound').value = q.sound || '';
+      document.getElementById('phonicsDisplayLabel').value = q.display_label || '';
+      document.getElementById('phonicsCorrectAnswer').value = q.correct_answer || '';
+      document.getElementById('phonicsIncorrectOptions').value = phonicsOptionsToText(q.incorrect_options);
+      document.getElementById('phonicsAudioUrl').value = q.audio_url || '';
+      document.getElementById('phonicsAgeGroup').value = q.age_group || 'young';
+      document.getElementById('phonicsDifficulty').value = q.difficulty || 'beginner';
+      document.getElementById('phonicsCategory').value = q.phonics_category || 'consonant digraphs';
+      document.getElementById('phonicsQuestionForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function savePhonicsQuestionAdmin(event) {
+      event.preventDefault();
+      const id = document.getElementById('phonicsQuestionId').value;
+      const payload = {
+        sound: document.getElementById('phonicsSound').value.trim(),
+        display_label: document.getElementById('phonicsDisplayLabel').value.trim(),
+        correct_answer: document.getElementById('phonicsCorrectAnswer').value.trim(),
+        incorrect_options: document.getElementById('phonicsIncorrectOptions').value.split(',').map(s => s.trim()).filter(Boolean),
+        audio_url: document.getElementById('phonicsAudioUrl').value.trim(),
+        age_group: document.getElementById('phonicsAgeGroup').value,
+        difficulty: document.getElementById('phonicsDifficulty').value,
+        phonics_category: document.getElementById('phonicsCategory').value.trim(),
+        active: true
+      };
+      if (!payload.sound || !payload.display_label || !payload.correct_answer || payload.incorrect_options.length < 2 || !payload.phonics_category) {
+        alert('Please add sound, label, correct answer, at least two incorrect options, and category.');
+        return;
+      }
+      const res = await fetch(id ? `/api/admin/phonics-questions/${id}` : '/api/admin/phonics-questions', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to save phonics question');
+        return;
+      }
+      resetPhonicsQuestionForm();
+      loadPhonicsQuestionsAdmin();
+    }
+
+    async function togglePhonicsQuestionActive(id, active) {
+      const res = await fetch(`/api/admin/phonics-questions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to update phonics question');
+        return;
+      }
+      loadPhonicsQuestionsAdmin();
     }
 
     function showModalTab(tabName, e) {
@@ -16871,7 +17056,265 @@ function initializeQuizTab() {
   });
 }
 
-  </script>
+  
+    function csvToArray(value) {
+      return String(value || '').split(',').map(item => item.trim()).filter(Boolean);
+    }
+
+    function arrayToCsv(value) {
+      if (Array.isArray(value)) return value.join(', ');
+      if (!value) return '';
+      try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return Array.isArray(parsed) ? parsed.join(', ') : '';
+      } catch (err) {
+        return '';
+      }
+    }
+
+    function resetVocabularyWordForm() {
+      const form = document.getElementById('vocabularyWordForm');
+      if (form) form.reset();
+      const id = document.getElementById('vocabularyWordId');
+      if (id) id.value = '';
+    }
+
+    async function loadVocabularyWordsAdmin() {
+      const container = document.getElementById('vocabularyWordsAdminList');
+      if (!container) return;
+      container.innerHTML = '<p style="color:#718096; margin:0;">Loading vocabulary words...</p>';
+      try {
+        const res = await fetch('/api/admin/vocabulary-words');
+        if (!res.ok) throw new Error('Failed to load vocabulary words');
+        const words = await res.json();
+        window.__vocabularyAdminWords = words;
+        if (!words.length) {
+          container.innerHTML = '<p style="color:#718096; margin:0;">No vocabulary words yet.</p>';
+          return;
+        }
+        container.innerHTML = words.map(word => `
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="min-width:220px;flex:1;">
+              <div style="font-weight:800;color:#1f2937;">${escapeHtml(word.word || '')}</div>
+              <div style="color:#4b5563;margin-top:4px;">${escapeHtml(word.meaning || '')}</div>
+              <div style="font-size:0.82rem;color:#718096;margin-top:4px;">${escapeHtml(word.age_group || '')} &bull; ${escapeHtml(word.difficulty || '')} &bull; ${escapeHtml(word.category || '')}</div>
+              <div style="font-size:0.82rem;color:#64748b;margin-top:4px;">${escapeHtml(word.example_sentence || '')}</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-sm" onclick="editVocabularyWordAdmin(${Number(word.id)})">Edit</button>
+              <button class="btn btn-sm" onclick="toggleVocabularyWordActive(${Number(word.id)}, ${!word.active})" style="background:#4a5568;color:white;">${word.active ? 'Deactivate' : 'Activate'}</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<p style="color:#c53030;margin:0;">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function editVocabularyWordAdmin(id) {
+      const word = (window.__vocabularyAdminWords || []).find(item => Number(item.id) === Number(id));
+      if (!word) return;
+      document.getElementById('vocabularyWordId').value = word.id;
+      document.getElementById('vocabularyWord').value = word.word || '';
+      document.getElementById('vocabularyMeaning').value = word.meaning || '';
+      document.getElementById('vocabularyExample').value = word.example_sentence || '';
+      document.getElementById('vocabularySynonyms').value = arrayToCsv(word.synonyms);
+      document.getElementById('vocabularyAntonyms').value = arrayToCsv(word.antonyms);
+      document.getElementById('vocabularyFamily').value = arrayToCsv(word.word_family);
+      document.getElementById('vocabularyAgeGroup').value = word.age_group || 'young';
+      document.getElementById('vocabularyDifficulty').value = word.difficulty || 'beginner';
+      document.getElementById('vocabularyCategory').value = word.category || 'daily word';
+      document.getElementById('vocabularyWordForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function saveVocabularyWordAdmin(event) {
+      event.preventDefault();
+      const id = document.getElementById('vocabularyWordId').value;
+      const payload = {
+        word: document.getElementById('vocabularyWord').value.trim(),
+        meaning: document.getElementById('vocabularyMeaning').value.trim(),
+        example_sentence: document.getElementById('vocabularyExample').value.trim(),
+        synonyms: csvToArray(document.getElementById('vocabularySynonyms').value),
+        antonyms: csvToArray(document.getElementById('vocabularyAntonyms').value),
+        word_family: csvToArray(document.getElementById('vocabularyFamily').value),
+        age_group: document.getElementById('vocabularyAgeGroup').value,
+        difficulty: document.getElementById('vocabularyDifficulty').value,
+        category: document.getElementById('vocabularyCategory').value.trim()
+      };
+      if (!payload.word || !payload.meaning || !payload.example_sentence || !payload.category) {
+        alert('Please fill word, meaning, example sentence and category.');
+        return;
+      }
+      const res = await fetch(id ? `/api/admin/vocabulary-words/${id}` : '/api/admin/vocabulary-words', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to save vocabulary word');
+        return;
+      }
+      resetVocabularyWordForm();
+      loadVocabularyWordsAdmin();
+    }
+
+    async function toggleVocabularyWordActive(id, active) {
+      const res = await fetch(`/api/admin/vocabulary-words/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active })
+      });
+      const data = await res.json();
+      if (!res.ok) alert(data.error || 'Failed to update vocabulary word');
+      loadVocabularyWordsAdmin();
+    }
+
+    function resetSpellingWordForm() {
+      const form = document.getElementById('spellingWordForm');
+      if (form) form.reset();
+      const id = document.getElementById('spellingWordId');
+      if (id) id.value = '';
+    }
+
+    async function loadSpellingWordsAdmin() {
+      const container = document.getElementById('spellingWordsAdminList');
+      if (!container) return;
+      container.innerHTML = '<p style="color:#718096; margin:0;">Loading spelling words...</p>';
+      try {
+        const res = await fetch('/api/admin/spelling-words');
+        if (!res.ok) throw new Error('Failed to load spelling words');
+        const words = await res.json();
+        window.__spellingAdminWords = words;
+        if (!words.length) {
+          container.innerHTML = '<p style="color:#718096; margin:0;">No spelling words yet.</p>';
+          return;
+        }
+        container.innerHTML = words.map(word => `
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="min-width:220px;flex:1;">
+              <div style="font-weight:800;color:#1f2937;">${escapeHtml(word.word || '')}</div>
+              <div style="color:#4b5563;margin-top:4px;">${escapeHtml(word.clue || '')}</div>
+              <div style="font-size:0.82rem;color:#718096;margin-top:4px;">${escapeHtml(word.age_group || '')} &bull; ${escapeHtml(word.difficulty || '')} &bull; ${escapeHtml(word.category || '')}</div>
+              <div style="font-size:0.82rem;color:#64748b;margin-top:4px;">${escapeHtml(word.example_sentence || '')}</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-sm" onclick="editSpellingWordAdmin(${Number(word.id)})">Edit</button>
+              <button class="btn btn-sm" onclick="toggleSpellingWordActive(${Number(word.id)}, ${!word.active})" style="background:#4a5568;color:white;">${word.active ? 'Deactivate' : 'Activate'}</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<p style="color:#c53030;margin:0;">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function editSpellingWordAdmin(id) {
+      const word = (window.__spellingAdminWords || []).find(item => Number(item.id) === Number(id));
+      if (!word) return;
+      document.getElementById('spellingWordId').value = word.id;
+      document.getElementById('spellingWord').value = word.word || '';
+      document.getElementById('spellingClue').value = word.clue || '';
+      document.getElementById('spellingExample').value = word.example_sentence || '';
+      document.getElementById('spellingAudioUrl').value = word.audio_url || '';
+      document.getElementById('spellingAgeGroup').value = word.age_group || 'young';
+      document.getElementById('spellingDifficulty').value = word.difficulty || 'beginner';
+      document.getElementById('spellingCategory').value = word.category || 'spelling bee';
+      document.getElementById('spellingWordForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function saveSpellingWordAdmin(event) {
+      event.preventDefault();
+      const id = document.getElementById('spellingWordId').value;
+      const payload = {
+        word: document.getElementById('spellingWord').value.trim(),
+        clue: document.getElementById('spellingClue').value.trim(),
+        example_sentence: document.getElementById('spellingExample').value.trim(),
+        audio_url: document.getElementById('spellingAudioUrl').value.trim(),
+        age_group: document.getElementById('spellingAgeGroup').value,
+        difficulty: document.getElementById('spellingDifficulty').value,
+        category: document.getElementById('spellingCategory').value.trim()
+      };
+      if (!payload.word || !payload.clue || !payload.category) {
+        alert('Please fill word, clue and category.');
+        return;
+      }
+      const res = await fetch(id ? `/api/admin/spelling-words/${id}` : '/api/admin/spelling-words', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to save spelling word');
+        return;
+      }
+      resetSpellingWordForm();
+      loadSpellingWordsAdmin();
+    }
+
+    async function toggleSpellingWordActive(id, active) {
+      const res = await fetch(`/api/admin/spelling-words/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active })
+      });
+      const data = await res.json();
+      if (!res.ok) alert(data.error || 'Failed to update spelling word');
+      loadSpellingWordsAdmin();
+    }
+    let learningHubAdminSettings = { learning_hub_live: 'false', learning_hub_fees_enabled: 'true' };
+
+    function updateLearningHubAdminControls() {
+      const live = String(learningHubAdminSettings.learning_hub_live || 'false') === 'true';
+      const fees = String(learningHubAdminSettings.learning_hub_fees_enabled || 'true') !== 'false';
+      const liveStatus = document.getElementById('learningHubLiveStatus');
+      const feesStatus = document.getElementById('learningHubFeesStatus');
+      if (liveStatus) {
+        liveStatus.textContent = live ? 'Live: parents can open Learning Hub activities.' : 'Unlive: parents see Coming Soon only.';
+        liveStatus.style.color = live ? '#166534' : '#92400e';
+      }
+      if (feesStatus) {
+        feesStatus.textContent = fees ? 'Fees On: free trial limits and payment lock are active.' : 'No Fees: Learning Hub activities stay open without payment lock.';
+        feesStatus.style.color = fees ? '#92400e' : '#166534';
+      }
+    }
+
+    async function loadLearningHubAdminSettings() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        const settings = await res.json();
+        learningHubAdminSettings = {
+          learning_hub_live: settings.learning_hub_live || 'false',
+          learning_hub_fees_enabled: settings.learning_hub_fees_enabled || 'true'
+        };
+        updateLearningHubAdminControls();
+      } catch (err) {
+        console.warn('Could not load Learning Hub settings:', err.message);
+        updateLearningHubAdminControls();
+      }
+    }
+
+    async function setLearningHubAdminSetting(key, value) {
+      const label = key === 'learning_hub_live'
+        ? (value ? 'make Learning Hub live for parents' : 'hide Learning Hub from parents')
+        : (value ? 'turn Learning Hub fees on' : 'turn Learning Hub fees off');
+      if (!confirm(`Are you sure you want to ${label}?`)) return;
+      try {
+        const res = await fetch('/api/admin/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [key]: value })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update Learning Hub setting');
+        learningHubAdminSettings[key] = String(value);
+        updateLearningHubAdminControls();
+        alert('Learning Hub setting updated.');
+      } catch (err) {
+        alert('Error updating Learning Hub setting: ' + err.message);
+      }
+    }</script>
 <div id="bulkRescheduleModal" class="modal">
   <div class="modal-content" style="max-width: 750px;">
     <div class="modal-header">
@@ -16933,3 +17376,6 @@ function initializeQuizTab() {
   </div>
 </body>
 </html>
+
+
+

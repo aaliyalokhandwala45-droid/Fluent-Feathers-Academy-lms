@@ -1,5 +1,5 @@
-// ==================== ADVANCED LMS - SERVER.JS (PRODUCTION READY V2.0) ====================
-console.log("🚀 Starting Advanced LMS Server v2.0 - Full Feature Update...");
+﻿// ==================== ADVANCED LMS - SERVER.JS (PRODUCTION READY V2.0) ====================
+console.log("ðŸš€ Starting Advanced LMS Server v2.0 - Full Feature Update...");
 
 const express = require('express');
 const { Pool, Client } = require('pg');
@@ -55,20 +55,20 @@ const GROQ_VISION_MODEL = resolveGroqModel(process.env.GROQ_VISION_MODEL, DEFAUL
 // Enforce security requirements in production
 if (process.env.NODE_ENV === 'production') {
   if (!ADMIN_SECRET || ADMIN_SECRET.length < 32) {
-    console.error('❌ CRITICAL: ADMIN_SECRET not set or too short (min 32 chars). Set in environment variables.');
+    console.error('âŒ CRITICAL: ADMIN_SECRET not set or too short (min 32 chars). Set in environment variables.');
     process.exit(1);
   }
   if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 8) {
-    console.error('❌ CRITICAL: ADMIN_PASSWORD not set or too short (min 8 chars). Set in environment variables.');
+    console.error('âŒ CRITICAL: ADMIN_PASSWORD not set or too short (min 8 chars). Set in environment variables.');
     process.exit(1);
   }
 } else {
   // Development warning only
   if (!ADMIN_SECRET) {
-    console.warn('⚠️  WARNING: ADMIN_SECRET not set. Set ADMIN_SECRET env variable.');
+    console.warn('âš ï¸  WARNING: ADMIN_SECRET not set. Set ADMIN_SECRET env variable.');
   }
   if (!ADMIN_PASSWORD) {
-    console.warn('⚠️  WARNING: ADMIN_PASSWORD not set. Set ADMIN_PASSWORD env variable.');
+    console.warn('âš ï¸  WARNING: ADMIN_PASSWORD not set. Set ADMIN_PASSWORD env variable.');
   }
 }
 
@@ -86,7 +86,7 @@ if (!cloudName && process.env.CLOUDINARY_URL) {
     apiKey = url.username;
     apiSecret = url.password;
     cloudName = url.hostname;
-    console.log('☁️ Parsed Cloudinary credentials from CLOUDINARY_URL');
+    console.log('â˜ï¸ Parsed Cloudinary credentials from CLOUDINARY_URL');
   } catch (e) {
     console.error('Failed to parse CLOUDINARY_URL:', e.message);
   }
@@ -100,9 +100,9 @@ cloudinary.config({
 
 const useCloudinary = !!(cloudName && apiKey && apiSecret);
 if (useCloudinary) {
-  console.log('☁️ Cloudinary configured for file storage');
+  console.log('â˜ï¸ Cloudinary configured for file storage');
 } else {
-  console.log('📁 Using local file storage (files may be lost on server restart)');
+  console.log('ðŸ“ Using local file storage (files may be lost on server restart)');
 }
 
 // Helper to delete a file from Cloudinary by its URL
@@ -116,7 +116,7 @@ async function deleteFromCloudinary(fileUrl) {
     const publicId = afterUpload.replace(/\.\w+$/, ''); // remove extension
     const resourceType = fileUrl.includes('/video/') ? 'video' : fileUrl.includes('/raw/') ? 'raw' : 'image';
     await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
-    console.log(`🗑️ Deleted from Cloudinary: ${publicId}`);
+    console.log(`ðŸ—‘ï¸ Deleted from Cloudinary: ${publicId}`);
   } catch (err) {
     console.error('Cloudinary delete error:', err.message);
   }
@@ -126,12 +126,12 @@ async function deleteFromCloudinary(fileUrl) {
 // Log which database we're connecting to (hide password)
 let dbUrl = process.env.DATABASE_URL || '';
 const dbHost = dbUrl.includes('@') ? dbUrl.split('@')[1]?.split('/')[0] : 'NOT SET';
-console.log(`🔌 Connecting to database: ${dbHost}`);
+console.log(`ðŸ”Œ Connecting to database: ${dbHost}`);
 
 // Add pgbouncer flag for Supabase transaction pooler (port 6543)
 if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('pgbouncer=true')) {
   dbUrl += dbUrl.includes('?') ? '&pgbouncer=true' : '?pgbouncer=true';
-  console.log('📌 Added pgbouncer=true for Supabase pooler');
+  console.log('ðŸ“Œ Added pgbouncer=true for Supabase pooler');
 }
 if (dbUrl.includes('pooler.supabase.com')) {
   if (dbUrl.includes('sslmode=')) {
@@ -139,7 +139,7 @@ if (dbUrl.includes('pooler.supabase.com')) {
   } else {
     dbUrl += dbUrl.includes('?') ? '&sslmode=no-verify' : '?sslmode=no-verify';
   }
-  console.log('📌 Enforced sslmode=no-verify for Supabase pooler');
+  console.log('ðŸ“Œ Enforced sslmode=no-verify for Supabase pooler');
 }
 if (dbUrl && !dbUrl.includes('application_name=')) {
   dbUrl += dbUrl.includes('?') ? '&application_name=fluentfeathers_lms' : '?application_name=fluentfeathers_lms';
@@ -166,7 +166,7 @@ const pool = new Pool({
   min: 1,                          // Always keep 1 warm connection (prevents cold TCP setup on every request)
   idleTimeoutMillis: 240000,       // Close EXTRA connections after 4 mins (min:1 is exempt)
   connectionTimeoutMillis: DB_CONNECT_TIMEOUT_MS,
-  // allowExitOnIdle removed — keep pool alive so process never idles out
+  // allowExitOnIdle removed â€” keep pool alive so process never idles out
   statement_timeout: DB_STATEMENT_TIMEOUT_MS,
   query_timeout: DB_QUERY_TIMEOUT_MS
 });
@@ -234,17 +234,17 @@ async function waitForDatabaseReady(timeoutMs = DB_WAKE_WAIT_MS) {
 
 // Pool error handler - critical for catching connection issues
 pool.on('error', (err, client) => {
-  console.error('❌ Unexpected database pool error:', err.message);
+  console.error('âŒ Unexpected database pool error:', err.message);
   dbReady = false;
   // Don't crash - the pool will attempt to reconnect on next query
 });
 
 pool.on('connect', (client) => {
-  console.log('🔗 New database connection established');
+  console.log('ðŸ”— New database connection established');
 });
 
 pool.on('remove', (client) => {
-  console.log('🔌 Database connection removed from pool');
+  console.log('ðŸ”Œ Database connection removed from pool');
 });
 
 // HTML escape utility to prevent XSS in email templates
@@ -280,7 +280,7 @@ async function executeQuery(queryText, params = [], retries = 3) {
       // Mark DB as ready on successful query
       if (!dbReady) {
         dbReady = true;
-        console.log('✅ Database connection restored');
+        console.log('âœ… Database connection restored');
       }
       markDbActivity();
       return result;
@@ -291,11 +291,11 @@ async function executeQuery(queryText, params = [], retries = 3) {
       const isTransientError = isTransientDbError(err);
 
       if (isTransientError && attempt < retries) {
-        console.warn(`⚠️ Database query failed (attempt ${attempt}/${retries}): ${err.message}`);
+        console.warn(`âš ï¸ Database query failed (attempt ${attempt}/${retries}): ${err.message}`);
         dbReady = false;
         // Longer exponential backoff: 1s, 2s, 4s, 8s for cold starts
         const delay = 1000 * Math.pow(2, attempt - 1);
-        console.log(`⏳ Retrying in ${delay/1000}s...`);
+        console.log(`â³ Retrying in ${delay/1000}s...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -320,7 +320,7 @@ async function ensureDatabaseSchemaInitialized() {
     await initializeDatabase();
     await runMigrations();
     schemaInitialized = true;
-    console.log('✅ Database schema/migrations verified for this process');
+    console.log('âœ… Database schema/migrations verified for this process');
   })();
 
   try {
@@ -341,18 +341,18 @@ async function initializeDatabaseConnection() {
   try {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        console.log(`🔄 Attempting database connection (attempt ${attempt}/${maxAttempts})...`);
+        console.log(`ðŸ”„ Attempting database connection (attempt ${attempt}/${maxAttempts})...`);
 
         // Test the connection
         const client = await pool.connect();
-        console.log('✅ Connected to PostgreSQL');
+        console.log('âœ… Connected to PostgreSQL');
 
         // Warm up the database with a simple priming query (Supabase cold-start optimization)
         try {
           await client.query('SELECT 1 as warmup');
-          console.log('🔥 Database primed (cold-start warmup complete)');
+          console.log('ðŸ”¥ Database primed (cold-start warmup complete)');
         } catch (e) {
-          console.warn('⚠️ Database priming query failed:', e.message);
+          console.warn('âš ï¸ Database priming query failed:', e.message);
         }
 
         client.release();
@@ -382,7 +382,7 @@ async function initializeDatabaseConnection() {
                 [student.id, badgeType]
               );
               if (existing.rows.length === 0) {
-                const badgeName = `⭐ ${total} Class Points!`;
+                const badgeName = `â­ ${total} Class Points!`;
                 const badgeDesc = `Earned ${total} class points in live classes!`;
                 await pool.query(`
                   INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
@@ -393,7 +393,7 @@ async function initializeDatabaseConnection() {
             }
           }
           if (awarded > 0) {
-            console.log(`🏅 Awarded ${awarded} retroactive class points badges to existing students`);
+            console.log(`ðŸ… Awarded ${awarded} retroactive class points badges to existing students`);
           }
         } catch (err) {
           console.error('Retroactive badge award error:', err.message);
@@ -401,16 +401,16 @@ async function initializeDatabaseConnection() {
 
         return true;
       } catch (err) {
-        console.error(`❌ Database connection attempt ${attempt} failed:`, err.message);
+        console.error(`âŒ Database connection attempt ${attempt} failed:`, err.message);
 
         if (attempt < maxAttempts) {
-          console.log(`⏳ Retrying in ${retryDelay / 1000} seconds...`);
+          console.log(`â³ Retrying in ${retryDelay / 1000} seconds...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
         }
       }
     }
 
-    console.error('❌ Failed to connect to database after all attempts. Server will retry on first request.');
+    console.error('âŒ Failed to connect to database after all attempts. Server will retry on first request.');
     return false;
   } finally {
     dbInitializing = false;
@@ -916,7 +916,7 @@ app.get('/join-class', async (req, res) => {
     const row = result.rows[0];
     const classLink = row.class_link || DEFAULT_CLASS;
 
-    // Parse duration in minutes (e.g. "40 mins" → 40)
+    // Parse duration in minutes (e.g. "40 mins" â†’ 40)
     const durationMins = parseDurationMinutes(row.duration);
 
     // Build UTC session start time
@@ -979,17 +979,17 @@ function joinClassTooEarlyPage(waitTime, studentName, joinQuery, secondsRemainin
 </head>
 <body>
   <div class="card">
-    <span class="icon">⏰</span>
+    <span class="icon">â°</span>
     <h1>Class Not Open Yet</h1>
     <div class="badge">Opens in ${waitTime}</div>
     <div class="countdown" id="countdown"></div>
     <div class="info-box">
-      <p>👋 Hi${studentName ? ' <strong>' + studentName + '</strong>' : ''}! Your class hasn't started yet.</p>
+      <p>ðŸ‘‹ Hi${studentName ? ' <strong>' + studentName + '</strong>' : ''}! Your class hasn't started yet.</p>
       <p style="margin-top: 10px;">The join link becomes active <strong>5 minutes before</strong> your class starts.</p>
     </div>
     <div class="btn-row">
-      <a href="${joinUrl}" class="retry-btn">🔄 Try Again</a>
-      <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">🏠 Parent Portal</a>
+      <a href="${joinUrl}" class="retry-btn">ðŸ”„ Try Again</a>
+      <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">ðŸ  Parent Portal</a>
     </div>
     <p class="auto-msg" id="autoMsg">This page will automatically open the class when it's time.</p>
   </div>
@@ -1037,10 +1037,10 @@ function joinClassErrorPage(title, message) {
 </head>
 <body>
   <div class="card">
-    <span class="icon">🔒</span>
+    <span class="icon">ðŸ”’</span>
     <h1>${title}</h1>
     <p>${message}</p>
-    <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">🏠 Go to Parent Portal</a>
+    <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" class="portal-btn">ðŸ  Go to Parent Portal</a>
   </div>
 </body>
 </html>`;
@@ -1492,7 +1492,7 @@ const handleUpload = (fieldName, maxCount = 1, uploadTypeOverride = null) => {
     const uploadHandler = maxCount > 1 ? upload.array(fieldName, maxCount) : upload.single(fieldName);
     uploadHandler(req, res, (err) => {
       if (err) {
-        console.error('❌ Upload error:', err.message, err);
+        console.error('âŒ Upload error:', err.message, err);
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({ error: `File too large. Maximum size is ${UPLOAD_MAX_FILE_SIZE_MB}MB.` });
         }
@@ -1741,9 +1741,48 @@ app.get('/api/admin/settings', async (req, res) => {
   }
 });
 
+async function upsertAdminSetting(settingKey, settingValue) {
+  await pool.query(`
+    INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+    VALUES ($1, $2, CURRENT_TIMESTAMP)
+    ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = CURRENT_TIMESTAMP
+  `, [settingKey, String(settingValue)]);
+}
+
+function parseBooleanSetting(value, fallback = false) {
+  if (value === undefined || value === null) return fallback;
+  return String(value).toLowerCase() === 'true';
+}
+
+async function getLearningHubSettings() {
+  try {
+    const result = await pool.query(`
+      SELECT setting_key, setting_value
+      FROM admin_settings
+      WHERE setting_key IN ('learning_hub_live', 'learning_hub_fees_enabled')
+    `);
+    const settings = {};
+    result.rows.forEach(row => { settings[row.setting_key] = row.setting_value; });
+    return {
+      live: parseBooleanSetting(settings.learning_hub_live, false),
+      fees_enabled: parseBooleanSetting(settings.learning_hub_fees_enabled, true),
+      monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD
+    };
+  } catch (err) {
+    return { live: false, fees_enabled: true, monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD };
+  }
+}
+
+app.get('/api/learning-hub/settings', async (req, res) => {
+  try {
+    res.json(await getLearningHubSettings());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Update admin settings
 app.put('/api/admin/settings', async (req, res) => {
-  const { admin_bio, admin_name, admin_title } = req.body;
+  const { admin_bio, admin_name, admin_title, learning_hub_live, learning_hub_fees_enabled } = req.body;
   try {
     if (admin_bio !== undefined) {
       await pool.query(`
@@ -1765,6 +1804,12 @@ app.put('/api/admin/settings', async (req, res) => {
         VALUES ('admin_title', $1, CURRENT_TIMESTAMP)
         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
       `, [admin_title]);
+    }
+        if (learning_hub_live !== undefined) {
+      await upsertAdminSetting('learning_hub_live', learning_hub_live === true || learning_hub_live === 'true');
+    }
+    if (learning_hub_fees_enabled !== undefined) {
+      await upsertAdminSetting('learning_hub_fees_enabled', learning_hub_fees_enabled === true || learning_hub_fees_enabled === 'true');
     }
     res.json({ success: true, message: 'Settings updated successfully!' });
   } catch (err) {
@@ -1865,6 +1910,10 @@ app.use('/api/parent', verifyParentAccess);
 app.use('/api/sessions', verifyParentAccess);
 app.use('/api/upload', verifyParentAccess);
 app.use('/api/events', verifyParentAccess);
+app.use('/api/learning-hub', verifyParentAccess);
+app.use('/api/phonics', verifyParentAccess);
+app.use('/api/vocabulary', verifyParentAccess);
+app.use('/api/spelling', verifyParentAccess);
 
 // Protect admin-only endpoints: only allow requests from same origin (not external)
 function requireSameOrigin(req, res, next) {
@@ -1906,7 +1955,7 @@ async function initializeDatabase() {
   try {
     await client.query('BEGIN');
 
-    console.log('🔧 Checking database tables...');
+    console.log('ðŸ”§ Checking database tables...');
 
     // Check if tables already exist
     const checkTable = await client.query(`
@@ -1918,15 +1967,15 @@ async function initializeDatabase() {
     `);
 
     if (checkTable.rows[0].exists) {
-      console.log('✅ Database tables already exist. Skipping initialization to preserve data.');
+      console.log('âœ… Database tables already exist. Skipping initialization to preserve data.');
       await client.query('COMMIT');
       return;
     }
 
-    console.log('🔧 Creating new database tables...');
+    console.log('ðŸ”§ Creating new database tables...');
 
     // 1. Create Tables with ALL required columns from the start
-    console.log('🔧 Creating students table...');
+    console.log('ðŸ”§ Creating students table...');
     await client.query(`
       CREATE TABLE students (
         id SERIAL PRIMARY KEY,
@@ -1941,7 +1990,7 @@ async function initializeDatabase() {
         program_name TEXT,
         class_type TEXT,
         duration TEXT,
-        currency TEXT DEFAULT '₹',
+        currency TEXT DEFAULT 'â‚¹',
         per_session_fee DECIMAL(10,2),
         total_sessions INTEGER DEFAULT 0,
         completed_sessions INTEGER DEFAULT 0,
@@ -1956,7 +2005,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating groups table...');
+    console.log('ðŸ”§ Creating groups table...');
     await client.query(`
       CREATE TABLE groups (
         id SERIAL PRIMARY KEY,
@@ -1970,7 +2019,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating sessions table...');
+    console.log('ðŸ”§ Creating sessions table...');
     await client.query(`
       CREATE TABLE sessions (
         id SERIAL PRIMARY KEY,
@@ -1995,7 +2044,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating session_attendance table...');
+    console.log('ðŸ”§ Creating session_attendance table...');
     await client.query(`
       CREATE TABLE session_attendance (
         id SERIAL PRIMARY KEY,
@@ -2011,7 +2060,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating materials table...');
+    console.log('ðŸ”§ Creating materials table...');
     await client.query(`
       CREATE TABLE materials (
         id SERIAL PRIMARY KEY,
@@ -2034,7 +2083,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating makeup_classes table...');
+    console.log('ðŸ”§ Creating makeup_classes table...');
     await client.query(`
       CREATE TABLE makeup_classes (
         id SERIAL PRIMARY KEY,
@@ -2050,7 +2099,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating payment_history table...');
+    console.log('ðŸ”§ Creating payment_history table...');
     await client.query(`
       CREATE TABLE payment_history (
         id SERIAL PRIMARY KEY,
@@ -2068,7 +2117,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating events table...');
+    console.log('ðŸ”§ Creating events table...');
     await client.query(`
       CREATE TABLE events (
         id SERIAL PRIMARY KEY,
@@ -2087,7 +2136,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating event_registrations table...');
+    console.log('ðŸ”§ Creating event_registrations table...');
     await client.query(`
       CREATE TABLE event_registrations (
         id SERIAL PRIMARY KEY,
@@ -2102,7 +2151,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating email_log table...');
+    console.log('ðŸ”§ Creating email_log table...');
     await client.query(`
       CREATE TABLE email_log (
         id SERIAL PRIMARY KEY,
@@ -2115,7 +2164,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating demo_leads table...');
+    console.log('ðŸ”§ Creating demo_leads table...');
     await client.query(`
       CREATE TABLE demo_leads (
         id SERIAL PRIMARY KEY,
@@ -2139,7 +2188,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating parent_credentials table...');
+    console.log('ðŸ”§ Creating parent_credentials table...');
     await client.query(`
       CREATE TABLE parent_credentials (
         id SERIAL PRIMARY KEY,
@@ -2153,7 +2202,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating class_feedback table...');
+    console.log('ðŸ”§ Creating class_feedback table...');
     await client.query(`
       CREATE TABLE class_feedback (
         id SERIAL PRIMARY KEY,
@@ -2168,7 +2217,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating student_badges table...');
+    console.log('ðŸ”§ Creating student_badges table...');
     await client.query(`
       CREATE TABLE student_badges (
         id SERIAL PRIMARY KEY,
@@ -2181,7 +2230,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating payment_renewals table...');
+    console.log('ðŸ”§ Creating payment_renewals table...');
     await client.query(`
       CREATE TABLE payment_renewals (
         id SERIAL PRIMARY KEY,
@@ -2198,7 +2247,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating announcements table...');
+    console.log('ðŸ”§ Creating announcements table...');
     await client.query(`
       CREATE TABLE announcements (
         id SERIAL PRIMARY KEY,
@@ -2211,7 +2260,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating student_certificates table...');
+    console.log('ðŸ”§ Creating student_certificates table...');
     await client.query(`
       CREATE TABLE student_certificates (
         id SERIAL PRIMARY KEY,
@@ -2227,7 +2276,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating monthly_assessments table...');
+    console.log('ðŸ”§ Creating monthly_assessments table...');
     await client.query(`
       CREATE TABLE monthly_assessments (
         id SERIAL PRIMARY KEY,
@@ -2244,7 +2293,7 @@ async function initializeDatabase() {
       )
     `);
 
-    console.log('🔧 Creating expenses table...');
+    console.log('ðŸ”§ Creating expenses table...');
     await client.query(`
       CREATE TABLE expenses (
         id SERIAL PRIMARY KEY,
@@ -2261,7 +2310,7 @@ async function initializeDatabase() {
     `);
 
     // Create indexes
-    console.log('🔧 Creating indexes...');
+    console.log('ðŸ”§ Creating indexes...');
     await client.query('CREATE INDEX IF NOT EXISTS idx_students_email ON students(parent_email)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_student ON sessions(student_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)');
@@ -2273,10 +2322,10 @@ async function initializeDatabase() {
     await applySupabasePublicApiGrants(client);
 
     await client.query('COMMIT');
-    console.log('✅ Database initialized successfully with all tables and columns');
+    console.log('âœ… Database initialized successfully with all tables and columns');
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('❌ Database initialization error:', err);
+    console.error('âŒ Database initialization error:', err);
     throw err;
   } finally {
     client.release();
@@ -2286,7 +2335,7 @@ async function initializeDatabase() {
 async function runMigrations() {
   const client = await pool.connect();
   try {
-    console.log('🔧 Running database migrations...');
+    console.log('ðŸ”§ Running database migrations...');
 
     // Migration 1: Add date_of_birth to students
     try {
@@ -2294,12 +2343,12 @@ async function runMigrations() {
         ALTER TABLE students
         ADD COLUMN IF NOT EXISTS date_of_birth DATE;
       `);
-      console.log('✅ Added date_of_birth column');
+      console.log('âœ… Added date_of_birth column');
     } catch (err) {
       if (err.code === '42701') {
-        console.log('ℹ️  date_of_birth column already exists');
+        console.log('â„¹ï¸  date_of_birth column already exists');
       } else {
-        console.error('❌ Error adding date_of_birth:', err.message);
+        console.error('âŒ Error adding date_of_birth:', err.message);
       }
     }
 
@@ -2309,12 +2358,12 @@ async function runMigrations() {
         ALTER TABLE students
         ADD COLUMN IF NOT EXISTS payment_method TEXT;
       `);
-      console.log('✅ Added payment_method column');
+      console.log('âœ… Added payment_method column');
     } catch (err) {
       if (err.code === '42701') {
-        console.log('ℹ️  payment_method column already exists');
+        console.log('â„¹ï¸  payment_method column already exists');
       } else {
-        console.error('❌ Error adding payment_method:', err.message);
+        console.error('âŒ Error adding payment_method:', err.message);
       }
     }
 
@@ -2331,9 +2380,9 @@ async function runMigrations() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `);
-      console.log('✅ Announcements table checked/created');
+      console.log('âœ… Announcements table checked/created');
     } catch (err) {
-      console.error('❌ Error with announcements table:', err.message);
+      console.error('âŒ Error with announcements table:', err.message);
     }
 
     // Migration 4: Ensure student_certificates table exists
@@ -2352,9 +2401,9 @@ async function runMigrations() {
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
         );
       `);
-      console.log('✅ Student certificates table checked/created');
+      console.log('âœ… Student certificates table checked/created');
     } catch (err) {
-      console.error('❌ Error with certificates table:', err.message);
+      console.error('âŒ Error with certificates table:', err.message);
     }
 
     // Migration 5: Ensure monthly_assessments table exists
@@ -2374,9 +2423,9 @@ async function runMigrations() {
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
         );
       `);
-      console.log('✅ Monthly assessments table checked/created');
+      console.log('âœ… Monthly assessments table checked/created');
     } catch (err) {
-      console.error('❌ Error with assessments table:', err.message);
+      console.error('âŒ Error with assessments table:', err.message);
     }
 
     // Migration 6: Ensure student_badges table exists
@@ -2393,9 +2442,9 @@ async function runMigrations() {
         );
       `);
       await client.query('CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id)');
-      console.log('✅ Student badges table checked/created');
+      console.log('âœ… Student badges table checked/created');
     } catch (err) {
-      console.error('❌ Error with badges table:', err.message);
+      console.error('âŒ Error with badges table:', err.message);
     }
 
     // Migration 7: Ensure class_feedback table exists
@@ -2416,9 +2465,9 @@ async function runMigrations() {
       await client.query('CREATE INDEX IF NOT EXISTS idx_feedback_student ON class_feedback(student_id)');
       // Add unique constraint for session_id + student_id
       await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_unique ON class_feedback(session_id, student_id)');
-      console.log('✅ Class feedback table checked/created');
+      console.log('âœ… Class feedback table checked/created');
     } catch (err) {
-      console.error('❌ Error with class_feedback table:', err.message);
+      console.error('âŒ Error with class_feedback table:', err.message);
     }
 
     // Migration 8: Ensure payment_renewals table exists
@@ -2438,9 +2487,9 @@ async function runMigrations() {
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
         );
       `);
-      console.log('✅ Payment renewals table checked/created');
+      console.log('âœ… Payment renewals table checked/created');
     } catch (err) {
-      console.error('❌ Error with payment_renewals table:', err.message);
+      console.error('âŒ Error with payment_renewals table:', err.message);
     }
 
     // Migration 9: Ensure demo_leads table exists
@@ -2467,9 +2516,9 @@ async function runMigrations() {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `);
-      console.log('✅ Demo leads table checked/created');
+      console.log('âœ… Demo leads table checked/created');
     } catch (err) {
-      console.error('❌ Error with demo_leads table:', err.message);
+      console.error('âŒ Error with demo_leads table:', err.message);
     }
 
     // Migration 9b: Add child date of birth to demo leads
@@ -2511,24 +2560,24 @@ async function runMigrations() {
           FOREIGN KEY (challenge_id) REFERENCES weekly_challenges(id) ON DELETE CASCADE
         );
       `);
-      console.log('✅ Weekly challenges tables checked/created');
+      console.log('âœ… Weekly challenges tables checked/created');
     } catch (err) {
-      console.error('❌ Error with weekly_challenges tables:', err.message);
+      console.error('âŒ Error with weekly_challenges tables:', err.message);
     }
 
     // Migration 11: Parent expectations column
     try {
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_expectations TEXT`);
       // Add badge_reward column to weekly_challenges
-      await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS badge_reward TEXT DEFAULT '🎯 Challenge Champion'`);
+      await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS badge_reward TEXT DEFAULT 'ðŸŽ¯ Challenge Champion'`);
       await client.query(`ALTER TABLE weekly_challenges ADD COLUMN IF NOT EXISTS image_url TEXT`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS renewal_reminder_sent BOOLEAN DEFAULT false`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS last_reminder_remaining INTEGER`);
       // Add class_link column to students table
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS class_link TEXT`);
-      console.log('✅ Parent expectations, renewal reminder & class_link columns added');
+      console.log('âœ… Parent expectations, renewal reminder & class_link columns added');
     } catch (err) {
-      console.error('❌ Error adding columns:', err.message);
+      console.error('âŒ Error adding columns:', err.message);
     }
 
     // Migration 12: Session materials table for multiple files
@@ -2545,9 +2594,9 @@ async function runMigrations() {
           FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
         )
       `);
-      console.log('✅ Session materials table created');
+      console.log('âœ… Session materials table created');
     } catch (err) {
-      console.error('❌ Error creating session_materials table:', err.message);
+      console.error('âŒ Error creating session_materials table:', err.message);
     }
 
     try {
@@ -2583,9 +2632,9 @@ async function runMigrations() {
       `);
       await client.query(`ALTER TABLE materials ALTER COLUMN comment_only_submission SET DEFAULT false`);
       await client.query(`ALTER TABLE materials ALTER COLUMN homework_points_approved SET DEFAULT true`);
-      console.log('âœ… Materials table updated for comment/link homework submissions');
+      console.log('Ã¢Å“â€¦ Materials table updated for comment/link homework submissions');
     } catch (err) {
-      console.error('âŒ Error updating materials for comment/link submissions:', err.message);
+      console.error('Ã¢ÂÅ’ Error updating materials for comment/link submissions:', err.message);
     }
 
     // Migration 13: Add columns to makeup_classes for tracking scheduled makeup sessions
@@ -2594,9 +2643,9 @@ async function runMigrations() {
       await client.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS added_by TEXT DEFAULT 'system'`);
       await client.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_date DATE`);
       await client.query(`ALTER TABLE makeup_classes ADD COLUMN IF NOT EXISTS scheduled_time TIME`);
-      console.log('✅ Makeup classes columns added for tracking');
+      console.log('âœ… Makeup classes columns added for tracking');
     } catch (err) {
-      console.error('❌ Error adding makeup_classes columns:', err.message);
+      console.error('âŒ Error adding makeup_classes columns:', err.message);
     }
 
     // Migration 14: Resource Library table
@@ -2620,17 +2669,17 @@ async function runMigrations() {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('✅ Resource library table created');
+      console.log('âœ… Resource library table created');
     } catch (err) {
-      console.error('❌ Error creating resource_library table:', err.message);
+      console.error('âŒ Error creating resource_library table:', err.message);
     }
 
     // Migration 15: Add image_url to announcements table
     try {
       await client.query(`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS image_url TEXT`);
-      console.log('✅ Announcements image_url column added');
+      console.log('âœ… Announcements image_url column added');
     } catch (err) {
-      console.error('❌ Error adding image_url to announcements:', err.message);
+      console.error('âŒ Error adding image_url to announcements:', err.message);
     }
 
     // Migration 16: Admin settings table for bio and other settings
@@ -2659,9 +2708,9 @@ async function runMigrations() {
         VALUES ('admin_title', 'Founder & Lead Instructor')
         ON CONFLICT (setting_key) DO NOTHING
       `);
-      console.log('✅ Admin settings table created');
+      console.log('âœ… Admin settings table created');
     } catch (err) {
-      console.error('❌ Error creating admin_settings table:', err.message);
+      console.error('âŒ Error creating admin_settings table:', err.message);
     }
 
     // Migration 17: Add assessment_type and demo_lead_id columns to monthly_assessments
@@ -2676,9 +2725,9 @@ async function runMigrations() {
         ALTER TABLE monthly_assessments
         ADD COLUMN IF NOT EXISTS demo_lead_id INTEGER REFERENCES demo_leads(id) ON DELETE SET NULL
       `);
-      console.log('✅ Migration 17: Assessment type and demo_lead_id columns added');
+      console.log('âœ… Migration 17: Assessment type and demo_lead_id columns added');
     } catch (err) {
-      console.error('❌ Migration 17 error:', err.message);
+      console.error('âŒ Migration 17 error:', err.message);
     }
 
     // Migration 18: Allow NULL student_id for demo assessments
@@ -2687,7 +2736,7 @@ async function runMigrations() {
         ALTER TABLE monthly_assessments
         ALTER COLUMN student_id DROP NOT NULL
       `);
-      console.log('✅ Migration 18: student_id now allows NULL for demo assessments');
+      console.log('âœ… Migration 18: student_id now allows NULL for demo assessments');
     } catch (err) {
       // Ignore if already nullable or other issues
       console.log('Migration 18 note:', err.message);
@@ -2697,7 +2746,7 @@ async function runMigrations() {
     try {
       await client.query(`ALTER TABLE monthly_assessments ALTER COLUMN month DROP NOT NULL`);
       await client.query(`ALTER TABLE monthly_assessments ALTER COLUMN year DROP NOT NULL`);
-      console.log('✅ Migration 19: month/year now allow NULL for demo assessments');
+      console.log('âœ… Migration 19: month/year now allow NULL for demo assessments');
     } catch (err) {
       console.log('Migration 19 note:', err.message);
     }
@@ -2706,7 +2755,7 @@ async function runMigrations() {
     try {
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS missed_sessions INTEGER DEFAULT 0`);
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS session_balance_override BOOLEAN DEFAULT FALSE`);
-      console.log('✅ Migration 20: Added missed_sessions column to students');
+      console.log('âœ… Migration 20: Added missed_sessions column to students');
     } catch (err) {
       console.log('Migration 20 note:', err.message);
     }
@@ -2727,7 +2776,7 @@ async function runMigrations() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('✅ Migration 21: Created expenses table');
+      console.log('âœ… Migration 21: Created expenses table');
     } catch (err) {
       console.log('Migration 21 note:', err.message);
     }
@@ -2751,9 +2800,9 @@ async function runMigrations() {
           `, [student.id, student.created_at || new Date(), student.fees_paid, student.currency || 'INR', student.total_sessions || '']);
           synced++;
         }
-        console.log(`✅ Migration 22: Synced ${synced} existing student payments to payment_history`);
+        console.log(`âœ… Migration 22: Synced ${synced} existing student payments to payment_history`);
       } else {
-        console.log('✅ Migration 22: Payment history already has data, skipping sync');
+        console.log('âœ… Migration 22: Payment history already has data, skipping sync');
       }
     } catch (err) {
       console.log('Migration 22 note:', err.message);
@@ -2770,7 +2819,7 @@ async function runMigrations() {
       await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS email TEXT`);
       await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS phone TEXT`);
       await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS registration_source TEXT DEFAULT 'internal'`);
-      console.log('✅ Migration 23: Extended event_registrations for public registrations');
+      console.log('âœ… Migration 23: Extended event_registrations for public registrations');
     } catch (err) {
       console.log('Migration 23 note:', err.message);
     }
@@ -2778,7 +2827,7 @@ async function runMigrations() {
     // Migration 24: Add certificate_sent to event_registrations for participation certificates
     try {
       await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS certificate_sent BOOLEAN DEFAULT FALSE`);
-      console.log('✅ Migration 24: Added certificate_sent to event_registrations');
+      console.log('âœ… Migration 24: Added certificate_sent to event_registrations');
     } catch (err) {
       console.log('Migration 24 note:', err.message);
     }
@@ -2787,7 +2836,7 @@ async function runMigrations() {
     try {
       await client.query(`ALTER TABLE student_challenges ADD COLUMN IF NOT EXISTS submission_file_path TEXT`);
       await client.query(`ALTER TABLE student_challenges ADD COLUMN IF NOT EXISTS submission_file_name TEXT`);
-      console.log('✅ Migration 25: Added submission file columns to student_challenges');
+      console.log('âœ… Migration 25: Added submission file columns to student_challenges');
     } catch (err) {
       console.log('Migration 25 note:', err.message);
     }
@@ -2795,7 +2844,7 @@ async function runMigrations() {
     // Migration 26: Add unique constraint on student_challenges(student_id, challenge_id)
     try {
       await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS student_challenges_student_challenge_unique ON student_challenges (student_id, challenge_id)`);
-      console.log('✅ Migration 26: Added unique constraint on student_challenges');
+      console.log('âœ… Migration 26: Added unique constraint on student_challenges');
     } catch (err) {
       console.log('Migration 26 note:', err.message);
     }
@@ -2803,7 +2852,7 @@ async function runMigrations() {
     // Migration 27: Add email_body column to email_log for storing full email content
     try {
       await client.query(`ALTER TABLE email_log ADD COLUMN IF NOT EXISTS email_body TEXT`);
-      console.log('✅ Migration 27: Added email_body column to email_log');
+      console.log('âœ… Migration 27: Added email_body column to email_log');
     } catch (err) {
       console.log('Migration 27 note:', err.message);
     }
@@ -2811,7 +2860,7 @@ async function runMigrations() {
     // Migration 28: Add corrected_file_path column to materials for annotated homework
     try {
       await client.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS corrected_file_path TEXT`);
-      console.log('✅ Migration 28: Added corrected_file_path column to materials');
+      console.log('âœ… Migration 28: Added corrected_file_path column to materials');
     } catch (err) {
       console.log('Migration 28 note:', err.message);
     }
@@ -2839,7 +2888,7 @@ async function runMigrations() {
           await client.query(`DO $$ BEGIN CREATE POLICY "Allow all for service role" ON ${table} FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
         } catch (e) { /* table may not exist yet */ }
       }
-      console.log('✅ Migration 29: Enabled RLS on all tables');
+      console.log('âœ… Migration 29: Enabled RLS on all tables');
     } catch (err) {
       console.log('Migration 29 note:', err.message);
     }
@@ -2847,7 +2896,7 @@ async function runMigrations() {
     // Migration 30: Add last_reminder_remaining column for renewal reminders
     try {
       await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS last_reminder_remaining INTEGER`);
-      console.log('✅ Migration 30: Added last_reminder_remaining column');
+      console.log('âœ… Migration 30: Added last_reminder_remaining column');
     } catch (err) {
       console.log('Migration 30 note:', err.message);
     }
@@ -2862,7 +2911,7 @@ async function runMigrations() {
       await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_student_id ON sessions(student_id)');
       await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_group_id ON sessions(group_id)');
       await client.query('CREATE INDEX IF NOT EXISTS idx_sessions_session_date ON sessions(session_date)');
-      console.log('✅ Migration 31: Added performance indexes');
+      console.log('âœ… Migration 31: Added performance indexes');
     } catch (err) {
       console.log('Migration 31 note:', err.message);
     }
@@ -2871,7 +2920,7 @@ async function runMigrations() {
     try {
       await client.query('ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT');
       await client.query('ALTER TABLE sessions ADD COLUMN IF NOT EXISTS duration TEXT');
-      console.log('✅ Migration 32: Added notes column to sessions');
+      console.log('âœ… Migration 32: Added notes column to sessions');
     } catch (err) {
       console.log('Migration 32 note:', err.message);
     }
@@ -2901,9 +2950,9 @@ async function runMigrations() {
             WHERE id = $1
           `, [sid]);
         }
-        console.log(`✅ Migration 33: Cleaned up ${dupes.rows.length} duplicate payment_history entries, recalculated fees for ${affectedStudents.length} students`);
+        console.log(`âœ… Migration 33: Cleaned up ${dupes.rows.length} duplicate payment_history entries, recalculated fees for ${affectedStudents.length} students`);
       } else {
-        console.log('✅ Migration 33: No duplicate payment_history entries found');
+        console.log('âœ… Migration 33: No duplicate payment_history entries found');
       }
     } catch (err) {
       console.log('Migration 33 note:', err.message);
@@ -2912,7 +2961,7 @@ async function runMigrations() {
     // Migration 34: Add student_id column to email_log table
     try {
       await client.query('ALTER TABLE email_log ADD COLUMN IF NOT EXISTS student_id INTEGER');
-      console.log('✅ Migration 34: Added student_id column to email_log');
+      console.log('âœ… Migration 34: Added student_id column to email_log');
     } catch (err) {
       console.log('Migration 34 note:', err.message);
     }
@@ -2920,7 +2969,7 @@ async function runMigrations() {
     // Migration 35: Fix currency symbols to currency codes in all tables
     try {
       const currencyMap = [
-        ['₹', 'INR'], ['$', 'USD'], ['£', 'GBP'], ['€', 'EUR']
+        ['â‚¹', 'INR'], ['$', 'USD'], ['Â£', 'GBP'], ['â‚¬', 'EUR']
       ];
       let fixed = 0;
       for (const [symbol, code] of currencyMap) {
@@ -2929,7 +2978,7 @@ async function runMigrations() {
         const r3 = await client.query('UPDATE payment_renewals SET currency = $2 WHERE currency = $1', [symbol, code]);
         fixed += r1.rowCount + r2.rowCount + r3.rowCount;
       }
-      console.log(`✅ Migration 35: Fixed ${fixed} currency symbol records to currency codes`);
+      console.log(`âœ… Migration 35: Fixed ${fixed} currency symbol records to currency codes`);
     } catch (err) {
       console.log('Migration 35 note:', err.message);
     }
@@ -2942,7 +2991,7 @@ async function runMigrations() {
       await client.query("ALTER TABLE demo_leads ADD COLUMN IF NOT EXISTS parent_timezone TEXT DEFAULT 'Asia/Kolkata'");
       await client.query("UPDATE demo_leads SET student_timezone = COALESCE(student_timezone, 'Asia/Kolkata') WHERE student_timezone IS NULL");
       await client.query("UPDATE demo_leads SET parent_timezone = COALESCE(parent_timezone, student_timezone, 'Asia/Kolkata') WHERE parent_timezone IS NULL");
-      console.log('✅ Migration 36: Added parent/student timezone columns');
+      console.log('âœ… Migration 36: Added parent/student timezone columns');
     } catch (err) {
       console.log('Migration 36 note:', err.message);
     }
@@ -2951,7 +3000,7 @@ async function runMigrations() {
     try {
       await client.query("ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS parent_timezone TEXT DEFAULT 'Asia/Kolkata'");
       await client.query("UPDATE event_registrations SET parent_timezone = 'Asia/Kolkata' WHERE parent_timezone IS NULL");
-      console.log('✅ Migration 37: Added parent_timezone to event_registrations');
+      console.log('âœ… Migration 37: Added parent_timezone to event_registrations');
     } catch (err) {
       console.log('Migration 37 note:', err.message);
     }
@@ -2964,7 +3013,7 @@ async function runMigrations() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_session_attendance_student_session ON session_attendance(student_id, session_id)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_events_status_date_time ON events(status, event_date, event_time)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_demo_leads_status_date_time ON demo_leads(status, demo_date, demo_time)`);
-      console.log('✅ Migration 38: Added composite performance indexes for class loading');
+      console.log('âœ… Migration 38: Added composite performance indexes for class loading');
     } catch (err) {
       console.log('Migration 38 note:', err.message);
     }
@@ -2990,7 +3039,7 @@ async function runMigrations() {
             OR pc.timezone = 'Asia/Kolkata'
           )
       `);
-      console.log('✅ Migration 39: Added parent_credentials.timezone and backfilled values');
+      console.log('âœ… Migration 39: Added parent_credentials.timezone and backfilled values');
     } catch (err) {
       console.log('Migration 39 note:', err.message);
     }
@@ -2999,7 +3048,7 @@ async function runMigrations() {
     try {
       await client.query(`ALTER TABLE demo_leads ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'demo'`);
       await client.query(`UPDATE demo_leads SET type = 'demo' WHERE type IS NULL`);
-      console.log('✅ Migration 40: Added type column to demo_leads');
+      console.log('âœ… Migration 40: Added type column to demo_leads');
     } catch (err) {
       console.log('Migration 40 note:', err.message);
     }
@@ -3007,7 +3056,7 @@ async function runMigrations() {
     // Migration 40: Add session_topic column to sessions table
     try {
       await client.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS session_topic TEXT`);
-      console.log('✅ Migration 40: Added session_topic column to sessions');
+      console.log('âœ… Migration 40: Added session_topic column to sessions');
     } catch (err) {
       console.log('Migration 40 note:', err.message);
     }
@@ -3027,7 +3076,7 @@ async function runMigrations() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_class_points_student ON class_points(student_id)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_class_points_session ON class_points(session_id)`);
-      console.log('✅ Migration 41: Created class_points table for live class point tracking');
+      console.log('âœ… Migration 41: Created class_points table for live class point tracking');
     } catch (err) {
       console.log('Migration 41 note:', err.message);
     }
@@ -3037,7 +3086,7 @@ async function runMigrations() {
       await client.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS class_link TEXT`);
       // Backfill class_link from zoom_link if zoom_link exists
       await client.query(`UPDATE sessions SET class_link = zoom_link WHERE class_link IS NULL AND zoom_link IS NOT NULL`).catch(() => {});
-      console.log('✅ Migration 42: Added class_link column to sessions');
+      console.log('âœ… Migration 42: Added class_link column to sessions');
     } catch (err) {
       console.log('Migration 42 note:', err.message);
     }
@@ -3067,10 +3116,10 @@ async function runMigrations() {
           RETURNING s.id, s.name, sub.makeup_pending
         `);
         if (fixResult.rows.length > 0) {
-          fixResult.rows.forEach(r => console.log(`  ✅ ${r.name}: remaining_sessions +${r.makeup_pending} (makeup backfill)`));
-          console.log(`✅ Migration 43: Fixed remaining_sessions for ${fixResult.rows.length} student(s) with existing scheduled makeup classes`);
+          fixResult.rows.forEach(r => console.log(`  âœ… ${r.name}: remaining_sessions +${r.makeup_pending} (makeup backfill)`));
+          console.log(`âœ… Migration 43: Fixed remaining_sessions for ${fixResult.rows.length} student(s) with existing scheduled makeup classes`);
         } else {
-          console.log('✅ Migration 43: No students needed remaining_sessions makeup backfill');
+          console.log('âœ… Migration 43: No students needed remaining_sessions makeup backfill');
         }
 
         await client.query(`
@@ -3080,7 +3129,7 @@ async function runMigrations() {
           DO UPDATE SET setting_value = 'true', updated_at = CURRENT_TIMESTAMP
         `);
       } else {
-        console.log('✅ Migration 43: Already applied, skipping makeup backfill');
+        console.log('âœ… Migration 43: Already applied, skipping makeup backfill');
       }
     } catch (err) {
       console.log('Migration 43 note:', err.message);
@@ -3099,7 +3148,7 @@ async function runMigrations() {
         )
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_birthday_cards_code ON birthday_cards(code)`);
-      console.log('✅ Migration 44A: Created birthday_cards table');
+      console.log('âœ… Migration 44A: Created birthday_cards table');
     } catch (err) {
       console.log('Migration 44A note:', err.message);
     }
@@ -3108,7 +3157,7 @@ async function runMigrations() {
     try {
       await client.query(`ALTER TABLE monthly_assessments ADD COLUMN IF NOT EXISTS skill_ratings TEXT`);
       await client.query(`ALTER TABLE monthly_assessments ADD COLUMN IF NOT EXISTS deferred BOOLEAN DEFAULT FALSE`);
-      console.log('✅ Migration 44: Added skill_ratings and deferred columns to monthly_assessments');
+      console.log('âœ… Migration 44: Added skill_ratings and deferred columns to monthly_assessments');
     } catch (err) {
       console.log('Migration 44 note:', err.message);
     }
@@ -3116,7 +3165,7 @@ async function runMigrations() {
     // Migration 45: Track when challenges were submitted by parents
     try {
       await client.query(`ALTER TABLE student_challenges ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP`);
-      console.log('✅ Migration 45: Added submitted_at to student_challenges');
+      console.log('âœ… Migration 45: Added submitted_at to student_challenges');
     } catch (err) {
       console.log('Migration 45 note:', err.message);
     }
@@ -3199,7 +3248,7 @@ async function runMigrations() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_quiz_attempts_student_date ON quiz_attempts(student_id, quiz_date)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_quiz_attempts_date ON quiz_attempts(quiz_date)`);
 
-      console.log('✅ Migration 46: Created daily quiz system tables');
+      console.log('âœ… Migration 46: Created daily quiz system tables');
     } catch (err) {
       console.log('Migration 46 note:', err.message);
     }
@@ -3289,7 +3338,7 @@ async function runMigrations() {
         `, [level, category, question, options, correct_answer, explanation]);
       }
 
-      console.log('✅ Migration 47: Added sample quiz questions');
+      console.log('âœ… Migration 47: Added sample quiz questions');
     } catch (err) {
       console.log('Migration 47 note:', err.message);
     }
@@ -3311,7 +3360,7 @@ async function runMigrations() {
           await client.query(`CREATE POLICY "Service role only" ON ${safeTable} FOR ALL TO service_role USING (true) WITH CHECK (true)`);
         } catch (e) { /* table may not exist yet */ }
       }
-      console.log(`✅ Migration 46: Hardened RLS policies for ${publicTables.length} public table(s)`);
+      console.log(`âœ… Migration 46: Hardened RLS policies for ${publicTables.length} public table(s)`);
     } catch (err) {
       console.log('Migration 46 note:', err.message);
     }
@@ -3321,7 +3370,7 @@ async function runMigrations() {
       await client.query(`
         ALTER TABLE students ADD COLUMN IF NOT EXISTS is_summer_camp BOOLEAN DEFAULT false
       `);
-      console.log('✅ Migration 47: Added is_summer_camp column to students table');
+      console.log('âœ… Migration 47: Added is_summer_camp column to students table');
     } catch (err) {
       console.log('Migration 47 note:', err.message);
     }
@@ -3359,7 +3408,7 @@ async function runMigrations() {
         )
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_parent_app_status_updated_at ON parent_app_status(updated_at)`);
-      console.log('✅ Migration 48: Ensured push token tables and indexes');
+      console.log('âœ… Migration 48: Ensured push token tables and indexes');
     } catch (err) {
       console.log('Migration 48 note:', err.message);
     }
@@ -3369,7 +3418,7 @@ async function runMigrations() {
       await client.query(`ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_category_check`);
       await client.query(`UPDATE quiz_questions SET category = 'figures_of_speech' WHERE LOWER(category) = 'pronunciation'`);
       await client.query(`ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_category_check CHECK (category IN ('grammar', 'vocabulary', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'contextual_reference_sentences', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language'))`);
-      console.log('✅ Migration 49: Updated quiz questions category constraint');
+      console.log('âœ… Migration 49: Updated quiz questions category constraint');
     } catch (err) {
       console.log('Migration 49 note:', err.message);
     }
@@ -3378,7 +3427,7 @@ async function runMigrations() {
     try {
       const cleanupResult = await client.query(`DELETE FROM quiz_questions WHERE LOWER(category) = 'phonics'`);
       if ((cleanupResult.rowCount || 0) > 0) {
-        console.log(`✅ Migration 50: Removed ${cleanupResult.rowCount} legacy phonics quiz question(s)`);
+        console.log(`âœ… Migration 50: Removed ${cleanupResult.rowCount} legacy phonics quiz question(s)`);
       }
     } catch (err) {
       console.log('Migration 50 note:', err.message);
@@ -3405,7 +3454,7 @@ async function runMigrations() {
         RETURNING q.id
       `);
       if ((dedupeResult.rowCount || 0) > 0) {
-        console.log(`✅ Migration 51: Hid ${dedupeResult.rowCount} duplicate quiz question(s)`);
+        console.log(`âœ… Migration 51: Hid ${dedupeResult.rowCount} duplicate quiz question(s)`);
       }
     } catch (err) {
       console.log('Migration 51 note:', err.message);
@@ -3433,9 +3482,9 @@ async function runMigrations() {
           WHERE is_active = true AND jsonb_array_length(options) != 4
         `);
 
-        console.log(`✅ Migration 52: Deactivated ${invalidQuestions.rows.length} quiz questions with incorrect number of options`);
+        console.log(`âœ… Migration 52: Deactivated ${invalidQuestions.rows.length} quiz questions with incorrect number of options`);
       } else {
-        console.log('✅ Migration 52: All active quiz questions have exactly 4 options');
+        console.log('âœ… Migration 52: All active quiz questions have exactly 4 options');
       }
     } catch (err) {
       console.log('Migration 52 note:', err.message);
@@ -3462,7 +3511,7 @@ async function runMigrations() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_pending_quiz_date_level ON pending_quiz_questions(quiz_date, level)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_pending_quiz_status ON pending_quiz_questions(status)`);
-      console.log('✅ Migration 53: Created pending_quiz_questions table for AI generation approval workflow');
+      console.log('âœ… Migration 53: Created pending_quiz_questions table for AI generation approval workflow');
     } catch (err) {
       console.log('Migration 53 note:', err.message);
     }
@@ -3501,7 +3550,7 @@ async function runMigrations() {
           END IF;
         END $$;
       `);
-      console.log('✅ Migration 54: Ensured quiz_attempts scoring/time columns');
+      console.log('âœ… Migration 54: Ensured quiz_attempts scoring/time columns');
     } catch (err) {
       console.log('Migration 54 note:', err.message);
     }
@@ -3522,9 +3571,9 @@ async function runMigrations() {
         CHECK (category IN ('grammar', 'vocabulary', 'nouns', 'pronouns', 'adjectives', 'adverbs', 'prepositions', 'interjections', 'five_senses', 'idioms', 'proverbs', 'elaboration', 'imagery', 'figures_of_speech', 'dressup_sentences', 'punctuation', 'spelling', 'show_dont_tell', 'types_of_speeches', 'body_language', 'subject_verb_agreement', 'sentence_correction', 'direct_indirect_speech'))
       `);
       if ((retiredResult.rowCount || 0) > 0) {
-        console.log(`✅ Migration 55: Retired ${retiredResult.rowCount} contextual reference quiz question(s)`);
+        console.log(`âœ… Migration 55: Retired ${retiredResult.rowCount} contextual reference quiz question(s)`);
       } else {
-        console.log('✅ Migration 55: Quiz category set refreshed');
+        console.log('âœ… Migration 55: Quiz category set refreshed');
       }
     } catch (err) {
       console.log('Migration 55 note:', err.message);
@@ -3548,11 +3597,11 @@ async function runMigrations() {
            DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP`
         );
         console.log(
-          `✅ Migration 56: Repaired ${repairSummary.repaired}/${repairSummary.scanned} historical quiz attempt(s), ` +
+          `âœ… Migration 56: Repaired ${repairSummary.repaired}/${repairSummary.scanned} historical quiz attempt(s), ` +
           `skipped ${repairSummary.skipped}, awarded ${repairSummary.badges_awarded} missing quiz badge(s)`
         );
       } else {
-        console.log('✅ Migration 56: Historical quiz attempt repair already applied');
+        console.log('âœ… Migration 56: Historical quiz attempt repair already applied');
       }
     } catch (err) {
       console.log('Migration 56 note:', err.message);
@@ -3671,9 +3720,9 @@ async function runMigrations() {
         );
       }
 
-      console.log('✅ Migration 58: Speaking Practice tables and indexes created successfully');
+      console.log('âœ… Migration 58: Speaking Practice tables and indexes created successfully');
     } catch (err) {
-      console.log('ℹ️ Migration 58 note:', err.message);
+      console.log('â„¹ï¸ Migration 58 note:', err.message);
     }
 
     // Migration 59: Writing Studio
@@ -3832,9 +3881,209 @@ async function runMigrations() {
         );
       }
 
-      console.log('✅ Migration 59: Writing Studio tables and seed prompts created successfully');
+      console.log('âœ… Migration 59: Writing Studio tables and seed prompts created successfully');
     } catch (err) {
-      console.log('ℹ️ Migration 59 note:', err.message);
+      console.log('â„¹ï¸ Migration 59 note:', err.message);
+    }
+
+    // Migration 60: Learning Lab Phonics Game 1 - Listen & Choose
+    try {
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS phonics_questions (
+          id SERIAL PRIMARY KEY,
+          game_type VARCHAR(50) NOT NULL DEFAULT 'listen_choose',
+          sound VARCHAR(50) NOT NULL,
+          display_label VARCHAR(80) NOT NULL,
+          audio_url TEXT,
+          correct_answer VARCHAR(80) NOT NULL,
+          incorrect_options JSONB NOT NULL DEFAULT '[]'::jsonb,
+          difficulty VARCHAR(20) NOT NULL DEFAULT 'beginner' CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+          age_group VARCHAR(20) NOT NULL DEFAULT 'young' CHECK (age_group IN ('young', 'intermediate', 'advanced')),
+          phonics_category VARCHAR(80) NOT NULL DEFAULT 'consonant digraphs',
+          active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS phonics_attempts (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          game_type VARCHAR(50) NOT NULL DEFAULT 'listen_choose',
+          score INTEGER NOT NULL DEFAULT 0,
+          total_questions INTEGER NOT NULL DEFAULT 0,
+          correct_answers INTEGER NOT NULL DEFAULT 0,
+          incorrect_answers INTEGER NOT NULL DEFAULT 0,
+          accuracy NUMERIC(5,2) NOT NULL DEFAULT 0,
+          attempts_data JSONB NOT NULL DEFAULT '[]'::jsonb,
+          completion_status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (completion_status IN ('started', 'completed')),
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_phonics_questions_game_active ON phonics_questions(game_type, active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_phonics_questions_age_difficulty ON phonics_questions(age_group, difficulty)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_phonics_attempts_student_game ON phonics_attempts(student_id, game_type)`);
+
+      const phonicsSeeds = [
+        ['SH', 'SH', null, 'SH', ['CH', 'TH', 'WH'], 'beginner', 'young', 'consonant digraphs'],
+        ['CH', 'CH', null, 'CH', ['SH', 'TH', 'PH'], 'beginner', 'young', 'consonant digraphs'],
+        ['TH', 'TH', null, 'TH', ['SH', 'CH', 'WH'], 'beginner', 'young', 'consonant digraphs'],
+        ['WH', 'WH', null, 'WH', ['SH', 'CH', 'TH'], 'beginner', 'young', 'consonant digraphs'],
+        ['PH', 'PH', null, 'PH', ['SH', 'CH', 'TH'], 'beginner', 'young', 'consonant digraphs'],
+        ['BL', 'BL', null, 'BL', ['BR', 'CL', 'PL'], 'beginner', 'young', 'blends'],
+        ['ST', 'ST', null, 'ST', ['SP', 'SL', 'SN'], 'beginner', 'young', 'blends'],
+        ['AI', 'AI', null, 'AI', ['OA', 'EE', 'AR'], 'beginner', 'intermediate', 'vowel teams'],
+        ['OA', 'OA', null, 'OA', ['AI', 'EE', 'OR'], 'beginner', 'intermediate', 'vowel teams'],
+        ['AR', 'AR', null, 'AR', ['OR', 'ER', 'AI'], 'beginner', 'intermediate', 'r-controlled vowels']
+      ];
+
+      for (const q of phonicsSeeds) {
+        await executeQuery(
+          `INSERT INTO phonics_questions (sound, display_label, audio_url, correct_answer, incorrect_options, difficulty, age_group, phonics_category, active)
+           SELECT $1::varchar, $2::varchar, $3::text, $4::varchar, $5::jsonb, $6::varchar, $7::varchar, $8::varchar, true
+           WHERE NOT EXISTS (
+             SELECT 1 FROM phonics_questions
+             WHERE game_type = 'listen_choose' AND LOWER(TRIM(sound)) = LOWER(TRIM($1::varchar))
+           )`,
+          [q[0], q[1], q[2], q[3], JSON.stringify(q[4]), q[5], q[6], q[7]]
+        );
+      }
+
+      console.log('âœ… Migration 60: Phonics Listen & Choose tables and seed questions created successfully');
+    } catch (err) {
+      console.log('â„¹ï¸ Migration 60 note:', err.message);
+    }
+
+    console.log('âœ… All database migrations completed successfully!');
+
+    // Migration 61: Learning Hub Vocabulary and Spelling Bee
+    try {
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS vocabulary_words (
+          id SERIAL PRIMARY KEY,
+          word VARCHAR(120) NOT NULL,
+          meaning TEXT NOT NULL,
+          example_sentence TEXT NOT NULL,
+          synonyms JSONB NOT NULL DEFAULT '[]'::jsonb,
+          antonyms JSONB NOT NULL DEFAULT '[]'::jsonb,
+          word_family JSONB NOT NULL DEFAULT '[]'::jsonb,
+          difficulty VARCHAR(20) NOT NULL DEFAULT 'beginner' CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+          age_group VARCHAR(20) NOT NULL DEFAULT 'young' CHECK (age_group IN ('young', 'intermediate', 'advanced')),
+          category VARCHAR(80) NOT NULL DEFAULT 'daily word',
+          active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS vocabulary_attempts (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          word_id INTEGER REFERENCES vocabulary_words(id) ON DELETE SET NULL,
+          game_type VARCHAR(50) NOT NULL DEFAULT 'daily_word',
+          score INTEGER NOT NULL DEFAULT 0,
+          total_questions INTEGER NOT NULL DEFAULT 0,
+          accuracy NUMERIC(5,2) NOT NULL DEFAULT 0,
+          answers_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+          completion_status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (completion_status IN ('started', 'completed')),
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS spelling_words (
+          id SERIAL PRIMARY KEY,
+          word VARCHAR(120) NOT NULL,
+          clue TEXT NOT NULL,
+          example_sentence TEXT,
+          audio_url TEXT,
+          difficulty VARCHAR(20) NOT NULL DEFAULT 'beginner' CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+          age_group VARCHAR(20) NOT NULL DEFAULT 'young' CHECK (age_group IN ('young', 'intermediate', 'advanced')),
+          category VARCHAR(80) NOT NULL DEFAULT 'spelling bee',
+          active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS spelling_attempts (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          game_type VARCHAR(50) NOT NULL DEFAULT 'spelling_bee',
+          score INTEGER NOT NULL DEFAULT 0,
+          total_words INTEGER NOT NULL DEFAULT 0,
+          correct_words INTEGER NOT NULL DEFAULT 0,
+          incorrect_words INTEGER NOT NULL DEFAULT 0,
+          accuracy NUMERIC(5,2) NOT NULL DEFAULT 0,
+          answers_data JSONB NOT NULL DEFAULT '[]'::jsonb,
+          completion_status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (completion_status IN ('started', 'completed')),
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_vocabulary_words_age_active ON vocabulary_words(age_group, active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_vocabulary_attempts_student ON vocabulary_attempts(student_id, game_type)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_spelling_words_age_active ON spelling_words(age_group, active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_spelling_attempts_student ON spelling_attempts(student_id, game_type)`);
+
+      const vocabSeeds = [
+        ['curious', 'wanting to know or learn something', 'The curious child opened the old map.', ['interested', 'eager'], ['bored'], ['curiosity', 'curiously'], 'beginner', 'young', 'character traits'],
+        ['brave', 'ready to face danger or difficulty', 'Maya was brave when she spoke on stage.', ['courageous', 'bold'], ['afraid'], ['bravery', 'bravely'], 'beginner', 'young', 'character traits'],
+        ['gentle', 'kind, calm, and careful', 'The gentle teacher helped the new student.', ['kind', 'soft'], ['rough'], ['gently', 'gentleness'], 'beginner', 'young', 'feelings'],
+        ['discover', 'to find or learn something new', 'The team hoped to discover a hidden cave.', ['find', 'uncover'], ['lose'], ['discovery', 'discovered'], 'beginner', 'young', 'action words'],
+        ['imagine', 'to make a picture or idea in your mind', 'I imagine a city floating in the sky.', ['dream', 'picture'], ['ignore'], ['imagination', 'imaginary'], 'beginner', 'young', 'creative words'],
+        ['ancient', 'very old', 'They visited an ancient fort near the river.', ['old', 'historic'], ['modern'], ['anciently'], 'intermediate', 'intermediate', 'descriptive words'],
+        ['rescue', 'to save someone from danger', 'The firefighters came to rescue the kitten.', ['save', 'protect'], ['abandon'], ['rescued', 'rescuer'], 'intermediate', 'intermediate', 'action words'],
+        ['whisper', 'to speak very softly', 'Please whisper inside the library.', ['murmur', 'mutter'], ['shout'], ['whispered', 'whispering'], 'intermediate', 'intermediate', 'voice words'],
+        ['strategy', 'a careful plan to reach a goal', 'Her strategy helped the team win the quiz.', ['plan', 'method'], ['guess'], ['strategic', 'strategist'], 'advanced', 'advanced', 'thinking words'],
+        ['persuade', 'to make someone agree or do something by giving reasons', 'He tried to persuade his friend to join the club.', ['convince', 'influence'], ['discourage'], ['persuasive', 'persuasion'], 'advanced', 'advanced', 'communication']
+      ];
+
+      for (const item of vocabSeeds) {
+        await executeQuery(
+          `INSERT INTO vocabulary_words (word, meaning, example_sentence, synonyms, antonyms, word_family, difficulty, age_group, category, active)
+           SELECT $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8, $9, true
+           WHERE NOT EXISTS (
+             SELECT 1 FROM vocabulary_words WHERE LOWER(TRIM(word)) = LOWER(TRIM($1::varchar))
+           )`,
+          [item[0], item[1], item[2], JSON.stringify(item[3]), JSON.stringify(item[4]), JSON.stringify(item[5]), item[6], item[7], item[8]]
+        );
+      }
+
+      const spellingSeeds = [
+        ['ship', 'A large boat that travels on water.', 'The ship sailed across the blue sea.', null, 'beginner', 'young', 'short vowel and digraphs'],
+        ['chair', 'A seat with a back and usually four legs.', 'She sat on the chair to read.', null, 'beginner', 'young', 'digraphs'],
+        ['bright', 'Giving a lot of light or looking smart and cheerful.', 'The bright star shone at night.', null, 'beginner', 'young', 'blends'],
+        ['garden', 'A place where plants and flowers grow.', 'Grandma planted roses in the garden.', null, 'beginner', 'young', 'everyday words'],
+        ['puzzle', 'A game or problem that makes you think.', 'The puzzle had one missing piece.', null, 'intermediate', 'intermediate', 'double letters'],
+        ['journey', 'A trip from one place to another.', 'Their journey began before sunrise.', null, 'intermediate', 'intermediate', 'tricky vowels'],
+        ['weather', 'What the air is like outside.', 'The weather changed quickly.', null, 'intermediate', 'intermediate', 'ea words'],
+        ['library', 'A place where books are kept for reading.', 'We borrowed a story from the library.', null, 'intermediate', 'intermediate', 'common tricky words'],
+        ['confidence', 'A strong belief that you can do something.', 'Practice gave her confidence.', null, 'advanced', 'advanced', 'long words'],
+        ['adventure', 'An exciting or unusual experience.', 'The forest walk became an adventure.', null, 'advanced', 'advanced', 'long words']
+      ];
+
+      for (const item of spellingSeeds) {
+        await executeQuery(
+          `INSERT INTO spelling_words (word, clue, example_sentence, audio_url, difficulty, age_group, category, active)
+           SELECT $1, $2, $3, $4, $5, $6, $7, true
+           WHERE NOT EXISTS (
+             SELECT 1 FROM spelling_words WHERE LOWER(TRIM(word)) = LOWER(TRIM($1::varchar))
+           )`,
+          item
+        );
+      }
+
+      console.log('Migration 61: Vocabulary and Spelling Bee tables and seed content created successfully');
+    } catch (err) {
+      console.log('Migration 61 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -3850,7 +4099,7 @@ async function runMigrations() {
           const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, 'first_class']);
           if (existing.rows.length === 0) {
             await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
-              [student.id, 'first_class', '🌟 First Class Star', 'Attended first class!']);
+              [student.id, 'first_class', 'ðŸŒŸ First Class Star', 'Attended first class!']);
             awarded++;
           }
         }
@@ -3858,7 +4107,7 @@ async function runMigrations() {
           const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '5_classes']);
           if (existing.rows.length === 0) {
             await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
-              [student.id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!']);
+              [student.id, '5_classes', 'ðŸ† 5 Classes Champion', 'Completed 5 classes!']);
             awarded++;
           }
         }
@@ -3866,18 +4115,18 @@ async function runMigrations() {
           const existing = await client.query('SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2', [student.id, '10_classes']);
           if (existing.rows.length === 0) {
             await client.query('INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
-              [student.id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!']);
+              [student.id, '10_classes', 'ðŸ‘‘ 10 Classes Master', 'Completed 10 classes!']);
             awarded++;
           }
         }
       }
-      if (awarded > 0) console.log(`✅ Auto-synced ${awarded} missing badges`);
+      if (awarded > 0) console.log(`âœ… Auto-synced ${awarded} missing badges`);
     } catch (badgeErr) {
       console.error('Badge sync error:', badgeErr.message);
     }
 
   } catch (err) {
-    console.error('❌ Migration error:', err);
+    console.error('âŒ Migration error:', err);
   } finally {
     client.release();
   }
@@ -4111,13 +4360,13 @@ async function syncParentTimezoneByEmail(email, timezone) {
 function stripHtmlSnippet(html, maxLen = 240) {
   if (!html || typeof html !== 'string') return '';
   const t = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  return t.length > maxLen ? t.slice(0, maxLen - 1) + '…' : t;
+  return t.length > maxLen ? t.slice(0, maxLen - 1) + 'â€¦' : t;
 }
 
 function addInstallAppLinksToPortalEmails(html) {
   if (!html || typeof html !== 'string' || !/href="[^"]*\/parent\.html/i.test(html)) return html;
   const installHref = `${getAppBaseUrl()}/parent.html?install_app=1`;
-  const installBtn = `<a href="${installHref}" style="display: inline-block; margin-left: 10px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px;">📲 Install App</a>`;
+  const installBtn = `<a href="${installHref}" style="display: inline-block; margin-left: 10px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px;">ðŸ“² Install App</a>`;
 
   return html.replace(/(<a\b[^>]*href="[^"]*\/parent\.html(?:\?[^"]*)?"[^>]*>[\s\S]*?<\/a>)/gi, (match) => {
     if (/install_app=1/i.test(match) || /Install App/i.test(match)) return match;
@@ -4867,7 +5116,7 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
   try {
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) {
-      console.warn('⚠️ BREVO_API_KEY missing. Email not sent.');
+      console.warn('âš ï¸ BREVO_API_KEY missing. Email not sent.');
       await logEmailAttempt('Failed');
       return sendResult(false, 'Email provider is not configured');
     }
@@ -5814,7 +6063,7 @@ function getWelcomeEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 32px;">🎓 Welcome to Fluent Feathers Academy!</h1>
+      <h1 style="color: white; margin: 0; font-size: 32px;">ðŸŽ“ Welcome to Fluent Feathers Academy!</h1>
     </div>
     <div style="padding: 40px 30px;">
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${data.parent_name}</strong>,</p>
@@ -5824,7 +6073,7 @@ function getWelcomeEmail(data) {
       </p>
 
       <div style="background: #f7fafc; border-left: 4px solid #667eea; padding: 20px; margin: 25px 0; border-radius: 8px;">
-        <h3 style="color: #667eea; margin-top: 0; margin-bottom: 15px;">📚 What's Next?</h3>
+        <h3 style="color: #667eea; margin-top: 0; margin-bottom: 15px;">ðŸ“š What's Next?</h3>
         <ul style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
           <li>Check your email for class schedule details</li>
           <li>Access the parent portal to view sessions and materials</li>
@@ -5835,13 +6084,13 @@ function getWelcomeEmail(data) {
 
       <div style="text-align: center; margin: 35px 0;">
         <a href="${data.class_link}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
-  🎥 Join Your First Class
+  ðŸŽ¥ Join Your First Class
 </a>
       </div>
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>💡 Pro Tip:</strong> Save the Class link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
+          <strong>ðŸ’¡ Pro Tip:</strong> Save the Class link for easy access to all your classes. We recommend testing your camera and microphone before the first session.
         </p>
       </div>
 
@@ -5856,7 +6105,7 @@ function getWelcomeEmail(data) {
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -5871,7 +6120,7 @@ function getParentSetupEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 28px;">📱 Quick Setup: Parent Portal & Notifications</h1>
+      <h1 style="color: white; margin: 0; font-size: 28px;">ðŸ“± Quick Setup: Parent Portal & Notifications</h1>
     </div>
     <div style="padding: 40px 30px;">
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${data.parent_name}</strong>,</p>
@@ -5880,7 +6129,7 @@ function getParentSetupEmail(data) {
       </p>
 
       <div style="background: #f7fafc; border-left: 4px solid #667eea; padding: 20px; margin: 25px 0; border-radius: 8px;">
-        <h3 style="color: #667eea; margin-top: 0; margin-bottom: 15px;">📲 How to Install the App</h3>
+        <h3 style="color: #667eea; margin-top: 0; margin-bottom: 15px;">ðŸ“² How to Install the App</h3>
         <ol style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
           <li>Click the "Install App" button below</li>
           <li>Follow the browser prompts to install</li>
@@ -5889,7 +6138,7 @@ function getParentSetupEmail(data) {
       </div>
 
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
-        <h3 style="color: #38b2ac; margin-top: 0; margin-bottom: 15px;">🔔 Enable Notifications</h3>
+        <h3 style="color: #38b2ac; margin-top: 0; margin-bottom: 15px;">ðŸ”” Enable Notifications</h3>
         <ol style="color: #4a5568; line-height: 2; margin: 0; padding-left: 20px;">
           <li>Open the installed app</li>
           <li>Grant notification permissions when prompted</li>
@@ -5899,13 +6148,13 @@ function getParentSetupEmail(data) {
 
       <div style="text-align: center; margin: 35px 0;">
         <a href="${getAppBaseUrl()}/parent.html?install_app=1" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
-  📱 Install Parent Portal App
+  ðŸ“± Install Parent Portal App
 </a>
       </div>
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>💡 Why this matters:</strong> With the app installed and notifications enabled, you'll never miss important updates about ${data.student_name}'s classes, homework deadlines, or assessment results.
+          <strong>ðŸ’¡ Why this matters:</strong> With the app installed and notifications enabled, you'll never miss important updates about ${data.student_name}'s classes, homework deadlines, or assessment results.
         </p>
       </div>
 
@@ -5920,7 +6169,7 @@ function getParentSetupEmail(data) {
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -5936,7 +6185,7 @@ function getScheduleEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 32px;">📅 Your Class Schedule</h1>
+      <h1 style="color: white; margin: 0; font-size: 32px;">ðŸ“… Your Class Schedule</h1>
     </div>
     <div style="padding: 40px 30px;">
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Hi <strong>${data.parent_name}</strong>,</p>
@@ -5959,7 +6208,7 @@ function getScheduleEmail(data) {
       </table>
 
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
-        <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Your Classes</h3>
+        <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">ðŸŽ¥ Join Your Classes</h3>
 <p style="color: #234e52; margin: 0; font-size: 14px; line-height: 1.8;">
   All classes will use the same Class link. We recommend joining 5 minutes early to ensure a smooth start.
           The link will also be available in your parent portal next to each class.
@@ -5968,7 +6217,7 @@ function getScheduleEmail(data) {
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>📌 Important:</strong> If you need to cancel a class, please do so at least 1 hour before the scheduled time to receive a makeup credit.
+          <strong>ðŸ“Œ Important:</strong> If you need to cancel a class, please do so at least 1 hour before the scheduled time to receive a makeup credit.
           You can cancel classes directly from your parent portal.
         </p>
       </div>
@@ -5983,14 +6232,14 @@ function getScheduleEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6012,7 +6261,7 @@ function getAnnouncementEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 28px;">📢 Announcement</h1>
+      <h1 style="color: white; margin: 0; font-size: 28px;">ðŸ“¢ Announcement</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6038,14 +6287,14 @@ function getAnnouncementEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6060,7 +6309,7 @@ function getDemoConfirmationEmail(data) {
 
   const bioHtml = data.adminBio ? `
     <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
-      <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 18px;">👋 Meet Your Instructor</h3>
+      <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 18px;">ðŸ‘‹ Meet Your Instructor</h3>
       <div style="display: flex; align-items: flex-start; gap: 20px;">
         <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; flex-shrink: 0;">
           ${data.adminName ? data.adminName.charAt(0).toUpperCase() : 'A'}
@@ -6080,7 +6329,7 @@ function getDemoConfirmationEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Demo Class Confirmed!</h1>
+      <h1 style="color: white; margin: 0; font-size: 28px;">ðŸŽ‰ Demo Class Confirmed!</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6091,18 +6340,18 @@ function getDemoConfirmationEmail(data) {
       </p>
 
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; margin: 25px 0; border-radius: 12px; text-align: center;">
-        <h3 style="margin: 0 0 15px; font-size: 16px; opacity: 0.9;">📅 Demo Class Details</h3>
+        <h3 style="margin: 0 0 15px; font-size: 16px; opacity: 0.9;">ðŸ“… Demo Class Details</h3>
         <p style="margin: 0 0 8px; font-size: 20px; font-weight: bold;">${displayDemoDate}</p>
-        <p style="margin: 0; font-size: 24px; font-weight: bold;">🕐 ${displayDemoTime}</p>
+        <p style="margin: 0; font-size: 24px; font-weight: bold;">ðŸ• ${displayDemoTime}</p>
         <p style="margin: 12px 0 0; font-size: 15px; opacity: 0.95;">Parent Local Time (${parentTimezoneLabel})</p>
         <p style="margin: 15px 0 0; font-size: 14px; opacity: 0.9;">Program: ${data.programInterest}</p>
-        ${data.classLink ? `<a href="${data.classLink}" style="display: inline-block; margin-top: 20px; background: white; color: #667eea; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">🎥 Join Demo Class</a>` : ''}
+        ${data.classLink ? `<a href="${data.classLink}" style="display: inline-block; margin-top: 20px; background: white; color: #667eea; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">ðŸŽ¥ Join Demo Class</a>` : ''}
       </div>
 
       ${bioHtml}
 
       <div style="background: #fff8e6; border: 1px solid #f6e05e; padding: 20px; border-radius: 10px; margin: 25px 0;">
-        <h4 style="color: #744210; margin: 0 0 10px; font-size: 16px;">📝 What to Expect</h4>
+        <h4 style="color: #744210; margin: 0 0 10px; font-size: 16px;">ðŸ“ What to Expect</h4>
         <ul style="color: #744210; margin: 0; padding-left: 20px; line-height: 1.8;">
           <li>Interactive and fun 30-minute session</li>
           <li>Assessment of your child's current level</li>
@@ -6123,7 +6372,7 @@ function getDemoConfirmationEmail(data) {
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6194,7 +6443,7 @@ function getRescheduleEmailTemplate(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 28px;">📅 Class Rescheduled</h1>
+      <h1 style="color: white; margin: 0; font-size: 28px;">ðŸ“… Class Rescheduled</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6206,19 +6455,19 @@ function getRescheduleEmailTemplate(data) {
 
       <!-- Old Schedule (Crossed out) -->
       <div style="background: #fed7d7; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #c53030;">
-        <h3 style="margin: 0 0 15px; color: #c53030; font-size: 16px;">❌ Previous Schedule</h3>
+        <h3 style="margin: 0 0 15px; color: #c53030; font-size: 16px;">âŒ Previous Schedule</h3>
         <p style="margin: 0; color: #742a2a; text-decoration: line-through;">
-          📆 ${oldDateFormatted}<br>
-          ⏰ ${oldTimeFormatted} (${timezoneLabel})
+          ðŸ“† ${oldDateFormatted}<br>
+          â° ${oldTimeFormatted} (${timezoneLabel})
         </p>
       </div>
 
       <!-- New Schedule -->
       <div style="background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #38a169;">
-        <h3 style="margin: 0 0 15px; color: #276749; font-size: 16px;">✅ New Schedule</h3>
+        <h3 style="margin: 0 0 15px; color: #276749; font-size: 16px;">âœ… New Schedule</h3>
         <p style="margin: 0; color: #22543d; font-weight: 600; font-size: 18px;">
-          📆 ${newDateFormatted}<br>
-          ⏰ ${newTimeFormatted} (${timezoneLabel})
+          ðŸ“† ${newDateFormatted}<br>
+          â° ${newTimeFormatted} (${timezoneLabel})
         </p>
       </div>
 
@@ -6234,21 +6483,21 @@ function getRescheduleEmailTemplate(data) {
       </p>
 
       <p style="font-size: 16px; color: #2d3748; margin-top: 25px;">
-        Thank you for your understanding! 🙏<br><br>
+        Thank you for your understanding! ðŸ™<br><br>
         Best regards,<br>
         <strong style="color: #B05D9E;">Teacher Aaliya</strong><br>
         <span style="color: #718096; font-size: 14px;">Fluent Feathers Academy</span>
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6268,7 +6517,7 @@ function getBulkPrivateRescheduleEmailTemplate(data) {
 <body style="margin:0; padding:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color:#f0f4f8;">
   <div style="max-width:600px; margin:20px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding:35px 30px; text-align:center;">
-      <h1 style="color:white; margin:0; font-size:28px;">📅 Classes Rescheduled</h1>
+      <h1 style="color:white; margin:0; font-size:28px;">ðŸ“… Classes Rescheduled</h1>
       <p style="color:rgba(255,255,255,0.9); margin:8px 0 0; font-size:14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
     <div style="padding:30px;">
@@ -6301,13 +6550,13 @@ function getBulkPrivateRescheduleEmailTemplate(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -6322,7 +6571,7 @@ function getEventEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 32px;">🎉 ${data.event_name}</h1>
+      <h1 style="color: white; margin: 0; font-size: 32px;">ðŸŽ‰ ${data.event_name}</h1>
     </div>
     <div style="padding: 40px 30px;">
       <p style="font-size: 18px; color: #2d3748; margin-bottom: 20px;">Dear <strong>${data.parent_name}</strong>,</p>
@@ -6332,22 +6581,22 @@ function getEventEmail(data) {
 
       ${data.event_description ? `
       <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin: 25px 0;">
-        <h3 style="color: #667eea; margin-top: 0; margin-bottom: 15px;">📝 About This Event</h3>
+        <h3 style="color: #667eea; margin-top: 0; margin-bottom: 15px;">ðŸ“ About This Event</h3>
         <p style="color: #4a5568; margin: 0; line-height: 1.8;">${data.event_description}</p>
       </div>
       ` : ''}
 
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
-        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px;">📅 Event Details</h3>
+        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px;">ðŸ“… Event Details</h3>
         <div style="display: flex; align-items: center; margin-bottom: 15px;">
-          <span style="font-size: 24px; margin-right: 15px;">📆</span>
+          <span style="font-size: 24px; margin-right: 15px;">ðŸ“†</span>
           <div>
             <div style="font-weight: bold; margin-bottom: 5px;">Date</div>
             <div style="opacity: 0.9;">${data.event_date}</div>
           </div>
         </div>
         <div style="display: flex; align-items: center; margin-bottom: 15px;">
-          <span style="font-size: 24px; margin-right: 15px;">🕐</span>
+          <span style="font-size: 24px; margin-right: 15px;">ðŸ•</span>
           <div>
             <div style="font-weight: bold; margin-bottom: 5px;">Time (${eventTimezoneLabel})</div>
             <div style="opacity: 0.9;">${data.event_time}</div>
@@ -6355,7 +6604,7 @@ function getEventEmail(data) {
         </div>
         ${data.event_duration ? `
         <div style="display: flex; align-items: center;">
-          <span style="font-size: 24px; margin-right: 15px;">⏱️</span>
+          <span style="font-size: 24px; margin-right: 15px;">â±ï¸</span>
           <div>
             <div style="font-weight: bold; margin-bottom: 5px;">Duration</div>
             <div style="opacity: 0.9;">${data.event_duration}</div>
@@ -6366,25 +6615,25 @@ function getEventEmail(data) {
 
       <div style="text-align: center; margin: 35px 0;">
         <a href="${data.registration_link}" style="display: inline-block; background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(56, 161, 105, 0.4);">
-          ✅ Register Now
+          âœ… Register Now
         </a>
       </div>
 
       ${data.class_link ? `
       <div style="background: #e6fffa; border-left: 4px solid #38b2ac; padding: 20px; margin: 25px 0; border-radius: 8px;">
-        <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">🎥 Join Information</h3>
+        <h3 style="color: #2c7a7b; margin-top: 0; margin-bottom: 15px;">ðŸŽ¥ Join Information</h3>
         <p style="color: rgba(255,255,255,0.9); margin: 0 0 15px 0; font-size: 14px;">
   After registering, you'll receive the Class link to join the event. We recommend joining 5 minutes early!
 </p>
 <a href="${data.class_link}" style="display: inline-block; background: #38b2ac; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-size: 14px;">
-  🔗 Event Class Link
+  ðŸ”— Event Class Link
 </a>
       </div>
       ` : ''}
 
       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px;">
-          <strong>💡 Note:</strong> Spots may be limited! Register early to secure your place.
+          <strong>ðŸ’¡ Note:</strong> Spots may be limited! Register early to secure your place.
           You can also register directly from your parent portal in the Events section.
         </p>
       </div>
@@ -6399,14 +6648,14 @@ function getEventEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6440,7 +6689,7 @@ function getRefundEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">💸 Refund Initiated</h1>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">ðŸ’¸ Refund Initiated</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Your refund request has been recorded for the unused sessions.</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6469,7 +6718,7 @@ function getRefundEmail(data) {
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -6488,7 +6737,7 @@ function getPaymentConfirmationEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #38a169 0%, #276749 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">✅ Payment Confirmed</h1>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">âœ… Payment Confirmed</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Thank you for your payment!</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6515,14 +6764,14 @@ function getPaymentConfirmationEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6542,7 +6791,7 @@ function getOTPEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">🔐 Login OTP</h1>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">ðŸ” Login OTP</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Fluent Feathers Academy Parent Portal</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6560,7 +6809,7 @@ function getOTPEmail(data) {
 
       <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
-          <strong>⚠️ Important:</strong> This OTP is valid for <strong>10 minutes</strong> only. Do not share this code with anyone.
+          <strong>âš ï¸ Important:</strong> This OTP is valid for <strong>10 minutes</strong> only. Do not share this code with anyone.
         </p>
       </div>
 
@@ -6571,7 +6820,7 @@ function getOTPEmail(data) {
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6593,7 +6842,7 @@ function getClassReminderEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">⏰ Demo Class Reminder</h1>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">â° Demo Class Reminder</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Your demo class is starting ${hoursBeforeClass === 5 ? 'in 5 hours' : 'in 1 hour'}!</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6605,7 +6854,7 @@ function getClassReminderEmail(data) {
       </p>
 
       <div style="background: linear-gradient(135deg, #f6f9fc 0%, #e9f2ff 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; margin-bottom: 25px;">
-        <h2 style="margin: 0 0 15px; color: #667eea; font-size: 20px;">📅 Class Details</h2>
+        <h2 style="margin: 0 0 15px; color: #667eea; font-size: 20px;">ðŸ“… Class Details</h2>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Date:</strong></td>
@@ -6620,16 +6869,16 @@ function getClassReminderEmail(data) {
 
       <div style="text-align: center; margin: 30px 0;">
         <a href="${classLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
-  🎥 Join Class
+  ðŸŽ¥ Join Class
 </a>
       </div>
 
       <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
-          <strong>💡 Pro Tip:</strong> Make sure you're in a quiet place with good internet connection. Have your materials ready!
+          <strong>ðŸ’¡ Pro Tip:</strong> Make sure you're in a quiet place with good internet connection. Have your materials ready!
         </p>
         <p style="margin: 10px 0 0; color: #856404; font-size: 13px; line-height: 1.5;">
-          <strong>📌 Note:</strong> If you need to cancel or reschedule, please contact your teacher or our team directly before the session starts.
+          <strong>ðŸ“Œ Note:</strong> If you need to cancel or reschedule, please contact your teacher or our team directly before the session starts.
         </p>
       </div>
 
@@ -6640,7 +6889,7 @@ function getClassReminderEmail(data) {
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6658,7 +6907,7 @@ function getClassReminderEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">⏰ Class Reminder</h1>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">â° Class Reminder</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Your class is starting ${hoursBeforeClass === 5 ? 'in 5 hours' : 'in 1 hour'}!</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6670,7 +6919,7 @@ function getClassReminderEmail(data) {
       </p>
 
       <div style="background: linear-gradient(135deg, #f6f9fc 0%, #e9f2ff 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #667eea; margin-bottom: 25px;">
-        <h2 style="margin: 0 0 15px; color: #667eea; font-size: 20px;">📅 Class Details</h2>
+        <h2 style="margin: 0 0 15px; color: #667eea; font-size: 20px;">ðŸ“… Class Details</h2>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Date:</strong></td>
@@ -6685,16 +6934,16 @@ function getClassReminderEmail(data) {
 
       <div style="text-align: center; margin: 30px 0;">
         <a href="${classLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
-  🎥 Join Class
+  ðŸŽ¥ Join Class
 </a>
       </div>
 
       <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
-          <strong>💡 Pro Tip:</strong> Make sure you're in a quiet place with good internet connection. Have your materials ready!
+          <strong>ðŸ’¡ Pro Tip:</strong> Make sure you're in a quiet place with good internet connection. Have your materials ready!
         </p>
         <p style="margin: 10px 0 0; color: #856404; font-size: 13px; line-height: 1.5;">
-          <strong>📌 Note:</strong> If you need to cancel, please do so from the Parent Portal at least <strong>1 hour before</strong> the session starts.
+          <strong>ðŸ“Œ Note:</strong> If you need to cancel, please do so from the Parent Portal at least <strong>1 hour before</strong> the session starts.
         </p>
       </div>
 
@@ -6704,14 +6953,14 @@ function getClassReminderEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6731,7 +6980,7 @@ function getEventReminderEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">⏰ Event Starting Soon!</h1>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">â° Event Starting Soon!</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">${eventName}</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6743,7 +6992,7 @@ function getEventReminderEmail(data) {
       </p>
 
       <div style="background: linear-gradient(135deg, #f6f9fc 0%, #fce4ec 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #f5576c; margin-bottom: 25px;">
-        <h2 style="margin: 0 0 15px; color: #f5576c; font-size: 20px;">📅 Event Details</h2>
+        <h2 style="margin: 0 0 15px; color: #f5576c; font-size: 20px;">ðŸ“… Event Details</h2>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>Event:</strong></td>
@@ -6764,14 +7013,14 @@ function getEventReminderEmail(data) {
       ${classLink ? `
       <div style="text-align: center; margin: 30px 0;">
         <a href="${classLink}" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">
-          🎥 Join Event Now
+          ðŸŽ¥ Join Event Now
         </a>
       </div>
       ` : ''}
 
       <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
-          <strong>💡 Tip:</strong> Join a few minutes early to make sure everything is working. Have a quiet space and good internet ready!
+          <strong>ðŸ’¡ Tip:</strong> Join a few minutes early to make sure everything is working. Have a quiet space and good internet ready!
         </p>
       </div>
 
@@ -6781,14 +7030,14 @@ function getEventReminderEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6813,9 +7062,9 @@ function getHomeworkFeedbackEmail(data) {
 
   // Get emoji based on grade
   const g = (grade || '').toLowerCase();
-  const gradeEmoji = g.includes('a') || g.includes('excellent') ? '🌟' :
-                     g.includes('b') || g.includes('good') ? '👍' :
-                     g.includes('c') ? '📝' : '⭐';
+  const gradeEmoji = g.includes('a') || g.includes('excellent') ? 'ðŸŒŸ' :
+                     g.includes('b') || g.includes('good') ? 'ðŸ‘' :
+                     g.includes('c') ? 'ðŸ“' : 'â­';
 
   const emailHtml = `<!DOCTYPE html>
 <html>
@@ -6826,7 +7075,7 @@ function getHomeworkFeedbackEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); padding: 40px 30px; text-align: center;">
-      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">📝 ${typeLabel} Reviewed!</h1>
+      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">ðŸ“ ${typeLabel} Reviewed!</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Great job on completing your ${typeLabel.toLowerCase()}!</p>
     </div>
     <div style="padding: 40px 30px;">
@@ -6838,7 +7087,7 @@ function getHomeworkFeedbackEmail(data) {
       </p>
 
       <div style="background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #38a169; margin-bottom: 25px;">
-        <h2 style="margin: 0 0 15px; color: #38a169; font-size: 20px;">📋 ${typeLabel} Details</h2>
+        <h2 style="margin: 0 0 15px; color: #38a169; font-size: 20px;">ðŸ“‹ ${typeLabel} Details</h2>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 8px 0; color: #4a5568; font-size: 15px;"><strong>File:</strong></td>
@@ -6857,7 +7106,7 @@ function getHomeworkFeedbackEmail(data) {
 
       ${comments ? `
       <div style="background: #fef5e7; padding: 20px; border-radius: 10px; border-left: 4px solid #f6ad55; margin-bottom: 25px;">
-        <h3 style="margin: 0 0 10px; color: #c05621; font-size: 16px;">💬 Teacher's Feedback</h3>
+        <h3 style="margin: 0 0 10px; color: #c05621; font-size: 16px;">ðŸ’¬ Teacher's Feedback</h3>
         <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.6; font-style: italic;">
           "${comments}"
         </p>
@@ -6866,7 +7115,7 @@ function getHomeworkFeedbackEmail(data) {
 
       <div style="background: #e6fffa; border: 1px solid #38b2ac; padding: 15px; border-radius: 8px; margin-top: 25px;">
         <p style="margin: 0; color: #234e52; font-size: 14px; line-height: 1.5;">
-          <strong>🎯 Keep it up!</strong> Regular ${typeLabel.toLowerCase()} completion helps reinforce learning and build good study habits. We're proud of ${studentName}'s progress!
+          <strong>ðŸŽ¯ Keep it up!</strong> Regular ${typeLabel.toLowerCase()} completion helps reinforce learning and build good study habits. We're proud of ${studentName}'s progress!
         </p>
       </div>
 
@@ -6876,14 +7125,14 @@ function getHomeworkFeedbackEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6910,7 +7159,7 @@ function getBirthdayEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #FF6B9D 0%, #C06FF9 100%); padding: 50px 30px; text-align: center; position: relative;">
-      <div style="font-size: 60px; margin-bottom: 10px;">🎉🎂🎈</div>
+      <div style="font-size: 60px; margin-bottom: 10px;">ðŸŽ‰ðŸŽ‚ðŸŽˆ</div>
       <h1 style="margin: 0; color: white; font-size: 36px; font-weight: bold;">Happy Birthday!</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 18px;">Wishing you a fantastic day!</p>
     </div>
@@ -6918,24 +7167,24 @@ function getBirthdayEmail(data) {
       <p style="margin: 0 0 20px; font-size: 18px; color: #2d3748; text-align: center;">
         Dear <strong>${studentName}</strong>,
       </p>
-      <div style="text-align: center; font-size: 50px; margin: 20px 0;">🎊🎁🌟</div>
+      <div style="text-align: center; font-size: 50px; margin: 20px 0;">ðŸŽŠðŸŽðŸŒŸ</div>
       <p style="margin: 0 0 25px; font-size: 16px; color: #4a5568; line-height: 1.8; text-align: center;">
         Everyone at <strong style="color: #667eea;">Fluent Feathers Academy</strong><br>
         wishes you a very <strong>Happy Birthday</strong>!<br><br>
         May this special day bring you lots of happiness,<br>
-        joy, and wonderful memories! 🎈🎂❤️
+        joy, and wonderful memories! ðŸŽˆðŸŽ‚â¤ï¸
       </p>
 
       <div style="background: linear-gradient(135deg, #FFF5E1 0%, #FFE4E1 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #FF6B9D; margin: 30px 0;">
         <p style="margin: 0; color: #4a5568; font-size: 16px; line-height: 1.6; text-align: center;">
-          <span style="font-size: 24px;">🌟</span><br>
+          <span style="font-size: 24px;">ðŸŒŸ</span><br>
           <strong style="color: #C06FF9;">You are amazing!</strong><br>
           Keep shining and learning!
         </p>
       </div>
 
       <div style="text-align: center; margin: 30px 0; font-size: 40px;">
-        🎵 🎶 🎉 🎂 🎁 🎈 🎊
+        ðŸŽµ ðŸŽ¶ ðŸŽ‰ ðŸŽ‚ ðŸŽ ðŸŽˆ ðŸŽŠ
       </div>
 
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6; text-align: center;">
@@ -6945,7 +7194,7 @@ function getBirthdayEmail(data) {
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -6965,7 +7214,7 @@ function getRenewalReminderEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">⏰</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">â°</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Session Renewal Reminder</h1>
     </div>
     <div style="padding: 40px 30px;">
@@ -6975,7 +7224,7 @@ function getRenewalReminderEmail(data) {
 
       <div style="background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #e53e3e; margin: 25px 0;">
         <p style="margin: 0; font-size: 18px; color: #c53030; font-weight: bold; text-align: center;">
-          ⚠️ Only ${remainingSessions} session${remainingSessions > 1 ? 's' : ''} remaining for ${studentName}!
+          âš ï¸ Only ${remainingSessions} session${remainingSessions > 1 ? 's' : ''} remaining for ${studentName}!
         </p>
       </div>
 
@@ -6986,22 +7235,22 @@ function getRenewalReminderEmail(data) {
 
       <p style="margin: 0 0 25px; font-size: 15px; color: #4a5568; line-height: 1.7;">
         To ensure uninterrupted learning, please consider renewing the sessions soon.
-        We'd hate for ${studentName} to miss out on their learning journey! 📚
+        We'd hate for ${studentName} to miss out on their learning journey! ðŸ“š
       </p>
 
       <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 25px 0;">
-        <h3 style="margin: 0 0 15px; color: #2d3748; font-size: 16px;">📋 Current Status:</h3>
+        <h3 style="margin: 0 0 15px; color: #2d3748; font-size: 16px;">ðŸ“‹ Current Status:</h3>
         <table style="width: 100%; font-size: 14px; color: #4a5568;">
           <tr><td style="padding: 8px 0;">Student:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentName}</td></tr>
           <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
           <tr><td style="padding: 8px 0;">Sessions Remaining:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e53e3e;">${remainingSessions}</td></tr>
           ${makeupCredits > 0 ? `<tr><td style="padding: 8px 0;">Makeup Credits:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #6b46c1;">${makeupCredits} <span style='font-size:12px;'>(contact teacher to book these missed sessions)</span></td></tr>` : ''}
-          ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>` : ''}
+          ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || 'â‚¹'}${perSessionFee}</td></tr>` : ''}
         </table>
       </div>
 
       <p style="margin: 25px 0; font-size: 15px; color: #4a5568; line-height: 1.7;">
-        To renew, simply reply to this email or contact us directly. We're happy to help! 😊
+        To renew, simply reply to this email or contact us directly. We're happy to help! ðŸ˜Š
       </p>
 
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568;">
@@ -7010,14 +7259,14 @@ function getRenewalReminderEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -7037,7 +7286,7 @@ function getSlotsReleasingEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">🚨</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸš¨</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">All Sessions Completed!</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
@@ -7060,14 +7309,14 @@ function getSlotsReleasingEmail(data) {
 
       <div style="background: linear-gradient(135deg, #fffaf0 0%, #feebc8 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #f6ad55; margin: 25px 0;">
         <p style="margin: 0; font-size: 15px; color: #744210; line-height: 1.7;">
-          <strong>⏳ Please note:</strong> We will be releasing ${studentName}'s slot soon. To continue uninterrupted learning, please renew the sessions at the earliest so we can schedule the next set of classes for ${studentName}.
+          <strong>â³ Please note:</strong> We will be releasing ${studentName}'s slot soon. To continue uninterrupted learning, please renew the sessions at the earliest so we can schedule the next set of classes for ${studentName}.
         </p>
       </div>
 
       ${makeupCredits > 0 ? `
       <div style="background: #faf5ff; padding: 15px; border-radius: 8px; border-left: 4px solid #805ad5; margin: 20px 0;">
         <p style="margin: 0; font-size: 14px; color: #553c9a;">
-          <strong>🎫 Note:</strong> ${studentName} has ${makeupCredits} makeup credit${makeupCredits > 1 ? 's' : ''} available. These are bonus classes and will remain valid even after renewal.
+          <strong>ðŸŽ« Note:</strong> ${studentName} has ${makeupCredits} makeup credit${makeupCredits > 1 ? 's' : ''} available. These are bonus classes and will remain valid even after renewal.
         </p>
       </div>
       ` : ''}
@@ -7075,13 +7324,13 @@ function getSlotsReleasingEmail(data) {
       ${perSessionFee ? `
       <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
         <p style="margin: 0; font-size: 14px; color: #4a5568;">
-          <strong>💰 Per Session Fee:</strong> ${currency || '₹'}${perSessionFee}
+          <strong>ðŸ’° Per Session Fee:</strong> ${currency || 'â‚¹'}${perSessionFee}
         </p>
       </div>
       ` : ''}
 
       <p style="margin: 25px 0; font-size: 15px; color: #4a5568; line-height: 1.7;">
-        To renew, simply reply to this email or contact us directly. We look forward to continuing ${studentName}'s learning journey! 😊
+        To renew, simply reply to this email or contact us directly. We look forward to continuing ${studentName}'s learning journey! ðŸ˜Š
       </p>
 
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568;">
@@ -7090,14 +7339,14 @@ function getSlotsReleasingEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -7117,7 +7366,7 @@ function getPaidClassesDoneWithMakeupLeftEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 46px; margin-bottom: 10px;">📚</div>
+      <div style="font-size: 46px; margin-bottom: 10px;">ðŸ“š</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">All Paid Classes Used</h1>
       <p style="color: rgba(255,255,255,0.92); margin: 10px 0 0; font-size: 14px;">Makeup credits are still available</p>
     </div>
@@ -7150,7 +7399,7 @@ function getPaidClassesDoneWithMakeupLeftEmail(data) {
           <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
           <tr><td style="padding: 8px 0;">Paid classes remaining:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e53e3e;">0</td></tr>
           <tr><td style="padding: 8px 0;">Makeup credits left:</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #6b46c1;">${makeupCredits}</td></tr>
-          ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>` : ''}
+          ${perSessionFee ? `<tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || 'â‚¹'}${perSessionFee}</td></tr>` : ''}
         </table>
       </div>
 
@@ -7175,7 +7424,7 @@ function getAllClassesAndMakeupUsedEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 48px; margin-bottom: 10px;">🚨</div>
+      <div style="font-size: 48px; margin-bottom: 10px;">ðŸš¨</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">All Classes Fully Used</h1>
       <p style="color: rgba(255,255,255,0.92); margin: 10px 0 0; font-size: 14px;">Please secure the slot for the next cycle</p>
     </div>
@@ -7206,7 +7455,7 @@ function getAllClassesAndMakeupUsedEmail(data) {
         <table style="width: 100%; font-size: 14px; color: #4a5568;">
           <tr><td style="padding: 8px 0;">Student:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${studentName}</td></tr>
           <tr><td style="padding: 8px 0;">Program:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${programName || 'N/A'}</td></tr>
-          <tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || '₹'}${perSessionFee}</td></tr>
+          <tr><td style="padding: 8px 0;">Per Session Fee:</td><td style="padding: 8px 0; text-align: right; font-weight: bold;">${currency || 'â‚¹'}${perSessionFee}</td></tr>
         </table>
       </div>
       ` : ''}
@@ -7232,7 +7481,7 @@ function getClassCancelledEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #f56565 0%, #c53030 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">📅</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸ“…</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Class Cancelled</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Session Update Notification</p>
     </div>
@@ -7255,7 +7504,7 @@ function getClassCancelledEmail(data) {
 
       ${hasMakeupCredit ? `
       <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #38b2ac; margin: 20px 0;">
-        <h3 style="margin: 0 0 10px; color: #234e52; font-size: 18px;">🎁 Makeup Credit Added!</h3>
+        <h3 style="margin: 0 0 10px; color: #234e52; font-size: 18px;">ðŸŽ Makeup Credit Added!</h3>
         <p style="margin: 0; color: #234e52; font-size: 15px; line-height: 1.6;">
           A makeup credit has been added to <strong>${studentName}</strong>'s account. You can use this credit during renewal to book an extra session. The credit will remain available until used.
         </p>
@@ -7268,14 +7517,14 @@ function getClassCancelledEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -7295,7 +7544,7 @@ function getMakeupCreditAddedEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">🎁</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸŽ</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Missed Class & Extra Session Added</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">Excused Class Notification</p>
     </div>
@@ -7313,12 +7562,12 @@ function getMakeupCreditAddedEmail(data) {
           <tr><td style="padding: 10px 0; color: #234e52;">Credit Type:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">Excused Class / Makeup Session</td></tr>
           <tr><td style="padding: 10px 0; color: #234e52;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">${reason || 'Excused by teacher'}</td></tr>
           ${notes ? `<tr><td style="padding: 10px 0; color: #234e52;">Notes:</td><td style="padding: 10px 0; font-weight: bold; color: #234e52;">${notes}</td></tr>` : ''}
-          <tr><td style="padding: 10px 0; color: #234e52;">Status:</td><td style="padding: 10px 0; font-weight: bold; color: #38b2ac;">✅ Available</td></tr>
+          <tr><td style="padding: 10px 0; color: #234e52;">Status:</td><td style="padding: 10px 0; font-weight: bold; color: #38b2ac;">âœ… Available</td></tr>
         </table>
       </div>
 
       <div style="background: #fffbeb; padding: 20px; border-radius: 12px; border-left: 4px solid #f59e0b; margin: 20px 0;">
-        <h3 style="margin: 0 0 10px; color: #92400e; font-size: 16px;">📅 How to Use This Session</h3>
+        <h3 style="margin: 0 0 10px; color: #92400e; font-size: 16px;">ðŸ“… How to Use This Session</h3>
         <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
           This makeup session is available for you to book with the teacher. Please coordinate with your teacher to schedule the missed class at a mutually convenient time. The credit will remain in your account until used.
         </p>
@@ -7331,7 +7580,7 @@ function getMakeupCreditAddedEmail(data) {
 
       <div style="margin-top: 30px; padding: 20px; background: #f7fafc; border-radius: 12px; text-align: center;">
         <p style="margin: 0; color: #718096; font-size: 13px;">
-          Made with ❤️ By Aaliya
+          Made with â¤ï¸ By Aaliya
         </p>
       </div>
     </div>
@@ -7353,7 +7602,7 @@ function getCertificateEmail(data) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 50px 30px; text-align: center;">
-      <div style="font-size: 60px; margin-bottom: 10px;">🏆</div>
+      <div style="font-size: 60px; margin-bottom: 10px;">ðŸ†</div>
       <h1 style="margin: 0; color: #2d3748; font-size: 32px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">Certificate of Achievement</h1>
       <p style="margin: 10px 0 0; color: #4a5568; font-size: 16px; font-weight: 600;">${monthNames[month - 1]} ${year}</p>
     </div>
@@ -7365,7 +7614,7 @@ function getCertificateEmail(data) {
 
       <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4); margin: 30px 0;">
         <p style="margin: 0 0 10px; color: #2d3748; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Award</p>
-        <h3 style="margin: 0; color: #2d3748; font-size: 28px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">🌟 ${awardTitle} 🌟</h3>
+        <h3 style="margin: 0; color: #2d3748; font-size: 28px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">ðŸŒŸ ${awardTitle} ðŸŒŸ</h3>
       </div>
 
       ${description ? `
@@ -7377,7 +7626,7 @@ function getCertificateEmail(data) {
       ` : ''}
 
       <div style="text-align: center; margin: 30px 0; font-size: 36px;">
-        ⭐ 🏆 🎖️ 👑 💎
+        â­ ðŸ† ðŸŽ–ï¸ ðŸ‘‘ ðŸ’Ž
       </div>
 
       <p style="margin: 25px 0 0; font-size: 15px; color: #4a5568; line-height: 1.6; text-align: center;">
@@ -7386,14 +7635,14 @@ function getCertificateEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -7418,7 +7667,7 @@ function getMonthlyReportCardEmail(data) {
   <div style="max-width: 700px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">📊</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸ“Š</div>
       <h1 style="margin: 0; color: white; font-size: 32px; font-weight: bold;">Monthly Progress Report</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 18px; font-weight: 600;">${monthNames[month - 1]} ${year}</p>
     </div>
@@ -7433,12 +7682,12 @@ function getMonthlyReportCardEmail(data) {
       ${certificateTitle ? `
       <!-- Certificate Award Notice & Download Button -->
       <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 25px; border: 2px solid #f59e0b;">
-        <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+        <div style="font-size: 40px; margin-bottom: 10px;">ðŸ†</div>
         <h3 style="margin: 0 0 10px; color: #92400e; font-size: 22px; font-weight: bold;">${certificateTitle}</h3>
         <p style="margin: 0 0 5px; color: #b45309; font-size: 14px;">Congratulations to</p>
         <p style="margin: 0 0 15px; color: #92400e; font-size: 20px; font-weight: bold; text-transform: uppercase;">${studentName}</p>
         <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
-          📥 Download Certificate
+          ðŸ“¥ Download Certificate
         </a>
         <p style="margin: 15px 0 0; color: #92400e; font-size: 12px;">Click to view and download the full certificate as PDF</p>
       </div>
@@ -7448,12 +7697,12 @@ function getMonthlyReportCardEmail(data) {
       <!-- Skills Assessment -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>📝</span> Skills Assessed This Month
+          <span>ðŸ“</span> Skills Assessed This Month
         </h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           ${skillsList.map(skill => `
           <div style="background: #f7fafc; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea; font-size: 14px; color: #4a5568; font-weight: 600;">
-            ✓ ${skill}
+            âœ“ ${skill}
           </div>
           `).join('')}
         </div>
@@ -7464,7 +7713,7 @@ function getMonthlyReportCardEmail(data) {
       <!-- Performance Summary -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>📈</span> Overall Performance Summary
+          <span>ðŸ“ˆ</span> Overall Performance Summary
         </h3>
         <div style="background: #e6fffa; padding: 20px; border-radius: 10px; border-left: 4px solid #38b2ac;">
           <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.7;">
@@ -7478,7 +7727,7 @@ function getMonthlyReportCardEmail(data) {
       <!-- Areas of Improvement -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>📌</span> Areas of Improvement
+          <span>ðŸ“Œ</span> Areas of Improvement
         </h3>
         <div style="background: #fff5f5; padding: 20px; border-radius: 10px; border-left: 4px solid #fc8181;">
           <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.7;">
@@ -7492,7 +7741,7 @@ function getMonthlyReportCardEmail(data) {
       <!-- Teacher's Comments -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #2d3748; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>💬</span> Teacher's Comments
+          <span>ðŸ’¬</span> Teacher's Comments
         </h3>
         <div style="background: #fef5e7; padding: 20px; border-radius: 10px; border-left: 4px solid #f6ad55;">
           <p style="margin: 0; color: #2d3748; font-size: 15px; line-height: 1.7; font-style: italic;">
@@ -7505,7 +7754,7 @@ function getMonthlyReportCardEmail(data) {
       <!-- Motivational Footer -->
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px;">
         <p style="margin: 0; color: white; font-size: 16px; line-height: 1.6; font-weight: 500;">
-          🌟 Keep up the great work, ${studentName}! 🌟<br>
+          ðŸŒŸ Keep up the great work, ${studentName}! ðŸŒŸ<br>
           <span style="font-size: 14px; opacity: 0.95;">We're proud of your progress and look forward to seeing you continue to grow!</span>
         </p>
       </div>
@@ -7516,16 +7765,16 @@ function getMonthlyReportCardEmail(data) {
       </p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
 
     <!-- Footer -->
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -7552,7 +7801,7 @@ function getGoogleReviewEmail(childName, isDemoParent) {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">⭐</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">â­</div>
       <h1 style="margin: 0; color: white; font-size: 26px; font-weight: bold;">We'd Love Your Feedback!</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 15px;">Fluent Feathers Academy By Aaliya</p>
     </div>
@@ -7560,13 +7809,13 @@ function getGoogleReviewEmail(childName, isDemoParent) {
       <p style="font-size: 16px; color: #2d3748; line-height: 1.6; margin: 0 0 15px;">${greeting}</p>
       <p style="font-size: 15px; color: #4a5568; line-height: 1.6; margin: 0 0 25px;">${message}</p>
       <div style="margin: 25px 0;">
-        <div style="font-size: 36px; letter-spacing: 5px; margin-bottom: 10px;">⭐⭐⭐⭐⭐</div>
+        <div style="font-size: 36px; letter-spacing: 5px; margin-bottom: 10px;">â­â­â­â­â­</div>
         <p style="font-size: 14px; color: #718096; margin: 0;">Tap below to leave a quick Google review</p>
       </div>
       <a href="${reviewUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white; padding: 16px 40px; border-radius: 30px; text-decoration: none; font-size: 18px; font-weight: 600; box-shadow: 0 4px 15px rgba(66,133,244,0.4);">
-        📝 Leave a Google Review
+        ðŸ“ Leave a Google Review
       </a>
-      <p style="font-size: 13px; color: #a0aec0; margin: 25px 0 0; line-height: 1.5;">It only takes a minute and makes a huge difference! 💜</p>
+      <p style="font-size: 13px; color: #a0aec0; margin: 25px 0 0; line-height: 1.5;">It only takes a minute and makes a huge difference! ðŸ’œ</p>
     </div>
     <div style="background: #f7fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #a0aec0; font-size: 12px;">Fluent Feathers Academy By Aaliya</p>
@@ -7586,7 +7835,7 @@ function getDemoFollowUp24hrEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">💜</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸ’œ</div>
       <h1 style="color: white; margin: 0; font-size: 26px;">Thank You for the Demo!</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
@@ -7596,7 +7845,7 @@ function getDemoFollowUp24hrEmail(data) {
         It was wonderful classing <strong style="color: #B05D9E;">${childName}</strong> yesterday! We truly enjoyed the demo session and hope you and ${childName} did too.
       </p>
       <div style="background: #f7fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #B05D9E;">
-        <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 17px;">✨ What ${childName} Can Look Forward To</h3>
+        <h3 style="color: #B05D9E; margin: 0 0 15px; font-size: 17px;">âœ¨ What ${childName} Can Look Forward To</h3>
         <ul style="color: #4a5568; margin: 0; padding-left: 20px; line-height: 2;">
           <li>Personalized learning plan tailored to ${childName}'s level</li>
           <li>Fun, interactive sessions that build confidence</li>
@@ -7616,7 +7865,7 @@ function getDemoFollowUp24hrEmail(data) {
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -7631,7 +7880,7 @@ function getDemoFollowUp3DayEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">🌟</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸŒŸ</div>
       <h1 style="color: white; margin: 0; font-size: 26px;">We'd Love to Have ${childName} Back!</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
@@ -7642,28 +7891,28 @@ function getDemoFollowUp3DayEmail(data) {
       </p>
       <div style="margin: 25px 0;">
         <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: 18px;">
-          <span style="font-size: 28px;">📚</span>
+          <span style="font-size: 28px;">ðŸ“š</span>
           <div>
             <strong style="color: #2d3748;">Structured Curriculum</strong>
             <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Age-appropriate lessons designed to build skills progressively</p>
           </div>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: 18px;">
-          <span style="font-size: 28px;">🎯</span>
+          <span style="font-size: 28px;">ðŸŽ¯</span>
           <div>
             <strong style="color: #2d3748;">Small Batch Sizes</strong>
             <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Personal attention for every child to thrive at their own pace</p>
           </div>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: 18px;">
-          <span style="font-size: 28px;">📊</span>
+          <span style="font-size: 28px;">ðŸ“Š</span>
           <div>
             <strong style="color: #2d3748;">Monthly Assessments</strong>
             <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Track your child's growth with detailed reports & certificates</p>
           </div>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 15px;">
-          <span style="font-size: 28px;">🏆</span>
+          <span style="font-size: 28px;">ðŸ†</span>
           <div>
             <strong style="color: #2d3748;">Rewards & Recognition</strong>
             <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Badges, leaderboards & certificates keep children motivated</p>
@@ -7684,7 +7933,7 @@ function getDemoFollowUp3DayEmail(data) {
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -7699,7 +7948,7 @@ function getDemoFollowUp7DayEmail(data) {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">🎓</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸŽ“</div>
       <h1 style="color: white; margin: 0; font-size: 26px;">${childName}'s Spot is Waiting!</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Fluent Feathers Academy By Aaliya</p>
     </div>
@@ -7709,11 +7958,11 @@ function getDemoFollowUp7DayEmail(data) {
         It's been a week since <strong style="color: #f5576c;">${childName}</strong>'s demo class, and we wanted to reach out one last time. We truly believe ${childName} has great potential, and we'd love to be part of their learning journey!
       </p>
       <div style="background: #fff5f5; border: 2px solid #feb2b2; padding: 20px; border-radius: 12px; margin: 25px 0; text-align: center;">
-        <p style="margin: 0 0 8px; font-size: 15px; color: #c53030; font-weight: 600;">⏰ Limited Slots Available</p>
+        <p style="margin: 0 0 8px; font-size: 15px; color: #c53030; font-weight: 600;">â° Limited Slots Available</p>
         <p style="margin: 0; font-size: 14px; color: #742a2a;">Our batches fill up quickly. Enroll now to secure ${childName}'s preferred time slot!</p>
       </div>
       <div style="background: #f0fff4; padding: 20px; border-radius: 12px; margin: 25px 0;">
-        <h3 style="color: #276749; margin: 0 0 15px; font-size: 16px;">🎁 What You Get When You Enroll</h3>
+        <h3 style="color: #276749; margin: 0 0 15px; font-size: 16px;">ðŸŽ What You Get When You Enroll</h3>
         <ul style="color: #2f855a; margin: 0; padding-left: 20px; line-height: 2;">
           <li>Flexible scheduling - choose days & times that work for you</li>
           <li>Makeup classes if you miss a session</li>
@@ -7723,7 +7972,7 @@ function getDemoFollowUp7DayEmail(data) {
         </ul>
       </div>
       <p style="font-size: 16px; color: #4a5568; line-height: 1.8;">
-        If you have any concerns or questions, I'd be happy to discuss them. Just reply to this email or message us - no pressure at all! 😊
+        If you have any concerns or questions, I'd be happy to discuss them. Just reply to this email or message us - no pressure at all! ðŸ˜Š
       </p>
       <p style="font-size: 16px; color: #2d3748; margin-top: 30px;">
         Hope to see ${childName} soon!<br><br>
@@ -7732,7 +7981,7 @@ function getDemoFollowUp7DayEmail(data) {
       </p>
     </div>
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -7757,7 +8006,7 @@ function getDemoAssessmentEmail(data) {
   <div style="max-width: 700px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">🎯</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸŽ¯</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Demo Class Assessment Report</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 16px;">${formattedDate}</p>
     </div>
@@ -7781,12 +8030,12 @@ function getDemoAssessmentEmail(data) {
       ${certificateTitle ? `
       <!-- Demo Certificate Award Notice & Download Button -->
       <div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 25px; border: 2px solid #38b2ac;">
-        <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+        <div style="font-size: 40px; margin-bottom: 10px;">ðŸ†</div>
         <h3 style="margin: 0 0 10px; color: #234e52; font-size: 22px; font-weight: bold;">${certificateTitle}</h3>
         <p style="margin: 0 0 5px; color: #319795; font-size: 14px;">Congratulations to</p>
         <p style="margin: 0 0 15px; color: #234e52; font-size: 20px; font-weight: bold; text-transform: uppercase;">${childName}</p>
         <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.4);">
-          📥 Download Certificate
+          ðŸ“¥ Download Certificate
         </a>
         <p style="margin: 15px 0 0; color: #234e52; font-size: 12px;">Click to view and download the full certificate as PDF</p>
       </div>
@@ -7796,12 +8045,12 @@ function getDemoAssessmentEmail(data) {
       <!-- Skills Observed -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>📝</span> Skills Observed During Demo
+          <span>ðŸ“</span> Skills Observed During Demo
         </h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           ${skillsList.map(skill => `
           <div style="background: #e6fffa; padding: 12px; border-radius: 8px; border-left: 4px solid #38b2ac; font-size: 14px; color: #234e52; font-weight: 600;">
-            ✓ ${skill}
+            âœ“ ${skill}
           </div>
           `).join('')}
         </div>
@@ -7812,7 +8061,7 @@ function getDemoAssessmentEmail(data) {
       <!-- Performance Summary -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>📈</span> Demo Session Summary
+          <span>ðŸ“ˆ</span> Demo Session Summary
         </h3>
         <div style="background: #e6fffa; padding: 20px; border-radius: 10px; border-left: 4px solid #38b2ac;">
           <p style="margin: 0; color: #234e52; font-size: 15px; line-height: 1.7;">
@@ -7826,7 +8075,7 @@ function getDemoAssessmentEmail(data) {
       <!-- Areas to Focus -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>🎯</span> Recommended Focus Areas
+          <span>ðŸŽ¯</span> Recommended Focus Areas
         </h3>
         <div style="background: #fefce8; padding: 20px; border-radius: 10px; border-left: 4px solid #eab308;">
           <p style="margin: 0; color: #713f12; font-size: 15px; line-height: 1.7;">
@@ -7840,7 +8089,7 @@ function getDemoAssessmentEmail(data) {
       <!-- Teacher's Comments -->
       <div style="margin-bottom: 30px;">
         <h3 style="color: #234e52; font-size: 20px; margin: 0 0 15px; display: flex; align-items: center; gap: 8px;">
-          <span>💬</span> Teacher's Notes
+          <span>ðŸ’¬</span> Teacher's Notes
         </h3>
         <div style="background: #faf5ff; padding: 20px; border-radius: 10px; border-left: 4px solid #B05D9E;">
           <p style="margin: 0; color: #4a5568; font-size: 15px; line-height: 1.7; font-style: italic;">
@@ -7853,7 +8102,7 @@ function getDemoAssessmentEmail(data) {
       <!-- Call to Action -->
       <div style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px;">
         <p style="margin: 0; color: white; font-size: 16px; line-height: 1.6; font-weight: 500;">
-          🌟 We'd love to have ${childName} join our classes! 🌟<br>
+          ðŸŒŸ We'd love to have ${childName} join our classes! ðŸŒŸ<br>
           <span style="font-size: 14px; opacity: 0.95;">Contact us to enroll and continue this learning journey.</span>
         </p>
       </div>
@@ -7867,7 +8116,7 @@ function getDemoAssessmentEmail(data) {
     <!-- Footer -->
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -7889,7 +8138,7 @@ function getEventCertificateEmail(data) {
   <div style="max-width: 700px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">🏆</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸ†</div>
       <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">Participation Certificate</h1>
       <p style="margin: 10px 0 0; color: rgba(255,255,255,0.95); font-size: 18px; font-weight: 600;">${eventName}</p>
     </div>
@@ -7897,20 +8146,20 @@ function getEventCertificateEmail(data) {
     <!-- Content -->
     <div style="padding: 30px;">
       <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 25px; border: 2px solid #f59e0b;">
-        <div style="font-size: 40px; margin-bottom: 10px;">🎉</div>
+        <div style="font-size: 40px; margin-bottom: 10px;">ðŸŽ‰</div>
         <h3 style="margin: 0 0 10px; color: #92400e; font-size: 22px; font-weight: bold;">${eventName}</h3>
         <p style="margin: 0 0 5px; color: #b45309; font-size: 14px;">Congratulations to</p>
         <p style="margin: 0 0 15px; color: #92400e; font-size: 20px; font-weight: bold; text-transform: uppercase;">${childName}</p>
         <p style="margin: 0 0 15px; color: #78716c; font-size: 13px;">${eventDate}</p>
         <a href="${certificateUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 30px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);">
-          📥 Download Certificate
+          ðŸ“¥ Download Certificate
         </a>
         <p style="margin: 15px 0 0; color: #92400e; font-size: 12px;">Click to view and download the full certificate as PDF</p>
       </div>
 
       <div style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); padding: 25px; border-radius: 10px; text-align: center; margin-top: 30px;">
         <p style="margin: 0; color: white; font-size: 16px; line-height: 1.6; font-weight: 500;">
-          🌟 Thank you for participating, ${childName}! 🌟<br>
+          ðŸŒŸ Thank you for participating, ${childName}! ðŸŒŸ<br>
           <span style="font-size: 14px; opacity: 0.95;">We hope you had a wonderful time and learned something new!</span>
         </p>
       </div>
@@ -7924,7 +8173,7 @@ function getEventCertificateEmail(data) {
     <!-- Footer -->
     <div style="background: #f7fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="margin: 0; color: #718096; font-size: 13px;">
-        Made with ❤️ By Aaliya
+        Made with â¤ï¸ By Aaliya
       </p>
     </div>
   </div>
@@ -7937,8 +8186,8 @@ function getEventCertificateEmail(data) {
 // Function to check and send class reminders (used by both cron and manual trigger)
 async function checkAndSendReminders() {
   const now = new Date();
-  console.log('🔔 Checking for upcoming classes to send reminders...');
-  console.log(`⏰ Current server time (UTC): ${now.toISOString()}`);
+  console.log('ðŸ”” Checking for upcoming classes to send reminders...');
+  console.log(`â° Current server time (UTC): ${now.toISOString()}`);
 
   try {
     // Find all upcoming PRIVATE sessions
@@ -8002,7 +8251,7 @@ async function checkAndSendReminders() {
     const markedDemoSessions = demoSessions.rows.map(s => ({ ...s, is_group: false, is_demo: true }));
     const upcomingSessions = { rows: [...markedPrivateSessions, ...markedGroupSessions, ...markedDemoSessions] };
 
-    console.log(`📋 Found ${privateSessions.rows.length} private + ${groupSessions.rows.length} group + ${demoSessions.rows.length} demo = ${upcomingSessions.rows.length} total sessions to check for reminders`);
+    console.log(`ðŸ“‹ Found ${privateSessions.rows.length} private + ${groupSessions.rows.length} group + ${demoSessions.rows.length} demo = ${upcomingSessions.rows.length} total sessions to check for reminders`);
 
     for (const session of upcomingSessions.rows) {
       try {
@@ -8017,14 +8266,14 @@ async function checkAndSendReminders() {
         const sessionTypeLabel = session.is_demo ? 'Demo' : session.is_group ? `Group (${session.group_name})` : 'Private';
 
         // Log session details for debugging
-        console.log(`📌 ${sessionTypeLabel} Session #${session.session_number} for ${session.student_name}: ${session.full_datetime} (${hoursDiff.toFixed(2)} hours away)`);
+        console.log(`ðŸ“Œ ${sessionTypeLabel} Session #${session.session_number} for ${session.student_name}: ${session.full_datetime} (${hoursDiff.toFixed(2)} hours away)`);
 
         // Check if we need to send 5-hour reminder (widened window: 4.5 to 5.5 hours for reliability)
         if (hoursDiff > 4.5 && hoursDiff <= 5.5) {
           const emailType5hr = session.is_demo ? 'Reminder-5hrs-Demo' : session.is_group ? 'Reminder-5hrs-Group' : 'Reminder-5hrs';
           const sidCheck = session.is_demo ? `DEMO:${session.id}` : (session.is_group ? `GROUP:${session.id}` : `PRIVATE:${session.id}`);
           const scheduleKey5hr = String(session.full_datetime || '');
-          console.log(`⏰ ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 5-hour window, checking if reminder already sent...`);
+          console.log(`â° ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 5-hour window, checking if reminder already sent...`);
           // Check if 5-hour reminder already sent for this SPECIFIC session using unique session ID
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
@@ -8044,9 +8293,9 @@ async function checkAndSendReminders() {
               session.timezone,
               session.group_timezone
             );
-            console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
+            console.log(`ðŸ“ Using parent timezone: ${parentTimezone} for ${session.student_name}`);
             const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
-            console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
+            console.log(`ðŸ“§ Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const joinGateUrl5 = getJoinClassUrl(session.id, { isDemo: session.is_demo });
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
@@ -8058,7 +8307,7 @@ async function checkAndSendReminders() {
               timezoneLabel: getTimezoneLabel(parentTimezone)
             });
 
-            const subjectPrefix = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
+            const subjectPrefix = session.is_demo ? `ðŸŽ¯ Demo Class Reminder` : session.is_group ? `â° Group Class Reminder (${session.group_name})` : 'â° Class Reminder';
             const sidLabel = session.is_demo ? `DEMO:${session.id}` : (session.is_group ? `GROUP:${session.id}` : `PRIVATE:${session.id}`);
             const sent = await sendEmail(
               session.parent_email,
@@ -8079,17 +8328,17 @@ async function checkAndSendReminders() {
               await sendAdminPrivateReminderPush(session, 5);
             }
             if ((pushResult?.sent || 0) > 0) {
-              console.log(`✅ Sent 5-hour ${sessionTypeLabel} push reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
+              console.log(`âœ… Sent 5-hour ${sessionTypeLabel} push reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
             } else {
-              console.warn(`⚠️ 5-hour ${sessionTypeLabel} push reminder skipped/failed for ${session.parent_email} (reason: ${pushResult?.reason || 'unknown'})`);
+              console.warn(`âš ï¸ 5-hour ${sessionTypeLabel} push reminder skipped/failed for ${session.parent_email} (reason: ${pushResult?.reason || 'unknown'})`);
             }
             if (sent) {
-              console.log(`✅ Sent 5-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
+              console.log(`âœ… Sent 5-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
             } else {
-              console.warn(`⚠️ Failed to send 5-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
+              console.warn(`âš ï¸ Failed to send 5-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
             }
           } else {
-            console.log(`⏭️ 5-hour reminder already sent for ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id})`);
+            console.log(`â­ï¸ 5-hour reminder already sent for ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id})`);
           }
         }
 
@@ -8098,7 +8347,7 @@ async function checkAndSendReminders() {
           const emailType1hr = session.is_demo ? 'Reminder-1hr-Demo' : session.is_group ? 'Reminder-1hr-Group' : 'Reminder-1hr';
           const sidCheck1hr = session.is_demo ? `DEMO:${session.id}` : (session.is_group ? `GROUP:${session.id}` : `PRIVATE:${session.id}`);
           const scheduleKey1hr = String(session.full_datetime || '');
-          console.log(`⏰ ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 1-hour window, checking if reminder already sent...`);
+          console.log(`â° ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id}) is within 1-hour window, checking if reminder already sent...`);
           // Check if 1-hour reminder already sent for this SPECIFIC session using unique session ID
           const sentCheck = await pool.query(
             `SELECT id FROM email_log
@@ -8118,9 +8367,9 @@ async function checkAndSendReminders() {
               session.timezone,
               session.group_timezone
             );
-            console.log(`📍 Using parent timezone: ${parentTimezone} for ${session.student_name}`);
+            console.log(`ðŸ“ Using parent timezone: ${parentTimezone} for ${session.student_name}`);
             const localTime = formatUTCToLocal(session.session_date, session.session_time, parentTimezone);
-            console.log(`📧 Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
+            console.log(`ðŸ“§ Converted time: ${localTime.date} ${localTime.time} (${localTime.day})`);
             const joinGateUrl1 = getJoinClassUrl(session.id, { isDemo: session.is_demo });
             const reminderEmailHTML = getClassReminderEmail({
               studentName: session.student_name,
@@ -8132,7 +8381,7 @@ async function checkAndSendReminders() {
               timezoneLabel: getTimezoneLabel(parentTimezone)
             });
 
-            const subjectPrefix1hr = session.is_demo ? `🎯 Demo Class Reminder` : session.is_group ? `⏰ Group Class Reminder (${session.group_name})` : '⏰ Class Reminder';
+            const subjectPrefix1hr = session.is_demo ? `ðŸŽ¯ Demo Class Reminder` : session.is_group ? `â° Group Class Reminder (${session.group_name})` : 'â° Class Reminder';
             const sidLabel1hr = session.is_demo ? `DEMO:${session.id}` : (session.is_group ? `GROUP:${session.id}` : `PRIVATE:${session.id}`);
             const sent = await sendEmail(
               session.parent_email,
@@ -8153,17 +8402,17 @@ async function checkAndSendReminders() {
               await sendAdminPrivateReminderPush(session, 1);
             }
             if ((pushResult?.sent || 0) > 0) {
-              console.log(`✅ Sent 1-hour ${sessionTypeLabel} push reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
+              console.log(`âœ… Sent 1-hour ${sessionTypeLabel} push reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
             } else {
-              console.warn(`⚠️ 1-hour ${sessionTypeLabel} push reminder skipped/failed for ${session.parent_email} (reason: ${pushResult?.reason || 'unknown'})`);
+              console.warn(`âš ï¸ 1-hour ${sessionTypeLabel} push reminder skipped/failed for ${session.parent_email} (reason: ${pushResult?.reason || 'unknown'})`);
             }
             if (sent) {
-              console.log(`✅ Sent 1-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
+              console.log(`âœ… Sent 1-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
             } else {
-              console.warn(`⚠️ Failed to send 1-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
+              console.warn(`âš ï¸ Failed to send 1-hour ${sessionTypeLabel} reminder to ${session.parent_email} for Session #${session.session_number} (ID:${session.id})`);
             }
           } else {
-            console.log(`⏭️ 1-hour reminder already sent for ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id})`);
+            console.log(`â­ï¸ 1-hour reminder already sent for ${sessionTypeLabel} Session #${session.session_number} (ID:${session.id})`);
           }
         }
       } catch (sessionErr) {
@@ -8171,7 +8420,7 @@ async function checkAndSendReminders() {
       }
     }
   } catch (err) {
-    console.error('❌ Error in class reminder check:', err);
+    console.error('âŒ Error in class reminder check:', err);
   }
 }
 
@@ -8179,7 +8428,7 @@ async function checkAndSendReminders() {
 // Sends reminder emails 30 minutes before events to all registered participants
 async function checkAndSendEventReminders() {
   const now = new Date();
-  console.log('🎉 Checking for upcoming events to send reminders...');
+  console.log('ðŸŽ‰ Checking for upcoming events to send reminders...');
 
   try {
     // Find active events happening today or tomorrow (to cover timezone edge cases)
@@ -8201,7 +8450,7 @@ async function checkAndSendEventReminders() {
 
         // Send reminder if event is 15-45 minutes away (window for 30-min reminder, checked every 15 min)
         if (minutesDiff > 15 && minutesDiff <= 45) {
-          console.log(`⏰ Event "${event.event_name}" (ID:${event.id}) is ~30 min away, sending reminders...`);
+          console.log(`â° Event "${event.event_name}" (ID:${event.id}) is ~30 min away, sending reminders...`);
 
           // Get all registered participants for this event
           const registrations = await pool.query(`
@@ -8256,15 +8505,15 @@ async function checkAndSendEventReminders() {
 
             const sent = await sendEmail(
               email,
-              `⏰ Starting Soon: ${event.event_name} - Join in 30 minutes! [EID:${event.id}]`,
+              `â° Starting Soon: ${event.event_name} - Join in 30 minutes! [EID:${event.id}]`,
               emailHtml,
               reg.display_parent_name || '',
               'Event-Reminder-30min'
             );
             if (sent) {
-              console.log(`✅ Sent event reminder to ${email} for "${event.event_name}"`);
+              console.log(`âœ… Sent event reminder to ${email} for "${event.event_name}"`);
             } else {
-              console.warn(`⚠️ Failed to send event reminder to ${email} for "${event.event_name}"`);
+              console.warn(`âš ï¸ Failed to send event reminder to ${email} for "${event.event_name}"`);
             }
           }
         }
@@ -8273,7 +8522,7 @@ async function checkAndSendEventReminders() {
       }
     }
   } catch (err) {
-    console.error('❌ Error in event reminder check:', err);
+    console.error('âŒ Error in event reminder check:', err);
   }
 }
 
@@ -8283,17 +8532,17 @@ cron.schedule('*/15 * * * *', async () => {
     await checkAndSendReminders();
     await checkAndSendEventReminders();
   } catch (err) {
-    console.error('❌ Error in reminder cron job:', err);
+    console.error('âŒ Error in reminder cron job:', err);
   }
 });
 
-console.log('✅ Class & event reminder system initialized - checking every 15 minutes');
+console.log('âœ… Class & event reminder system initialized - checking every 15 minutes');
 
 // ==================== BIRTHDAY REMINDER CRON JOB ====================
 // Runs daily at 8:00 AM to check for birthdays
 cron.schedule('0 8 * * *', async () => {
   try {
-    console.log('🎂 Checking for birthdays today...');
+    console.log('ðŸŽ‚ Checking for birthdays today...');
 
     const today = new Date();
     const month = today.getMonth() + 1; // JavaScript months are 0-indexed
@@ -8341,14 +8590,14 @@ cron.schedule('0 8 * * *', async () => {
 
         await sendEmail(
           student.parent_email,
-          `🎉 Happy Birthday ${student.name}! 🎂`,
+          `ðŸŽ‰ Happy Birthday ${student.name}! ðŸŽ‚`,
           birthdayEmailHTML,
           student.parent_name,
           'Birthday',
           { studentId: student.id }
         );
 
-        console.log(`✅ Sent birthday email to ${student.name} (${student.parent_email})`);
+        console.log(`âœ… Sent birthday email to ${student.name} (${student.parent_email})`);
       } catch (emailErr) {
         console.error(`Error sending birthday email to ${student.name}:`, emailErr);
       }
@@ -8358,11 +8607,11 @@ cron.schedule('0 8 * * *', async () => {
       console.log('No birthdays today');
     }
   } catch (err) {
-    console.error('❌ Error in birthday cron job:', err);
+    console.error('âŒ Error in birthday cron job:', err);
   }
 });
 
-console.log('✅ Birthday reminder system initialized - checking daily at 8:00 AM');
+console.log('âœ… Birthday reminder system initialized - checking daily at 8:00 AM');
 
 // ==================== PAYMENT RENEWAL REMINDER CRON JOB ====================
 // Runs daily at 9:00 AM UTC, which is 2:30 PM IST.
@@ -8488,7 +8737,7 @@ cron.schedule('0 9 * * *', async () => {
 
     console.log(sentCount > 0 ? `Sent ${sentCount} renewal/slot reminder emails` : 'No renewal reminders needed today');
   } catch (err) {
-    console.error('❌ Error in payment renewal cron job:', err);
+    console.error('âŒ Error in payment renewal cron job:', err);
   }
 });
 
@@ -8500,14 +8749,14 @@ cron.schedule('0 5 * * 0', () => awardStudentOfPeriod('week'));
 cron.schedule('0 5 1 * *', () => awardStudentOfPeriod('month'));
 // Student of the Year - January 1st at 10:30 AM IST
 cron.schedule('0 5 1 1 *', () => awardStudentOfPeriod('year'));
-console.log('✅ Student awards system initialized - weekly (Sun), monthly (1st), yearly (Jan 1)');
+console.log('âœ… Student awards system initialized - weekly (Sun), monthly (1st), yearly (Jan 1)');
 
 // ==================== DEMO LEAD FOLLOW-UP CRON JOB ====================
 // Runs every hour to check for demo leads that need follow-up emails
 // 24hr thank-you, 3-day reminder, 7-day last nudge
 async function checkAndSendDemoFollowUps() {
   try {
-    console.log('📩 Checking for demo lead follow-ups...');
+    console.log('ðŸ“© Checking for demo lead follow-ups...');
 
     // Get all completed/follow-up demo leads that haven't been converted or lost
     const completedLeads = await pool.query(`
@@ -8549,12 +8798,12 @@ async function checkAndSendDemoFollowUps() {
           if (alreadySent.rows.length === 0) {
             await sendEmail(
               lead.parent_email,
-              `💜 Thank you for the demo class, ${lead.parent_name}! [DLID:${lead.id}]`,
+              `ðŸ’œ Thank you for the demo class, ${lead.parent_name}! [DLID:${lead.id}]`,
               getDemoFollowUp24hrEmail(emailData),
               lead.parent_name,
               'Demo-FollowUp-24hr'
             );
-            console.log(`✅ Sent 24hr follow-up to ${lead.parent_email} for ${lead.child_name}`);
+            console.log(`âœ… Sent 24hr follow-up to ${lead.parent_email} for ${lead.child_name}`);
             sentCount++;
           }
         }
@@ -8568,12 +8817,12 @@ async function checkAndSendDemoFollowUps() {
           if (alreadySent.rows.length === 0) {
             await sendEmail(
               lead.parent_email,
-              `🌟 We'd love to have ${lead.child_name} back! [DLID:${lead.id}]`,
+              `ðŸŒŸ We'd love to have ${lead.child_name} back! [DLID:${lead.id}]`,
               getDemoFollowUp3DayEmail(emailData),
               lead.parent_name,
               'Demo-FollowUp-3Day'
             );
-            console.log(`✅ Sent 3-day follow-up to ${lead.parent_email} for ${lead.child_name}`);
+            console.log(`âœ… Sent 3-day follow-up to ${lead.parent_email} for ${lead.child_name}`);
             sentCount++;
           }
         }
@@ -8587,12 +8836,12 @@ async function checkAndSendDemoFollowUps() {
           if (alreadySent.rows.length === 0) {
             await sendEmail(
               lead.parent_email,
-              `🎓 ${lead.child_name}'s spot is waiting! [DLID:${lead.id}]`,
+              `ðŸŽ“ ${lead.child_name}'s spot is waiting! [DLID:${lead.id}]`,
               getDemoFollowUp7DayEmail(emailData),
               lead.parent_name,
               'Demo-FollowUp-7Day'
             );
-            console.log(`✅ Sent 7-day follow-up to ${lead.parent_email} for ${lead.child_name}`);
+            console.log(`âœ… Sent 7-day follow-up to ${lead.parent_email} for ${lead.child_name}`);
             sentCount++;
           }
         }
@@ -8601,9 +8850,9 @@ async function checkAndSendDemoFollowUps() {
       }
     }
 
-    console.log(sentCount > 0 ? `📩 Sent ${sentCount} demo follow-up emails` : 'No demo follow-ups needed right now');
+    console.log(sentCount > 0 ? `ðŸ“© Sent ${sentCount} demo follow-up emails` : 'No demo follow-ups needed right now');
   } catch (err) {
-    console.error('❌ Error in demo follow-up cron job:', err);
+    console.error('âŒ Error in demo follow-up cron job:', err);
   }
 }
 
@@ -8612,22 +8861,22 @@ cron.schedule('30 * * * *', async () => {
   try {
     await checkAndSendDemoFollowUps();
   } catch (err) {
-    console.error('❌ Error in demo follow-up cron:', err);
+    console.error('âŒ Error in demo follow-up cron:', err);
   }
 });
 
-console.log('✅ Demo lead follow-up system initialized - checking every hour');
+console.log('âœ… Demo lead follow-up system initialized - checking every hour');
 
 // ==================== DAILY QUIZ SYSTEM ====================
 
 // Generate daily quiz every day at 05:30 UTC
 cron.schedule('30 5 * * *', async () => {
   try {
-    console.log('🎯 Generating daily quiz...');
+    console.log('ðŸŽ¯ Generating daily quiz...');
     await generateDailyQuiz();
-    console.log('✅ Daily quiz generated successfully');
+    console.log('âœ… Daily quiz generated successfully');
   } catch (err) {
-    console.error('❌ Error generating daily quiz:', err);
+    console.error('âŒ Error generating daily quiz:', err);
   }
 }, {
   timezone: 'UTC'
@@ -8636,7 +8885,7 @@ cron.schedule('30 5 * * *', async () => {
 // Generate pending AI quiz questions daily at 04:00 UTC (for next day, allowing admin approval time)
 cron.schedule('0 4 * * *', async () => {
   try {
-    console.log('🤖 Auto-generating AI pending quiz questions for tomorrow...');
+    console.log('ðŸ¤– Auto-generating AI pending quiz questions for tomorrow...');
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowDate = tomorrow.toISOString().split('T')[0];
@@ -8649,12 +8898,12 @@ cron.schedule('0 4 * * *', async () => {
     
     if (existing.rows[0].count === 0) {
       await generatePendingQuizQuestions(tomorrowDate);
-      console.log('✅ AI questions generated for tomorrow pending approval');
+      console.log('âœ… AI questions generated for tomorrow pending approval');
     } else {
-      console.log('ℹ️ Pending questions already exist for tomorrow');
+      console.log('â„¹ï¸ Pending questions already exist for tomorrow');
     }
   } catch (err) {
-    console.error('❌ Error generating AI pending quiz questions:', err);
+    console.error('âŒ Error generating AI pending quiz questions:', err);
   }
 }, {
   timezone: 'UTC'
@@ -8807,7 +9056,7 @@ async function generateDailyQuiz() {
 const DAILY_QUIZ_QUESTION_COUNT = 10;
 const DAILY_QUIZ_DURATION_SECONDS = 5 * 60;
 const DAILY_QUIZ_BADGE_TYPE = 'daily_quiz_champion';
-const DAILY_QUIZ_BADGE_NAME = '🏆 Quiz Champion';
+const DAILY_QUIZ_BADGE_NAME = 'ðŸ† Quiz Champion';
 const DAILY_QUIZ_BADGE_DESCRIPTION = 'Scored 10/10 in the daily quiz!';
 const QUIZ_ALLOWED_CATEGORIES = [
   'grammar',
@@ -8854,35 +9103,35 @@ function getQuizAllowedCategoriesForLevel(level) {
 }
 
 // International & Special Days for themed quizzes
-// Format: { date: 'MM-DD', name: 'Day Name', emoji: '🎉' }
+// Format: { date: 'MM-DD', name: 'Day Name', emoji: 'ðŸŽ‰' }
 const INTERNATIONAL_SPECIAL_DAYS = [
-  { date: '01-26', name: 'India Republic Day', emoji: '🇮🇳' },
-  { date: '03-08', name: 'International Women\'s Day', emoji: '👩' },
-  { date: '03-21', name: 'World Poetry Day', emoji: '📝' },
-  { date: '04-22', name: 'Earth Day', emoji: '🌍' },
-  { date: '04-23', name: 'World Book Day', emoji: '📚' },
-  { date: '05-01', name: 'International Labour Day', emoji: '💼' },
-  { date: '05-05', name: 'Cinco de Mayo', emoji: '🎉' },
-  { date: '05-12', name: 'International Nurses Day', emoji: '⚕️' },
-  { date: '05-17', name: 'World Telecommunication Day', emoji: '📱' },
-  { date: '05-22', name: 'International Biodiversity Day', emoji: '🦋' },
-  { date: '06-05', name: 'World Environment Day', emoji: '🌱' },
-  { date: '06-21', name: 'International Yoga Day', emoji: '🧘' },
-  { date: '07-11', name: 'World Population Day', emoji: '👥' },
-  { date: '08-15', name: 'India Independence Day', emoji: '🇮🇳' },
-  { date: '08-19', name: 'World Photography Day', emoji: '📷' },
-  { date: '09-05', name: 'Teachers\' Day', emoji: '👨‍🏫' },
-  { date: '09-08', name: 'International Literacy Day', emoji: '📖' },
-  { date: '09-16', name: 'International Day for Peace', emoji: '☮️' },
-  { date: '10-02', name: 'International Day of Non-Violence', emoji: '🕊️' },
-  { date: '10-05', name: 'World Teachers\' Day', emoji: '🍎' },
-  { date: '10-31', name: 'Halloween', emoji: '🎃' },
-  { date: '11-14', name: 'Children\'s Day', emoji: '👶' },
-  { date: '11-19', name: 'World Toilet Day', emoji: '🚽' },
-  { date: '11-20', name: 'Universal Children\'s Day', emoji: '🎈' },
-  { date: '12-05', name: 'International Volunteer Day', emoji: '🤝' },
-  { date: '12-10', name: 'Human Rights Day', emoji: '⚖️' },
-  { date: '12-25', name: 'Christmas Day', emoji: '🎄' },
+  { date: '01-26', name: 'India Republic Day', emoji: 'ðŸ‡®ðŸ‡³' },
+  { date: '03-08', name: 'International Women\'s Day', emoji: 'ðŸ‘©' },
+  { date: '03-21', name: 'World Poetry Day', emoji: 'ðŸ“' },
+  { date: '04-22', name: 'Earth Day', emoji: 'ðŸŒ' },
+  { date: '04-23', name: 'World Book Day', emoji: 'ðŸ“š' },
+  { date: '05-01', name: 'International Labour Day', emoji: 'ðŸ’¼' },
+  { date: '05-05', name: 'Cinco de Mayo', emoji: 'ðŸŽ‰' },
+  { date: '05-12', name: 'International Nurses Day', emoji: 'âš•ï¸' },
+  { date: '05-17', name: 'World Telecommunication Day', emoji: 'ðŸ“±' },
+  { date: '05-22', name: 'International Biodiversity Day', emoji: 'ðŸ¦‹' },
+  { date: '06-05', name: 'World Environment Day', emoji: 'ðŸŒ±' },
+  { date: '06-21', name: 'International Yoga Day', emoji: 'ðŸ§˜' },
+  { date: '07-11', name: 'World Population Day', emoji: 'ðŸ‘¥' },
+  { date: '08-15', name: 'India Independence Day', emoji: 'ðŸ‡®ðŸ‡³' },
+  { date: '08-19', name: 'World Photography Day', emoji: 'ðŸ“·' },
+  { date: '09-05', name: 'Teachers\' Day', emoji: 'ðŸ‘¨â€ðŸ«' },
+  { date: '09-08', name: 'International Literacy Day', emoji: 'ðŸ“–' },
+  { date: '09-16', name: 'International Day for Peace', emoji: 'â˜®ï¸' },
+  { date: '10-02', name: 'International Day of Non-Violence', emoji: 'ðŸ•Šï¸' },
+  { date: '10-05', name: 'World Teachers\' Day', emoji: 'ðŸŽ' },
+  { date: '10-31', name: 'Halloween', emoji: 'ðŸŽƒ' },
+  { date: '11-14', name: 'Children\'s Day', emoji: 'ðŸ‘¶' },
+  { date: '11-19', name: 'World Toilet Day', emoji: 'ðŸš½' },
+  { date: '11-20', name: 'Universal Children\'s Day', emoji: 'ðŸŽˆ' },
+  { date: '12-05', name: 'International Volunteer Day', emoji: 'ðŸ¤' },
+  { date: '12-10', name: 'Human Rights Day', emoji: 'âš–ï¸' },
+  { date: '12-25', name: 'Christmas Day', emoji: 'ðŸŽ„' },
 ];
 
 // Function to calculate movable holidays
@@ -8895,7 +9144,7 @@ function getMovableHolidays(year) {
   while (firstSunday.getDay() !== 0) firstSunday.setDate(firstSunday.getDate() + 1);
   const motherDay = new Date(firstSunday);
   motherDay.setDate(motherDay.getDate() + 7);
-  holidays.push({ date: `0${motherDay.getMonth() + 1}`.slice(-2) + '-' + `0${motherDay.getDate()}`.slice(-2), name: 'Mother\'s Day', emoji: '❤️' });
+  holidays.push({ date: `0${motherDay.getMonth() + 1}`.slice(-2) + '-' + `0${motherDay.getDate()}`.slice(-2), name: 'Mother\'s Day', emoji: 'â¤ï¸' });
   
   // Father's Day: 3rd Sunday of June
   const june = new Date(year, 5, 1);
@@ -8903,7 +9152,7 @@ function getMovableHolidays(year) {
   while (firstSunday2.getDay() !== 0) firstSunday2.setDate(firstSunday2.getDate() + 1);
   const fatherDay = new Date(firstSunday2);
   fatherDay.setDate(fatherDay.getDate() + 14);
-  holidays.push({ date: `0${fatherDay.getMonth() + 1}`.slice(-2) + '-' + `0${fatherDay.getDate()}`.slice(-2), name: 'Father\'s Day', emoji: '💙' });
+  holidays.push({ date: `0${fatherDay.getMonth() + 1}`.slice(-2) + '-' + `0${fatherDay.getDate()}`.slice(-2), name: 'Father\'s Day', emoji: 'ðŸ’™' });
   
   return holidays;
 }
@@ -8970,7 +9219,7 @@ function getQuizFreshnessTerms(questionText, options = []) {
   };
 
   const text = String(questionText || '');
-  for (const match of text.matchAll(/["'“”‘’]([^"'“”‘’]{3,80})["'“”‘’]/g)) {
+  for (const match of text.matchAll(/["'â€œâ€â€˜â€™]([^"'â€œâ€â€˜â€™]{3,80})["'â€œâ€â€˜â€™]/g)) {
     addTerm(match[1]);
   }
 
@@ -9938,8 +10187,8 @@ function parseBulkQuizQuestions(rawText, level, fallbackCategory = 'grammar') {
 
   const normalizedInput = text
     .replace(/\r\n?/g, '\n')
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
+    .replace(/[â€œâ€]/g, '"')
+    .replace(/[â€˜â€™]/g, "'")
     .replace(/\s+((?:option\s*)?[A-D][\).:\-])\s+/gi, '\n$1 ')
     .replace(/\s+((?:correct\s+answer|answer|ans)\s*[:\-])\s*/gi, '\n$1 ')
     .replace(/\s+((?:explanation|reason)\s*[:\-])\s*/gi, '\n$1 ');
@@ -10045,7 +10294,7 @@ function parseBulkQuizQuestions(rawText, level, fallbackCategory = 'grammar') {
 async function generateQuizQuestionsWithAI(level, count = 10, options = {}) {
   const groqKey = process.env.GROQ_API_KEY;
   if (!groqKey) {
-    console.error('❌ GROQ_API_KEY not configured');
+    console.error('âŒ GROQ_API_KEY not configured');
     throw new Error('GROQ_API_KEY not configured. Add it to your environment variables.');
   }
 
@@ -10177,12 +10426,12 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
 
   try {
     const themeLog = theme ? ` with theme: ${theme}` : '';
-    console.log(`🤖 Generating ${count} ${level} questions via Groq API${themeLog}...`);
+    console.log(`ðŸ¤– Generating ${count} ${level} questions via Groq API${themeLog}...`);
     
     // Track API usage to avoid daily limits
     groqUsageTracker.recordCall();
     if (groqUsageTracker.isLimitApproaching()) {
-      console.warn(`⚠️ WARNING: Only ${groqUsageTracker.getRemainingRequests()} Groq API calls remaining today!`);
+      console.warn(`âš ï¸ WARNING: Only ${groqUsageTracker.getRemainingRequests()} Groq API calls remaining today!`);
     }
     
     const response = await axios.post(
@@ -10207,26 +10456,26 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       }
     );
 
-    console.log(`✅ Groq API response received for ${level} level`);
+    console.log(`âœ… Groq API response received for ${level} level`);
 
     const choice = response.data.choices?.[0] || {};
     const rawContent = choice.message?.content || choice.content || choice.text || '';
     if (!rawContent || !String(rawContent).trim()) {
-      console.error('❌ No content in AI response');
+      console.error('âŒ No content in AI response');
       return [];
     }
 
-    console.log(`📝 Parsing response for ${level}...`);
+    console.log(`ðŸ“ Parsing response for ${level}...`);
     let rawQuestions;
     try {
       rawQuestions = parseAiQuizQuestions(rawContent);
     } catch (parseErr) {
-      console.error('❌ Failed to parse AI content for', level, parseErr.message);
+      console.error('âŒ Failed to parse AI content for', level, parseErr.message);
       return [];
     }
 
     if (!Array.isArray(rawQuestions)) {
-      console.error('❌ AI response did not parse as an array:', typeof rawQuestions);
+      console.error('âŒ AI response did not parse as an array:', typeof rawQuestions);
       return [];
     }
 
@@ -10235,11 +10484,11 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       .filter(Boolean);
 
     if (questions.length === 0) {
-      console.error('❌ No valid quiz questions could be normalized from AI response');
+      console.error('âŒ No valid quiz questions could be normalized from AI response');
       return [];
     }
 
-    console.log(`📊 Parsed ${questions.length} questions for ${level}, validating...`);
+    console.log(`ðŸ“Š Parsed ${questions.length} questions for ${level}, validating...`);
 
     // Validate and sanitize questions
     const validated = questions.slice(0, count * 2).map(q => ({
@@ -10250,23 +10499,23 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       explanation: String(q.explanation || '').trim()
     })).map(randomizeQuizQuestionOptions).filter(q => {
       if (q.question_text.length <= 5) {
-        console.log(`⏭️ Question too short: "${q.question_text}"`);
+        console.log(`â­ï¸ Question too short: "${q.question_text}"`);
         return false;
       }
       if (q.options.length !== 4) {
-        console.log(`⏭️ Wrong number of options (${q.options.length}): "${q.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Wrong number of options (${q.options.length}): "${q.question_text.substring(0, 40)}..."`);
         return false;
       }
       if (q.correct_answer < 0 || q.correct_answer > 3) {
-        console.log(`⏭️ Invalid correct_answer (${q.correct_answer}): "${q.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Invalid correct_answer (${q.correct_answer}): "${q.question_text.substring(0, 40)}..."`);
         return false;
       }
       if (!QUIZ_ALLOWED_CATEGORIES.includes(q.category)) {
-        console.log(`⏭️ Invalid category "${q.category}": "${q.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Invalid category "${q.category}": "${q.question_text.substring(0, 40)}..."`);
         return false;
       }
       if (QUIZ_EXCLUDED_CATEGORIES.includes(q.category)) {
-        console.log(`⏭️ Category in excluded list "${q.category}": "${q.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Category in excluded list "${q.category}": "${q.question_text.substring(0, 40)}..."`);
         return false;
       }
       if (!getQuizAllowedCategoriesForLevel(level).includes(q.category)) {
@@ -10280,7 +10529,7 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       return true;
     });
 
-    console.log(`✅ Validated ${validated.length}/${questions.length} questions passed basic checks`);
+    console.log(`âœ… Validated ${validated.length}/${questions.length} questions passed basic checks`);
 
     const deduped = [];
     const seen = new Set();
@@ -10290,27 +10539,27 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       const similarityKey = getQuizQuestionSimilarityKey(question.question_text);
       const optionSignature = getQuizOptionSignature(question.options);
       if (!normalized) {
-        console.log(`⏭️ Could not normalize question text`);
+        console.log(`â­ï¸ Could not normalize question text`);
         continue;
       }
       if (!optionSignature || new Set(question.options.map(option => normalizeQuizQuestionText(option))).size !== 4) {
-        console.log(`⏭️ Duplicate or invalid options: "${question.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Duplicate or invalid options: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
       if (seen.has(normalized)) {
-        console.log(`⏭️ Already seen exact match: "${question.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Already seen exact match: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
       if (seen.has(similarityKey)) {
-        console.log(`⏭️ Already seen similar: "${question.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Already seen similar: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
       if (isQuizQuestionTooSimilar(question.question_text, historicalTexts)) {
-        console.log(`⏭️ Too similar to historical questions: "${question.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Too similar to historical questions: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
       if (isQuizOptionSetTooSimilar(question.options, seenOptionSets)) {
-        console.log(`⏭️ Options too similar to existing questions: "${question.question_text.substring(0, 40)}..."`);
+        console.log(`â­ï¸ Options too similar to existing questions: "${question.question_text.substring(0, 40)}..."`);
         continue;
       }
       if (hasRepeatedQuizFreshnessTerms(question, historicalFreshnessTerms, getQuizFreshnessOverlapLimit(level))) {
@@ -10324,14 +10573,14 @@ Return ONLY JSON, no other text. Each question 100% unique.`;
       if (similarityKey) historicalTexts.add(similarityKey);
       addQuizFreshnessTermsToSet(historicalFreshnessTerms, question.question_text, question.options);
       deduped.push(question);
-      console.log(`✔️ Added question: "${question.question_text.substring(0, 50)}..."`);
+      console.log(`âœ”ï¸ Added question: "${question.question_text.substring(0, 50)}..."`);
       if (deduped.length >= count) break;
     }
 
-    console.log(`✅ Validated ${deduped.length}/${questions.length} unique questions for ${level}`);
+    console.log(`âœ… Validated ${deduped.length}/${questions.length} unique questions for ${level}`);
     return deduped;
   } catch (err) {
-    console.error(`❌ AI question generation error for ${level}:`, err.message);
+    console.error(`âŒ AI question generation error for ${level}:`, err.message);
     if (err.response) {
       console.error('API Error Response:', err.response.status, err.response.data);
     }
@@ -10429,7 +10678,7 @@ function isGroqDailyTokenLimitError(err) {
 const groqUsageTracker = {
   dailyCount: 0,
   lastResetDate: new Date().toISOString().split('T')[0],
-  maxDailyRequests: 480, // Conservative limit: ~10 requests/min × 60 min × 8 hours
+  maxDailyRequests: 480, // Conservative limit: ~10 requests/min Ã— 60 min Ã— 8 hours
   
   recordCall() {
     const today = new Date().toISOString().split('T')[0];
@@ -10438,7 +10687,7 @@ const groqUsageTracker = {
       this.lastResetDate = today;
     }
     this.dailyCount++;
-    console.log(`📊 Groq API call #${this.dailyCount}/${this.maxDailyRequests} today`);
+    console.log(`ðŸ“Š Groq API call #${this.dailyCount}/${this.maxDailyRequests} today`);
     return this.dailyCount;
   },
   
@@ -10912,7 +11161,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         continue;
       }
 
-      console.log(`⏳ Generating AI questions for ${level} level${theme ? ' with theme: ' + theme : ''}... (need ${neededCount})`);
+      console.log(`â³ Generating AI questions for ${level} level${theme ? ' with theme: ' + theme : ''}... (need ${neededCount})`);
       const aiQuestions = [];
       // Exclude ALL existing questions (including rejected) to prevent duplication
       const localSeen = new Set(globalSeenTexts);
@@ -10930,7 +11179,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       const preGenerationOptionSets = new Set(localOptionSets);
       
       if (localSeen.size > 0) {
-        console.log(`📝 Already have ${localSeen.size} existing question text(s) for ${level} to avoid duplicating`);
+        console.log(`ðŸ“ Already have ${localSeen.size} existing question text(s) for ${level} to avoid duplicating`);
       }
       
       let consecutiveRateLimits = 0;
@@ -10958,11 +11207,11 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             }
             consecutiveRateLimits++;
             if (consecutiveRateLimits >= maxConsecutiveRateLimits) {
-              console.error(`❌ Hit Groq rate limit ${maxConsecutiveRateLimits} times consecutively. Stopping to avoid API spam.`);
+              console.error(`âŒ Hit Groq rate limit ${maxConsecutiveRateLimits} times consecutively. Stopping to avoid API spam.`);
               break;
             }
             const delayMs = getGroqRetryDelayMs(err, attempt);
-            console.warn(`⏱️ Groq rate limit #${consecutiveRateLimits}/${maxConsecutiveRateLimits}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
+            console.warn(`â±ï¸ Groq rate limit #${consecutiveRateLimits}/${maxConsecutiveRateLimits}; waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt + 1}/8.`);
             await wait(delayMs);
             continue;
           }
@@ -10970,11 +11219,11 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         }
         
         if (batch.length === 0) {
-          console.log(`⚠️ Groq returned no questions on attempt ${attempt + 1}/12 for ${level}`);
+          console.log(`âš ï¸ Groq returned no questions on attempt ${attempt + 1}/12 for ${level}`);
           continue;
         }
         
-        console.log(`📦 Attempt ${attempt + 1}: Got ${batch.length} questions from Groq, deduplicating...`);
+        console.log(`ðŸ“¦ Attempt ${attempt + 1}: Got ${batch.length} questions from Groq, deduplicating...`);
         let addedThisBatch = 0;
         
         for (const question of batch) {
@@ -10984,7 +11233,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           
           // Skip if empty or already seen
           if (!normalized) {
-            console.log(`⏭️ Skipping question with empty text`);
+            console.log(`â­ï¸ Skipping question with empty text`);
             continue;
           }
           if (isQuizQuestionBelowLevel(level, question)) {
@@ -10992,7 +11241,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             continue;
           }
           if (!optionSignature || isQuizOptionSetTooSimilar(question.options, localOptionSets)) {
-            console.log(`⏭️ Skipping question with repeated option pattern: "${question.question_text.substring(0, 50)}..."`);
+            console.log(`â­ï¸ Skipping question with repeated option pattern: "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
           if (hasRepeatedQuizFreshnessTerms(question, localFreshnessTerms, getQuizFreshnessOverlapLimit(level))) {
@@ -11000,11 +11249,11 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
             continue;
           }
           if (localSeen.has(normalized)) {
-            console.log(`⏭️ Skipping duplicate (exact match): "${question.question_text.substring(0, 50)}..."`);
+            console.log(`â­ï¸ Skipping duplicate (exact match): "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
           if (localSeen.has(similarityKey)) {
-            console.log(`⏭️ Skipping similar question: "${question.question_text.substring(0, 50)}..."`);
+            console.log(`â­ï¸ Skipping similar question: "${question.question_text.substring(0, 50)}..."`);
             continue;
           }
           
@@ -11021,12 +11270,12 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
           addedThisBatch++;
           
           if (aiQuestions.length >= neededCount) {
-            console.log(`✅ Reached target of ${neededCount} questions`);
+            console.log(`âœ… Reached target of ${neededCount} questions`);
             break;
           }
         }
         
-        console.log(`✔️ Added ${addedThisBatch}/${batch.length} from attempt ${attempt + 1} (total: ${aiQuestions.length}/${neededCount})`);
+        console.log(`âœ”ï¸ Added ${addedThisBatch}/${batch.length} from attempt ${attempt + 1} (total: ${aiQuestions.length}/${neededCount})`);
       }
 
       if (aiQuestions.length < neededCount) {
@@ -11128,7 +11377,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
       }
 
       if (!aiQuestions || aiQuestions.length === 0) {
-        console.warn(`⚠️ No questions generated for ${level} level`);
+        console.warn(`âš ï¸ No questions generated for ${level} level`);
         continue;
       }
 
@@ -11147,7 +11396,7 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         allowRepeatedNewOptionSets: true
       });
       if (dedupedAiQuestions.length !== aiQuestions.length) {
-        console.log(`🧹 Removed ${aiQuestions.length - dedupedAiQuestions.length} duplicate ${level} question(s) before inserting for ${quizDate}`);
+        console.log(`ðŸ§¹ Removed ${aiQuestions.length - dedupedAiQuestions.length} duplicate ${level} question(s) before inserting for ${quizDate}`);
       }
       aiQuestions.length = 0;
       aiQuestions.push(...dedupedAiQuestions);
@@ -11182,9 +11431,9 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
         }
         totalGenerated++;
       }
-      console.log(`✅ Generated ${questionsToInsert.length} questions for ${level} level`);
+      console.log(`âœ… Generated ${questionsToInsert.length} questions for ${level} level`);
     } catch (err) {
-      console.error(`❌ Error generating questions for ${level}:`, err.message);
+      console.error(`âŒ Error generating questions for ${level}:`, err.message);
     }
     
     // Wait before processing next level to avoid hammering Groq API
@@ -11192,12 +11441,12 @@ async function generatePendingQuizQuestions(quizDate, levelsToGenerate = ['begin
     const levels_index = levels.indexOf(level);
     if (levels_index < levels.length - 1) {
       const spacingMs = 2000;
-      console.log(`⏸️  Waiting ${spacingMs}ms before next level to avoid rate limits...`);
+      console.log(`â¸ï¸  Waiting ${spacingMs}ms before next level to avoid rate limits...`);
       await wait(spacingMs);
     }
   }
 
-  console.log(`📊 Generation complete: ${totalGenerated} total questions created`);
+  console.log(`ðŸ“Š Generation complete: ${totalGenerated} total questions created`);
   return insertIntoDb
     ? totalGenerated
     : { totalGenerated, questions: generatedQuestions };
@@ -11281,7 +11530,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
       } catch (e) { /* skip invalid dates */ }
     }
 
-    // These two may fail on tables not yet created — run after main parallel batch
+    // These two may fail on tables not yet created â€” run after main parallel batch
     let pendingChallenges = 0;
     let pendingAssessments = 0;
     await Promise.all([
@@ -11741,7 +11990,7 @@ app.post('/api/demo-leads', async (req, res) => {
 
         emailSent = await sendEmail(
           parent_email,
-          `🎉 Demo Class Confirmed for ${child_name} - Fluent Feathers Academy`,
+          `ðŸŽ‰ Demo Class Confirmed for ${child_name} - Fluent Feathers Academy`,
           emailHtml,
           parent_name,
           'Demo Confirmation'
@@ -11846,7 +12095,7 @@ app.put('/api/demo-leads/:id', async (req, res) => {
 
         emailSent = await sendEmail(
           parent_email,
-          `📅 Updated Demo Class Details for ${child_name} - Fluent Feathers Academy`,
+          `ðŸ“… Updated Demo Class Details for ${child_name} - Fluent Feathers Academy`,
           emailHtml,
           parent_name,
           'Demo Reschedule'
@@ -11926,7 +12175,7 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
 
         await sendEmail(
           demoLead.parent_email,
-          `💳 Payment Confirmation - ${demoLead.child_name}`,
+          `ðŸ’³ Payment Confirmation - ${demoLead.child_name}`,
           paymentEmailHTML,
           demoLead.parent_name,
           'Payment Confirmation'
@@ -11942,7 +12191,7 @@ app.post('/api/demo-leads/:id/convert', async (req, res) => {
 
         await sendEmail(
           demoLead.parent_email,
-          `🎉 Welcome to Fluent Feathers Academy - ${demoLead.child_name}`,
+          `ðŸŽ‰ Welcome to Fluent Feathers Academy - ${demoLead.child_name}`,
           welcomeEmailHTML,
           demoLead.parent_name,
           'Welcome'
@@ -12274,7 +12523,7 @@ app.post('/api/students', async (req, res) => {
     if (send_email !== false) {  // Send email by default unless explicitly set to false
       emailSent = await sendEmail(
         parent_email,
-        `🎓 Welcome to Fluent Feathers Academy - ${name}`,
+        `ðŸŽ“ Welcome to Fluent Feathers Academy - ${name}`,
         getWelcomeEmail({ parent_name, student_name: name, program_name, class_link: DEFAULT_CLASS }),
         parent_name,
         'Welcome'
@@ -12413,7 +12662,7 @@ app.post('/api/students/:id/payment', async (req, res) => {
         });
         emailSent = await sendEmail(
           student.rows[0].parent_email,
-          `✅ Payment Confirmation - Fluent Feathers Academy`,
+          `âœ… Payment Confirmation - Fluent Feathers Academy`,
           emailHTML,
           student.rows[0].parent_name,
           'Payment Confirmation'
@@ -12836,7 +13085,7 @@ app.post('/api/schedule/private-classes', async (req, res) => {
 
       emailSent = await sendEmail(
         student.parent_email,
-        `📅 Class Schedule for ${student.name}`,
+        `ðŸ“… Class Schedule for ${student.name}`,
         scheduleHTML,
         student.parent_name,
         'Schedule'
@@ -13026,7 +13275,7 @@ app.post('/api/schedule/group-classes', async (req, res) => {
 
         const sent = await sendEmail(
           student.parent_email,
-          `📅 Group Class Schedule for ${student.name}`,
+          `ðŸ“… Group Class Schedule for ${student.name}`,
           scheduleHTML,
           student.parent_name,
           'Schedule'
@@ -13385,7 +13634,7 @@ app.post('/api/groups/:groupId/enroll-students', async (req, res) => {
 });
 
 // Get all sessions for a student (including group sessions)
-// In-memory sessions cache — serves instant response on repeat loads / cold-start
+// In-memory sessions cache â€” serves instant response on repeat loads / cold-start
 const sessionsResponseCache = new Map(); // key: `${studentId}:${light}`, value: { data, ts }
 const SESSIONS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 function clearStudentSessionsCache(studentId) {
@@ -13777,7 +14026,7 @@ app.get('/api/sessions/:studentId', async (req, res) => {
     // If DB failed but we have stale cache, serve it rather than an error
     const staleCached = sessionsResponseCache.get(cacheKey);
     if (staleCached) {
-      console.log(`⚡ Serving stale sessions cache for student ${id} due to DB error`);
+      console.log(`âš¡ Serving stale sessions cache for student ${id} due to DB error`);
       res.set('X-Cache', 'STALE');
       return res.json(staleCached.data);
     }
@@ -14151,7 +14400,7 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
 
         await sendEmail(
           student.parent_email,
-          `📅 Class Cancelled - ${student.name}`,
+          `ðŸ“… Class Cancelled - ${student.name}`,
           emailHTML,
           student.parent_name,
           'Class-Cancelled'
@@ -14165,7 +14414,7 @@ app.post('/api/sessions/:sessionId/cancel', async (req, res) => {
     const sessionType = session.session_type || 'Private';
     try {
       await sendPushToAdmins(
-        `❌ Class Cancelled - ${student?.name || 'Student'}`,
+        `âŒ Class Cancelled - ${student?.name || 'Student'}`,
         `${student ? `Student: ${student.name}` : isGroupSession ? `Group class (${groupStudentCount} student${groupStudentCount === 1 ? '' : 's'})` : 'A class'} cancellation - ${sessionType} class on ${fallbackDate || session.session_date}. Reason: ${reason || 'Not specified'}. ${grant_makeup_credit ? 'Makeup credit granted.' : ''}`,
         {
           type: 'class_cancelled_admin',
@@ -14243,7 +14492,7 @@ app.post('/api/admin/resend-cancel-email', async (req, res) => {
 
     await sendEmail(
       student.parent_email,
-      `📅 Class Cancelled - ${student.name}`,
+      `ðŸ“… Class Cancelled - ${student.name}`,
       emailHTML,
       student.parent_name,
       'Class-Cancelled'
@@ -14453,11 +14702,11 @@ app.post('/api/sessions/:sessionId/attendance', async (req, res) => {
         const student = await pool.query('SELECT completed_sessions FROM students WHERE id = $1', [studentId]);
         const completedCount = student.rows[0]?.completed_sessions || 0;
 
-        if (completedCount === 1) await awardBadge(studentId, 'first_class', '🌟 First Class Star', 'Attended first class!');
-        if (completedCount === 5) await awardBadge(studentId, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
-        if (completedCount === 10) await awardBadge(studentId, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
-        if (completedCount === 25) await awardBadge(studentId, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
-        if (completedCount === 50) await awardBadge(studentId, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
+        if (completedCount === 1) await awardBadge(studentId, 'first_class', 'ðŸŒŸ First Class Star', 'Attended first class!');
+        if (completedCount === 5) await awardBadge(studentId, '5_classes', 'ðŸ† 5 Classes Champion', 'Completed 5 classes!');
+        if (completedCount === 10) await awardBadge(studentId, '10_classes', 'ðŸ‘‘ 10 Classes Master', 'Completed 10 classes!');
+        if (completedCount === 25) await awardBadge(studentId, '25_classes', 'ðŸŽ–ï¸ 25 Classes Legend', 'Completed 25 classes!');
+        if (completedCount === 50) await awardBadge(studentId, '50_classes', 'ðŸ’Ž 50 Classes Diamond', 'Amazing milestone!');
       } else if (attendance === 'Excused') {
         if (!alreadyCounted) {
           // First time marking - decrement remaining, grant makeup
@@ -14731,11 +14980,11 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
           const student = await client.query('SELECT completed_sessions FROM students WHERE id = $1', [record.student_id]);
           const completedCount = student.rows[0]?.completed_sessions || 0;
 
-          if (completedCount === 1) await awardBadge(record.student_id, 'first_class', '🌟 First Class Star', 'Attended first class!');
-          if (completedCount === 5) await awardBadge(record.student_id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
-          if (completedCount === 10) await awardBadge(record.student_id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
-          if (completedCount === 25) await awardBadge(record.student_id, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
-          if (completedCount === 50) await awardBadge(record.student_id, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
+          if (completedCount === 1) await awardBadge(record.student_id, 'first_class', 'ðŸŒŸ First Class Star', 'Attended first class!');
+          if (completedCount === 5) await awardBadge(record.student_id, '5_classes', 'ðŸ† 5 Classes Champion', 'Completed 5 classes!');
+          if (completedCount === 10) await awardBadge(record.student_id, '10_classes', 'ðŸ‘‘ 10 Classes Master', 'Completed 10 classes!');
+          if (completedCount === 25) await awardBadge(record.student_id, '25_classes', 'ðŸŽ–ï¸ 25 Classes Legend', 'Completed 25 classes!');
+          if (completedCount === 50) await awardBadge(record.student_id, '50_classes', 'ðŸ’Ž 50 Classes Diamond', 'Amazing milestone!');
         }
       } else if (record.attendance === 'Excused') {
         // Excused absence - grant makeup credit (only if not already excused and not a summer camp student)
@@ -14913,7 +15162,7 @@ app.post('/api/sessions/:sessionId/upload', handleUpload('file'), async (req, re
     if (req.file && useCloudinary) {
       // Cloudinary - check multiple possible fields for the URL
       filePath = req.file.path || req.file.secure_url || req.file.url;
-      console.log('📁 Cloudinary upload:', { path: req.file.path, secure_url: req.file.secure_url, url: req.file.url, filename: req.file.filename });
+      console.log('ðŸ“ Cloudinary upload:', { path: req.file.path, secure_url: req.file.secure_url, url: req.file.url, filename: req.file.filename });
       if (!filePath) {
         throw new Error('Cloudinary did not return a file URL. Check your Cloudinary credentials.');
       }
@@ -14974,9 +15223,9 @@ async function processUploadDatabaseOperations(sessionId, col, filePath, materia
     await Promise.all(materialInserts);
 
     await client.query('COMMIT');
-    console.log(`✅ Database operations completed for session ${sessionId} upload`);
+    console.log(`âœ… Database operations completed for session ${sessionId} upload`);
   } catch (err) {
-    console.error('❌ Database operations failed for session upload:', err);
+    console.error('âŒ Database operations failed for session upload:', err);
     if (client) {
       try { await client.query('ROLLBACK'); } catch(e) {}
     }
@@ -15564,7 +15813,7 @@ app.post('/api/events', async (req, res) => {
 
         await sendEmail(
           student.parent_email,
-          `🎉 ${event_name} - Registration Open`,
+          `ðŸŽ‰ ${event_name} - Registration Open`,
           eventEmailHTML,
           student.parent_name,
           'Event'
@@ -15813,10 +16062,10 @@ app.post('/api/public/event/:id/register', async (req, res) => {
       const eventDate = `${localEvent.day}, ${localEvent.date}`;
       const eventTime = `${localEvent.time} (${getTimezoneLabel(parentTimezone)})`;
 
-      await sendEmail(email, 'Event Registration Confirmed! 🎉', `
+      await sendEmail(email, 'Event Registration Confirmed! ðŸŽ‰', `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #667eea; margin: 0;">🎉 Registration Confirmed!</h1>
+            <h1 style="color: #667eea; margin: 0;">ðŸŽ‰ Registration Confirmed!</h1>
           </div>
 
           <p style="font-size: 16px; color: #333;">Dear ${escapeHtml(parent_name)},</p>
@@ -15825,10 +16074,10 @@ app.post('/api/public/event/:id/register', async (req, res) => {
 
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin: 20px 0; color: white;">
             <h2 style="margin: 0 0 15px; font-size: 22px;">${event.event_name}</h2>
-            <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${eventDate}</p>
-            <p style="margin: 5px 0;"><strong>🕐 Time:</strong> ${eventTime}</p>
-            ${event.event_duration ? `<p style="margin: 5px 0;"><strong>⏱️ Duration:</strong> ${event.event_duration}</p>` : ''}
-            ${event.class_link ? `<p style="margin: 15px 0 5px;"><strong>🔗 Join Link:</strong></p><a href="${event.class_link}" style="color: #ffd700; word-break: break-all;">${event.class_link}</a>` : ''}
+            <p style="margin: 5px 0;"><strong>ðŸ“… Date:</strong> ${eventDate}</p>
+            <p style="margin: 5px 0;"><strong>ðŸ• Time:</strong> ${eventTime}</p>
+            ${event.event_duration ? `<p style="margin: 5px 0;"><strong>â±ï¸ Duration:</strong> ${event.event_duration}</p>` : ''}
+            ${event.class_link ? `<p style="margin: 15px 0 5px;"><strong>ðŸ”— Join Link:</strong></p><a href="${event.class_link}" style="color: #ffd700; word-break: break-all;">${event.class_link}</a>` : ''}
           </div>
 
           <p style="font-size: 14px; color: #666;">We look forward to seeing ${escapeHtml(child_name)} at the event!</p>
@@ -15901,7 +16150,7 @@ app.post('/api/public/demo-register', async (req, res) => {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">🎯</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">ðŸŽ¯</div>
       <h1 style="margin: 0; color: white; font-size: 28px;">Free Demo Class Registration</h1>
       <p style="color: rgba(255,255,255,0.9); margin-top: 10px; font-size: 16px;">We're excited to class ${child_name}!</p>
     </div>
@@ -15936,14 +16185,14 @@ app.post('/api/public/demo-register', async (req, res) => {
       </p>
     </div>
     <div style="background: #f7fafc; padding: 15px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body></html>`;
 
       await sendEmail(
         email,
-        `🎯 Demo Class Registration Confirmed - ${child_name} | Fluent Feathers Academy`,
+        `ðŸŽ¯ Demo Class Registration Confirmed - ${child_name} | Fluent Feathers Academy`,
         confirmationHTML,
         parent_name,
         'Demo-Registration'
@@ -15953,11 +16202,11 @@ app.post('/api/public/demo-register', async (req, res) => {
       // Registration still succeeds even if email fails
     }
 
-    console.log(`✅ New demo registration from website: ${child_name} (${program_interest}) - ${parent_name} <${email}>`);
+    console.log(`âœ… New demo registration from website: ${child_name} (${program_interest}) - ${parent_name} <${email}>`);
     
     // Send admin push for demo lead form fill
     await sendPushToAdmins(
-      `🎯 New Demo Registration: ${child_name}`,
+      `ðŸŽ¯ New Demo Registration: ${child_name}`,
       `${child_name} (Age: ${child_age || 'N/A'}) registered for ${program_interest || 'Demo Class'}. Parent: ${parent_name}, Email: ${email}`,
       {
         type: 'demo_lead_registration_admin',
@@ -16012,7 +16261,7 @@ app.post('/api/public/summer-camp-register', async (req, res) => {
 <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-      <div style="font-size: 50px; margin-bottom: 10px;">☀️</div>
+      <div style="font-size: 50px; margin-bottom: 10px;">â˜€ï¸</div>
       <h1 style="margin: 0; color: white; font-size: 28px;">Summer Camp Registration</h1>
       <p style="color: rgba(255,255,255,0.9); margin-top: 10px; font-size: 16px;">We're excited to have ${child_name} join our summer camp!</p>
     </div>
@@ -16043,14 +16292,14 @@ app.post('/api/public/summer-camp-register', async (req, res) => {
       </p>
     </div>
     <div style="background: #f7fafc; padding: 15px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0; color: #718096; font-size: 13px;">Made with ❤️ By Aaliya</p>
+      <p style="margin: 0; color: #718096; font-size: 13px;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body></html>`;
 
       await sendEmail(
         email,
-        `☀️ Summer Camp Registration Confirmed - ${child_name} | Fluent Feathers Academy`,
+        `â˜€ï¸ Summer Camp Registration Confirmed - ${child_name} | Fluent Feathers Academy`,
         confirmationHTML,
         parent_name,
         'Summer-Camp-Registration'
@@ -16060,11 +16309,11 @@ app.post('/api/public/summer-camp-register', async (req, res) => {
       // Registration still succeeds even if email fails
     }
 
-    console.log(`✅ New summer camp registration from website: ${child_name} - ${parent_name} <${email}>`);
+    console.log(`âœ… New summer camp registration from website: ${child_name} - ${parent_name} <${email}>`);
     
     // Send admin push for summer camp form fill
     await sendPushToAdmins(
-      `☀️ New Summer Camp Registration: ${child_name}`,
+      `â˜€ï¸ New Summer Camp Registration: ${child_name}`,
       `${child_name} enrolled in Summer Camp. Parent: ${parent_name}, Email: ${email}, Timezone: ${timezone}`,
       {
         type: 'summer_camp_registration_admin',
@@ -16276,7 +16525,7 @@ app.post('/api/events/:eventId/send-certificates', async (req, res) => {
 
       const emailSent = await sendEmail(
         parentEmail,
-        `🏆 Participation Certificate - ${event.event_name}`,
+        `ðŸ† Participation Certificate - ${event.event_name}`,
         emailHtml,
         parentName,
         'Event Certificate'
@@ -16533,7 +16782,7 @@ app.post('/api/sessions/:sessionId/group-cancel-student', async (req, res) => {
 
         await sendEmail(
           student.parent_email,
-          `📅 Class Cancelled - ${student.name}`,
+          `ðŸ“… Class Cancelled - ${student.name}`,
           emailHTML,
           student.parent_name,
           'Class-Cancelled'
@@ -16675,7 +16924,7 @@ app.post('/api/parent/cancel-class', async (req, res) => {
 
         await sendEmail(
           student.parent_email,
-          `📅 Class Cancelled - ${student.name}`,
+          `ðŸ“… Class Cancelled - ${student.name}`,
           emailHTML,
           student.parent_name,
           'Class-Cancelled'
@@ -16819,7 +17068,7 @@ app.post('/api/students/:studentId/makeup-credits', async (req, res) => {
 
         await sendEmail(
           student.parent_email,
-          `🎁 Makeup Credit Added - ${student.name}`,
+          `ðŸŽ Makeup Credit Added - ${student.name}`,
           emailHTML,
           student.parent_name,
           'Makeup-Credit'
@@ -16929,21 +17178,21 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 <body style="margin:0; padding:0; font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Makeup Class Scheduled!</h1>
+      <h1 style="color: white; margin: 0; font-size: 28px;">ðŸŽ‰ Makeup Class Scheduled!</h1>
     </div>
     <div style="padding: 30px;">
       <p style="font-size: 16px; color: #2d3748;">Dear <strong>${studentData.parent_name}</strong>,</p>
       <p style="font-size: 15px; color: #4a5568;">Great news! A makeup class has been scheduled for <strong>${studentData.name}</strong>.</p>
 
       <div style="background: #f7fafc; border-left: 4px solid #f093fb; padding: 20px; margin: 20px 0; border-radius: 8px;">
-        <h3 style="color: #f093fb; margin-top: 0;">📅 Class Details</h3>
+        <h3 style="color: #f093fb; margin-top: 0;">ðŸ“… Class Details</h3>
         <p style="margin: 5px 0;"><strong>Date:</strong> ${localTime.day}, ${localTime.date}</p>
         <p style="margin: 5px 0;"><strong>Time:</strong> ${localTime.time} (${timezoneLabel})</p>
         <p style="margin: 5px 0;"><strong>Type:</strong> Makeup Class</p>
       </div>
 
       <div style="text-align: center; margin: 25px 0;">
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/join-class?sid=${newSessionId}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">🎥 Join Class</a>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/join-class?sid=${newSessionId}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: bold;">ðŸŽ¥ Join Class</a>
       </div>
 
       <p style="font-size: 14px; color: #718096;">We look forward to seeing ${studentData.name} in class!</p>
@@ -16953,7 +17202,7 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
 </body>
 </html>`;
 
-      await sendEmail(studentData.parent_email, `🎉 Makeup Class Scheduled for ${studentData.name}`, emailHTML, studentData.parent_name, 'Makeup-Schedule');
+      await sendEmail(studentData.parent_email, `ðŸŽ‰ Makeup Class Scheduled for ${studentData.name}`, emailHTML, studentData.parent_name, 'Makeup-Schedule');
     }
 
     res.json({
@@ -17156,7 +17405,7 @@ app.post('/api/parent/send-otp', async (req, res) => {
     const otpEmailHTML = getOTPEmail({ parentName, otp });
     const emailSent = await sendEmail(
       req.body.email,
-      `🔐 Your OTP for Fluent Feathers Academy Login`,
+      `ðŸ” Your OTP for Fluent Feathers Academy Login`,
       otpEmailHTML,
       parentName,
       'OTP'
@@ -17278,7 +17527,7 @@ app.post('/api/students/:id/renewal', async (req, res) => {
         });
         emailSent = await sendEmail(
           student.rows[0].parent_email,
-          `✅ Renewal Confirmation - Fluent Feathers Academy`,
+          `âœ… Renewal Confirmation - Fluent Feathers Academy`,
           emailHTML,
           student.rows[0].parent_name,
           'Renewal Confirmation'
@@ -17431,7 +17680,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
       });
       refundEmailSent = await sendEmail(
         parentEmail,
-        `💸 Refund Initiated for ${student.name}`,
+        `ðŸ’¸ Refund Initiated for ${student.name}`,
         refundEmailHTML,
         recipientName,
         'Refund',
@@ -17441,7 +17690,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
       await pool.query(`
         INSERT INTO email_log (student_id, recipient_name, recipient_email, email_type, subject, status, email_body)
         VALUES ($1, $2, $3, $4, $5, 'Failed', $6)
-      `, [student.id, recipientName, '', 'Refund', `💸 Refund Initiated for ${student.name}`, 'No parent email available for refund notification.']);
+      `, [student.id, recipientName, '', 'Refund', `ðŸ’¸ Refund Initiated for ${student.name}`, 'No parent email available for refund notification.']);
     }
 
     res.json({
@@ -17549,7 +17798,7 @@ app.post('/api/admin/resend-refund-email', async (req, res) => {
 
     const emailResult = await sendEmail(
       parentEmail,
-      `💸 Refund Initiated for ${student.name}`,
+      `ðŸ’¸ Refund Initiated for ${student.name}`,
       refundEmailHTML,
       recipientName,
       'Refund',
@@ -17660,7 +17909,7 @@ app.post('/api/students/:id/fix-sessions', async (req, res) => {
 
     const updatedBalance = await getStudentSessionBalance(studentId);
 
-    console.log(`⚠️ SESSION FIX for ${oldData.name} (ID: ${studentId})`);
+    console.log(`âš ï¸ SESSION FIX for ${oldData.name} (ID: ${studentId})`);
     console.log(`   Old: Total=${oldData.total_sessions}, Completed=${oldData.completed_sessions}, Missed=${oldData.missed_sessions || 0}, Remaining=${oldData.remaining_sessions}`);
     console.log(`   New: Total=${targetTotal}, Completed=${targetCompleted}, Missed=${normalizedMissed}, Remaining=${updatedBalance?.remaining_sessions ?? targetRemaining}`);
     console.log(`   Reason: ${reason || 'No reason provided'}`);
@@ -17823,7 +18072,7 @@ app.post('/api/students/:id/add-extra-sessions', async (req, res) => {
       });
       emailSent = await sendEmail(
         student.parent_email,
-        `📅 Additional Classes Scheduled for ${student.name}`,
+        `ðŸ“… Additional Classes Scheduled for ${student.name}`,
         scheduleHTML,
         student.parent_name,
         'Schedule'
@@ -18501,7 +18750,7 @@ app.delete('/api/cleanup/orphaned-sessions', async (req, res) => {
       RETURNING id
     `);
 
-    console.log(`🧹 Cleaned up ${result.rowCount} orphaned sessions`);
+    console.log(`ðŸ§¹ Cleaned up ${result.rowCount} orphaned sessions`);
     res.json({
       success: true,
       message: `Cleaned up ${result.rowCount} orphaned sessions`,
@@ -18535,7 +18784,7 @@ app.put('/api/students/:id', async (req, res) => {
   const { name, grade, parent_name, parent_email, primary_contact, timezone, parent_timezone, program_name, class_type, duration, per_session_fee, currency, date_of_birth, class_link } = req.body;
   try {
     const studentTimezone = timezone || parent_timezone || 'Asia/Kolkata';
-    const parentTimezone = studentTimezone; // single timezone — admin sets one value for everything
+    const parentTimezone = studentTimezone; // single timezone â€” admin sets one value for everything
     await pool.query(`
       UPDATE students SET
         name = $1, grade = $2, parent_name = $3, parent_email = $4,
@@ -18644,7 +18893,7 @@ app.post('/api/sessions/:sessionId/feedback', async (req, res) => {
       );
     }
 
-    await awardBadge(student_id, 'feedback', '⭐ Feedback Star', 'Shared valuable feedback');
+    await awardBadge(student_id, 'feedback', 'â­ Feedback Star', 'Shared valuable feedback');
 
     res.json({ success: true, message: 'Thank you for your feedback!' });
   } catch (err) {
@@ -18703,7 +18952,7 @@ async function awardBadge(studentId, badgeType, badgeName, badgeDescription) {
 }
 
 async function awardHomeworkSubmissionRecognition(studentId) {
-  await awardBadge(studentId, 'hw_submit', '📝 Homework Hero', 'Submitted homework on time');
+  await awardBadge(studentId, 'hw_submit', 'ðŸ“ Homework Hero', 'Submitted homework on time');
 
   const hwCount = await pool.query(`
     SELECT COUNT(*) as count
@@ -18717,17 +18966,17 @@ async function awardHomeworkSubmissionRecognition(studentId) {
   `, [studentId]);
 
   const count = parseInt(hwCount.rows[0].count, 10) || 0;
-  if (count === 5) await awardBadge(studentId, '5_homework', '📚 5 Homework Superstar', 'Submitted 5 homework assignments!');
-  if (count === 10) await awardBadge(studentId, '10_homework', '🎓 10 Homework Champion', 'Submitted 10 homework assignments!');
-  if (count === 25) await awardBadge(studentId, '25_homework', '🏅 25 Homework Master', 'Submitted 25 homework assignments!');
+  if (count === 5) await awardBadge(studentId, '5_homework', 'ðŸ“š 5 Homework Superstar', 'Submitted 5 homework assignments!');
+  if (count === 10) await awardBadge(studentId, '10_homework', 'ðŸŽ“ 10 Homework Champion', 'Submitted 10 homework assignments!');
+  if (count === 25) await awardBadge(studentId, '25_homework', 'ðŸ… 25 Homework Master', 'Submitted 25 homework assignments!');
 }
 
 const CLASS_POINT_BADGE_MILESTONES = {
-  10: { name: '⭐ Class Star', desc: 'Earned 10 class points in live classes!' },
-  20: { name: '🌟 Double Star', desc: 'Earned 20 class points in live classes!' },
-  30: { name: '🔥 On Fire', desc: 'Earned 30 class points in live classes!' },
-  50: { name: '🏆 Points Champion', desc: 'Earned 50 class points in live classes!' },
-  100: { name: '💎 Points Legend', desc: 'Earned 100 class points in live classes!' }
+  10: { name: 'â­ Class Star', desc: 'Earned 10 class points in live classes!' },
+  20: { name: 'ðŸŒŸ Double Star', desc: 'Earned 20 class points in live classes!' },
+  30: { name: 'ðŸ”¥ On Fire', desc: 'Earned 30 class points in live classes!' },
+  50: { name: 'ðŸ† Points Champion', desc: 'Earned 50 class points in live classes!' },
+  100: { name: 'ðŸ’Ž Points Legend', desc: 'Earned 100 class points in live classes!' }
 };
 
 async function backfillClassPointBadges(studentId, totalPoints) {
@@ -18738,7 +18987,7 @@ async function backfillClassPointBadges(studentId, totalPoints) {
   const endMilestone = Math.floor(normalizedTotal / 10) * 10;
   for (let threshold = 10; threshold <= endMilestone; threshold += 10) {
     const badgeMeta = CLASS_POINT_BADGE_MILESTONES[threshold] || {
-      name: `🏅 ${threshold} Point Badge`,
+      name: `ðŸ… ${threshold} Point Badge`,
       desc: `Earned ${threshold} class points in live classes!`
     };
     const awarded = await awardBadge(
@@ -18812,7 +19061,7 @@ function getAwardCertificateTitle(periodType) {
 
 function getPodiumEmail(studentName, rank, periodLabel, totalScore, breakdown) {
   const rankLabel = rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
-  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+  const medal = rank === 1 ? 'ðŸ¥‡' : rank === 2 ? 'ðŸ¥ˆ' : 'ðŸ¥‰';
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -18832,7 +19081,7 @@ function getPodiumEmail(studentName, rank, periodLabel, totalScore, breakdown) {
         <p style="margin:0;color:#4a5568;">Badges: <strong>${breakdown.badges} pts</strong></p>
         <p style="margin:10px 0 0;font-size:18px;color:#553c9a;font-weight:700;">Total: ${totalScore} points</p>
       </div>
-      <p style="font-size:14px;color:#718096;line-height:1.6;">Thank you for supporting your child’s learning journey!</p>
+      <p style="font-size:14px;color:#718096;line-height:1.6;">Thank you for supporting your childâ€™s learning journey!</p>
     </div>
   </div>
 </body>
@@ -18902,28 +19151,28 @@ function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, 
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
   <div style="max-width:600px;margin:20px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
     <div style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:40px 30px;text-align:center;">
-      <div style="font-size:60px;margin-bottom:10px;">${awardTitle.includes('Year') ? '🏆' : awardTitle.includes('Month') ? '🏅' : '🌟'}</div>
+      <div style="font-size:60px;margin-bottom:10px;">${awardTitle.includes('Year') ? 'ðŸ†' : awardTitle.includes('Month') ? 'ðŸ…' : 'ðŸŒŸ'}</div>
       <h1 style="margin:0;color:white;font-size:26px;font-weight:bold;">${awardTitle}</h1>
       <p style="margin:10px 0 0;color:rgba(255,255,255,0.95);font-size:16px;">${periodLabel}</p>
     </div>
     <div style="padding:30px;text-align:center;">
-      <p style="font-size:16px;color:#2d3748;margin:0 0 10px;">Congratulations! 🎉</p>
+      <p style="font-size:16px;color:#2d3748;margin:0 0 10px;">Congratulations! ðŸŽ‰</p>
       <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:15px;padding:25px;margin:20px 0;">
         <h2 style="margin:0;color:#92400e;font-size:28px;">${studentName}</h2>
         <p style="margin:10px 0 0;color:#b45309;font-size:18px;">has been awarded <strong>${awardTitle}</strong>!</p>
       </div>
       <div style="background:#f7fafc;border-radius:10px;padding:20px;margin:20px 0;text-align:left;">
         <p style="margin:0 0 10px;font-weight:600;color:#2d3748;">Score Breakdown:</p>
-        <p style="margin:4px 0;color:#4a5568;">📝 Homework Submitted: <strong>${breakdown.homework} pts</strong></p>
-        <p style="margin:4px 0;color:#4a5568;">🎯 Challenges Completed: <strong>${breakdown.challenges} pts</strong></p>
-        <p style="margin:4px 0;color:#4a5568;">🏅 Badges Earned: <strong>${breakdown.badges} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">ðŸ“ Homework Submitted: <strong>${breakdown.homework} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">ðŸŽ¯ Challenges Completed: <strong>${breakdown.challenges} pts</strong></p>
+        <p style="margin:4px 0;color:#4a5568;">ðŸ… Badges Earned: <strong>${breakdown.badges} pts</strong></p>
         <p style="margin:4px 0;color:#4a5568;">Daily Quiz: <strong>${breakdown.quizzes || 0} pts</strong></p>
         <p style="margin:10px 0 0;font-size:18px;font-weight:700;color:#B05D9E;">Total: ${totalScore} points</p>
       </div>
-      <p style="font-size:15px;color:#4a5568;line-height:1.6;">Keep up the amazing work! We're so proud of ${studentName}'s dedication and progress at Fluent Feathers Academy. 💜</p>
+      <p style="font-size:15px;color:#4a5568;line-height:1.6;">Keep up the amazing work! We're so proud of ${studentName}'s dedication and progress at Fluent Feathers Academy. ðŸ’œ</p>
       ${certificateUrl ? `
       <div style="margin-top:22px;">
-        <a href="${certificateUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#38b2ac 0%,#319795 100%);color:white;text-decoration:none;padding:14px 28px;border-radius:30px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(56,178,172,0.4);">📥 Download Award Certificate</a>
+        <a href="${certificateUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#38b2ac 0%,#319795 100%);color:white;text-decoration:none;padding:14px 28px;border-radius:30px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(56,178,172,0.4);">ðŸ“¥ Download Award Certificate</a>
       </div>` : ''}
     </div>
     <div style="background:#f7fafc;padding:15px;text-align:center;border-top:1px solid #e2e8f0;">
@@ -18950,7 +19199,7 @@ async function awardStudentOfPeriod(periodType) {
       const weekNum = Math.ceil(((sunday - new Date(sunday.getFullYear(), 0, 1)) / 86400000 + 1) / 7);
       dateKey = `${sunday.getFullYear()}_W${String(weekNum).padStart(2, '0')}`;
       periodLabel = `Week ${weekNum}, ${sunday.getFullYear()}`;
-      awardTitle = '🌟 Student of the Week';
+      awardTitle = 'ðŸŒŸ Student of the Week';
     } else if (periodType === 'month') {
       const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -18959,26 +19208,26 @@ async function awardStudentOfPeriod(periodType) {
       const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       dateKey = `${prevMonth.getFullYear()}_${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
       periodLabel = `${monthNames[prevMonth.getMonth()]} ${prevMonth.getFullYear()}`;
-      awardTitle = '🏅 Student of the Month';
+      awardTitle = 'ðŸ… Student of the Month';
     } else {
       const prevYear = now.getFullYear() - 1;
       startDate = `${prevYear}-01-01`;
       endDate = `${prevYear}-12-31`;
       dateKey = `${prevYear}`;
       periodLabel = `${prevYear}`;
-      awardTitle = '🏆 Student of the Year';
+      awardTitle = 'ðŸ† Student of the Year';
     }
 
     const badgeType = `student_of_${periodType}_${dateKey}`;
     const existing = await pool.query('SELECT id FROM student_badges WHERE badge_type = $1', [badgeType]);
     if (existing.rows.length > 0) {
-      console.log(`⏭️ ${awardTitle} for ${periodLabel} already awarded, skipping.`);
+      console.log(`â­ï¸ ${awardTitle} for ${periodLabel} already awarded, skipping.`);
       return;
     }
 
     const scores = await calculateStudentScores(startDate, endDate);
     if (scores.length === 0) {
-      console.log(`⏭️ No eligible students for ${awardTitle} (${periodLabel})`);
+      console.log(`â­ï¸ No eligible students for ${awardTitle} (${periodLabel})`);
       return;
     }
 
@@ -18990,7 +19239,7 @@ async function awardStudentOfPeriod(periodType) {
       'INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description) VALUES ($1, $2, $3, $4)',
       [winner.student_id, badgeType, awardTitle, description]
     );
-    console.log(`🏆 ${awardTitle} awarded to ${winner.name} for ${periodLabel} (${winner.total_score} pts)`);
+    console.log(`ðŸ† ${awardTitle} awarded to ${winner.name} for ${periodLabel} (${winner.total_score} pts)`);
 
     let certificateUrl = '';
     try {
@@ -19047,7 +19296,7 @@ async function awardStudentOfPeriod(periodType) {
       );
       await sendEmail(
         podiumStudent.parent_email,
-        `🏆 Podium Achievement (${rank === 2 ? '2nd' : '3rd'} Place) - ${podiumStudent.name}`,
+        `ðŸ† Podium Achievement (${rank === 2 ? '2nd' : '3rd'} Place) - ${podiumStudent.name}`,
         podiumEmail,
         podiumStudent.parent_name,
         'Podium Achievement'
@@ -19204,7 +19453,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             m.uploaded_at AS occurred_at,
             'Homework submitted'::text AS title,
             COALESCE(
-              'Session #' || s.session_number || CASE WHEN s.session_topic IS NOT NULL AND s.session_topic <> '' THEN ' • ' || s.session_topic ELSE '' END,
+              'Session #' || s.session_number || CASE WHEN s.session_topic IS NOT NULL AND s.session_topic <> '' THEN ' â€¢ ' || s.session_topic ELSE '' END,
               m.file_name,
               'Homework upload'
             ) AS detail,
@@ -19243,7 +19492,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             0::int AS points,
             COALESCE(sc.submitted_at, sc.created_at) AS occurred_at,
             'Challenge submitted'::text AS title,
-            COALESCE(wc.title, 'Weekly challenge') || ' • awaiting teacher approval' AS detail,
+            COALESCE(wc.title, 'Weekly challenge') || ' â€¢ awaiting teacher approval' AS detail,
             'pending'::text AS status
           FROM student_challenges sc
           LEFT JOIN weekly_challenges wc ON wc.id = sc.challenge_id
@@ -19257,7 +19506,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             COALESCE(qa.points_awarded, 0)::int AS points,
             qa.completed_at AS occurred_at,
             'Daily quiz attempted'::text AS title,
-            'Quiz date: ' || qa.quiz_date::text || ' • Score: ' || COALESCE(qa.score, 0)::text || '/10' AS detail,
+            'Quiz date: ' || qa.quiz_date::text || ' â€¢ Score: ' || COALESCE(qa.score, 0)::text || '/10' AS detail,
             'awarded'::text AS status
           FROM quiz_attempts qa
           WHERE qa.student_id = $1
@@ -19633,7 +19882,7 @@ app.post('/api/admin/resend-award-email', async (req, res) => {
       'Student Award Resend'
     );
 
-    console.log(`📧 Award email resend for ${student.name} (${period_type}): ${sent ? 'SUCCESS' : 'FAILED'} → ${student.parent_email}`);
+    console.log(`ðŸ“§ Award email resend for ${student.name} (${period_type}): ${sent ? 'SUCCESS' : 'FAILED'} â†’ ${student.parent_email}`);
     res.json({
       success: sent,
       message: sent
@@ -19657,23 +19906,23 @@ app.post('/api/badges/sync-all', async (req, res) => {
       const count = student.completed_sessions || 0;
 
       if (count >= 1) {
-        const result = await awardBadge(student.id, 'first_class', '🌟 First Class Star', 'Attended first class!');
+        const result = await awardBadge(student.id, 'first_class', 'ðŸŒŸ First Class Star', 'Attended first class!');
         if (result) awarded++;
       }
       if (count >= 5) {
-        const result = await awardBadge(student.id, '5_classes', '🏆 5 Classes Champion', 'Completed 5 classes!');
+        const result = await awardBadge(student.id, '5_classes', 'ðŸ† 5 Classes Champion', 'Completed 5 classes!');
         if (result) awarded++;
       }
       if (count >= 10) {
-        const result = await awardBadge(student.id, '10_classes', '👑 10 Classes Master', 'Completed 10 classes!');
+        const result = await awardBadge(student.id, '10_classes', 'ðŸ‘‘ 10 Classes Master', 'Completed 10 classes!');
         if (result) awarded++;
       }
       if (count >= 25) {
-        const result = await awardBadge(student.id, '25_classes', '🎖️ 25 Classes Legend', 'Completed 25 classes!');
+        const result = await awardBadge(student.id, '25_classes', 'ðŸŽ–ï¸ 25 Classes Legend', 'Completed 25 classes!');
         if (result) awarded++;
       }
       if (count >= 50) {
-        const result = await awardBadge(student.id, '50_classes', '💎 50 Classes Diamond', 'Amazing milestone!');
+        const result = await awardBadge(student.id, '50_classes', 'ðŸ’Ž 50 Classes Diamond', 'Amazing milestone!');
         if (result) awarded++;
       }
     }
@@ -19830,7 +20079,7 @@ app.post('/api/materials/:id/grade', async (req, res) => {
       const materialType = material.file_type === 'Classwork' ? 'Classwork' : 'Homework';
 
       // Award badge
-      await awardBadge(material.student_id, 'graded_hw', '📚 Homework Hero', 'Received homework feedback');
+      await awardBadge(material.student_id, 'graded_hw', 'ðŸ“š Homework Hero', 'Received homework feedback');
 
       // Send email notification to parent
       if (material.parent_email) {
@@ -19848,12 +20097,12 @@ app.post('/api/materials/:id/grade', async (req, res) => {
 
           await sendEmail(
             material.parent_email,
-            `📝 ${materialType} Feedback - ${material.student_name}'s ${materialType} Reviewed`,
+            `ðŸ“ ${materialType} Feedback - ${material.student_name}'s ${materialType} Reviewed`,
             feedbackEmailHTML,
             material.parent_name,
             `${materialType}-Feedback`
           );
-          console.log(`✅ Sent homework feedback email to ${material.parent_email} for ${material.student_name}`);
+          console.log(`âœ… Sent homework feedback email to ${material.parent_email} for ${material.student_name}`);
         } catch (emailErr) {
           console.error('Error sending work feedback email:', emailErr);
           // Don't fail the request if email fails
@@ -19916,7 +20165,7 @@ app.post('/api/materials/:id/ai-review/approve', async (req, res) => {
     if (wasCommentOnlyPending) {
       await awardHomeworkSubmissionRecognition(material.student_id);
     }
-    await awardBadge(material.student_id, 'graded_hw', 'ðŸ“š Homework Hero', 'Received homework feedback');
+    await awardBadge(material.student_id, 'graded_hw', 'Ã°Å¸â€œÅ¡ Homework Hero', 'Received homework feedback');
 
     if (material.parent_email) {
       try {
@@ -19932,7 +20181,7 @@ app.post('/api/materials/:id/ai-review/approve', async (req, res) => {
         });
         await sendEmail(
           material.parent_email,
-          `ðŸ“ ${materialType} Feedback - ${material.student_name}'s ${materialType} Reviewed`,
+          `Ã°Å¸â€œÂ ${materialType} Feedback - ${material.student_name}'s ${materialType} Reviewed`,
           feedbackEmailHTML,
           material.parent_name,
           `${materialType}-Feedback`
@@ -20022,7 +20271,7 @@ app.post('/api/materials/:id/annotate', express.json({ limit: '20mb' }), async (
 
     if (materialResult.rows[0]) {
       const material = materialResult.rows[0];
-      await awardBadge(material.student_id, 'graded_hw', '📚 Homework Hero', 'Received homework feedback');
+      await awardBadge(material.student_id, 'graded_hw', 'ðŸ“š Homework Hero', 'Received homework feedback');
 
       if (
         material.file_type === 'Homework' &&
@@ -20046,7 +20295,7 @@ app.post('/api/materials/:id/annotate', express.json({ limit: '20mb' }), async (
         });
         await sendEmail(
           material.parent_email,
-          `📝 ${materialType} Corrected - ${material.student_name}'s ${materialType} Reviewed`,
+          `ðŸ“ ${materialType} Corrected - ${material.student_name}'s ${materialType} Reviewed`,
           feedbackEmailHTML,
           material.parent_name,
           `${materialType}-Feedback`
@@ -20366,7 +20615,7 @@ Teacher prompt: ${teacher_notes}`;
   }
 });
 
-// AI Quick Fill — fills challenge / announcement / resource forms
+// AI Quick Fill â€” fills challenge / announcement / resource forms
 app.post('/api/ai/quickfill', express.json(), async (req, res) => {
   try {
     const groqKey = process.env.GROQ_API_KEY;
@@ -20381,7 +20630,7 @@ Return ONLY valid JSON:
   "title": "Challenge title, short and engaging, max 60 chars",
   "type": "one of: Reading, Vocabulary, Speaking, Writing, Homework, Practice, General",
   "description": "2-3 sentences describing what students need to do",
-  "badge_reward": "one of: 🎯 Challenge Champion, 📖 Reading Star, 📚 Vocab Master, 🗣️ Speaking Hero, ✍️ Writing Wizard, ⭐ Super Achiever, 🏆 Weekly Winner, 🌟 Shining Star"
+  "badge_reward": "one of: ðŸŽ¯ Challenge Champion, ðŸ“– Reading Star, ðŸ“š Vocab Master, ðŸ—£ï¸ Speaking Hero, âœï¸ Writing Wizard, â­ Super Achiever, ðŸ† Weekly Winner, ðŸŒŸ Shining Star"
 }
 Return ONLY JSON. No markdown. No explanation.`,
       announcement: `You are a helper for a children's English language learning school. Fill in an announcement form.
@@ -20692,7 +20941,7 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
       INSERT INTO weekly_challenges (title, description, challenge_type, badge_reward, week_start, week_end, image_url)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [title, description, challenge_type || 'General', badge_reward || '🎯 Challenge Champion', week_start, week_end, imageUrl]);
+    `, [title, description, challenge_type || 'General', badge_reward || 'ðŸŽ¯ Challenge Champion', week_start, week_end, imageUrl]);
 
     const challenge = result.rows[0];
     let assignedStudents = [];
@@ -20715,8 +20964,8 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
 
     if (send_email === 'true' || send_email === true) {
       const startDate = new Date(week_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-      const typeEmojis = { 'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️', 'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐' };
-      const emoji = typeEmojis[challenge_type] || '🎯';
+      const typeEmojis = { 'Reading': 'ðŸ“–', 'Vocabulary': 'ðŸ“š', 'Speaking': 'ðŸ—£ï¸', 'Writing': 'âœï¸', 'Homework': 'ðŸ“', 'Practice': 'ðŸŽ¯', 'General': 'â­' };
+      const emoji = typeEmojis[challenge_type] || 'ðŸŽ¯';
 
       const parents = await pool.query(`
         SELECT DISTINCT s.parent_email, s.parent_name, s.name as student_name
@@ -20742,24 +20991,24 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
         <h2 style="color:#2d3748;margin:0 0 12px;font-size:1.2rem;">${emoji} ${title}</h2>
         ${description ? `<p style="color:#4a5568;margin:0 0 12px;">${description}</p>` : ''}
         <table style="width:100%;border-collapse:collapse;">
-          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">📅 Start Date</td><td style="padding:6px 0;color:#2d3748;font-weight:600;">${startDate}</td></tr>
-          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">⏰ Due Date</td><td style="padding:6px 0;color:#e53e3e;font-weight:600;">${dueDate}</td></tr>
-          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">🏅 Badge Reward</td><td style="padding:6px 0;color:#2d3748;font-weight:600;">${badge_reward || '🎯 Challenge Champion'}</td></tr>
+          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">ðŸ“… Start Date</td><td style="padding:6px 0;color:#2d3748;font-weight:600;">${startDate}</td></tr>
+          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">â° Due Date</td><td style="padding:6px 0;color:#e53e3e;font-weight:600;">${dueDate}</td></tr>
+          <tr><td style="padding:6px 0;color:#718096;font-size:0.9rem;">ðŸ… Badge Reward</td><td style="padding:6px 0;color:#2d3748;font-weight:600;">${badge_reward || 'ðŸŽ¯ Challenge Champion'}</td></tr>
         </table>
       </div>
       <p style="color:#4a5568;">Once completed, please submit the challenge through the <strong>Parent Portal</strong> so it can be reviewed.</p>
       <div style="text-align:center;margin:25px 0;">
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🎯 View in Parent Portal</a>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">ðŸŽ¯ View in Parent Portal</a>
       </div>
     </div>
     <div style="background:#f7fafc;padding:15px;text-align:center;color:#718096;font-size:0.8rem;">
       Fluent Feathers Academy &nbsp;|&nbsp; This is an automated notification<br>
-      <span style="font-size:0.75rem;">Made with ❤️ By Aaliya</span>
+      <span style="font-size:0.75rem;">Made with â¤ï¸ By Aaliya</span>
     </div>
   </div>
 </body>
 </html>`;
-        const sent = await sendEmail(p.parent_email, `🎯 New Challenge: ${title} — Due ${dueDate}`, emailHtml, p.parent_name, 'Challenge Notification');
+        const sent = await sendEmail(p.parent_email, `ðŸŽ¯ New Challenge: ${title} â€” Due ${dueDate}`, emailHtml, p.parent_name, 'Challenge Notification');
         if (sent) emailsSent++;
       }
     }
@@ -20767,7 +21016,7 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
     // Send admin push for challenge created
     if (assignedStudents.length > 0) {
       await sendPushToAdmins(
-        `📝 New Challenge Created: ${title}`,
+        `ðŸ“ New Challenge Created: ${title}`,
         `Challenge "${title}" assigned to ${assignedStudents.length} student(s). Due: ${dueDate}`,
         {
           type: 'challenge_created_admin',
@@ -20819,7 +21068,7 @@ app.put('/api/challenges/:id', handleUpload('image'), async (req, res) => {
       title || existing.rows[0].title,
       description !== undefined ? description : existing.rows[0].description,
       challenge_type || existing.rows[0].challenge_type || 'General',
-      badge_reward || existing.rows[0].badge_reward || '🎯 Challenge Champion',
+      badge_reward || existing.rows[0].badge_reward || 'ðŸŽ¯ Challenge Champion',
       week_start || existing.rows[0].week_start,
       week_end || existing.rows[0].week_end,
       imageUrl,
@@ -20943,7 +21192,7 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
     // Award badge for completing challenge
     const challenge = await pool.query('SELECT * FROM weekly_challenges WHERE id = $1', [req.params.challengeId]);
     if (challenge.rows.length > 0) {
-      const badgeName = badge_reward || challenge.rows[0].badge_reward || '🎯 Challenge Champion';
+      const badgeName = badge_reward || challenge.rows[0].badge_reward || 'ðŸŽ¯ Challenge Champion';
       await pool.query(`
         INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
         VALUES ($1, $2, $3, $4)
@@ -20958,8 +21207,8 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
         if (studentRes.rows.length > 0) {
           const student = studentRes.rows[0];
           const ch = challenge.rows[0];
-          const typeEmojis = { 'Reading': '📖', 'Vocabulary': '📚', 'Speaking': '🗣️', 'Writing': '✍️', 'Homework': '📝', 'Practice': '🎯', 'General': '⭐' };
-          const emoji = typeEmojis[ch.challenge_type] || '🎯';
+          const typeEmojis = { 'Reading': 'ðŸ“–', 'Vocabulary': 'ðŸ“š', 'Speaking': 'ðŸ—£ï¸', 'Writing': 'âœï¸', 'Homework': 'ðŸ“', 'Practice': 'ðŸŽ¯', 'General': 'â­' };
+          const emoji = typeEmojis[ch.challenge_type] || 'ðŸŽ¯';
           const completedDate = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
           const emailHtml = `<!DOCTYPE html>
@@ -20968,37 +21217,37 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
 <body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f0f4f8;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
     <div style="background:linear-gradient(135deg,#f6d365 0%,#fda085 100%);padding:40px 30px;text-align:center;">
-      <div style="font-size:4rem;">🎉</div>
+      <div style="font-size:4rem;">ðŸŽ‰</div>
       <h1 style="color:white;margin:10px 0 5px;font-size:1.8rem;">Congratulations!</h1>
       <p style="color:rgba(255,255,255,0.9);margin:0;font-size:1rem;">${student.name} has completed a challenge!</p>
     </div>
     <div style="padding:30px;">
       <p style="color:#4a5568;font-size:1rem;">Dear <strong>${student.parent_name || 'Parent'}</strong>,</p>
-      <p style="color:#4a5568;font-size:1rem;">We are thrilled to share that <strong>${student.name}</strong> has successfully completed the weekly challenge and earned a badge! 🏅</p>
+      <p style="color:#4a5568;font-size:1rem;">We are thrilled to share that <strong>${student.name}</strong> has successfully completed the weekly challenge and earned a badge! ðŸ…</p>
 
       <div style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);border:2px solid #f59e0b;border-radius:12px;padding:22px;margin:20px 0;text-align:center;">
         <div style="font-size:2.5rem;margin-bottom:8px;">${emoji}</div>
         <h2 style="color:#92400e;margin:0 0 6px;font-size:1.3rem;">${ch.title}</h2>
         ${ch.description ? `<p style="color:#78350f;margin:0 0 12px;font-size:0.9rem;">${ch.description}</p>` : ''}
         <div style="display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:white;padding:10px 24px;border-radius:25px;font-weight:bold;font-size:1rem;margin-top:8px;">
-          🏅 ${badgeName}
+          ðŸ… ${badgeName}
         </div>
       </div>
 
       <div style="background:#f0fff4;border-left:4px solid #38a169;border-radius:8px;padding:16px;margin:20px 0;">
-        <p style="color:#276749;margin:0;font-size:0.95rem;">✅ <strong>Completed on:</strong> ${completedDate}</p>
+        <p style="color:#276749;margin:0;font-size:0.95rem;">âœ… <strong>Completed on:</strong> ${completedDate}</p>
       </div>
 
-      <p style="color:#4a5568;">This achievement reflects <strong>${student.name}</strong>'s dedication and hard work. Please celebrate this moment with them — it means a lot! 🌟</p>
+      <p style="color:#4a5568;">This achievement reflects <strong>${student.name}</strong>'s dedication and hard work. Please celebrate this moment with them â€” it means a lot! ðŸŒŸ</p>
       <p style="color:#4a5568;">Keep encouraging them to take on more challenges and continue growing every week.</p>
 
       <div style="text-align:center;margin:25px 0;">
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">🏆 View Achievements</a>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:bold;font-size:1rem;">ðŸ† View Achievements</a>
       </div>
     </div>
     <div style="background:linear-gradient(135deg,#f6d365 0%,#fda085 100%);padding:15px;text-align:center;">
-      <p style="color:white;margin:0;font-size:0.85rem;">With pride &amp; joy 💛 — Fluent Feathers Academy</p>
-      <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:0.75rem;">Made with ❤️ By Aaliya</p>
+      <p style="color:white;margin:0;font-size:0.85rem;">With pride &amp; joy ðŸ’› â€” Fluent Feathers Academy</p>
+      <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:0.75rem;">Made with â¤ï¸ By Aaliya</p>
     </div>
   </div>
 </body>
@@ -21006,7 +21255,7 @@ app.put('/api/challenges/:challengeId/student/:studentId/complete', async (req, 
 
           await sendEmail(
             student.parent_email,
-            `🎉 ${student.name} completed the challenge & earned ${badgeName}!`,
+            `ðŸŽ‰ ${student.name} completed the challenge & earned ${badgeName}!`,
             emailHtml,
             student.parent_name,
             'Challenge Completion'
@@ -21446,7 +21695,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
 // Backfill Quiz Champion badges for existing perfect scores
 async function backfillQuizChampionBadges() {
   try {
-    console.log('🔄 Backfilling Quiz Champion badges for existing perfect scores...');
+    console.log('ðŸ”„ Backfilling Quiz Champion badges for existing perfect scores...');
 
     // Find all perfect quiz attempts that don't have badges
     const result = await pool.query(`
@@ -21471,7 +21720,7 @@ async function backfillQuizChampionBadges() {
       if (badgeAwarded) awarded++;
     }
 
-    console.log(`✅ Awarded ${awarded} Quiz Champion badges`);
+    console.log(`âœ… Awarded ${awarded} Quiz Champion badges`);
     return awarded;
   } catch (err) {
     console.error('Error backfilling quiz badges:', err);
@@ -22131,7 +22380,7 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
     );
     const rejectedTextsToAvoid = new Set(existingReplaceable.rows.map(row => row.question_text).filter(Boolean));
 
-    console.log(`🤖 Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
+    console.log(`ðŸ¤– Starting AI generation for ${date}${theme ? ' with theme: ' + theme : ''}...`);
     const generationResult = await generatePendingQuizQuestions(date, levelsToGenerate, {
       targetCountByLevel,
       allowQuestionBankFallback: true,
@@ -22143,7 +22392,7 @@ app.post('/api/admin/generate-ai-quiz', async (req, res) => {
 
     const totalNeeded = Object.values(targetCountByLevel).reduce((sum, value) => sum + Number(value), 0);
     if (generationResult.totalGenerated < totalNeeded) {
-      console.error(`❌ Only generated ${generationResult.totalGenerated}/${totalNeeded} questions for ${date}`);
+      console.error(`âŒ Only generated ${generationResult.totalGenerated}/${totalNeeded} questions for ${date}`);
       if (generationResult.totalGenerated === 0) {
         return res.status(503).json({
           error: `Could not create quiz questions for ${date}. Groq may be rate-limited and fallback generation could not find usable questions. Please try again later or add manual questions.`,
@@ -22961,7 +23210,7 @@ app.post('/api/admin/award-retroactive-badges', async (req, res) => {
           [student.id, badgeType]
         );
         if (existing.rows.length === 0) {
-          const badgeName = `⭐ ${total} Class Points!`;
+          const badgeName = `â­ ${total} Class Points!`;
           const badgeDesc = `Earned ${total} class points in live classes!`;
           await pool.query(`
             INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
@@ -23064,7 +23313,7 @@ app.post('/api/announcements', upload.single('image'), async (req, res) => {
 
         const sent = await sendEmail(
           student.parent_email,
-          `📢 ${title} - Fluent Feathers Academy`,
+          `ðŸ“¢ ${title} - Fluent Feathers Academy`,
           emailHtml,
           student.parent_name,
           'Announcement'
@@ -23076,8 +23325,8 @@ app.post('/api/announcements', upload.single('image'), async (req, res) => {
     res.json({
       ...announcement,
       message: (send_email === 'true' || send_email === true)
-        ? `✅ Announcement created and ${emailsSent} email(s) sent!`
-        : '✅ Announcement created!'
+        ? `âœ… Announcement created and ${emailsSent} email(s) sent!`
+        : 'âœ… Announcement created!'
     });
   } catch (err) {
     console.error('Announcement error:', err);
@@ -23113,7 +23362,7 @@ app.post('/api/announcements/:id/send-email', async (req, res) => {
 
       const sent = await sendEmail(
         student.parent_email,
-        `📢 ${title} - Fluent Feathers Academy`,
+        `ðŸ“¢ ${title} - Fluent Feathers Academy`,
         emailHtml,
         student.parent_name,
         'Announcement'
@@ -23121,7 +23370,7 @@ app.post('/api/announcements/:id/send-email', async (req, res) => {
       if (sent) emailsSent++;
     }
 
-    res.json({ message: `✅ ${emailsSent} email(s) sent successfully!` });
+    res.json({ message: `âœ… ${emailsSent} email(s) sent successfully!` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -23239,7 +23488,7 @@ app.post('/api/certificates', async (req, res) => {
 
         await sendEmail(
           student.rows[0].parent_email,
-          `🏆 Certificate of Achievement - ${award_title}`,
+          `ðŸ† Certificate of Achievement - ${award_title}`,
           certificateEmailHTML,
           student.rows[0].parent_name,
           'Certificate'
@@ -23263,7 +23512,7 @@ app.delete('/api/certificates/:id', async (req, res) => {
 });
 
 // ==================== MONTHLY ASSESSMENTS API ====================
-// Monthly assessment dashboard — all active students with current-month status
+// Monthly assessment dashboard â€” all active students with current-month status
 app.get('/api/assessments/monthly-dashboard', async (req, res) => {
   const now = new Date();
   const month = parseInt(req.query.month) || (now.getMonth() + 1);
@@ -23622,7 +23871,7 @@ app.post('/api/groups/:groupId/merge-matching-sessions', async (req, res) => {
           if (completedCount === 50) await awardBadge(row.student_id, '50_classes', '50 Classes Diamond', 'Amazing milestone!');
         }
 
-// ✅ FIX: Reassign makeup credits pointing to the old session → new group session
+// âœ… FIX: Reassign makeup credits pointing to the old session â†’ new group session
 await client.query(`
   UPDATE makeup_classes
   SET scheduled_session_id = $1
@@ -23698,7 +23947,7 @@ app.post('/api/assessments', async (req, res) => {
 
           await sendEmail(
             lead.rows[0].parent_email,
-            `🎯 Demo Class Assessment Report - ${lead.rows[0].child_name}`,
+            `ðŸŽ¯ Demo Class Assessment Report - ${lead.rows[0].child_name}`,
             demoEmailHTML,
             lead.rows[0].parent_name,
             'Demo Assessment'
@@ -23751,7 +24000,7 @@ app.post('/api/assessments', async (req, res) => {
           const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
           await sendEmail(
             student.rows[0].parent_email,
-            `📊 Monthly Progress Report - ${monthNames[month - 1]} ${year}`,
+            `ðŸ“Š Monthly Progress Report - ${monthNames[month - 1]} ${year}`,
             reportCardEmailHTML,
             student.rows[0].parent_name,
             'Report Card'
@@ -23760,7 +24009,7 @@ app.post('/api/assessments', async (req, res) => {
           // Send push notification to parent
           await sendPushToParentByEmail(
             student.rows[0].parent_email,
-            `📊 Monthly Progress Report - ${student.rows[0].name}`,
+            `ðŸ“Š Monthly Progress Report - ${student.rows[0].name}`,
             `Your child's monthly progress report for ${monthNames[month - 1]} ${year} is ready!`,
             {
               type: 'monthly_assessment',
@@ -23792,7 +24041,7 @@ app.post('/api/demo-leads/:id/ask-review', async (req, res) => {
     const { child_name, parent_email, parent_name } = lead.rows[0];
     if (!parent_email) return res.status(400).json({ error: 'No parent email found' });
     const reviewHTML = getGoogleReviewEmail(child_name, true);
-    await sendEmail(parent_email, `⭐ How was ${child_name}'s demo class? Share your feedback!`, reviewHTML, parent_name, 'Google Review Request');
+    await sendEmail(parent_email, `â­ How was ${child_name}'s demo class? Share your feedback!`, reviewHTML, parent_name, 'Google Review Request');
     res.json({ success: true });
   } catch (err) {
     console.error('Demo review request error:', err);
@@ -23815,15 +24064,15 @@ app.post('/api/demo-leads/:id/send-followup', async (req, res) => {
     let emailHTML, subject, emailType;
     if (followup_type === '3day') {
       emailHTML = getDemoFollowUp3DayEmail(emailData);
-      subject = `🌟 We'd love to have ${l.child_name} back! [DLID:${l.id}]`;
+      subject = `ðŸŒŸ We'd love to have ${l.child_name} back! [DLID:${l.id}]`;
       emailType = 'Demo-FollowUp-3Day';
     } else if (followup_type === '7day') {
       emailHTML = getDemoFollowUp7DayEmail(emailData);
-      subject = `🎓 ${l.child_name}'s spot is waiting! [DLID:${l.id}]`;
+      subject = `ðŸŽ“ ${l.child_name}'s spot is waiting! [DLID:${l.id}]`;
       emailType = 'Demo-FollowUp-7Day';
     } else {
       emailHTML = getDemoFollowUp24hrEmail(emailData);
-      subject = `💜 Thank you for the demo class, ${l.parent_name}! [DLID:${l.id}]`;
+      subject = `ðŸ’œ Thank you for the demo class, ${l.parent_name}! [DLID:${l.id}]`;
       emailType = 'Demo-FollowUp-24hr';
     }
 
@@ -23867,7 +24116,7 @@ app.post('/api/students/:id/ask-review', async (req, res) => {
     const { name, parent_email, parent_name } = student.rows[0];
     if (!parent_email) return res.status(400).json({ error: 'No parent email found' });
     const reviewHTML = getGoogleReviewEmail(name, false);
-    await sendEmail(parent_email, `⭐ Loving ${name}'s progress? Share your experience!`, reviewHTML, parent_name, 'Google Review Request');
+    await sendEmail(parent_email, `â­ Loving ${name}'s progress? Share your experience!`, reviewHTML, parent_name, 'Google Review Request');
     res.json({ success: true });
   } catch (err) {
     console.error('Student review request error:', err);
@@ -24031,7 +24280,7 @@ app.post('/api/resources/upload', (req, res, next) => {
 // Endpoint to manually trigger reminder check (useful for testing or if cron misses)
 app.post('/api/admin/trigger-reminders', async (req, res) => {
   try {
-    console.log('🔔 Manual reminder check triggered');
+    console.log('ðŸ”” Manual reminder check triggered');
     await checkAndSendReminders();
     res.json({ success: true, message: 'Reminder check completed. Check server logs for details.' });
   } catch (err) {
@@ -24100,7 +24349,7 @@ app.put('/api/assessments/:id', async (req, res) => {
 
           await sendEmail(
             lead.rows[0].parent_email,
-            `🎯 Demo Class Assessment Report - ${lead.rows[0].child_name}`,
+            `ðŸŽ¯ Demo Class Assessment Report - ${lead.rows[0].child_name}`,
             demoEmailHTML,
             lead.rows[0].parent_name,
             'Demo Assessment'
@@ -24157,7 +24406,7 @@ app.put('/api/assessments/:id', async (req, res) => {
           const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
           await sendEmail(
             student.rows[0].parent_email,
-            `📊 Monthly Progress Report - ${monthNames[month - 1]} ${year}`,
+            `ðŸ“Š Monthly Progress Report - ${monthNames[month - 1]} ${year}`,
             reportCardEmailHTML,
             student.rows[0].parent_name,
             'Report Card'
@@ -24543,7 +24792,7 @@ app.get('/api/admin/timezone-fallback-audit', async (req, res) => {
 // Endpoint to manually reconnect database (useful after cold starts)
 app.post('/api/admin/reconnect-db', async (req, res) => {
   try {
-    console.log('🔄 Manual database reconnection triggered');
+    console.log('ðŸ”„ Manual database reconnection triggered');
     dbReady = false;
 
     // Try to establish a fresh connection
@@ -24571,7 +24820,7 @@ app.post('/api/admin/reconnect-db', async (req, res) => {
 });
 
 // Lightweight health endpoint for keepalive and uptime checks
-// Lightweight health check — responds INSTANTLY without querying DB.
+// Lightweight health check â€” responds INSTANTLY without querying DB.
 // Used by Render self-ping to keep the service alive. Must never block on DB.
 app.get('/api/health/light', (req, res) => {
   res.json({
@@ -24589,7 +24838,7 @@ app.get('/api/health/light', (req, res) => {
   });
 });
 
-// DB ping — called by browser pages every 30s to keep Supabase warm.
+// DB ping â€” called by browser pages every 30s to keep Supabase warm.
 // Runs SELECT 1 against the real pool so the DB connection is never idle.
 app.get('/api/db/ping', async (req, res) => {
   try {
@@ -24724,7 +24973,7 @@ function getSelfPingBaseUrl(port) {
   return `http://127.0.0.1:${port}`;
 }
 
-// ─── Dedicated persistent ping client ───────────────────────────────────────
+// â”€â”€â”€ Dedicated persistent ping client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Completely separate from the pool. Leave this off for transaction poolers
 // like Supabase because a sticky client can compete with real traffic.
 let _pingClient = null;
@@ -24753,11 +25002,11 @@ async function _connectPingClient() {
     });
     await c.connect();
     _pingClient = c;
-    console.log('⚡ Persistent DB ping client connected');
+    console.log('âš¡ Persistent DB ping client connected');
     // Mark DB ready as soon as ping client connects
-    if (!dbReady) { dbReady = true; console.log('✅ Database ready (via ping client)'); }
+    if (!dbReady) { dbReady = true; console.log('âœ… Database ready (via ping client)'); }
   } catch (err) {
-    console.warn('⚡ Ping client connect failed:', err.message);
+    console.warn('âš¡ Ping client connect failed:', err.message);
     _pingClient = null;
   } finally {
     _pingConnecting = false;
@@ -24772,9 +25021,9 @@ async function _sendDbPing() {
   try {
     await _pingClient.query('SELECT 1');
     markDbActivity();
-    if (!dbReady) { dbReady = true; console.log('✅ Database ready (ping ok)'); }
+    if (!dbReady) { dbReady = true; console.log('âœ… Database ready (ping ok)'); }
   } catch (err) {
-    console.warn('⚡ DB ping failed, will reconnect:', err.message);
+    console.warn('âš¡ DB ping failed, will reconnect:', err.message);
     _pingClient = null;
     dbReady = false;
     setTimeout(_connectPingClient, 2000);
@@ -24783,24 +25032,24 @@ async function _sendDbPing() {
     }, 0);
   }
 }
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Pool-based health check — used for reconnect detection and pool validation
+// Pool-based health check â€” used for reconnect detection and pool validation
 async function checkDatabaseHealth() {
   if (dbHealthCheckInFlight) return;
   dbHealthCheckInFlight = true;
   try {
-    // Use pool.query directly — no retry delay, doesn't hold connection long
+    // Use pool.query directly â€” no retry delay, doesn't hold connection long
     await pool.query('SELECT 1');
     if (!dbReady) {
-      console.log('✅ Database reconnected (pool check)');
+      console.log('âœ… Database reconnected (pool check)');
       dbReady = true;
     }
     dbReconnectScheduled = false;
   } catch (err) {
     const now = Date.now();
     if (now - lastDbFailureLogAt > 60 * 1000) {
-      console.error('❌ Pool health check failed:', err.message);
+      console.error('âŒ Pool health check failed:', err.message);
       lastDbFailureLogAt = now;
     }
     dbReady = false;
@@ -24825,18 +25074,18 @@ function startKeepAlive() {
     _connectPingClient();
     setInterval(_sendDbPing, 8 * 1000);
   } else {
-    console.log('🏓 Dedicated DB ping client disabled for pooled database host; using lightweight keepalive only');
+    console.log('ðŸ“ Dedicated DB ping client disabled for pooled database host; using lightweight keepalive only');
   }
 
-  // Pool health check every 30 seconds — detects pool-level issues
+  // Pool health check every 30 seconds â€” detects pool-level issues
   checkDatabaseHealth();
   setInterval(async () => {
     await checkDatabaseHealth();
   }, DB_CHECK_INTERVAL);
 
   selfPingUrl = getSelfPingBaseUrl(PORT);
-  console.log(`🏓 Keepalive ping enabled for: ${selfPingUrl}${SELF_PING_PATH} every ${Math.round(SELF_PING_INTERVAL / 1000)}s`);
-  console.log(`🏓 DB keepalive enabled for: ${selfPingUrl}/api/db/ping every ${Math.round(DB_KEEPALIVE_INTERVAL / 1000)}s`);
+  console.log(`ðŸ“ Keepalive ping enabled for: ${selfPingUrl}${SELF_PING_PATH} every ${Math.round(SELF_PING_INTERVAL / 1000)}s`);
+  console.log(`ðŸ“ DB keepalive enabled for: ${selfPingUrl}/api/db/ping every ${Math.round(DB_KEEPALIVE_INTERVAL / 1000)}s`);
 
   setInterval(async () => {
     if (selfPingInFlight) return;
@@ -24844,12 +25093,12 @@ function startKeepAlive() {
     try {
       const response = await axios.get(`${selfPingUrl}${SELF_PING_PATH}`, { timeout: 15000 });
       const data = response.data;
-      console.log(`🏓 Keepalive: status=${data?.status || 'unknown'} at ${new Date().toISOString()}`);
+      console.log(`ðŸ“ Keepalive: status=${data?.status || 'unknown'} at ${new Date().toISOString()}`);
     } catch (err) {
-      console.log(`🏓 Keepalive ping failed: ${err.message}`);
+      console.log(`ðŸ“ Keepalive ping failed: ${err.message}`);
       if (err?.response?.status === 521 && !selfPingUrl.includes('127.0.0.1')) {
         selfPingUrl = `http://127.0.0.1:${PORT}`;
-        console.log(`🏓 Switched keepalive to local loopback after 521: ${selfPingUrl}${SELF_PING_PATH}`);
+        console.log(`ðŸ“ Switched keepalive to local loopback after 521: ${selfPingUrl}${SELF_PING_PATH}`);
       }
       checkDatabaseHealth().catch(() => {});
     } finally {
@@ -24862,10 +25111,10 @@ function startKeepAlive() {
     try {
       await axios.get(`${selfPingUrl}/api/db/ping`, { timeout: 15000 });
     } catch (err) {
-      console.log(`🏓 DB keepalive failed: ${err.message}`);
+      console.log(`ðŸ“ DB keepalive failed: ${err.message}`);
       if (err?.response?.status === 521 && !selfPingUrl.includes('127.0.0.1')) {
         selfPingUrl = `http://127.0.0.1:${PORT}`;
-        console.log(`🏓 Switched DB keepalive to local loopback after 521: ${selfPingUrl}/api/db/ping`);
+        console.log(`ðŸ“ Switched DB keepalive to local loopback after 521: ${selfPingUrl}/api/db/ping`);
       }
       checkDatabaseHealth().catch(() => {});
     }
@@ -24874,10 +25123,10 @@ function startKeepAlive() {
 
 // Graceful shutdown handler
 process.on('SIGTERM', async () => {
-  console.log('🛑 SIGTERM received, closing database pool...');
+  console.log('ðŸ›‘ SIGTERM received, closing database pool...');
   try {
     await pool.end();
-    console.log('✅ Database pool closed');
+    console.log('âœ… Database pool closed');
   } catch (err) {
     console.error('Error closing pool:', err.message);
   }
@@ -24885,10 +25134,10 @@ process.on('SIGTERM', async () => {
 });
 
 process.on('SIGINT', async () => {
-  console.log('🛑 SIGINT received, closing database pool...');
+  console.log('ðŸ›‘ SIGINT received, closing database pool...');
   try {
     await pool.end();
-    console.log('✅ Database pool closed');
+    console.log('âœ… Database pool closed');
   } catch (err) {
     console.error('Error closing pool:', err.message);
   }
@@ -24982,7 +25231,7 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
 
         await sendEmail(
           s.parent_email,
-          `📅 Classes Rescheduled - ${s.name}`,
+          `ðŸ“… Classes Rescheduled - ${s.name}`,
           getBulkPrivateRescheduleEmailTemplate({
             parent_name: s.parent_name,
             student_name: s.name,
@@ -25098,13 +25347,13 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
 
         await sendEmail(
           student.parent_email,
-          `📅 Group Classes Rescheduled - ${groupName}`,
+          `ðŸ“… Group Classes Rescheduled - ${groupName}`,
           `<!DOCTYPE html>
 <html>
 <body style="font-family:'Segoe UI',sans-serif; background:#f0f4f8; margin:0; padding:20px;">
   <div style="max-width:600px; margin:0 auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1);">
     <div style="background:linear-gradient(135deg,#667eea,#764ba2); padding:30px; text-align:center;">
-      <h1 style="color:white; margin:0;">📅 Classes Rescheduled</h1>
+      <h1 style="color:white; margin:0;">ðŸ“… Classes Rescheduled</h1>
       <p style="color:rgba(255,255,255,0.9); margin-top:8px;">${groupName}</p>
     </div>
     <div style="padding:30px;">
@@ -25125,9 +25374,9 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
       <p>Best regards,<br><strong style="color:#B05D9E;">Team Fluent Feathers Academy</strong></p>
 
       <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">🏠 Access Parent Portal</p>
-        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more — all in one place.</p>
-        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">🔗 Open Parent Portal</a>
+        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-weight: 600;">ðŸ  Access Parent Portal</p>
+        <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.85); font-size: 13px;">Track progress, view materials, check scores & more â€” all in one place.</p>
+        <a href="${process.env.APP_URL || 'https://fluent-feathers-academy-lms.onrender.com'}/parent.html" style="display: inline-block; background: #ffffff; color: #667eea; padding: 12px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">ðŸ”— Open Parent Portal</a>
       </div>
     </div>
   </div>
@@ -25580,12 +25829,23 @@ async function getLearningHubAccess(studentId) {
        (SELECT COUNT(*)::int FROM speaking_attempts
         WHERE student_id = $1 AND completion_status IN ('recorded', 'analyzed', 'completed')) AS speaking_used,
        (SELECT COUNT(*)::int FROM writing_submissions
-        WHERE student_id = $1) AS writing_used`,
+        WHERE student_id = $1) AS writing_used,
+       (SELECT COUNT(*)::int FROM phonics_attempts
+        WHERE student_id = $1 AND completion_status = 'completed') AS phonics_used,
+       (SELECT COUNT(*)::int FROM vocabulary_attempts
+        WHERE student_id = $1 AND completion_status = 'completed') AS vocabulary_used,
+       (SELECT COUNT(*)::int FROM spelling_attempts
+        WHERE student_id = $1 AND completion_status = 'completed') AS spelling_used`,
     [studentId]
   );
   const usage = usageResult.rows[0] || {};
   const speakingUsed = Number(usage.speaking_used || 0);
   const writingUsed = Number(usage.writing_used || 0);
+  const phonicsUsed = Number(usage.phonics_used || 0);
+  const vocabularyUsed = Number(usage.vocabulary_used || 0);
+  const spellingUsed = Number(usage.spelling_used || 0);
+  const hubSettings = await getLearningHubSettings();
+  const feesEnabled = hubSettings.fees_enabled;
   const paid = !!subscription;
 
   return {
@@ -25593,8 +25853,11 @@ async function getLearningHubAccess(studentId) {
     monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
     subscription,
     tasks: {
-      speaking: { used: speakingUsed, free_limit: 1, remaining_free: paid ? null : Math.max(0, 1 - speakingUsed), locked: !paid && speakingUsed >= 1 },
-      writing: { used: writingUsed, free_limit: 1, remaining_free: paid ? null : Math.max(0, 1 - writingUsed), locked: !paid && writingUsed >= 1 }
+      phonics: { used: phonicsUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - phonicsUsed), locked: feesEnabled && !paid && phonicsUsed >= 1 },
+      vocabulary: { used: vocabularyUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - vocabularyUsed), locked: feesEnabled && !paid && vocabularyUsed >= 1 },
+      spelling: { used: spellingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - spellingUsed), locked: feesEnabled && !paid && spellingUsed >= 1 },
+      speaking: { used: speakingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - speakingUsed), locked: feesEnabled && !paid && speakingUsed >= 1 },
+      writing: { used: writingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - writingUsed), locked: feesEnabled && !paid && writingUsed >= 1 }
     }
   };
 }
@@ -25611,7 +25874,7 @@ function learningHubPaywallPayload(task, access) {
 
 async function requireLearningHubTaskAccess(studentId, task) {
   const access = await getLearningHubAccess(studentId);
-  if (access.paid || !access.tasks[task]?.locked) return { allowed: true, access };
+  if (!access.fees_enabled || access.paid || !access.tasks[task]?.locked) return { allowed: true, access };
   return { allowed: false, access, payload: learningHubPaywallPayload(task, access) };
 }
 
@@ -25619,11 +25882,714 @@ app.get('/api/learning-hub/access', async (req, res) => {
   try {
     const studentId = req.query.student_id || req.headers['x-student-id'];
     if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
     const student = await executeQuery(`SELECT id FROM students WHERE id = $1`, [studentId]);
     if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
     res.json(await getLearningHubAccess(studentId));
   } catch (err) {
     console.error('Error fetching Learning Hub access:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function assertStudentRequestAccess(req, studentId) {
+  const requestedId = String(studentId || '');
+  if (!requestedId) return false;
+  if (req.adminStudentId && String(req.adminStudentId) !== requestedId) return false;
+  const headerStudentId = req.headers['x-student-id'];
+  if (headerStudentId && String(headerStudentId) !== requestedId) return false;
+  return true;
+}
+
+function shuffleArray(items) {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function normalizePhonicsOptions(correctAnswer, incorrectOptions) {
+  const options = [correctAnswer, ...normalizeJsonArray(incorrectOptions)]
+    .map(item => String(item || '').trim())
+    .filter(Boolean);
+  return [...new Set(options)];
+}
+
+function buildPhonicsQuestionResponse(question) {
+  return {
+    id: question.id,
+    sound: question.sound,
+    display_label: question.display_label,
+    audio_url: question.audio_url || null,
+    audio_text: question.display_label || question.sound,
+    difficulty: question.difficulty,
+    age_group: question.age_group,
+    phonics_category: question.phonics_category,
+    options: shuffleArray(normalizePhonicsOptions(question.correct_answer, question.incorrect_options))
+  };
+}
+
+async function getPhonicsTrialState(studentId) {
+  const result = await executeQuery(
+    `SELECT COUNT(*)::int AS completed_count
+     FROM phonics_attempts
+     WHERE student_id = $1 AND game_type = 'listen_choose' AND completion_status = 'completed'`,
+    [studentId]
+  );
+  const completedCount = Number(result.rows[0]?.completed_count || 0);
+  const hubSettings = await getLearningHubSettings();
+  return {
+    free_limit: 1,
+    completed_count: completedCount,
+    free_trial_used: completedCount >= 1,
+    premium_locked: hubSettings.fees_enabled && completedCount >= 1
+  };
+}
+
+app.get('/api/phonics/listen-choose', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const student = await executeQuery(`SELECT id, date_of_birth, grade FROM students WHERE id = $1`, [studentId]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+
+    const trial = await getPhonicsTrialState(studentId);
+    const ageGroup = getStudentAgeGroup(student.rows[0]);
+    let questions = await executeQuery(
+      `SELECT *
+       FROM phonics_questions
+       WHERE game_type = 'listen_choose' AND active = true AND age_group = $1
+       ORDER BY RANDOM()
+       LIMIT 10`,
+      [ageGroup]
+    );
+    if (questions.rows.length < 5) {
+      questions = await executeQuery(
+        `SELECT *
+         FROM phonics_questions
+         WHERE game_type = 'listen_choose' AND active = true
+         ORDER BY RANDOM()
+         LIMIT 10`
+      );
+    }
+
+    res.json({
+      game: { id: 'listen_choose', name: 'Listen & Choose', instructions: 'Listen carefully and choose the sound you hear.' },
+      trial,
+      premium_locked: trial.premium_locked,
+      questions: questions.rows.map(buildPhonicsQuestionResponse)
+    });
+  } catch (err) {
+    console.error('Error loading phonics game:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/phonics/listen-choose/check', async (req, res) => {
+  try {
+    const studentId = req.body.student_id || req.headers['x-student-id'];
+    const questionId = req.body.question_id;
+    const selectedAnswer = String(req.body.selected_answer || '').trim();
+    const attemptNumber = Math.max(1, Number(req.body.attempt_number || 1));
+    if (!studentId || !questionId || !selectedAnswer) return res.status(400).json({ error: 'student_id, question_id and selected_answer required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const question = await executeQuery(
+      `SELECT id, correct_answer FROM phonics_questions WHERE id = $1 AND game_type = 'listen_choose' AND active = true`,
+      [questionId]
+    );
+    if (question.rows.length === 0) return res.status(404).json({ error: 'Question not found' });
+
+    const correct = selectedAnswer.toLowerCase() === String(question.rows[0].correct_answer || '').toLowerCase();
+    const reveal = correct || attemptNumber >= 2;
+    res.json({
+      correct,
+      attempts_remaining: correct ? 0 : Math.max(0, 2 - attemptNumber),
+      reveal_answer: reveal,
+      correct_answer: reveal ? question.rows[0].correct_answer : null,
+      message: correct ? 'Great job! You identified the correct sound.' : 'Not quite! Listen again and try once more.'
+    });
+  } catch (err) {
+    console.error('Error checking phonics answer:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/phonics/attempts', async (req, res) => {
+  try {
+    const studentId = req.body.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const totalQuestions = Math.max(0, Number(req.body.total_questions || 0));
+    const correctAnswers = Math.max(0, Number(req.body.correct_answers || 0));
+    const incorrectAnswers = Math.max(0, Number(req.body.incorrect_answers || 0));
+    const accuracy = totalQuestions ? Math.round((correctAnswers / totalQuestions) * 10000) / 100 : 0;
+    const attemptsData = Array.isArray(req.body.attempts_data) ? req.body.attempts_data : [];
+    if (!totalQuestions) return res.status(400).json({ error: 'No completed questions to save' });
+
+    const saved = await executeQuery(
+      `INSERT INTO phonics_attempts (student_id, game_type, score, total_questions, correct_answers, incorrect_answers, accuracy, attempts_data, completion_status, completed_at)
+       VALUES ($1, 'listen_choose', $2, $3, $4, $5, $6, $7::jsonb, 'completed', CURRENT_TIMESTAMP)
+       RETURNING id, completed_at`,
+      [studentId, correctAnswers, totalQuestions, correctAnswers, incorrectAnswers, accuracy, JSON.stringify(attemptsData)]
+    );
+
+    res.json({
+      success: true,
+      attempt_id: saved.rows[0].id,
+      completed_at: saved.rows[0].completed_at,
+      score: correctAnswers,
+      total_questions: totalQuestions,
+      correct_answers: correctAnswers,
+      incorrect_answers: incorrectAnswers,
+      accuracy,
+      trial: await getPhonicsTrialState(studentId)
+    });
+  } catch (err) {
+    console.error('Error saving phonics attempt:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/phonics/progress', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+    const attempts = await executeQuery(
+      `SELECT id, game_type, score, total_questions, correct_answers, incorrect_answers, accuracy, completed_at
+       FROM phonics_attempts
+       WHERE student_id = $1
+       ORDER BY completed_at DESC
+       LIMIT 10`,
+      [studentId]
+    );
+    res.json({ trial: await getPhonicsTrialState(studentId), attempts: attempts.rows });
+  } catch (err) {
+    console.error('Error loading phonics progress:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/phonics-questions', async (req, res) => {
+  try {
+    const result = await executeQuery(`SELECT * FROM phonics_questions ORDER BY created_at DESC, id DESC`);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/phonics-questions', async (req, res) => {
+  try {
+    const options = Array.isArray(req.body.incorrect_options) ? req.body.incorrect_options : String(req.body.incorrect_options || '').split(',').map(s => s.trim()).filter(Boolean);
+    const result = await executeQuery(
+      `INSERT INTO phonics_questions (game_type, sound, display_label, audio_url, correct_answer, incorrect_options, difficulty, age_group, phonics_category, active)
+       VALUES ('listen_choose', $1, $2, $3, $4, $5::jsonb, $6, $7, $8, COALESCE($9, true))
+       RETURNING *`,
+      [
+        String(req.body.sound || '').trim(),
+        String(req.body.display_label || req.body.sound || '').trim(),
+        String(req.body.audio_url || '').trim() || null,
+        String(req.body.correct_answer || req.body.display_label || req.body.sound || '').trim(),
+        JSON.stringify(options),
+        req.body.difficulty || 'beginner',
+        req.body.age_group || 'young',
+        req.body.phonics_category || 'consonant digraphs',
+        req.body.active !== false
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/phonics-questions/:id', async (req, res) => {
+  try {
+    const existing = await executeQuery(`SELECT * FROM phonics_questions WHERE id = $1`, [req.params.id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Question not found' });
+    const current = existing.rows[0];
+    const options = req.body.incorrect_options === undefined
+      ? normalizeJsonArray(current.incorrect_options)
+      : (Array.isArray(req.body.incorrect_options) ? req.body.incorrect_options : String(req.body.incorrect_options || '').split(',').map(s => s.trim()).filter(Boolean));
+    const result = await executeQuery(
+      `UPDATE phonics_questions
+       SET sound = $1, display_label = $2, audio_url = $3, correct_answer = $4,
+           incorrect_options = $5::jsonb, difficulty = $6, age_group = $7,
+           phonics_category = $8, active = $9, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $10
+       RETURNING *`,
+      [
+        req.body.sound !== undefined ? String(req.body.sound).trim() : current.sound,
+        req.body.display_label !== undefined ? String(req.body.display_label).trim() : current.display_label,
+        req.body.audio_url !== undefined ? (String(req.body.audio_url).trim() || null) : current.audio_url,
+        req.body.correct_answer !== undefined ? String(req.body.correct_answer).trim() : current.correct_answer,
+        JSON.stringify(options),
+        req.body.difficulty || current.difficulty,
+        req.body.age_group || current.age_group,
+        req.body.phonics_category || current.phonics_category,
+        req.body.active !== undefined ? !!req.body.active : current.active,
+        req.params.id
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/phonics-questions/:id', async (req, res) => {
+  try {
+    await executeQuery(`UPDATE phonics_questions SET active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function buildVocabularyWordResponse(word, choices = []) {
+  return {
+    id: word.id,
+    word: word.word,
+    meaning: word.meaning,
+    example_sentence: word.example_sentence,
+    synonyms: normalizeJsonArray(word.synonyms),
+    antonyms: normalizeJsonArray(word.antonyms),
+    word_family: normalizeJsonArray(word.word_family),
+    difficulty: word.difficulty,
+    age_group: word.age_group,
+    category: word.category,
+    meaning_choices: choices.length ? shuffleArray(choices) : []
+  };
+}
+
+async function getLearningTaskTrialState(studentId, tableName) {
+  const allowedTables = new Set(['phonics_attempts', 'vocabulary_attempts', 'spelling_attempts']);
+  if (!allowedTables.has(tableName)) throw new Error('Invalid learning task');
+  const result = await executeQuery(
+    `SELECT COUNT(*)::int AS completed_count
+     FROM ${tableName}
+     WHERE student_id = $1 AND completion_status = 'completed'`,
+    [studentId]
+  );
+  const completedCount = Number(result.rows[0]?.completed_count || 0);
+  const hubSettings = await getLearningHubSettings();
+  return {
+    free_limit: 1,
+    completed_count: completedCount,
+    free_trial_used: completedCount >= 1,
+    premium_locked: hubSettings.fees_enabled && completedCount >= 1
+  };
+}
+
+app.get('/api/vocabulary/today-word', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const student = await executeQuery(`SELECT id, date_of_birth, grade FROM students WHERE id = $1`, [studentId]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+
+    const ageGroup = getStudentAgeGroup(student.rows[0]);
+    const today = new Date().toISOString().split('T')[0];
+    let wordResult = await executeQuery(
+      `SELECT *
+       FROM vocabulary_words
+       WHERE age_group = $1 AND active = true
+       ORDER BY md5(id::text || $2)
+       LIMIT 1`,
+      [ageGroup, today]
+    );
+    if (wordResult.rows.length === 0) {
+      wordResult = await executeQuery(
+        `SELECT *
+         FROM vocabulary_words
+         WHERE active = true
+         ORDER BY md5(id::text || $1)
+         LIMIT 1`,
+        [today]
+      );
+    }
+    if (wordResult.rows.length === 0) return res.status(503).json({ error: 'No vocabulary words available' });
+
+    const word = wordResult.rows[0];
+    const distractors = await executeQuery(
+      `SELECT meaning
+       FROM vocabulary_words
+       WHERE id <> $1 AND active = true
+       ORDER BY RANDOM()
+       LIMIT 3`,
+      [word.id]
+    );
+    const choices = [word.meaning, ...distractors.rows.map(row => row.meaning)].filter(Boolean);
+    const trial = await getLearningTaskTrialState(studentId, 'vocabulary_attempts');
+
+    res.json({
+      word: buildVocabularyWordResponse(word, choices),
+      games: [
+        { id: 'meaning_match', name: 'Meaning Match', instructions: 'Choose the correct meaning of today word.' },
+        { id: 'sentence_builder', name: 'Sentence Builder', instructions: 'Write your own sentence using today word.' },
+        { id: 'synonym_sort', name: 'Synonym Sort', instructions: 'Review similar words for today word.' }
+      ],
+      trial,
+      premium_locked: trial.premium_locked,
+      access: await getLearningHubAccess(studentId)
+    });
+  } catch (err) {
+    console.error('Error loading vocabulary word:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/vocabulary/attempts', async (req, res) => {
+  try {
+    const studentId = req.body.student_id || req.headers['x-student-id'];
+    const wordId = req.body.word_id;
+    if (!studentId || !wordId) return res.status(400).json({ error: 'student_id and word_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const access = await requireLearningHubTaskAccess(studentId, 'vocabulary');
+    if (!access.allowed) return res.status(402).json(access.payload);
+
+    const totalQuestions = Math.max(1, Number(req.body.total_questions || 1));
+    const score = Math.max(0, Number(req.body.score || 0));
+    const accuracy = Math.round((score / totalQuestions) * 10000) / 100;
+    const answersData = req.body.answers_data && typeof req.body.answers_data === 'object' ? req.body.answers_data : {};
+    const saved = await executeQuery(
+      `INSERT INTO vocabulary_attempts (student_id, word_id, game_type, score, total_questions, accuracy, answers_data, completion_status, completed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, 'completed', CURRENT_TIMESTAMP)
+       RETURNING id, completed_at`,
+      [studentId, wordId, req.body.game_type || 'daily_word', score, totalQuestions, accuracy, JSON.stringify(answersData)]
+    );
+
+    res.json({
+      success: true,
+      attempt_id: saved.rows[0].id,
+      completed_at: saved.rows[0].completed_at,
+      score,
+      total_questions: totalQuestions,
+      accuracy,
+      trial: await getLearningTaskTrialState(studentId, 'vocabulary_attempts')
+    });
+  } catch (err) {
+    console.error('Error saving vocabulary attempt:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/vocabulary/progress', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+    const attempts = await executeQuery(
+      `SELECT va.id, va.game_type, va.score, va.total_questions, va.accuracy, va.completed_at, vw.word
+       FROM vocabulary_attempts va
+       LEFT JOIN vocabulary_words vw ON vw.id = va.word_id
+       WHERE va.student_id = $1
+       ORDER BY va.completed_at DESC
+       LIMIT 10`,
+      [studentId]
+    );
+    res.json({ trial: await getLearningTaskTrialState(studentId, 'vocabulary_attempts'), attempts: attempts.rows });
+  } catch (err) {
+    console.error('Error loading vocabulary progress:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function buildSpellingWordResponse(word) {
+  return {
+    id: word.id,
+    clue: word.clue,
+    example_sentence: word.example_sentence,
+    audio_url: word.audio_url || null,
+    audio_text: word.word,
+    difficulty: word.difficulty,
+    age_group: word.age_group,
+    category: word.category,
+    letter_count: String(word.word || '').length
+  };
+}
+
+app.get('/api/spelling/bee', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const student = await executeQuery(`SELECT id, date_of_birth, grade FROM students WHERE id = $1`, [studentId]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+
+    const ageGroup = getStudentAgeGroup(student.rows[0]);
+    let words = await executeQuery(
+      `SELECT *
+       FROM spelling_words
+       WHERE age_group = $1 AND active = true
+       ORDER BY RANDOM()
+       LIMIT 10`,
+      [ageGroup]
+    );
+    if (words.rows.length < 5) {
+      words = await executeQuery(
+        `SELECT *
+         FROM spelling_words
+         WHERE active = true
+         ORDER BY RANDOM()
+         LIMIT 10`
+      );
+    }
+
+    const trial = await getLearningTaskTrialState(studentId, 'spelling_attempts');
+    res.json({
+      game: { id: 'spelling_bee', name: 'Spelling Bee', instructions: 'Listen to the word, read the clue, and type the spelling.' },
+      games: [
+        { id: 'listen_spell', name: 'Listen & Spell' },
+        { id: 'clue_spell', name: 'Clue Spell' },
+        { id: 'word_scramble', name: 'Word Scramble' }
+      ],
+      trial,
+      premium_locked: trial.premium_locked,
+      words: words.rows.map(buildSpellingWordResponse),
+      access: await getLearningHubAccess(studentId)
+    });
+  } catch (err) {
+    console.error('Error loading spelling bee:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/spelling/bee/check', async (req, res) => {
+  try {
+    const studentId = req.body.student_id || req.headers['x-student-id'];
+    const wordId = req.body.word_id;
+    const typedWord = String(req.body.typed_word || '').trim();
+    if (!studentId || !wordId || !typedWord) return res.status(400).json({ error: 'student_id, word_id and typed_word required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const word = await executeQuery(`SELECT id, word FROM spelling_words WHERE id = $1 AND active = true`, [wordId]);
+    if (word.rows.length === 0) return res.status(404).json({ error: 'Word not found' });
+    const correctWord = String(word.rows[0].word || '').trim();
+    const correct = typedWord.toLowerCase() === correctWord.toLowerCase();
+    res.json({
+      correct,
+      correct_word: correct ? correctWord : null,
+      reveal_answer: correct,
+      message: correct ? 'Correct spelling.' : 'Try again. Check each sound carefully.'
+    });
+  } catch (err) {
+    console.error('Error checking spelling answer:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/spelling/attempts', async (req, res) => {
+  try {
+    const studentId = req.body.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+
+    const access = await requireLearningHubTaskAccess(studentId, 'spelling');
+    if (!access.allowed) return res.status(402).json(access.payload);
+
+    const totalWords = Math.max(0, Number(req.body.total_words || 0));
+    const correctWords = Math.max(0, Number(req.body.correct_words || 0));
+    const incorrectWords = Math.max(0, Number(req.body.incorrect_words || 0));
+    if (!totalWords) return res.status(400).json({ error: 'No completed words to save' });
+    const accuracy = Math.round((correctWords / totalWords) * 10000) / 100;
+    const answersData = Array.isArray(req.body.answers_data) ? req.body.answers_data : [];
+    const saved = await executeQuery(
+      `INSERT INTO spelling_attempts (student_id, game_type, score, total_words, correct_words, incorrect_words, accuracy, answers_data, completion_status, completed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 'completed', CURRENT_TIMESTAMP)
+       RETURNING id, completed_at`,
+      [studentId, req.body.game_type || 'spelling_bee', correctWords, totalWords, correctWords, incorrectWords, accuracy, JSON.stringify(answersData)]
+    );
+
+    res.json({
+      success: true,
+      attempt_id: saved.rows[0].id,
+      completed_at: saved.rows[0].completed_at,
+      score: correctWords,
+      total_words: totalWords,
+      correct_words: correctWords,
+      incorrect_words: incorrectWords,
+      accuracy,
+      trial: await getLearningTaskTrialState(studentId, 'spelling_attempts')
+    });
+  } catch (err) {
+    console.error('Error saving spelling attempt:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/spelling/progress', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    if (!assertStudentRequestAccess(req, studentId)) return res.status(403).json({ error: 'Access denied for this student' });
+    const attempts = await executeQuery(
+      `SELECT id, game_type, score, total_words, correct_words, incorrect_words, accuracy, completed_at
+       FROM spelling_attempts
+       WHERE student_id = $1
+       ORDER BY completed_at DESC
+       LIMIT 10`,
+      [studentId]
+    );
+    res.json({ trial: await getLearningTaskTrialState(studentId, 'spelling_attempts'), attempts: attempts.rows });
+  } catch (err) {
+    console.error('Error loading spelling progress:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/vocabulary-words', async (req, res) => {
+  try {
+    const result = await executeQuery(`SELECT * FROM vocabulary_words ORDER BY created_at DESC, id DESC`);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/vocabulary-words', async (req, res) => {
+  try {
+    const result = await executeQuery(
+      `INSERT INTO vocabulary_words (word, meaning, example_sentence, synonyms, antonyms, word_family, difficulty, age_group, category, active)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8, $9, COALESCE($10, true))
+       RETURNING *`,
+      [
+        String(req.body.word || '').trim(),
+        String(req.body.meaning || '').trim(),
+        String(req.body.example_sentence || '').trim(),
+        JSON.stringify(Array.isArray(req.body.synonyms) ? req.body.synonyms : String(req.body.synonyms || '').split(',').map(s => s.trim()).filter(Boolean)),
+        JSON.stringify(Array.isArray(req.body.antonyms) ? req.body.antonyms : String(req.body.antonyms || '').split(',').map(s => s.trim()).filter(Boolean)),
+        JSON.stringify(Array.isArray(req.body.word_family) ? req.body.word_family : String(req.body.word_family || '').split(',').map(s => s.trim()).filter(Boolean)),
+        req.body.difficulty || 'beginner',
+        req.body.age_group || 'young',
+        req.body.category || 'daily word',
+        req.body.active !== false
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/vocabulary-words/:id', async (req, res) => {
+  try {
+    const existing = await executeQuery(`SELECT * FROM vocabulary_words WHERE id = $1`, [req.params.id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Word not found' });
+    const current = existing.rows[0];
+    const result = await executeQuery(
+      `UPDATE vocabulary_words
+       SET word = $1, meaning = $2, example_sentence = $3, synonyms = $4::jsonb, antonyms = $5::jsonb,
+           word_family = $6::jsonb, difficulty = $7, age_group = $8, category = $9, active = $10,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $11
+       RETURNING *`,
+      [
+        req.body.word !== undefined ? String(req.body.word).trim() : current.word,
+        req.body.meaning !== undefined ? String(req.body.meaning).trim() : current.meaning,
+        req.body.example_sentence !== undefined ? String(req.body.example_sentence).trim() : current.example_sentence,
+        JSON.stringify(req.body.synonyms !== undefined ? (Array.isArray(req.body.synonyms) ? req.body.synonyms : String(req.body.synonyms || '').split(',').map(s => s.trim()).filter(Boolean)) : normalizeJsonArray(current.synonyms)),
+        JSON.stringify(req.body.antonyms !== undefined ? (Array.isArray(req.body.antonyms) ? req.body.antonyms : String(req.body.antonyms || '').split(',').map(s => s.trim()).filter(Boolean)) : normalizeJsonArray(current.antonyms)),
+        JSON.stringify(req.body.word_family !== undefined ? (Array.isArray(req.body.word_family) ? req.body.word_family : String(req.body.word_family || '').split(',').map(s => s.trim()).filter(Boolean)) : normalizeJsonArray(current.word_family)),
+        req.body.difficulty || current.difficulty,
+        req.body.age_group || current.age_group,
+        req.body.category || current.category,
+        req.body.active !== undefined ? !!req.body.active : current.active,
+        req.params.id
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/vocabulary-words/:id', async (req, res) => {
+  try {
+    await executeQuery(`UPDATE vocabulary_words SET active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/spelling-words', async (req, res) => {
+  try {
+    const result = await executeQuery(`SELECT * FROM spelling_words ORDER BY created_at DESC, id DESC`);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/spelling-words', async (req, res) => {
+  try {
+    const result = await executeQuery(
+      `INSERT INTO spelling_words (word, clue, example_sentence, audio_url, difficulty, age_group, category, active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, true))
+       RETURNING *`,
+      [
+        String(req.body.word || '').trim(),
+        String(req.body.clue || '').trim(),
+        String(req.body.example_sentence || '').trim() || null,
+        String(req.body.audio_url || '').trim() || null,
+        req.body.difficulty || 'beginner',
+        req.body.age_group || 'young',
+        req.body.category || 'spelling bee',
+        req.body.active !== false
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/spelling-words/:id', async (req, res) => {
+  try {
+    const existing = await executeQuery(`SELECT * FROM spelling_words WHERE id = $1`, [req.params.id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Word not found' });
+    const current = existing.rows[0];
+    const result = await executeQuery(
+      `UPDATE spelling_words
+       SET word = $1, clue = $2, example_sentence = $3, audio_url = $4, difficulty = $5,
+           age_group = $6, category = $7, active = $8, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $9
+       RETURNING *`,
+      [
+        req.body.word !== undefined ? String(req.body.word).trim() : current.word,
+        req.body.clue !== undefined ? String(req.body.clue).trim() : current.clue,
+        req.body.example_sentence !== undefined ? (String(req.body.example_sentence).trim() || null) : current.example_sentence,
+        req.body.audio_url !== undefined ? (String(req.body.audio_url).trim() || null) : current.audio_url,
+        req.body.difficulty || current.difficulty,
+        req.body.age_group || current.age_group,
+        req.body.category || current.category,
+        req.body.active !== undefined ? !!req.body.active : current.active,
+        req.params.id
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/spelling-words/:id', async (req, res) => {
+  try {
+    await executeQuery(`UPDATE spelling_words SET active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -25826,7 +26792,7 @@ function scheduleRecordingDeletion(cloudinaryPublicId, delaySeconds = 3600) {
          WHERE temp_storage_id = $1`,
         [cloudinaryPublicId]
       );
-      console.log(`✅ Deleted temporary recording: ${cloudinaryPublicId}`);
+      console.log(`âœ… Deleted temporary recording: ${cloudinaryPublicId}`);
     } catch (err) {
       console.error(`Failed to delete recording ${cloudinaryPublicId}:`, err.message);
     }
@@ -26359,7 +27325,7 @@ app.delete('/api/admin/speaking-topics/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 LMS Running on port ${PORT}`);
+  console.log(`ðŸš€ LMS Running on port ${PORT}`);
   startKeepAlive();
 
   // Backfill Quiz Champion badges for existing perfect scores
@@ -26369,3 +27335,9 @@ app.listen(PORT, () => {
     backfillQuizChampionBadges();
   }, 2000); // Wait 2 seconds after startup
 });
+
+
+
+
+
+
