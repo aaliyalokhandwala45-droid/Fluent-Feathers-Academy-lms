@@ -1,4 +1,4 @@
-﻿
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -280,7 +280,7 @@
       overflow: hidden;
     }
     .badge-card::before {
-      content: 'âœ¨';
+      content: '';
       position: absolute;
       top: -10px;
       right: -10px;
@@ -642,7 +642,7 @@
   <!-- Loading Screen -->
 <div id="serverLoadingScreen">
   <div style="text-align:center; color:white;">
-    <img id="loadingLogo" src="/app-icon.png" alt="Fluent Feathers" height="100" onerror="this.outerHTML='ðŸŽ“'">
+    <img id="loadingLogo" src="/app-icon.png" alt="Fluent Feathers" height="100" onerror="this.outerHTML=''">
     <h1>Welcome to Fluent Feathers Academy By Aaliya</h1>
     <p id="loadingMessage">Preparing your learning portal...</p>
     <div class="spinner"></div>
@@ -652,13 +652,13 @@
   <div class="container">
     <!-- LOGIN SECTION -->
     <div id="loginSection" class="login-section">
-      <h1 style="color: #B05D9E; margin-bottom: 20px;">ðŸ” Parent Login</h1>
+      <h1 style="color: #B05D9E; margin-bottom: 20px;"> Parent Login</h1>
       <form id="emailForm"><div class="form-group"><label>Parent Email *</label><input type="email" id="parentEmail" required></div><button type="submit" class="btn btn-primary">Continue</button></form>
 
       <!-- First Time User - Create Password -->
       <div id="firstTimeUserSection" style="display: none; margin-top: 20px;">
         <div style="background: #e6fffa; border: 2px solid #38b2ac; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <p style="color: #2c7a7b; margin: 0; font-weight: 600;">ðŸ‘‹ Welcome! This is your first login.</p>
+          <p style="color: #2c7a7b; margin: 0; font-weight: 600;"> Welcome! This is your first login.</p>
           <p style="color: #4a5568; margin: 5px 0 0; font-size: 14px;">Please create a password to access your account.</p>
         </div>
         <form id="setupPasswordForm">
@@ -675,8 +675,8 @@
       <div id="existingUserSection" style="display: none; margin-top: 20px;">
         <p style="color: #4a5568; margin-bottom: 15px; text-align: center;">Welcome back! Choose how to login:</p>
         <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-          <button type="button" onclick="showPasswordLogin()" class="btn btn-primary">ðŸ”‘ Use Password</button>
-          <button type="button" onclick="showOTPLogin()" class="btn" style="background: #38b2ac; color: white;">ðŸ“§ Use OTP</button>
+          <button type="button" onclick="showPasswordLogin()" class="btn btn-primary"> Use Password</button>
+          <button type="button" onclick="showOTPLogin()" class="btn" style="background: #38b2ac; color: white;"> Use OTP</button>
         </div>
       </div>
 
@@ -694,11 +694,11 @@
       <!-- Forgot Password Section -->
       <div id="forgotPasswordSection" style="display: none; margin-top: 20px;">
         <div style="background: #fef5e7; border: 2px solid #f6ad55; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <p style="color: #c05621; margin: 0; font-weight: 600;">ðŸ”„ Reset Your Password</p>
+          <p style="color: #c05621; margin: 0; font-weight: 600;"> Reset Your Password</p>
           <p style="color: #4a5568; margin: 5px 0 0; font-size: 14px;">We'll send an OTP to verify your identity, then you can set a new password.</p>
         </div>
         <div id="forgotOtpSendSection">
-          <button type="button" onclick="sendForgotPasswordOTP()" class="btn btn-primary" style="width: 100%;">ðŸ“§ Send Reset OTP</button>
+          <button type="button" onclick="sendForgotPasswordOTP()" class="btn btn-primary" style="width: 100%;"> Send Reset OTP</button>
         </div>
         <div id="forgotOtpVerifySection" style="display: none;">
           <div class="form-group"><label>Enter OTP *</label><input type="text" id="forgotOtpCode" required maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit OTP"></div>
@@ -710,7 +710,7 @@
           <button type="button" onclick="resetPassword()" class="btn btn-primary" style="width: 100%;">Reset Password & Login</button>
         </div>
         <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
-          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #B05D9E;">â† Back to Login</a>
+          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #B05D9E;"> Back to Login</a>
         </p>
       </div>
 
@@ -718,7 +718,7 @@
       <form id="otpForm" style="display: none; margin-top: 20px;">
         <div id="otpSendSection">
           <p style="color: #4a5568; margin-bottom: 15px;">We'll send a 6-digit OTP to your email</p>
-          <button type="button" onclick="sendOTP()" class="btn btn-primary" style="width: 100%;">ðŸ“§ Send OTP</button>
+          <button type="button" onclick="sendOTP()" class="btn btn-primary" style="width: 100%;"> Send OTP</button>
         </div>
         <div id="otpVerifySection" style="display: none;">
           <div class="form-group"><label>Enter OTP *</label><input type="text" id="otpCode" required maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit OTP"></div>
@@ -728,7 +728,7 @@
           </p>
         </div>
         <p style="margin-top: 15px; color: #718096; font-size: 14px; text-align: center;">
-          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #B05D9E;">â† Back to Login Options</a>
+          <a href="#" onclick="backToLoginOptions(); return false;" style="color: #B05D9E;"> Back to Login Options</a>
         </p>
       </form>
     </div>
@@ -745,8 +745,8 @@
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
           <span id="currentChildBadge" style="display: none; background: #e2e8f0; color: #4a5568; padding: 6px 12px; border-radius: 15px; font-size: 0.85rem;">Viewing: <strong id="currentChildName">-</strong></span>
-          <button id="switchChildBtn" onclick="showChildSelector()" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'">ðŸ‘§ðŸ‘¦ Switch Child</button>
-          <button id="parentNotifyBtn" type="button" onclick="enableParentNotifications(true)" class="btn btn-sm" style="background: #38b2ac; color: white; font-size: 12px;">ðŸ”” Enable Notifications</button>
+          <button id="switchChildBtn" onclick="showChildSelector()" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'"> Switch Child</button>
+          <button id="parentNotifyBtn" type="button" onclick="enableParentNotifications(true)" class="btn btn-sm" style="background: #38b2ac; color: white; font-size: 12px;"> Enable Notifications</button>
           <button id="parentInstallBtn" type="button" onclick="installParentApp()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">Install App</button>
           <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
         </div>
@@ -755,13 +755,13 @@
 
       <!-- Child Selector Modal for Siblings -->
       <div id="studentSelector">
-        <h3>ðŸ‘‹ Welcome! Select a child:</h3>
+        <h3> Welcome! Select a child:</h3>
         <div id="childCards" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 15px;"></div>
         <p style="color: #718096; font-size: 0.85rem; margin-top: 15px;">You can switch between children anytime using the "Switch Child" button</p>
       </div>
 
       <div class="info-card">
-        <h2 style="color: #B05D9E; margin-bottom: 15px;">ðŸ‘¤ Student Information</h2>
+        <h2 style="color: #B05D9E; margin-bottom: 15px;"> Student Information</h2>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;">
           <div><strong>Name:</strong> <span id="displayName">-</span></div>
           <div><strong>Age:</strong> <span id="displayGrade">-</span></div>
@@ -789,7 +789,7 @@
       <div id="makeupCreditCard" class="makeup-summary-strip" onclick="showTab('makeup', event)">
         <div class="makeup-summary-inner">
           <div class="makeup-summary-left">
-            <div class="makeup-summary-icon">ðŸŽ</div>
+            <div class="makeup-summary-icon"></div>
             <div class="makeup-summary-info">
               <div class="makeup-summary-title">Makeup Credits</div>
               <div class="makeup-summary-detail" id="makeupSummaryText">Track available, scheduled, and used makeup classes in one place.</div>
@@ -797,7 +797,7 @@
           </div>
           <div class="makeup-summary-right">
             <div class="makeup-summary-count"><span id="makeupCount">0</span> available</div>
-            <button class="makeup-summary-btn" onclick="event.stopPropagation(); showTab('makeup', event)">View Details â†’</button>
+            <button class="makeup-summary-btn" onclick="event.stopPropagation(); showTab('makeup', event)">View Details </button>
           </div>
         </div>
       </div>
@@ -806,15 +806,15 @@
       <div id="badgeSummaryStrip" class="badge-summary-strip" onclick="showTab('achievements')" style="cursor: pointer;">
         <div class="badge-summary-inner">
           <div class="badge-summary-left">
-            <div class="badge-summary-icon">ðŸ†</div>
+            <div class="badge-summary-icon"></div>
             <div class="badge-summary-info">
               <span class="badge-summary-count"><span id="badgeCountNum">0</span> Badges Earned</span>
               <span class="badge-summary-latest" id="badgeLatestText">Keep learning to earn badges!</span>
             </div>
           </div>
           <div class="badge-summary-right">
-            <button onclick="event.stopPropagation(); openLeaderboardModal()" class="badge-summary-btn leaderboard-btn">ðŸ… Leaderboard</button>
-            <button onclick="event.stopPropagation(); showTab('achievements')" class="badge-summary-btn view-all-btn">View All â†’</button>
+            <button onclick="event.stopPropagation(); openLeaderboardModal()" class="badge-summary-btn leaderboard-btn"> Leaderboard</button>
+            <button onclick="event.stopPropagation(); showTab('achievements')" class="badge-summary-btn view-all-btn">View All </button>
           </div>
         </div>
       </div>
@@ -822,50 +822,49 @@
       <!-- Class Points Strip -->
       <div id="classPointsStrip" style="background:linear-gradient(135deg,#fef9c3,#fde68a);border:1.5px solid #fbbf24;border-radius:12px;padding:11px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 2px 8px rgba(245,200,66,0.25);" onclick="showTab('pointsTracker')">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="font-size:24px;">â­</div>
+          <div style="font-size:24px;"></div>
           <div>
             <div style="font-size:13px;font-weight:700;color:#92400e;"><span id="classPointsTotal">0</span> Class Points</div>
             <div style="font-size:11px;color:#b45309;" id="classPointsNext">Earn points in live classes!</div>
           </div>
         </div>
-        <button onclick="event.stopPropagation();showTab('pointsTracker')" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">View â†’</button>
+        <button onclick="event.stopPropagation();showTab('pointsTracker')" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">View </button>
       </div>
 
       <!-- Challenge Summary Strip -->
       <div id="challengeSummaryStrip" class="challenge-summary-strip" onclick="showTab('challenges')">
         <div class="challenge-summary-inner">
           <div class="challenge-summary-left">
-            <div class="challenge-summary-icon">ðŸŽ¯</div>
+            <div class="challenge-summary-icon"></div>
             <div class="challenge-summary-info">
               <span class="challenge-summary-title" id="challengeSummaryTitle">Weekly Challenge</span>
               <span class="challenge-summary-detail" id="challengeSummaryDetail">Loading...</span>
             </div>
           </div>
-          <button onclick="event.stopPropagation(); showTab('challenges')" class="challenge-summary-btn">View Challenge â†’</button>
+          <button onclick="event.stopPropagation(); showTab('challenges')" class="challenge-summary-btn">View Challenge </button>
         </div>
       </div>
 
       <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('upcoming', event)">ðŸ“… Upcoming</button>
-        <button class="tab-btn" onclick="showTab('past', event)">ðŸ“š Past Classes</button>
-        <button class="tab-btn" onclick="showTab('makeup', event)">ðŸŽ Makeup</button>
-        <button class="tab-btn" onclick="showTab('assessments', event)">ðŸ“Š Report Cards</button>
-        <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">ðŸŽ¯ Challenges<span class="red-dot" id="dotChallenges"></span></button>
-        <button class="tab-btn" id="tabBtnQuiz" onclick="showTab('quiz', event)">ðŸ§  Daily Quiz<span class="red-dot" id="dotQuiz"></span></button>
-        <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">ðŸ“š Resources<span class="red-dot" id="dotResources"></span></button>
-        <button class="tab-btn" onclick="showTab('learningLab', event)">ðŸ§  Learning Lab</button>
-        <button class="tab-btn" onclick="showTab('pointsTracker', event)">â­ Points Tracker</button>
-        <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">ðŸ† Achievements<span class="red-dot" id="dotAchievements"></span></button>
-        <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">ðŸ“¢ News<span class="red-dot" id="dotAnnouncements"></span></button>
-        <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">ðŸŽ‰ Events<span class="red-dot" id="dotEvents"></span></button>
-        <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">ðŸ’³ Payments<span class="red-dot" id="dotPayments"></span></button>
-        <button class="tab-btn" onclick="showTab('profile', event)">ðŸ‘¤ Profile / Expectations</button>
+        <button class="tab-btn active" onclick="showTab('upcoming', event)"> Upcoming</button>
+        <button class="tab-btn" onclick="showTab('past', event)"> Past Classes</button>
+        <button class="tab-btn" onclick="showTab('makeup', event)"> Makeup</button>
+        <button class="tab-btn" onclick="showTab('assessments', event)"> Report Cards</button>
+        <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)"> Challenges<span class="red-dot" id="dotChallenges"></span></button>
+        <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)"> Resources<span class="red-dot" id="dotResources"></span></button>
+        <button class="tab-btn" onclick="showTab('learningLab', event)"> Learning Lab</button>
+        <button class="tab-btn" onclick="showTab('pointsTracker', event)"> Points Tracker</button>
+        <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)"> Achievements<span class="red-dot" id="dotAchievements"></span></button>
+        <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)"> News<span class="red-dot" id="dotAnnouncements"></span></button>
+        <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)"> Events<span class="red-dot" id="dotEvents"></span></button>
+        <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)"> Payments<span class="red-dot" id="dotPayments"></span></button>
+        <button class="tab-btn" onclick="showTab('profile', event)"> Profile / Expectations</button>
       </div>
 
       <div id="upcomingTab" class="tab-content active">
         <!-- Next Class Countdown Timer -->
         <div id="parentNextClassTimer" style="display:none; background: linear-gradient(135deg, #e07aaa 0%, #B05D9E 100%); color: white; border-radius: 14px; padding: 22px 26px; margin-bottom: 18px; box-shadow: 0 6px 24px rgba(176,93,158,0.3);">
-          <p style="margin:0 0 10px 0; font-size:0.78rem; opacity:0.9; letter-spacing:0.8px; text-transform:uppercase; font-weight:600;">â± Your next class will start in</p>
+          <p style="margin:0 0 10px 0; font-size:0.78rem; opacity:0.9; letter-spacing:0.8px; text-transform:uppercase; font-weight:600;"> Your next class will start in</p>
           <div style="display:flex; gap:10px; align-items:flex-end; margin-bottom:16px;">
             <div style="text-align:center;">
               <div id="parentTimerHH" style="background:rgba(0,0,0,0.25); border-radius:8px; padding:8px 14px; font-size:2rem; font-weight:800; min-width:56px; text-align:center; letter-spacing:2px; font-family:monospace;">00</div>
@@ -881,20 +880,20 @@
               <div id="parentTimerSS" style="background:rgba(0,0,0,0.25); border-radius:8px; padding:8px 14px; font-size:2rem; font-weight:800; min-width:56px; text-align:center; letter-spacing:2px; font-family:monospace;">00</div>
               <div style="font-size:0.62rem; opacity:0.85; margin-top:4px; letter-spacing:1px;">SEC</div>
             </div>
-            <span id="parentTimerLive" style="display:none; background:rgba(255,255,255,0.25); border-radius:20px; padding:4px 12px; font-size:0.8rem; font-weight:700; margin-bottom:12px; animation: pulse 1.5s infinite;">ðŸŸ¢ Class is Live!</span>
+            <span id="parentTimerLive" style="display:none; background:rgba(255,255,255,0.25); border-radius:20px; padding:4px 12px; font-size:0.8rem; font-weight:700; margin-bottom:12px; animation: pulse 1.5s infinite;"> Class is Live!</span>
           </div>
           <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
             <div>
-              <div style="font-weight:700; font-size:1rem; margin-bottom:2px;" id="parentTimerClassName">â€”</div>
-              <div style="opacity:0.85; font-size:0.82rem;" id="parentTimerDate">â€”</div>
+              <div style="font-weight:700; font-size:1rem; margin-bottom:2px;" id="parentTimerClassName"></div>
+              <div style="opacity:0.85; font-size:0.82rem;" id="parentTimerDate"></div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;" id="parentTimerBtns"></div>
           </div>
         </div>
         <div class="section">
-          <h2>ðŸ“… Schedule</h2>
-          <p id="upcomingTimezoneLabel" style="color: #4a5568; font-size: 0.85rem; margin-bottom: 10px;">ðŸ•’ Times shown in: Detecting timezone...</p>
-          <p style="color: #718096; font-size: 0.82rem; margin-bottom: 14px;">âš ï¸ Classes cannot be cancelled less than 1 hour before start.</p>
+          <h2> Schedule</h2>
+          <p id="upcomingTimezoneLabel" style="color: #4a5568; font-size: 0.85rem; margin-bottom: 10px;"> Times shown in: Detecting timezone...</p>
+          <p style="color: #718096; font-size: 0.82rem; margin-bottom: 14px;"> Classes cannot be cancelled less than 1 hour before start.</p>
           <div class="table-responsive">
             <table id="upcomingTable">
               <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Class</th><th>Duration</th><th>Program</th><th>Actions</th></tr></thead>
@@ -906,15 +905,15 @@
 
       <div id="pastTab" class="tab-content">
         <div class="section">
-          <h2>ðŸ“š Completed Classes</h2>
+          <h2> Completed Classes</h2>
           <div style="background: linear-gradient(135deg, #fff8e6 0%, #fef3c7 100%); border: 1px solid #f6ad55; border-radius: 10px; padding: 12px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 1.5rem;">â°</span>
+            <span style="font-size: 1.5rem;"></span>
             <p style="margin: 0; color: #744210; font-size: 0.9rem;"><strong>Note:</strong> Class recordings are available for <strong>15 days only</strong> from the class date. Please download them if you wish to keep a copy.</p>
           </div>
           <!-- Search and Filter Controls -->
           <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px;">
             <div style="flex: 1; min-width: 0;">
-              <input type="text" id="pastClassSearch" placeholder="ðŸ” Search by session #, program, date, topic, status..."
+              <input type="text" id="pastClassSearch" placeholder=" Search by session #, program, date, topic, status..."
                      style="width: 100%; padding: 10px 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;"
                      oninput="filterPastClasses()">
             </div>
@@ -935,7 +934,7 @@
 
       <div id="homeworkTab" class="tab-content">
         <div class="section">
-          <h2>ðŸ“¤ Upload Homework</h2>
+          <h2> Upload Homework</h2>
           <form id="uploadHomeworkForm">
             <div class="form-group">
               <label>Select Session *</label>
@@ -955,10 +954,10 @@
                 Select files together, or use Take Photo multiple times, then upload once. Max 1GB per file. Smaller/compressed videos upload faster.
               </p>
             </div>
-            <button type="submit" class="btn btn-primary">ðŸ“¤ Upload Homework</button>
+            <button type="submit" class="btn btn-primary"> Upload Homework</button>
           </form>
 
-          <h3 style="margin-top: 30px; color: #B05D9E;">ðŸ“š My Submitted Homework</h3>
+          <h3 style="margin-top: 30px; color: #B05D9E;"> My Submitted Homework</h3>
           <div id="submittedHomeworkList" style="margin-top: 15px;">
             <p style="color: #718096;">Loading your submissions...</p>
           </div>
@@ -967,11 +966,11 @@
 
       <div id="paymentsTab" class="tab-content">
         <div class="section">
-          <h2>ðŸ’³ Payment Information</h2>
+          <h2> Payment Information</h2>
 
           <!-- Session Progress Card -->
           <div id="sessionProgressCard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">ðŸ“Š Session Progress</h3>
+            <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;"> Session Progress</h3>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
               <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 10px;">
                 <div style="font-size: 1.75rem; font-weight: bold;" id="paymentTotalSessions">-</div>
@@ -991,7 +990,7 @@
               </div>
             </div>
             <div id="renewalWarning" style="display: none; margin-top: 15px; background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
-              âš ï¸ <strong>Low sessions!</strong> Please contact your teacher to renew your package.
+               <strong>Low sessions!</strong> Please contact your teacher to renew your package.
             </div>
           </div>
 
@@ -1001,7 +1000,7 @@
             <div><strong>Payment Method:</strong> <span id="displayPaymentMethod">-</span></div>
             <div><strong>Currency:</strong> <span id="displayCurrency">-</span></div>
           </div>
-          <h3 style="margin-top: 30px; margin-bottom: 15px;">ðŸ“‹ Payment History</h3>
+          <h3 style="margin-top: 30px; margin-bottom: 15px;"> Payment History</h3>
           <div id="paymentHistoryContainer">
             <p style="text-align: center; color: #718096;">Loading payment history...</p>
           </div>
@@ -1010,7 +1009,7 @@
 
       <div id="makeupTab" class="tab-content">
         <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 8px;">ðŸŽ Makeup Credits</h2>
+          <h2 style="color: #B05D9E; margin-bottom: 8px;"> Makeup Credits</h2>
           <p style="color: #718096; margin-bottom: 18px;">This page shows the full makeup credit history, including available credits, scheduled makeup classes, and used credits.</p>
 
           <div class="makeup-history-stats">
@@ -1036,7 +1035,7 @@
 
       <div id="assessmentsTab" class="tab-content">
         <div class="section">
-          <h2>ðŸ“Š Monthly Report Cards</h2>
+          <h2> Monthly Report Cards</h2>
           <div id="assessmentsContainer">
             <p style="text-align: center; color: #718096;">Loading report cards...</p>
           </div>
@@ -1050,7 +1049,7 @@
         <div class="section">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
             <div>
-              <h2 style="color: #B05D9E; margin-bottom: 5px;">ðŸ† Achievement Badges</h2>
+              <h2 style="color: #B05D9E; margin-bottom: 5px;"> Achievement Badges</h2>
               <p style="color: #718096; margin: 0; font-size: 0.9rem;">Keep learning to unlock more badges!</p>
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
@@ -1058,7 +1057,7 @@
                 Total: <span id="badgeCountNumTab">0</span>
               </div>
               <button onclick="openLeaderboardModal()" class="btn btn-sm" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #333; font-weight: 600; font-size: 0.85rem; padding: 8px 12px;">
-                ðŸ… Leaderboard
+                 Leaderboard
               </button>
             </div>
           </div>
@@ -1067,7 +1066,7 @@
           </div>
           <div id="viewAllBadgesBtn" style="display: none; text-align: center; margin-top: 15px;">
             <button onclick="openAllBadgesModal()" class="btn" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; font-weight: 600;">
-              View All Badges â†’
+              View All Badges 
             </button>
           </div>
         </div>
@@ -1075,7 +1074,7 @@
         <!-- Hall of Fame Section -->
         <div class="section" id="hallOfFameSection" style="display: none;">
           <div style="text-align: center; margin-bottom: 15px;">
-            <h2 style="color: #B05D9E; margin-bottom: 5px;">ðŸ›ï¸ Hall of Fame</h2>
+            <h2 style="color: #B05D9E; margin-bottom: 5px;"> Hall of Fame</h2>
             <p style="color: #718096; margin: 0; font-size: 0.85rem;">Celebrating our top performers!</p>
           </div>
           <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
@@ -1088,7 +1087,7 @@
         <div class="section" style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1.5px solid #fbbf24;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
             <div>
-              <h2 style="color:#d97706;margin:0 0 4px;">â­ Class Points</h2>
+              <h2 style="color:#d97706;margin:0 0 4px;"> Class Points</h2>
               <p style="color:#92400e;margin:0;font-size:0.85rem;">Points awarded during your live classes</p>
             </div>
             <div style="text-align:center;">
@@ -1104,14 +1103,14 @@
             <div style="background:#fde68a;border-radius:20px;height:10px;overflow:hidden;">
               <div id="classPointsBar" style="height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:20px;width:0%;transition:width 0.5s;"></div>
             </div>
-            <div style="margin-top:8px;font-size:11px;color:#92400e;">ðŸŽ¯ Every 10 points unlocks a new badge on this page!</div>
+            <div style="margin-top:8px;font-size:11px;color:#92400e;"> Every 10 points unlocks a new badge on this page!</div>
           </div>
         </div>
 
         <div class="section" style="background:linear-gradient(135deg,#eff6ff,#fdf2f8);border:1.5px solid #c4b5fd;border-radius:14px;padding:16px 18px;margin-bottom:16px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div>
-              <h2 style="color:#6d28d9;margin:0 0 4px;">ðŸ“ˆ Score Tracker</h2>
+              <h2 style="color:#6d28d9;margin:0 0 4px;"> Score Tracker</h2>
               <p style="color:#6b7280;margin:0;font-size:0.85rem;">Track homework, challenge, badge, and daily quiz leaderboard points.</p>
             </div>
             <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
@@ -1143,7 +1142,7 @@
       <div id="challengesTab" class="tab-content">
         <div class="section" id="challengesSection">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h2 style="color: #B05D9E; margin: 0;">ðŸŽ¯ Weekly Challenges</h2>
+            <h2 style="color: #B05D9E; margin: 0;"> Weekly Challenges</h2>
           </div>
           <div id="studentChallenges" style="display: grid; gap: 12px;">
             <p style="text-align: center; color: #718096; padding: 20px;">Loading challenges...</p>
@@ -1154,13 +1153,13 @@
       <!-- Daily Quiz Tab -->
       <div id="quizTab" class="tab-content">
         <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 15px;">ðŸ§  Daily English Quiz</h2>
+          <h2 style="color: #B05D9E; margin-bottom: 15px;"> Daily English Quiz</h2>
           <p style="color: #718096; margin-bottom: 20px;">Test your English skills daily. You get 10 questions and one overall 5-minute timer. Each correct answer gives 1 point, and a perfect 10/10 unlocks the Quiz Champion badge.</p>
 
           <!-- Special Day Banner -->
           <div id="specialDayBanner" style="background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); border-left: 5px solid #dc2626; border-radius: 12px; padding: 18px; margin-bottom: 20px; display: none;">
             <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="font-size: 2rem;" id="specialDayEmoji">ðŸŒŸ</div>
+              <div style="font-size: 2rem;" id="specialDayEmoji"></div>
               <div>
                 <h3 style="margin: 0 0 4px; color: #78350f; font-size: 1.1rem;" id="specialDayName"></h3>
                 <p style="margin: 0; color: #92400e; font-size: 0.9rem;">Themed quiz available today!</p>
@@ -1170,11 +1169,11 @@
 
           <!-- Quiz Status -->
           <div id="quizStatus" style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); border: 2px solid #38b2ac; border-radius: 12px; padding: 20px; margin-bottom: 25px; display: none;">
-            <h3 style="color: #2d3748; margin-bottom: 10px;">ðŸŽ‰ Quiz Completed!</h3>
+            <h3 style="color: #2d3748; margin-bottom: 10px;"> Quiz Completed!</h3>
             <p id="quizResult" style="color: #4a5568; margin-bottom: 15px;"></p>
             <div style="display: flex; gap: 10px;">
-              <button onclick="viewQuizHistory()" class="btn" style="background: #38b2ac; color: white;">ðŸ“Š View History</button>
-              <button onclick="shareQuizResult()" class="btn" style="background: #4a5568; color: white;">ðŸ“¤ Share Result</button>
+              <button onclick="viewQuizHistory()" class="btn" style="background: #38b2ac; color: white;"> View History</button>
+              <button onclick="shareQuizResult()" class="btn" style="background: #4a5568; color: white;"> Share Result</button>
             </div>
           </div>
 
@@ -1184,7 +1183,7 @@
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
                   <h3 id="quizQuestionNumber" style="color: #2d3748; margin: 0;">Question 1 of 10</h3>
-                  <p id="quizTimer" style="color: #718096; margin: 5px 0 0; font-size: 0.9rem;">â±ï¸ 2:00 remaining</p>
+                  <p id="quizTimer" style="color: #718096; margin: 5px 0 0; font-size: 0.9rem;"> 2:00 remaining</p>
                 </div>
                 <div style="text-align: right;">
                   <div style="font-size: 1.2rem; font-weight: bold; color: #38a169;">Answered: <span id="currentScore">0</span>/10</div>
@@ -1200,10 +1199,10 @@
               </div>
 
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <button id="prevBtn" onclick="previousQuestion()" class="btn" style="background: #e2e8f0; color: #4a5568; display: none;">â¬…ï¸ Previous</button>
+                <button id="prevBtn" onclick="previousQuestion()" class="btn" style="background: #e2e8f0; color: #4a5568; display: none;"> Previous</button>
                 <div style="flex: 1;"></div>
-                <button id="nextBtn" onclick="nextQuestion()" class="btn" style="background: #3182ce; color: white;">Next âž¡ï¸</button>
-                <button id="submitBtn" onclick="submitQuiz()" class="btn" style="background: #38a169; color: white; display: none;">ðŸŽ¯ Submit Quiz</button>
+                <button id="nextBtn" onclick="nextQuestion()" class="btn" style="background: #3182ce; color: white;">Next </button>
+                <button id="submitBtn" onclick="submitQuiz()" class="btn" style="background: #38a169; color: white; display: none;"> Submit Quiz</button>
               </div>
             </div>
 
@@ -1222,7 +1221,7 @@
           <!-- Start Quiz Button -->
           <div id="startQuizContainer" style="text-align: center; padding: 40px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 16px; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);">
-              <h3 style="margin-bottom: 15px;">ðŸš€ Ready for Today's Quiz?</h3>
+              <h3 style="margin-bottom: 15px;"> Ready for Today's Quiz?</h3>
               <p style="margin-bottom: 20px; opacity: 0.9;">Your quiz level is selected from your age and locked for today.</p>
               <div style="margin: 0 auto 20px; max-width: 320px; text-align: left;">
                 <label for="dailyQuizLevelSelect" style="display:block; font-weight:700; margin-bottom:8px;">Your quiz level</label>
@@ -1232,14 +1231,14 @@
                   <option value="advanced">Advanced (Ages 12+)</option>
                 </select>
               </div>
-              <button id="startQuizBtn" onclick="startQuiz()" class="btn" style="background: white; color: #667eea; font-size: 1.1rem; padding: 12px 30px; font-weight: bold;">ðŸŽ¯ Start Quiz</button>
+              <button id="startQuizBtn" onclick="startQuiz()" class="btn" style="background: white; color: #667eea; font-size: 1.1rem; padding: 12px 30px; font-weight: bold;"> Start Quiz</button>
               <p id="quizCooldown" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8; display: none;"></p>
             </div>
           </div>
 
           <!-- Quiz History -->
           <div id="quizHistoryContainer" style="display: none; margin-top: 30px;">
-            <h3 style="color: #2d3748; margin-bottom: 15px;">ðŸ“Š Your Quiz History</h3>
+            <h3 style="color: #2d3748; margin-bottom: 15px;"> Your Quiz History</h3>
             <div id="quizHistory" style="display: grid; gap: 12px;">
               <p style="text-align: center; color: #718096; padding: 20px;">Loading history...</p>
             </div>
@@ -1250,7 +1249,7 @@
       <!-- News Tab -->
       <div id="announcementsTab" class="tab-content">
         <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 15px;">ðŸ“¢ Latest News & Announcements</h2>
+          <h2 style="color: #B05D9E; margin-bottom: 15px;"> Latest News & Announcements</h2>
           <div id="announcementsContainer">
             <p style="text-align: center; color: #718096;">Loading announcements...</p>
           </div>
@@ -1260,7 +1259,7 @@
       <!-- Events Tab -->
       <div id="eventsTab" class="tab-content">
         <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 15px;">ðŸŽ‰ Upcoming Events</h2>
+          <h2 style="color: #B05D9E; margin-bottom: 15px;"> Upcoming Events</h2>
           <div id="eventsContainer">
             <p style="text-align: center; color: #718096;">Loading events...</p>
           </div>
@@ -1270,7 +1269,7 @@
       <!-- Resources Tab -->
       <div id="resourcesTab" class="tab-content">
         <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 10px;">ðŸ“š Learning Resources</h2>
+          <h2 style="color: #B05D9E; margin-bottom: 10px;"> Learning Resources</h2>
           <p style="color: #718096; margin-bottom: 20px;">Explore additional learning materials - videos, worksheets, and practice activities!</p>
 
           <!-- Category Filter -->
@@ -1297,57 +1296,15 @@
       <div id="learningLabTab" class="tab-content">
         <div class="section">
           <div class="learning-lab-hero">
-            <h2>ðŸ§  Learning Lab</h2>
+            <h2> Learning Lab</h2>
             <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Hub activities are coming soon. We are preparing speaking, writing, reading, and vocabulary practice for learners.</p>
           </div>
           <div id="learningHubAccessNotice" style="display:none; background:#fffbeb; border:1px solid #fbbf24; color:#92400e; border-radius:12px; padding:12px 14px; margin:0 0 16px; font-weight:700;"></div>
           <div id="learningLabCards" class="learning-lab-grid"></div>
 
-          <!-- Phonics Lab Panel -->
-          <div id="phonicsLabPanel" style="display:none; margin-top:24px;">
-            <div class="learning-lab-hero" style="background:linear-gradient(135deg,#eef2ff 0%,#ecfeff 55%,#f0fdf4 100%);">
-              <h2 style="color:#2563eb;">ðŸ”¤ Phonics Lab</h2>
-              <p style="margin:0;color:#334155;line-height:1.6;">Listen, play and master your sounds.</p>
-            </div>
-            <div id="phonicsLanding" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px;">
-              <div style="background:white;border:2px solid #bfdbfe;border-radius:16px;padding:18px;">
-                <div style="font-size:2rem;margin-bottom:8px;">ðŸŽ§</div>
-                <h3 style="margin:0 0 8px;color:#1e3a8a;">Listen & Choose</h3>
-                <p style="color:#475569;line-height:1.5;margin:0 0 14px;">Hear a sound and choose the correct phonics label.</p>
-                <button class="btn primary" onclick="startPhonicsListenChoose()" style="width:100%;">Start Game</button>
-              </div>
-              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;color:#64748b;"><strong>ðŸ§© Word Builder</strong><br>Coming Soon</div>
-              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;color:#64748b;"><strong>ðŸŽ¯ Sound Hunt</strong><br>Coming Soon</div>
-              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;color:#64748b;"><strong>ðŸŽˆ Sound Pop</strong><br>Coming Soon</div>
-              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;color:#64748b;"><strong>ðŸš‚ Word Train</strong><br>Coming Soon</div>
-              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;color:#64748b;"><strong>ðŸ•µï¸ Phonics Detective</strong><br>Coming Soon</div>
-            </div>
-            <div id="phonicsGame" style="display:none;background:white;border:2px solid #e5e7eb;border-radius:16px;padding:20px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
-                <h3 style="margin:0;color:#1f2937;">ðŸŽ§ Listen & Choose</h3>
-                <div id="phonicsProgressLabel" style="background:#eff6ff;color:#1d4ed8;padding:6px 10px;border-radius:999px;font-weight:800;">Question 1 / 10</div>
-              </div>
-              <div style="text-align:center;background:#f8fafc;border-radius:14px;padding:20px;margin-bottom:16px;">
-                <div style="font-weight:800;color:#334155;margin-bottom:10px;">ðŸ”Š Listen carefully!</div>
-                <button class="btn" onclick="playCurrentPhonicsSound()" style="background:#2563eb;color:white;font-weight:800;">ðŸ”Š Play Sound</button>
-                <div id="phonicsAudioStatus" style="margin-top:10px;color:#64748b;font-size:0.9rem;"></div>
-              </div>
-              <div style="font-weight:800;color:#334155;margin-bottom:10px;text-align:center;">Which sound did you hear?</div>
-              <div id="phonicsOptions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:14px;"></div>
-              <div id="phonicsFeedback" style="display:none;border-radius:12px;padding:12px 14px;font-weight:800;text-align:center;"></div>
-            </div>
-            <div id="phonicsComplete" style="display:none;background:#f0fdf4;border:1.5px solid #86efac;border-radius:16px;padding:20px;text-align:center;">
-              <h3 style="margin:0 0 10px;color:#166534;">ðŸŽ‰ Phonics Challenge Complete!</h3>
-              <div id="phonicsFinalScore" style="font-size:1.6rem;font-weight:900;color:#14532d;margin-bottom:8px;"></div>
-              <div id="phonicsFinalAccuracy" style="font-weight:800;color:#166534;margin-bottom:14px;"></div>
-              <button class="btn primary" onclick="startPhonicsListenChoose()">ðŸ”„ Try Again</button>
-            </div>
-          </div>
-
-          <!-- Speaking Practice Lab Panel -->
           <div id="vocabularyLabPanel" style="display:none; margin-top:24px;">
             <div style="background:#ecfeff;border:1.5px solid #67e8f9;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <h2 style="margin:0 0 8px;color:#155e75;">📚 Vocabulary Lab</h2>
+              <h2 style="margin:0 0 8px;color:#155e75;"> Vocabulary Lab</h2>
               <p style="margin:0;color:#0f766e;line-height:1.5;">Learn one new word every day, practise its meaning, and write your own sentence.</p>
             </div>
             <div id="vocabularyWordCard" style="background:white;border:2px solid #e5e7eb;border-radius:16px;padding:20px;margin-bottom:16px;">
@@ -1369,7 +1326,7 @@
 
           <div id="spellingBeePanel" style="display:none; margin-top:24px;">
             <div style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <h2 style="margin:0 0 8px;color:#9a3412;">🔠 Spelling Bee</h2>
+              <h2 style="margin:0 0 8px;color:#9a3412;"> Spelling Bee</h2>
               <p style="margin:0;color:#9a3412;line-height:1.5;">Listen to the word, read the clue, and type the spelling.</p>
             </div>
             <div id="spellingGame" style="background:white;border:2px solid #e5e7eb;border-radius:16px;padding:20px;margin-bottom:16px;">
@@ -1388,7 +1345,7 @@
           <div id="speakingLabPanel" style="display: none; margin-top: 24px;">
           <!-- Hero Section -->
           <div class="learning-lab-hero" style="background: linear-gradient(135deg, #fce7f3 0%, #fdf2f8 50%, #faf5ff 100%);">
-            <h2 style="color: #9333ea;">ðŸŽ¤ Speaking Practice</h2>
+            <h2 style="color: #9333ea;"> Speaking Practice</h2>
             <p style="margin: 0; color: #6b21a8; line-height: 1.6;">
               Record yourself speaking about today's topic and get AI-powered feedback to help you improve your English!
             </p>
@@ -1397,7 +1354,7 @@
           <!-- Permission Status Indicator -->
           <div id="permissionStatus" style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; display: none;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 1.2rem;">âš ï¸</span>
+              <span style="font-size: 1.2rem;"></span>
               <div>
                 <div style="font-weight: 700; color: #92400e; font-size: 0.95rem;" id="permissionText">Camera permission required</div>
                 <div style="font-size: 0.85rem; color: #b45309;">Your browser needs permission to record audio and video. We'll ask when you start recording.</div>
@@ -1408,7 +1365,7 @@
           <!-- Today's Topic Display -->
           <div id="speakingTopicContainer" style="background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%); border: 1.5px solid #c7d2fe; border-radius: 16px; padding: 20px 22px; margin-bottom: 20px;">
             <div style="text-align: center;">
-              <div style="font-size: 0.85rem; font-weight: 700; color: #6366f1; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px;">ðŸŽ¯ Today's Speaking Challenge</div>
+              <div style="font-size: 0.85rem; font-weight: 700; color: #6366f1; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px;"> Today's Speaking Challenge</div>
               <div id="speakingTopicText" style="font-size: 1.4rem; color: #2d3748; font-weight: 700; line-height: 1.5; margin-bottom: 12px;">Loading topic...</div>
               <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
                 <span id="speakingDifficultyBadge" style="background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">Beginner</span>
@@ -1421,7 +1378,7 @@
 
           <!-- Recording Controls Section -->
           <div id="recordingSection" style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="color: #2d3748; margin: 0 0 18px; font-size: 1.2rem;">ðŸŽ¤ Start Recording</h3>
+            <h3 style="color: #2d3748; margin: 0 0 18px; font-size: 1.2rem;"> Start Recording</h3>
 
             <!-- Permission Request -->
             <div id="permissionPrompt" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px; margin-bottom: 14px; display: none;">
@@ -1430,14 +1387,14 @@
                 Click "Start Recording" below and your browser will ask for permission to access your microphone and camera.
               </div>
               <button id="acceptPermissionsBtn" onclick="requestPermissions()" class="btn" style="background: #dc2626; color: white; width: 100%;">
-                âœ“ I Understand, Let's Start
+                 I Understand, Let's Start
               </button>
             </div>
 
             <!-- Recording Indicator -->
             <div id="recordingIndicator" style="display: none; background: #fee2e2; border-left: 4px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 14px; align-items: center; gap: 10px;">
               <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%; animation: pulse 1s infinite;"></div>
-              <div style="font-weight: 700; color: #991b1b;">ðŸ”´ Recording in progress...</div>
+              <div style="font-weight: 700; color: #991b1b;"> Recording in progress...</div>
             </div>
 
             <!-- Video Preview -->
@@ -1446,16 +1403,16 @@
             <!-- Recording Controls -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px;">
               <button id="startRecordBtn" onclick="startRecording()" class="btn" style="background: #10b981; color: white; font-weight: 700;">
-                â–¶ï¸ Start Recording
+                 Start Recording
               </button>
               <button id="stopRecordBtn" onclick="stopRecording()" class="btn" style="background: #ef4444; color: white; display: none; font-weight: 700;">
-                â¹ï¸ Stop Recording
+                 Stop Recording
               </button>
               <button id="pauseRecordBtn" onclick="pauseRecording()" class="btn" style="background: #f59e0b; color: white; display: none; font-weight: 700;">
-                â¸ï¸ Pause
+                 Pause
               </button>
               <button id="resumeRecordBtn" onclick="resumeRecording()" class="btn" style="background: #3b82f6; color: white; display: none; font-weight: 700;">
-                â–¶ï¸ Resume
+                 Resume
               </button>
             </div>
 
@@ -1466,19 +1423,19 @@
 
             <!-- Playback Section (After Recording) -->
             <div id="playbackSection" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
-              <div style="font-weight: 700; color: #0369a1; margin-bottom: 10px;">âœ“ Recording Complete - Review Before Submitting</div>
+              <div style="font-weight: 700; color: #0369a1; margin-bottom: 10px;"> Recording Complete - Review Before Submitting</div>
               <video id="playbackVideo" style="width: 100%; height: auto; border-radius: 8px; background: #000; margin-bottom: 10px; max-height: 250px;"></video>
               <button onclick="replayRecording()" class="btn" style="background: #0ea5e9; color: white; width: 100%; margin-bottom: 8px;">
-                â–¶ï¸ Play Again
+                 Play Again
               </button>
               <button onclick="discardRecording()" class="btn" style="background: #e5e7eb; color: #374151; width: 100%; font-weight: 600;">
-                ðŸ”„ Re-record
+                 Re-record
               </button>
             </div>
 
             <!-- Upload Button -->
             <button id="submitRecordingBtn" onclick="submitRecording()" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; width: 100%; font-size: 1.05rem; font-weight: 700; padding: 14px; display: none;">
-              ðŸ“¤ Submit Recording for Feedback
+               Submit Recording for Feedback
             </button>
 
             <!-- Upload Progress -->
@@ -1493,11 +1450,11 @@
           <!-- Feedback Section (After Analysis) -->
           <div id="feedbackSection" style="display: none;">
             <div style="background: linear-gradient(135deg, #d1fae5 0%, #c6f6d5 100%); border: 1.5px solid #6ee7b7; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
-              <h3 style="color: #065f46; margin: 0 0 16px; font-size: 1.3rem;">ðŸŽ¤ My Speaking Feedback</h3>
+              <h3 style="color: #065f46; margin: 0 0 16px; font-size: 1.3rem;"> My Speaking Feedback</h3>
 
               <!-- Voice Section -->
               <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
-                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">ðŸ”Š Voice & Delivery</div>
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;"> Voice & Delivery</div>
                 <div id="voiceFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
                   Your voice was clear and easy to understand.
                 </div>
@@ -1505,7 +1462,7 @@
 
               <!-- Gestures Section -->
               <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
-                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">ðŸ™Œ Gestures & Movement</div>
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;"> Gestures & Movement</div>
                 <div id="gesturesFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
                   You used hand gestures to support your ideas.
                 </div>
@@ -1513,7 +1470,7 @@
 
               <!-- Expression Section -->
               <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
-                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">ðŸ˜Š Facial Expressions</div>
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;"> Facial Expressions</div>
                 <div id="expressionFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
                   You appeared engaged and interested while speaking.
                 </div>
@@ -1521,7 +1478,7 @@
 
               <!-- Language Section -->
               <div style="background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
-                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;">ðŸ—£ï¸ Language Use</div>
+                <div style="font-weight: 700; color: #2d3748; margin-bottom: 8px;"> Language Use</div>
                 <div id="languageFeedback" style="color: #4a5568; line-height: 1.6; font-size: 0.95rem;">
                   Your vocabulary choices were appropriate for the topic.
                 </div>
@@ -1529,7 +1486,7 @@
 
               <!-- Strengths -->
               <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
-                <div style="font-weight: 700; color: #92400e; margin-bottom: 6px;">ðŸŒŸ One Thing You Did Well</div>
+                <div style="font-weight: 700; color: #92400e; margin-bottom: 6px;"> One Thing You Did Well</div>
                 <div id="strengthsSummary" style="color: #78350f; line-height: 1.6; font-size: 0.95rem;">
                   Great job maintaining consistent eye contact!
                 </div>
@@ -1537,7 +1494,7 @@
 
               <!-- Improvement -->
               <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 12px; padding: 14px;">
-                <div style="font-weight: 700; color: #0369a1; margin-bottom: 6px;">ðŸ’¡ Try This Next Time</div>
+                <div style="font-weight: 700; color: #0369a1; margin-bottom: 6px;"> Try This Next Time</div>
                 <div id="improvementSuggestion" style="color: #164e63; line-height: 1.6; font-size: 0.95rem;">
                   Try adding a few more descriptive details when explaining your ideas.
                 </div>
@@ -1546,16 +1503,16 @@
 
             <!-- Self-Reflection -->
             <div style="background: white; border: 1.5px solid #e5e7eb; border-radius: 16px; padding: 18px; margin-bottom: 20px;">
-              <h4 style="color: #2d3748; margin: 0 0 14px; font-size: 1.1rem;">ðŸ“ Your Self-Reflection</h4>
+              <h4 style="color: #2d3748; margin: 0 0 14px; font-size: 1.1rem;"> Your Self-Reflection</h4>
 
               <div style="margin-bottom: 14px;">
                 <div style="font-weight: 700; color: #4a5568; margin-bottom: 8px;">How confident did you feel? (1-5 stars)</div>
                 <div style="display: flex; gap: 8px;">
-                  <button onclick="setConfidence(1)" id="conf-1" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">â­</button>
-                  <button onclick="setConfidence(2)" id="conf-2" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">â­</button>
-                  <button onclick="setConfidence(3)" id="conf-3" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">â­</button>
-                  <button onclick="setConfidence(4)" id="conf-4" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">â­</button>
-                  <button onclick="setConfidence(5)" id="conf-5" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;">â­</button>
+                  <button onclick="setConfidence(1)" id="conf-1" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
+                  <button onclick="setConfidence(2)" id="conf-2" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
+                  <button onclick="setConfidence(3)" id="conf-3" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
+                  <button onclick="setConfidence(4)" id="conf-4" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
+                  <button onclick="setConfidence(5)" id="conf-5" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
                 </div>
               </div>
 
@@ -1584,14 +1541,14 @@
               </div>
 
               <button onclick="submitReflection()" class="btn" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; width: 100%; font-weight: 700;">
-                âœ“ Complete Practice Session
+                 Complete Practice Session
               </button>
             </div>
           </div>
 
           <!-- History Section -->
           <div style="margin-top: 30px;">
-            <h3 style="color: #2d3748; margin-bottom: 14px;">ðŸ“Š Your Speaking History</h3>
+            <h3 style="color: #2d3748; margin-bottom: 14px;"> Your Speaking History</h3>
             <div id="speakingHistoryList" style="display: grid; gap: 12px;">
               <p style="color: #718096; text-align: center; padding: 20px;">No speaking practices yet. Start your first one above!</p>
             </div>
@@ -1667,14 +1624,14 @@
       <!-- Profile Tab -->
       <div id="profileTab" class="tab-content">
         <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 20px;">ðŸ‘¤ Profile Settings</h2>
+          <h2 style="color: #B05D9E; margin-bottom: 20px;"> Profile Settings</h2>
           <p style="color: #718096; margin-bottom: 25px;">View and update your contact information</p>
 
           <form id="profileForm">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
               <!-- Student Info (Read Only) -->
               <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white;">
-                <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;">ðŸ‘§ Student Information</h3>
+                <h3 style="margin: 0 0 15px 0; font-size: 1.1rem;"> Student Information</h3>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                   <div><strong>Name:</strong> <span id="profileStudentName">-</span></div>
                   <div><strong>Age:</strong> <span id="profileStudentGrade">-</span></div>
@@ -1685,7 +1642,7 @@
 
               <!-- Parent Info (Editable) -->
               <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
-                <h3 style="margin: 0 0 15px 0; color: #B05D9E; font-size: 1.1rem;">ðŸ‘¨â€ðŸ‘©â€ðŸ‘§ Parent Information</h3>
+                <h3 style="margin: 0 0 15px 0; color: #B05D9E; font-size: 1.1rem;"> Parent Information</h3>
                 <div style="display: flex; flex-direction: column; gap: 15px;">
                   <div>
                     <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Parent Name</label>
@@ -1708,7 +1665,7 @@
 
               <!-- Student Details (Editable) -->
               <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #e2e8f0;">
-                <h3 style="margin: 0 0 15px 0; color: #B05D9E; font-size: 1.1rem;">ðŸŽ‚ Additional Details</h3>
+                <h3 style="margin: 0 0 15px 0; color: #B05D9E; font-size: 1.1rem;"> Additional Details</h3>
                 <div style="display: flex; flex-direction: column; gap: 15px;">
                   <div>
                     <label style="color: #4a5568; font-weight: 600; display: block; margin-bottom: 5px;">Child's Date of Birth</label>
@@ -1724,7 +1681,7 @@
 
             <div style="margin-top: 25px; text-align: center;">
               <button type="submit" style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
-                ðŸ’¾ Save Changes
+                 Save Changes
               </button>
             </div>
           </form>
@@ -1732,12 +1689,12 @@
 
         <!-- Parent Expectations (moved here from above tabs) -->
         <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 10px;">ðŸ’­ My Expectations <span style="font-size: 0.75rem; color: #718096;">(Optional)</span></h2>
+          <h2 style="color: #B05D9E; margin-bottom: 10px;"> My Expectations <span style="font-size: 0.75rem; color: #718096;">(Optional)</span></h2>
           <p style="color: #718096; margin-bottom: 15px; font-size: 0.9rem;">Scroll down in the Profile/Expectations section to submit your goals and expectations for your child's learning journey. Your teacher will see this.</p>
           <div id="parentExpectationsSection">
             <textarea id="myExpectations" rows="3" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; resize: vertical;" placeholder="e.g., I want my child to improve their reading fluency and confidence in speaking..."></textarea>
             <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
-              <button onclick="saveMyExpectations()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">ðŸ’¾ Save Expectations</button>
+              <button onclick="saveMyExpectations()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;"> Save Expectations</button>
               <span id="myExpectationsSaveStatus" style="color: #718096; font-size: 0.85rem;"></span>
             </div>
           </div>
@@ -1750,19 +1707,19 @@
   <div id="feedbackModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>â­ Rate Your Class</h2>
-        <button class="close-modal" onclick="closeFeedbackModal()">âœ•</button>
+        <h2> Rate Your Class</h2>
+        <button class="close-modal" onclick="closeFeedbackModal()"></button>
       </div>
       <form id="feedbackForm">
         <input type="hidden" id="feedbackSessionId">
         <div style="text-align: center; margin-bottom: 20px;">
           <p style="font-size: 18px; color: #4a5568; margin-bottom: 15px;">How was your class on <strong><span id="feedbackSessionDate"></span></strong>?</p>
           <div class="star-rating" id="starRatingContainer" style="font-size: 2.5rem; cursor: pointer;">
-            <span class="star" data-rating="1" onclick="setRating(1)">â˜†</span>
-            <span class="star" data-rating="2" onclick="setRating(2)">â˜†</span>
-            <span class="star" data-rating="3" onclick="setRating(3)">â˜†</span>
-            <span class="star" data-rating="4" onclick="setRating(4)">â˜†</span>
-            <span class="star" data-rating="5" onclick="setRating(5)">â˜†</span>
+            <span class="star" data-rating="1" onclick="setRating(1)"></span>
+            <span class="star" data-rating="2" onclick="setRating(2)"></span>
+            <span class="star" data-rating="3" onclick="setRating(3)"></span>
+            <span class="star" data-rating="4" onclick="setRating(4)"></span>
+            <span class="star" data-rating="5" onclick="setRating(5)"></span>
           </div>
         </div>
         <div class="form-group">
@@ -1867,7 +1824,7 @@
       const isReady = await checkServerHealth();
       
       if (isReady) {
-        console.log('âœ… Server is ready!');
+        console.log(' Server is ready!');
         hideLoadingScreen(messageInterval);
         break;
       }
@@ -1879,7 +1836,7 @@
     // If server didn't respond after max attempts, still hide loading screen
     // to let user see any error messages
     if (!serverReady) {
-      console.warn('âš ï¸ Server may be slow to respond');
+      console.warn(' Server may be slow to respond');
       hideLoadingScreen(messageInterval);
     }
   }
@@ -2172,19 +2129,19 @@ setTimeout(() => {
         btn.style.opacity = '0.7';
         btn.style.cursor = 'default';
       } else if (parentPushSetupDone && window.__ffParentPushToken) {
-        btn.textContent = 'âœ… Notifications Enabled';
+        btn.textContent = ' Notifications Enabled';
         btn.disabled = true;
         btn.title = '';
         btn.style.opacity = '0.7';
         btn.style.cursor = 'default';
       } else if ('Notification' in window && Notification.permission === 'denied') {
-        btn.textContent = 'âš ï¸ Notifications Blocked';
+        btn.textContent = ' Notifications Blocked';
         btn.disabled = true;
         btn.title = '';
         btn.style.opacity = '0.7';
         btn.style.cursor = 'default';
       } else {
-        btn.textContent = 'ðŸ”” Enable Notifications';
+        btn.textContent = ' Enable Notifications';
         btn.disabled = false;
         btn.title = '';
         btn.style.opacity = '1';
@@ -2297,7 +2254,7 @@ setTimeout(() => {
       if (parentInstallPromptEvent) {
         showParentInstallHint('Ready to install. Tap Install App again to open the install prompt.');
       } else if (isIosInstallCandidate()) {
-        showParentInstallHint('Tap Install App, then use Share â†’ Add to Home Screen to install on iPhone/iPad.');
+        showParentInstallHint('Tap Install App, then use Share  Add to Home Screen to install on iPhone/iPad.');
       } else {
         showParentInstallHint('Tap Install App and follow the browser prompt. On desktop use Chrome/Edge install from the address bar or menu.');
       }
@@ -2331,7 +2288,7 @@ setTimeout(() => {
       }
 
       if (isIosInstallCandidate()) {
-        showParentInstallHint('No browser prompt is available on iOS. Use Share â†’ Add to Home Screen.');
+        showParentInstallHint('No browser prompt is available on iOS. Use Share  Add to Home Screen.');
       } else {
         showParentInstallHint('No install prompt appeared. Please refresh the page, or use your browser menu / address bar install option.');
       }
@@ -2563,7 +2520,7 @@ setTimeout(() => {
     }
 
     function formatUploadProgressText({ phase, percent, loaded, total }, fallback = 'Uploading...') {
-      if (phase === 'processing') return 'Upload complete â€” saving your homework...';
+      if (phase === 'processing') return 'Upload complete  saving your homework...';
       if (!total) return fallback;
       return `Uploading ${percent}% (${(loaded / 1024 / 1024).toFixed(1)} of ${(total / 1024 / 1024).toFixed(1)} MB)`;
     }
@@ -2650,7 +2607,7 @@ setTimeout(() => {
     function renderUpcomingTimezoneLabel() {
       const label = document.getElementById('upcomingTimezoneLabel');
       if (!label) return;
-      label.textContent = `ðŸ•’ Times shown in: ${getTimezoneDisplayText(getPortalTimezone())}`;
+      label.textContent = ` Times shown in: ${getTimezoneDisplayText(getPortalTimezone())}`;
     }
 
     function setPortalTimezone(timezone) {
@@ -3137,12 +3094,12 @@ setTimeout(() => {
     const LEARNING_HUB_COMING_SOON_MESSAGE = 'Learning Hub is coming soon. We are preparing these activities and will make them live later.';
 
     const LEARNING_LAB_MODULES = [
-      { id: 'phonics', name: 'Phonics Lab', icon: 'ðŸ”¤', description: 'Listen & Choose is ready for testing behind the Learning Hub lock.', status: 'active' },
-      { id: 'reading', name: 'Reading Zone', icon: 'ðŸ“–', description: 'Short stories and reading adventures to build confidence.', status: 'coming-soon' },
-      { id: 'spelling', name: 'Spelling Bee', icon: 'ðŸ', description: 'Listen, spell, and master tricky words.', status: 'active' },
-      { id: 'speaking', name: 'Speaking Practice', icon: 'ðŸŽ¤', description: 'Record a short answer, review it, and get speaking feedback.', status: 'active' },
-      { id: 'vocabulary', name: 'Vocabulary Games', icon: '📚', description: 'Daily word practice with meaning, sentence, and synonym games.', status: 'active' },
-      { id: 'writing', name: 'Writing Studio', icon: 'âœï¸', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' }
+      { id: 'quiz', name: 'Daily Quiz', icon: 'Quiz', description: 'Daily English questions for grammar, vocabulary, spelling, and punctuation.', status: 'active' },
+      { id: 'reading', name: 'Reading Zone', icon: '', description: 'Short stories and reading adventures to build confidence.', status: 'coming-soon' },
+      { id: 'spelling', name: 'Spelling Bee', icon: '', description: 'Listen, spell, and master tricky words.', status: 'active' },
+      { id: 'speaking', name: 'Speaking Practice', icon: '', description: 'Record a short answer, review it, and get speaking feedback.', status: 'active' },
+      { id: 'vocabulary', name: 'Vocabulary Games', icon: '', description: 'Daily word practice with meaning, sentence, and synonym games.', status: 'active' },
+      { id: 'writing', name: 'Writing Studio', icon: '', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' }
     ];
 
     let learningHubAccess = null;
@@ -3192,7 +3149,7 @@ setTimeout(() => {
         notice.style.display = 'none';
         return;
       }
-      const lockedTasks = ['phonics', 'vocabulary', 'spelling', 'speaking', 'writing'].filter(id => learningHubAccess.tasks?.[id]?.locked);
+      const lockedTasks = ['quiz', 'vocabulary', 'spelling', 'speaking', 'writing'].filter(id => learningHubAccess.tasks?.[id]?.locked);
       if (!learningHubAccess.fees_enabled) {
         notice.textContent = 'Learning Hub is live with fees off. All available activities are open.';
         notice.style.display = 'block';
@@ -3202,7 +3159,7 @@ setTimeout(() => {
         return;
       }
       if (learningHubAccess.paid) {
-        notice.textContent = `Learning Hub subscription active. Phonics, Vocabulary, Spelling Bee, Speaking and Writing are unlocked.`;
+        notice.textContent = `Learning Hub subscription active. Daily Quiz, Vocabulary, Spelling Bee, Speaking and Writing are unlocked.`;
         notice.style.display = 'block';
         notice.style.background = '#ecfdf5';
         notice.style.borderColor = '#6ee7b7';
@@ -3210,8 +3167,8 @@ setTimeout(() => {
         return;
       }
       notice.textContent = lockedTasks.length
-        ? `Free trial used for ${lockedTasks.map(id => id === 'speaking' ? 'Speaking' : id === 'writing' ? 'Writing' : id === 'phonics' ? 'Phonics' : id === 'vocabulary' ? 'Vocabulary' : 'Spelling Bee').join(', ')}. Continue Learning Hub for ${learningHubPriceLabel()}.`
-        : `Free trial: 1 task each for Phonics, Vocabulary, Spelling Bee, Speaking and Writing. Continue after that for ${learningHubPriceLabel()}.`;
+        ? `Free trial used for ${lockedTasks.map(id => id === 'speaking' ? 'Speaking' : id === 'writing' ? 'Writing' : id === 'quiz' ? 'Daily Quiz' : id === 'vocabulary' ? 'Vocabulary' : 'Spelling Bee').join(', ')}. Continue Learning Hub for ${learningHubPriceLabel()}.`
+        : `Free trial: 1 task each for Daily Quiz, Vocabulary, Spelling Bee, Speaking and Writing. Continue after that for ${learningHubPriceLabel()}.`;
       notice.style.display = 'block';
       notice.style.background = '#fffbeb';
       notice.style.borderColor = '#fbbf24';
@@ -3279,7 +3236,7 @@ setTimeout(() => {
     }
 
     function showLearningHubPaywall(moduleId) {
-      const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : moduleId === 'phonics' ? 'Phonics Lab' : moduleId === 'vocabulary' ? 'Vocabulary Games' : moduleId === 'spelling' ? 'Spelling Bee' : 'Learning Hub';
+      const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : moduleId === 'quiz' ? 'Daily Quiz' : moduleId === 'vocabulary' ? 'Vocabulary Games' : moduleId === 'spelling' ? 'Spelling Bee' : 'Learning Hub';
       alert(`${taskName} free trial is complete. Continue Learning Hub for ${learningHubPriceLabel()}.`);
     }
 
@@ -3407,7 +3364,7 @@ setTimeout(() => {
         feedback.style.display = 'block';
         feedback.style.background = result.correct ? '#dcfce7' : '#fef3c7';
         feedback.style.color = result.correct ? '#166534' : '#92400e';
-        feedback.textContent = result.correct ? 'ðŸŽ‰ Great job! You identified the correct sound.' : result.message;
+        feedback.textContent = result.correct ? ' Great job! You identified the correct sound.' : result.message;
 
         phonicsAttemptLog.push({ question_id: question.id, selected_answer: answer, attempt_number: currentPhonicsAttemptNumber, correct: result.correct });
         if (result.correct || result.reveal_answer) {
@@ -3455,23 +3412,19 @@ setTimeout(() => {
         alert(LEARNING_HUB_COMING_SOON_MESSAGE);
         return;
       }
+      if (moduleId === 'quiz') {
+        showTab('quiz');
+        setTimeout(initializeQuizTab, 100);
+        return;
+      }
       const speakingPanel = document.getElementById('speakingLabPanel');
       const writingPanel = document.getElementById('writingStudioPanel');
-      const phonicsPanel = document.getElementById('phonicsLabPanel');
       const vocabularyPanel = document.getElementById('vocabularyLabPanel');
       const spellingPanel = document.getElementById('spellingBeePanel');
-      if (phonicsPanel) phonicsPanel.style.display = 'none';
       if (vocabularyPanel) vocabularyPanel.style.display = 'none';
       if (spellingPanel) spellingPanel.style.display = 'none';
       if (speakingPanel) speakingPanel.style.display = 'none';
       if (writingPanel) writingPanel.style.display = 'none';
-
-      if (moduleId === 'phonics') {
-        if (phonicsPanel) phonicsPanel.style.display = 'block';
-        initPhonicsLab();
-        setTimeout(() => phonicsPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-        return;
-      }
 
       if (moduleId === 'vocabulary') {
         if (vocabularyPanel) vocabularyPanel.style.display = 'block';
@@ -4015,7 +3968,7 @@ setTimeout(() => {
           })
         });
         if (res.ok) {
-          alert('âœ… Practice session complete! Great job!');
+          alert(' Practice session complete! Great job!');
           await loadSpeakingHistory();
           document.getElementById('feedbackSection').style.display = 'none';
           document.getElementById('recordingSection').style.display = 'block';
@@ -4048,7 +4001,7 @@ setTimeout(() => {
             <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
               <div>
                 <div style="font-weight: 700; color: #2d3748;">${h.topic_text}</div>
-                <div style="font-size: 0.85rem; color: #718096; margin-top: 4px;">ðŸ“… ${new Date(h.attempt_date).toLocaleDateString()}</div>
+                <div style="font-size: 0.85rem; color: #718096; margin-top: 4px;"> ${new Date(h.attempt_date).toLocaleDateString()}</div>
               </div>
               <div style="text-align: right;">
                 <div style="font-size: 0.8rem; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
@@ -4154,7 +4107,7 @@ setTimeout(() => {
         ]);
       }, 7500);
 
-      // â”€â”€ Always-on DB keep-alive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      //  Always-on DB keep-alive 
       // Pings real DB (SELECT 1) every 30s while page is open.
       // Supabase never idles as long as anyone has the parent portal open.
       let _dbPingInFlight = false;
@@ -4170,7 +4123,7 @@ setTimeout(() => {
         if (document.visibilityState === 'visible') _parentDbPing();
       });
       _parentDbPing();                                                       // layer 0
-      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // 
 
       // Restore last active tab from localStorage
       let savedTab = localStorage.getItem('parentActiveTab');
@@ -4260,7 +4213,7 @@ setTimeout(() => {
 
     function getBadgeDisplayParts(badgeName) {
       const fullName = String(badgeName || '').trim();
-      if (!fullName) return { icon: 'ðŸ…', label: 'Badge' };
+      if (!fullName) return { icon: '', label: 'Badge' };
 
       const parts = fullName.split(/\s+/);
       const firstToken = parts[0];
@@ -4274,7 +4227,7 @@ setTimeout(() => {
       }
 
       return {
-        icon: 'ðŸ…',
+        icon: '',
         label: fullName
       };
     }
@@ -4347,7 +4300,7 @@ setTimeout(() => {
         const pendingChallenges = totals.pending_challenges || 0;
         if (pendingChallenges > 0) {
           pendingEl.style.display = 'block';
-          pendingEl.textContent = `â³ ${pendingChallenges} challenge${pendingChallenges > 1 ? 's are' : ' is'} awaiting teacher approval, so those leaderboard points are not added yet.`;
+          pendingEl.textContent = ` ${pendingChallenges} challenge${pendingChallenges > 1 ? 's are' : ' is'} awaiting teacher approval, so those leaderboard points are not added yet.`;
         } else {
           pendingEl.style.display = 'none';
           pendingEl.textContent = '';
@@ -4375,13 +4328,13 @@ setTimeout(() => {
       }
 
       const typeMeta = {
-        homework: { icon: 'ðŸ“', bg: '#eef2ff', color: '#5b21b6' },
-        challenge: { icon: 'ðŸŽ¯', bg: '#fef3c7', color: '#92400e' },
+        homework: { icon: '', bg: '#eef2ff', color: '#5b21b6' },
+        challenge: { icon: '', bg: '#fef3c7', color: '#92400e' },
         quiz: { icon: '?', bg: '#fef3c7', color: '#b45309' }
       };
 
       container.innerHTML = history.map(item => {
-        const meta = typeMeta[item.score_type] || { icon: 'ðŸ“Œ', bg: '#edf2f7', color: '#4a5568' };
+        const meta = typeMeta[item.score_type] || { icon: '', bg: '#edf2f7', color: '#4a5568' };
         const points = parseInt(item.points) || 0;
         const isPending = item.status === 'pending';
         const groupLabel = item.score_group === 'class_points' ? 'Class Points' : 'Leaderboard';
@@ -4396,7 +4349,7 @@ setTimeout(() => {
                 <div style="min-width:0;">
                   <div style="font-weight:700;color:#2d3748;font-size:0.92rem;">${item.title || 'Score update'}</div>
                   <div style="color:#4a5568;font-size:0.82rem;line-height:1.4;">${item.detail || groupLabel}</div>
-                  <div style="color:#718096;font-size:0.74rem;margin-top:4px;">${groupLabel} â€¢ ${formatPortalDateTime(item.occurred_at)}</div>
+                  <div style="color:#718096;font-size:0.74rem;margin-top:4px;">${groupLabel}  ${formatPortalDateTime(item.occurred_at)}</div>
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -4444,7 +4397,7 @@ setTimeout(() => {
         }
 
         if (badges.length === 0) {
-          container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 20px;">No badges earned yet. Attend classes and submit homework to unlock badges! ðŸŒŸ</p>';
+          container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #718096; padding: 20px;">No badges earned yet. Attend classes and submit homework to unlock badges! </p>';
           document.getElementById('viewAllBadgesBtn').style.display = 'none';
         } else {
           // Separate award badges from regular badges
@@ -4489,7 +4442,7 @@ setTimeout(() => {
       }
     }
 
-    // â”€â”€ Period-picker helpers for Hall of Fame â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Period-picker helpers for Hall of Fame 
     function _hofIsoDate(d) {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -4503,7 +4456,7 @@ setTimeout(() => {
       for(let i=1;i<=count;i++){
         const ws=new Date(thisSun); ws.setDate(thisSun.getDate()-i*7);
         const we=new Date(ws); we.setDate(ws.getDate()+6);
-        opts.push({ label:ws.toLocaleDateString('en-IN',{month:'short',day:'numeric'})+' â€“ '+we.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'}), start:_hofIsoDate(ws), end:_hofIsoDate(we) });
+        opts.push({ label:ws.toLocaleDateString('en-IN',{month:'short',day:'numeric'})+'  '+we.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'}), start:_hofIsoDate(ws), end:_hofIsoDate(we) });
       }
       return opts;
     }
@@ -4534,16 +4487,16 @@ setTimeout(() => {
         const isMyChild = w && currentStudent && w.name===currentStudent.name;
         if(body) body.innerHTML = w
           ? `<div style="font-size:1rem;font-weight:bold;color:#2d3748;margin:5px 0 2px;">${w.name}</div>
-             <div style="font-size:0.65rem;color:#4a5568;">ðŸ“ ${w.homework||0} HW Â· ðŸŽ¯ ${w.challenges||0} challenges Â· ðŸ… ${w.badges||0} badges</div>
+             <div style="font-size:0.65rem;color:#4a5568;"> ${w.homework||0} HW   ${w.challenges||0} challenges   ${w.badges||0} badges</div>
              <div style="font-size:0.6rem;color:#718096;margin-top:2px;">Score: ${w.total_score||0}</div>
-             ${isMyChild?'<div style="font-size:0.7rem;color:#e53e3e;font-weight:bold;margin-top:4px;">That\'s you! ðŸŽ‰</div>':''}`
+             ${isMyChild?'<div style="font-size:0.7rem;color:#e53e3e;font-weight:bold;margin-top:4px;">That\'s you! </div>':''}`
           : '<div style="font-size:0.8rem;color:#718096;margin-top:6px;">No activity this period</div>';
         if(isMyChild && card.parentElement) card.style.boxShadow='0 0 12px rgba(245,158,11,0.5)';
       } catch(e) {
         if(body) body.innerHTML='<div style="font-size:0.75rem;color:#718096;margin-top:6px;">Failed to load</div>';
       }
     }
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // 
 
     async function loadHallOfFame() {
       try {
@@ -4556,9 +4509,9 @@ setTimeout(() => {
         const makeOpts = (opts) => opts.map((o,i)=>`<option value="${o.start}|${o.end}"${i===0?' selected':''}>${o.label}</option>`).join('');
 
         const entries = [
-          { id:'hof_week',  icon:'â­', label:"Student of the Week",  gradient:'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border:'#ed8936', opts:weekOpts  },
-          { id:'hof_month', icon:'ðŸ…', label:"Student of the Month", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
-          { id:'hof_year',  icon:'ðŸ†', label:"Student of the Year",  gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  }
+          { id:'hof_week',  icon:'', label:"Student of the Week",  gradient:'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', border:'#ed8936', opts:weekOpts  },
+          { id:'hof_month', icon:'', label:"Student of the Month", gradient:'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', border:'#667eea', opts:monthOpts },
+          { id:'hof_year',  icon:'', label:"Student of the Year",  gradient:'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', border:'#f59e0b', opts:yearOpts  }
         ];
 
         container.innerHTML = entries.map(e=>`
@@ -4594,8 +4547,8 @@ setTimeout(() => {
       modal.innerHTML = `
         <div style="background: white; border-radius: 16px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 25px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="color: #B05D9E; margin: 0;">ðŸ† All My Badges (${allBadges.length})</h2>
-            <button onclick="document.getElementById('allBadgesModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer;">âœ•</button>
+            <h2 style="color: #B05D9E; margin: 0;"> All My Badges (${allBadges.length})</h2>
+            <button onclick="document.getElementById('allBadgesModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer;"></button>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
             ${allBadges.map(b => {
@@ -4620,7 +4573,7 @@ setTimeout(() => {
       document.body.appendChild(modal);
     }
 
-    // â”€â”€ Leaderboard modal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Leaderboard modal helpers 
     function _plbIsoDate(d) {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
@@ -4634,7 +4587,7 @@ setTimeout(() => {
       if (period === 'lastweek') {
         const sun = new Date(now); sun.setDate(now.getDate() - day - 7); sun.setHours(0,0,0,0);
         const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
-        return { start: _plbIsoDate(sun), end: _plbIsoDate(sat), label: sun.toLocaleDateString('en-IN',{month:'short',day:'numeric'}) + ' â€“ ' + sat.toLocaleDateString('en-IN',{month:'short',day:'numeric'}) };
+        return { start: _plbIsoDate(sun), end: _plbIsoDate(sat), label: sun.toLocaleDateString('en-IN',{month:'short',day:'numeric'}) + '  ' + sat.toLocaleDateString('en-IN',{month:'short',day:'numeric'}) };
       }
       if (period === 'thismonth') {
         const s = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -4657,7 +4610,7 @@ setTimeout(() => {
       const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
       return podiumOrder.map(student => {
         const r = leaderboardData.indexOf(student) + 1;
-        const medals    = { 1:'ðŸ¥‡', 2:'ðŸ¥ˆ', 3:'ðŸ¥‰' };
+        const medals    = { 1:'', 2:'', 3:'' };
         const classes   = { 1:'parent-podium-gold', 2:'parent-podium-silver', 3:'parent-podium-bronze' };
         const heights   = { 1:'parent-podium-height-1', 2:'parent-podium-height-2', 3:'parent-podium-height-3' };
         const shadows   = { 1:'parent-podium-shadow-gold', 2:'parent-podium-shadow-silver', 3:'parent-podium-shadow-bronze' };
@@ -4668,7 +4621,7 @@ setTimeout(() => {
               <div style="font-weight:bold;color:#2d3748;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;">${student.name}</div>
               <div style="color:#667eea;font-size:1.2rem;font-weight:bold;">${student.total_badges||0}</div>
               <div style="color:#718096;font-size:0.65rem;">badges</div>
-              <div style="color:#e67e22;font-size:0.75rem;font-weight:600;margin-top:3px;">â­ ${student.total_score||0} pts</div>
+              <div style="color:#e67e22;font-size:0.75rem;font-weight:600;margin-top:3px;"> ${student.total_score||0} pts</div>
             </div>
             <div class="${classes[r]} ${heights[r]}" style="width:80px;border-radius:8px 8px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:10px;">
               <span style="color:white;font-weight:bold;font-size:1.2rem;">#${r}</span>
@@ -4688,7 +4641,7 @@ setTimeout(() => {
 
       const contentDiv = document.getElementById('lbModalContent');
       if (!contentDiv) return;
-      contentDiv.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.7);padding:30px;">â³ Loading...</div>';
+      contentDiv.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.7);padding:30px;"> Loading...</div>';
 
       const { start, end, label } = _plbDateRange(period);
       const url = (start && end) ? `/api/leaderboard?start=${start}&end=${end}` : '/api/leaderboard';
@@ -4702,7 +4655,7 @@ setTimeout(() => {
       const myScore = leaderboardData.find(s => s.id === currentStudent.id)?.total_score || 0;
       const myRank  = leaderboardData.findIndex(s => s.id === currentStudent.id) + 1;
       const myBadges = allBadges.length;
-      const medals = ['ðŸ¥‡','ðŸ¥ˆ','ðŸ¥‰','4ï¸âƒ£','5ï¸âƒ£'];
+      const medals = ['','','','4','5'];
       const top5 = leaderboardData.slice(0, 5);
       const podiumHTML = _plbBuildPodium(leaderboardData);
 
@@ -4710,9 +4663,9 @@ setTimeout(() => {
         <!-- My Rank Card -->
         <div style="background:linear-gradient(135deg,#ffd700 0%,#ffb347 100%);padding:16px 20px;border-radius:16px;text-align:center;margin-bottom:16px;box-shadow:0 4px 15px rgba(0,0,0,0.2);">
           <p style="color:#333;margin:0 0 4px;font-size:0.85rem;">Your Rank ${label !== 'All Time' ? `<span style="font-size:0.75rem;opacity:0.75;">(${label})</span>` : ''}</p>
-          <div style="font-size:2.6rem;font-weight:bold;color:#333;">${myRank > 0 ? '#'+myRank : 'â€”'}</div>
+          <div style="font-size:2.6rem;font-weight:bold;color:#333;">${myRank > 0 ? '#'+myRank : ''}</div>
           <p style="color:#333;margin:8px 0 0;font-size:1rem;"><strong>${currentStudent.name}</strong></p>
-          <p style="color:#555;margin:4px 0 0;font-size:0.85rem;">ðŸ† <strong>${myBadges}</strong> badges &nbsp;Â·&nbsp; â­ <strong>${myScore}</strong> pts</p>
+          <p style="color:#555;margin:4px 0 0;font-size:0.85rem;"> <strong>${myBadges}</strong> badges &nbsp;&nbsp;  <strong>${myScore}</strong> pts</p>
         </div>
 
         <!-- Podium Top 3 -->
@@ -4726,31 +4679,31 @@ setTimeout(() => {
         <!-- Top 5 List -->
         <div style="background:white;border-radius:12px;overflow:hidden;">
           <div style="background:linear-gradient(90deg,#f6d365 0%,#fda085 100%);padding:12px 15px;text-align:center;">
-            <strong style="color:#333;">ðŸŒŸ Top Scorers ${label !== 'All Time' ? 'â€” '+label : '(All Time)'} ðŸŒŸ</strong>
+            <strong style="color:#333;"> Top Scorers ${label !== 'All Time' ? ' '+label : '(All Time)'} </strong>
           </div>
           ${top5.length > 0 ? top5.map((student, idx) => `
             <div style="display:flex;align-items:center;padding:12px 15px;border-bottom:1px solid #f0f0f0;${student.id===currentStudent.id?'background:rgba(102,126,234,0.1);':''}">
               <div style="font-size:1.4rem;margin-right:12px;">${medals[idx]}</div>
               <div style="flex:1;">
                 <div style="font-weight:600;color:#2d3748;">${student.name}${student.id===currentStudent.id?' <span style="color:#667eea;">(You!)</span>':''}</div>
-                <div style="font-size:0.75rem;color:#718096;">Badges: ${student.total_badges||0} &nbsp;Â·&nbsp; â­ ${student.total_score||0} pts</div>
+                <div style="font-size:0.75rem;color:#718096;">Badges: ${student.total_badges||0} &nbsp;&nbsp;  ${student.total_score||0} pts</div>
               </div>
               <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:5px 11px;border-radius:20px;font-weight:bold;font-size:0.9rem;">${student.total_score||0}</div>
             </div>`).join('')
           : '<div style="padding:20px;text-align:center;color:#718096;">No activity this period yet!</div>'}
           ${myRank > 5 ? `
-            <div style="padding:7px 15px;background:#f0f0f0;text-align:center;color:#718096;font-size:0.8rem;">â€¢ â€¢ â€¢</div>
+            <div style="padding:7px 15px;background:#f0f0f0;text-align:center;color:#718096;font-size:0.8rem;">  </div>
             <div style="display:flex;align-items:center;padding:12px 15px;background:linear-gradient(90deg,rgba(102,126,234,0.15) 0%,rgba(118,75,162,0.15) 100%);border-top:2px solid #667eea;">
               <div style="font-size:1.1rem;margin-right:12px;font-weight:bold;color:#667eea;">#${myRank}</div>
               <div style="flex:1;">
                 <div style="font-weight:600;color:#2d3748;">${currentStudent.name} <span style="color:#667eea;">(You!)</span></div>
-                <div style="font-size:0.75rem;color:#718096;">â­ ${myScore} pts</div>
+                <div style="font-size:0.75rem;color:#718096;"> ${myScore} pts</div>
               </div>
               <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:5px 11px;border-radius:20px;font-weight:bold;font-size:0.9rem;">${myScore}</div>
             </div>` : ''}
         </div>
         <p style="color:rgba(255,255,255,0.75);text-align:center;margin-top:14px;font-size:0.82rem;">
-          ${myRank > 5 ? `Keep going! Earn more to climb higher ðŸ’ª` : 'Keep earning to stay on top! ðŸš€'}
+          ${myRank > 5 ? `Keep going! Earn more to climb higher ` : 'Keep earning to stay on top! '}
         </p>`;
     }
 
@@ -4767,8 +4720,8 @@ setTimeout(() => {
       modal.innerHTML = `
         <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:20px;max-width:500px;width:100%;max-height:88vh;overflow-y:auto;padding:22px 22px 18px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h2 style="color:white;margin:0;font-size:1.2rem;">ðŸ… Leaderboard</h2>
-            <button onclick="document.getElementById('leaderboardModal').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:7px 13px;border-radius:8px;cursor:pointer;font-size:1rem;">âœ•</button>
+            <h2 style="color:white;margin:0;font-size:1.2rem;"> Leaderboard</h2>
+            <button onclick="document.getElementById('leaderboardModal').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:7px 13px;border-radius:8px;cursor:pointer;font-size:1rem;"></button>
           </div>
           <!-- Period pills -->
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
@@ -4780,7 +4733,7 @@ setTimeout(() => {
             <button ${pillStyle} onclick="_plbLoad('thisyear',this)">This Year</button>
           </div>
           <!-- Dynamic content -->
-          <div id="lbModalContent"><div style="text-align:center;color:rgba(255,255,255,0.7);padding:30px;">â³ Loading...</div></div>
+          <div id="lbModalContent"><div style="text-align:center;color:rgba(255,255,255,0.7);padding:30px;"> Loading...</div></div>
         </div>`;
 
       modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
@@ -4819,7 +4772,7 @@ setTimeout(() => {
                 : `Due ${dueDate}`;
 
         titleEl.textContent = active.title;
-        detailEl.textContent = `${statusLabel} â€¢ ${active.badge_reward || 'Earn a badge!'}`;
+        detailEl.textContent = `${statusLabel}  ${active.badge_reward || 'Earn a badge!'}`;
         strip.style.display = 'block';
       } catch(e) {
         document.getElementById('challengeSummaryStrip').style.display = 'none';
@@ -4834,7 +4787,7 @@ setTimeout(() => {
         window.currentStudentChallenges = Array.isArray(challenges) ? challenges : [];
 
         if (!challenges || challenges.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No active challenges right now. Check back soon! ðŸŽ¯</p>';
+          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No active challenges right now. Check back soon! </p>';
           return;
         }
 
@@ -4844,7 +4797,7 @@ setTimeout(() => {
           const isNotApproved = c.status === 'Not Approved';
           const isFinished = c.status === 'Finished';
           const dueDate = new Date(c.week_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const badgeReward = c.badge_reward || 'ðŸŽ¯ Challenge Champion';
+          const badgeReward = c.badge_reward || ' Challenge Champion';
           const badgeEmoji = badgeReward.split(' ')[0];
           const challengeImageUrl = normalizeChallengeImageUrl(c.image_url);
           const challengeImageHtml = challengeImageUrl ? `
@@ -4858,24 +4811,24 @@ setTimeout(() => {
           let actionButton = '';
 
           if (isCompleted) {
-            statusBadge = `<div style="background: #38b2ac; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">COMPLETED! ðŸŽ‰</div>`;
+            statusBadge = `<div style="background: #38b2ac; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">COMPLETED! </div>`;
           } else if (isNotApproved) {
-            statusBadge = `<div style="background: #e53e3e; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">âŒ NOT APPROVED</div>`;
+            statusBadge = `<div style="background: #e53e3e; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;"> NOT APPROVED</div>`;
           } else if (isSubmitted) {
-            statusBadge = `<div style="background: #9f7aea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">â³ Awaiting Approval</div>`;
+            statusBadge = `<div style="background: #9f7aea; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;"> Awaiting Approval</div>`;
           } else if (isFinished) {
             statusBadge = `<div style="background: #718096; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">FINISHED</div>`;
           } else {
             statusBadge = `<div style="background: #f5576c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">IN PROGRESS</div>`;
             actionButton = `
               <div style="margin-top: 10px; background: rgba(255,255,255,0.6); padding: 12px; border-radius: 8px;">
-                <label style="display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 600;">ðŸ“Ž Attach your work (PDF, image, video, PPT, etc. - max 1GB):</label>
+                <label style="display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 600;"> Attach your work (PDF, image, video, PPT, etc. - max 1GB):</label>
                 <input type="file" id="challengeFile-${c.id}" accept="*/*" style="font-size: 0.85rem; margin-bottom: 8px; width: 100%;">
                 <div id="challengeUploadProgress-${c.id}" style="display:none;margin:2px 0 8px;">
                   <div style="height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;"><div id="challengeUploadProgressBar-${c.id}" style="height:100%;width:0%;background:linear-gradient(135deg,#38b2ac,#2c7a7b);transition:width 0.2s;"></div></div>
                   <div id="challengeUploadProgressText-${c.id}" style="font-size:0.78rem;color:#4a5568;text-align:center;margin-top:4px;"></div>
                 </div>
-                <button onclick="submitChallenge(${c.id}, '${c.title.replace(/'/g, "\\'")}')" style="background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; width: 100%;">âœ‹ Submit for Review</button>
+                <button onclick="submitChallenge(${c.id}, '${c.title.replace(/'/g, "\\'")}')" style="background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; width: 100%;"> Submit for Review</button>
               </div>`;
           }
 
@@ -4885,12 +4838,12 @@ setTimeout(() => {
               <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div style="flex: 1; min-width: 200px;">
                   <h3 style="margin: 0 0 8px 0; color: #2d3748; font-size: 1rem;">
-                    ${isCompleted ? 'âœ…' : isNotApproved ? 'âŒ' : isSubmitted ? 'â³' : isFinished ? 'ðŸ' : 'ðŸŽ¯'} ${c.title}
+                    ${isCompleted ? '' : isNotApproved ? '' : isSubmitted ? '' : isFinished ? '' : ''} ${c.title}
                   </h3>
                   <p style="margin: 0 0 8px 0; color: #4a5568; font-size: 0.9rem;">${c.description || ''}</p>
                   ${challengeImageHtml}
                   <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #718096; flex-wrap: wrap;">
-                    <span>ðŸ“… Due: ${dueDate}</span>
+                    <span> Due: ${dueDate}</span>
                     <span style="background: rgba(255,255,255,0.7); padding: 2px 8px; border-radius: 10px;">${badgeEmoji} ${badgeReward}</span>
                     <button type="button" onclick="openChallengeDetails(${c.id})" style="border:none; background:rgba(255,255,255,0.75); color:#5a4fcf; padding:2px 8px; border-radius:10px; cursor:pointer; font-size:0.8rem; font-weight:700;">View details</button>
                   </div>
@@ -4979,7 +4932,7 @@ setTimeout(() => {
       // Disable the submit button
       const btn = event.target;
       const originalText = btn.innerHTML;
-      btn.innerHTML = 'â³ Uploading...';
+      btn.innerHTML = ' Uploading...';
       btn.disabled = true;
 
       try {
@@ -5003,14 +4956,14 @@ setTimeout(() => {
         }
         const result = await res.json();
         if (res.ok) {
-          alert('ðŸŽ‰ Challenge submitted! Your teacher will review and award your badge soon.');
+          alert(' Challenge submitted! Your teacher will review and award your badge soon.');
           loadStudentChallenges();
           loadScoreHistory();
         } else {
-          alert('âŒ Error: ' + result.error);
+          alert(' Error: ' + result.error);
         }
       } catch (err) {
-        alert('âŒ Error: ' + err.message);
+        alert(' Error: ' + err.message);
       } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -5166,7 +5119,7 @@ setTimeout(() => {
         });
 
         if (res.ok) {
-          statusEl.textContent = 'âœ“ Saved!';
+          statusEl.textContent = ' Saved!';
           statusEl.style.color = '#38b2ac';
           setTimeout(() => { statusEl.textContent = ''; }, 3000);
         } else {
@@ -5174,7 +5127,7 @@ setTimeout(() => {
         }
       } catch(e) {
         console.error('Error saving expectations:', e);
-        statusEl.textContent = 'âœ— Error saving';
+        statusEl.textContent = ' Error saving';
         statusEl.style.color = '#e53e3e';
       }
     }
@@ -5432,14 +5385,14 @@ setTimeout(() => {
         const tbody = document.getElementById('upcomingBody');
 
         if (upcoming.length === 0) {
-          _upcomingRetryCount = 0; // genuine empty â€” reset counter
+          _upcomingRetryCount = 0; // genuine empty  reset counter
           startParentNextClassTimer(null);
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No upcoming classes scheduled</td></tr>';
           return;
         }
 
         // Start next-class countdown timer from first upcoming session
-        _upcomingRetryCount = 0; // data loaded successfully â€” reset counter
+        _upcomingRetryCount = 0; // data loaded successfully  reset counter
         startParentNextClassTimer(upcoming[0] || null);
 
         tbody.innerHTML = upcoming.map(s => {
@@ -5462,20 +5415,20 @@ setTimeout(() => {
           const canJoin = diffMinutes <= 5 && diffMinutes >= -(classDurationMins);
 
           const ClassButton = canJoin
-  ? `<a href="${ClassLink}" target="_blank" class="btn-Class">ðŸŽ¥ Join Class</a>`
-  : `<button onclick="alert('You can join from 5 minutes before class starts until the end of class (${classDurationMins} minutes). Please wait until then.')" class="btn-Class" style="background: #a0aec0; cursor: not-allowed;">ðŸ”’ Join Class</button>`;
+  ? `<a href="${ClassLink}" target="_blank" class="btn-Class"> Join Class</a>`
+  : `<button onclick="alert('You can join from 5 minutes before class starts until the end of class (${classDurationMins} minutes). Please wait until then.')" class="btn-Class" style="background: #a0aec0; cursor: not-allowed;"> Join Class</button>`;
 
           const isSummerCamp = isCurrentStudentSummerCamp();
           const canCancel = !isSummerCamp && diffMinutes > 60;
           const serialLabel = formatSessionSerial(s);
-          const sessionLabel = `${serialLabel ? serialLabel + ' â€” ' : ''}${dayName}, ${t.date} at ${t.time}`;
+          const sessionLabel = `${serialLabel ? serialLabel + '  ' : ''}${dayName}, ${t.date} at ${t.time}`;
           const CancelButton = isSummerCamp
-            ? `<button disabled title="Summer camp classes cannot be cancelled" style="background:#f7fafc; color:#a0aec0; border:2px solid #e2e8f0; border-radius:6px; padding:8px 16px; cursor:not-allowed; font-size:0.85rem; font-weight:600;">ðŸ”’ Cancel</button>`
+            ? `<button disabled title="Summer camp classes cannot be cancelled" style="background:#f7fafc; color:#a0aec0; border:2px solid #e2e8f0; border-radius:6px; padding:8px 16px; cursor:not-allowed; font-size:0.85rem; font-weight:600;"> Cancel</button>`
             : canCancel
               ? `<button onclick="openCancelModal(${s.id}, '${sessionLabel.replace(/'/g, "&apos;")}')"
-                  style="background:#fff0f0; color:#c53030; border:2px solid #fed7d7; border-radius:6px; padding:8px 16px; cursor:pointer; font-size:0.85rem; font-weight:600;">ðŸš« Cancel</button>`
+                  style="background:#fff0f0; color:#c53030; border:2px solid #fed7d7; border-radius:6px; padding:8px 16px; cursor:pointer; font-size:0.85rem; font-weight:600;"> Cancel</button>`
               : `<button disabled title="Cannot cancel less than 1 hr before class"
-                  style="background:#f7fafc; color:#a0aec0; border:2px solid #e2e8f0; border-radius:6px; padding:8px 16px; cursor:not-allowed; font-size:0.85rem; font-weight:600;">ðŸ”’ Cancel</button>`;
+                  style="background:#f7fafc; color:#a0aec0; border:2px solid #e2e8f0; border-radius:6px; padding:8px 16px; cursor:not-allowed; font-size:0.85rem; font-weight:600;"> Cancel</button>`;
 
           const programName = currentStudent?.program_name || 'N/A';
           return `<tr>
@@ -5493,7 +5446,7 @@ setTimeout(() => {
         console.error(`Error loading upcoming (attempt ${_upcomingRetryCount}):`, e);
         const tbody = document.getElementById('upcomingBody');
         if (_upcomingRetryCount <= 3) {
-          if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#718096; padding:20px;">â³ Database warming upâ€¦ retrying (${_upcomingRetryCount}/3) ðŸ”„</td></tr>`;
+          if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#718096; padding:20px;"> Database warming up retrying (${_upcomingRetryCount}/3) </td></tr>`;
           setTimeout(() => loadUpcoming(false), 5000);
         } else {
           _upcomingRetryCount = 0;
@@ -5504,7 +5457,7 @@ setTimeout(() => {
       }
     }
 
-    // â”€â”€ Next-Class Countdown Timer (Parent Portal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Next-Class Countdown Timer (Parent Portal) 
     let parentTimerInterval = null;
 
     function startParentNextClassTimer(session) {
@@ -5520,9 +5473,9 @@ setTimeout(() => {
       const d = new Date(dateStr + 'T00:00:00');
       const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
 
-      const classTypeLabel = getSessionClassType(session) === 'Group' ? 'ðŸ‘¥ Group Class' : 'ðŸ‘¤ Private Class';
-      document.getElementById('parentTimerClassName').textContent = classTypeLabel + (session.program_name ? ' â€” ' + session.program_name : '');
-      document.getElementById('parentTimerDate').textContent = 'ðŸ“… ' + dayName + ', ' + t.date + ' at ' + t.time;
+      const classTypeLabel = getSessionClassType(session) === 'Group' ? ' Group Class' : ' Private Class';
+      document.getElementById('parentTimerClassName').textContent = classTypeLabel + (session.program_name ? '  ' + session.program_name : '');
+      document.getElementById('parentTimerDate').textContent = ' ' + dayName + ', ' + t.date + ' at ' + t.time;
 
       let timeStr = (session.session_time || '00:00:00').toString().substring(0, 8);
       if (timeStr.length === 5) timeStr += ':00';
@@ -5530,7 +5483,7 @@ setTimeout(() => {
       const classDurationMins = parseDurationMinutes(session.duration);
       const ClassLink = session.Class_link || 'https://us04web.zoom.us/j/7288533155?pwd=Nng5N2l0aU12L0FQK245c0VVVHJBUT09';
       const serialLabel = formatSessionSerial(session);
-      const sessionLabel = `${serialLabel ? serialLabel + ' â€” ' : ''}${dayName}, ${t.date} at ${t.time}`;
+      const sessionLabel = `${serialLabel ? serialLabel + '  ' : ''}${dayName}, ${t.date} at ${t.time}`;
 
       function tick() {
         const diff = target - new Date();
@@ -5547,7 +5500,7 @@ setTimeout(() => {
           hhEl.textContent = '00'; mmEl.textContent = '00'; ssEl.textContent = '00';
           if (liveEl) liveEl.style.display = 'inline-block';
         } else if (diffMins < -classDurationMins) {
-          // Class ended â€” hide card
+          // Class ended  hide card
           if (card) card.style.display = 'none';
           clearInterval(parentTimerInterval); parentTimerInterval = null;
           return;
@@ -5565,21 +5518,21 @@ setTimeout(() => {
         const canCancel = diffMins > 60;
         if (btnsEl) {
           const joinBtn = canJoin
-            ? `<a href="${ClassLink}" target="_blank" style="background:white; color:#B05D9E; padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; text-decoration:none; display:inline-block;">ðŸŽ¥ Join Class</a>`
-            : `<button disabled style="background:rgba(255,255,255,0.2); color:rgba(255,255,255,0.6); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; border:none; cursor:not-allowed;">ðŸ”’ Join Class</button>`;
+            ? `<a href="${ClassLink}" target="_blank" style="background:white; color:#B05D9E; padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; text-decoration:none; display:inline-block;"> Join Class</a>`
+            : `<button disabled style="background:rgba(255,255,255,0.2); color:rgba(255,255,255,0.6); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; border:none; cursor:not-allowed;"> Join Class</button>`;
           const isSummerCamp = isCurrentStudentSummerCamp();
         const cancelBtn = isSummerCamp
-          ? `<button disabled title="Summer camp classes cannot be cancelled" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.4); border:2px solid rgba(255,255,255,0.2); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:not-allowed;">ðŸ”’ Cancel</button>`
+          ? `<button disabled title="Summer camp classes cannot be cancelled" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.4); border:2px solid rgba(255,255,255,0.2); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:not-allowed;"> Cancel</button>`
           : canCancel
-            ? `<button onclick="openCancelModal(${session.id}, '${sessionLabel.replace(/'/g, '&apos;')}')" style="background:rgba(255,255,255,0.15); color:white; border:2px solid rgba(255,255,255,0.5); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:pointer;">ðŸš« Cancel</button>`
-            : `<button disabled title="Cannot cancel less than 1 hr before class" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.4); border:2px solid rgba(255,255,255,0.2); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:not-allowed;">ðŸ”’ Cancel</button>`;
+            ? `<button onclick="openCancelModal(${session.id}, '${sessionLabel.replace(/'/g, '&apos;')}')" style="background:rgba(255,255,255,0.15); color:white; border:2px solid rgba(255,255,255,0.5); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:pointer;"> Cancel</button>`
+            : `<button disabled title="Cannot cancel less than 1 hr before class" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.4); border:2px solid rgba(255,255,255,0.2); padding:8px 18px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:not-allowed;"> Cancel</button>`;
           btnsEl.innerHTML = joinBtn + cancelBtn;
         }
       }
       tick();
       parentTimerInterval = setInterval(tick, 1000);
     }
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // 
 
     let allPastSessions = []; // Store all past sessions for filtering
     let showAllPastClasses = false;
@@ -5613,7 +5566,7 @@ setTimeout(() => {
         });
 
         // Show recent 10 by default
-        _pastRetryCount = 0; // data loaded successfully â€” reset counter
+        _pastRetryCount = 0; // data loaded successfully  reset counter
         renderPastClasses(showAllPastClasses ? allPastSessions : allPastSessions.slice(0, 10));
         updatePastClassCount();
       } catch(e) {
@@ -5735,26 +5688,26 @@ setTimeout(() => {
 
             // Protected files (Class PPT) - view only with watermark, no download
             if (isProtected) {
-              return `<button onclick="previewProtectedFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">${icon} ðŸ”’${label}</button>`;
+              return `<button onclick="previewProtectedFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">${icon} ${label}</button>`;
             }
 
             // Non-protected files - show View and Download buttons
             return `<span style="display:inline-flex; gap:4px; align-items:center; margin: 2px;">
               <button onclick="previewFile('${fileUrl}', '${fileType}', '${fileName.replace(/'/g, "\\'")}')" style="cursor:pointer; border:none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">${icon} ${label}</button>
-              <button onclick="forceDownload('${fileUrl}', '${fileName.replace(/'/g, "\\'")}')" style="cursor:pointer; border:none; background: #38a169; color: white; padding: 6px 8px; border-radius: 6px; font-size: 11px;" title="Download ${label}">â¬‡ï¸</button>
+              <button onclick="forceDownload('${fileUrl}', '${fileName.replace(/'/g, "\\'")}')" style="cursor:pointer; border:none; background: #38a169; color: white; padding: 6px 8px; border-radius: 6px; font-size: 11px;" title="Download ${label}"></button>
             </span>`;
           }
 
           let materials = '';
-          materials += getMaterialLink(s.ppt_file_path, 'ðŸ“Š', 'PPT', true);  // PPT is protected - view only
-          materials += getMaterialLink(s.recording_file_path, 'ðŸŽ¥', 'Recording', false);  // Recording - downloadable
-          materials += getMaterialLink(s.homework_file_path, 'ðŸ“', 'HW', false);  // HW - downloadable
+          materials += getMaterialLink(s.ppt_file_path, '', 'PPT', true);  // PPT is protected - view only
+          materials += getMaterialLink(s.recording_file_path, '', 'Recording', false);  // Recording - downloadable
+          materials += getMaterialLink(s.homework_file_path, '', 'HW', false);  // HW - downloadable
           // Add Submit HW / Resubmit button next to HW download
           const canSubmitHw = s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance !== 'Pending') || s.status === 'Missed';
           const hwSubs = Array.isArray(s.hw_submissions) ? s.hw_submissions : [];
           if (canSubmitHw) {
             const existingNames = hwSubs.map(f => f.file_name || '').filter(Boolean);
-            materials += `<button onclick="openHwSubmitModal(${s.id}, '${formatSessionSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;">ðŸ“¤ Upload HW</button>`;
+            materials += `<button onclick="openHwSubmitModal(${s.id}, '${formatSessionSerial(s)}', ${hwSubs.length > 0}, ${JSON.stringify(existingNames)})" style="cursor:pointer; border:none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 2px;"> Upload HW</button>`;
           }
           if (!materials) materials = '-';
 
@@ -5784,16 +5737,16 @@ setTimeout(() => {
               // divider between multiple submissions
               if (idx > 0) hwStatus += `<hr style="border:none;border-top:1px dashed #e2e8f0;margin:6px 0;">`;
               const submissionLabel = sub.uploaded_by === 'Admin'
-                ? `<span style="color:#38a169; font-weight:600;">âœ… Submitted</span> <span style="background:#667eea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;">ðŸ“± WhatsApp</span>`
-                : `<span style="color:#38a169; font-weight:600;">âœ… Submitted</span>`;
+                ? `<span style="color:#38a169; font-weight:600;"> Submitted</span> <span style="background:#667eea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;"> WhatsApp</span>`
+                : `<span style="color:#38a169; font-weight:600;"> Submitted</span>`;
               const isReviewed = !!(sub.feedback_grade || sub.feedback_comments || sub.corrected_file_path || sub.feedback_date);
               const pendingReviewLabel = `<span style="color:#b7791f; font-weight:700;">Submitted - in review</span>${sub.uploaded_by === 'Admin' ? ' <span style="background:#667eea; color:white; padding:1px 7px; border-radius:10px; font-size:0.72rem;">WhatsApp</span>' : ''}<br><small style="color:#744210;">Your teacher has received it. No need to submit again.</small>`;
               hwStatus += `${subNum}${isReviewed ? submissionLabel : pendingReviewLabel}`;
-              if (s.session_topic && idx === 0) hwStatus += `<br><small style="color:#5a67d8; font-weight:600;">ðŸ“Œ ${s.session_topic}</small>`;
-              if (submittedOn) hwStatus += `<br><small style="color:#718096;">ðŸ“… ${submittedOn}</small>`;
+              if (s.session_topic && idx === 0) hwStatus += `<br><small style="color:#5a67d8; font-weight:600;"> ${s.session_topic}</small>`;
+              if (submittedOn) hwStatus += `<br><small style="color:#718096;"> ${submittedOn}</small>`;
               if (sub.feedback_grade) hwStatus += `<br><span style="background:#38a169; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${sub.feedback_grade}</span>`;
-              if (sub.feedback_comments) hwStatus += `<br><small style="color:#4a5568; font-style:italic;">ðŸ’¬ ${sub.feedback_comments}</small>`;
-              if (checkedOn) hwStatus += `<br><small style="color:#718096;">âœ”ï¸ Checked: ${checkedOn}</small>`;
+              if (sub.feedback_comments) hwStatus += `<br><small style="color:#4a5568; font-style:italic;"> ${sub.feedback_comments}</small>`;
+              if (checkedOn) hwStatus += `<br><small style="color:#718096;"> Checked: ${checkedOn}</small>`;
               if (sub.file_name) hwStatus += `<br><small style="color:#4a5568;">File: ${sub.file_name}</small>`;
               const submittedHomeworkActions = buildSubmittedHomeworkActions(sub, true);
               if (submittedHomeworkActions) hwStatus += `<br>${submittedHomeworkActions}`;
@@ -5801,11 +5754,11 @@ setTimeout(() => {
               if (sub.submission_link) hwStatus += `<br><a href="${sub.submission_link}" target="_blank" style="color:#3182ce; font-size:0.82rem; word-break:break-all;">Link: ${sub.submission_link}</a>`;
               if (sub.corrected_file_path) {
                 const corrPath = sub.corrected_file_path.replace(/'/g, "\\'");
-                hwStatus += `<br><button onclick="previewFile('${corrPath}', 'image', 'Teacher Corrections')" style="margin-top:4px; background:#e53e3e; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.78rem;">ðŸ“ View Corrections</button>`;
+                hwStatus += `<br><button onclick="previewFile('${corrPath}', 'image', 'Teacher Corrections')" style="margin-top:4px; background:#e53e3e; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.78rem;"> View Corrections</button>`;
               }
             });
           } else if (s.status === 'Completed' || (s.source_type === 'Group' && s.student_attendance !== 'Pending')) {
-            hwStatus = `<span style="color:#ed8936; font-size:0.8rem;">â³ Pending</span>`;
+            hwStatus = `<span style="color:#ed8936; font-size:0.8rem;"> Pending</span>`;
           }
 
           // Feedback button - show if completed, attended, and not already given feedback
@@ -5814,9 +5767,9 @@ setTimeout(() => {
                            s.status === 'Missed' || s.status === 'Absent' || s.status === 'Cancelled';
           if (s.status === 'Completed' && !wasAbsent) {
             if (s.has_feedback) {
-              feedbackBtn = `<span style="color:#38a169;">âœ“ Given</span>`;
+              feedbackBtn = `<span style="color:#38a169;"> Given</span>`;
             } else {
-              feedbackBtn = `<button onclick="openFeedbackModal(${s.id}, '${new Date(getDateStr(s.session_date)).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}')" style="background:#B05D9E; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;">â­ Rate</button>`;
+              feedbackBtn = `<button onclick="openFeedbackModal(${s.id}, '${new Date(getDateStr(s.session_date)).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}')" style="background:#B05D9E; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.85rem;"> Rate</button>`;
             }
           } else if (wasAbsent) {
             feedbackBtn = `<span style="color:#718096; font-size:0.85rem;">-</span>`;
@@ -5828,13 +5781,13 @@ setTimeout(() => {
           if (s.source_type === 'Group') {
             // Group session - use individual student attendance
             if (s.student_attendance === 'Present') {
-              attendanceDisplay = `<span style="color:#38a169; font-weight:600;">âœ“ Present</span>`;
+              attendanceDisplay = `<span style="color:#38a169; font-weight:600;"> Present</span>`;
             } else if (s.student_attendance === 'Absent') {
-              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">âœ— Absent</span><br><small style="color:#718096;">(Recording available to catch up)</small>`;
+              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;"> Absent</span><br><small style="color:#718096;">(Recording available to catch up)</small>`;
             } else if (s.student_attendance === 'Excused') {
-              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">âœ— Absent</span><br><small style="color:#718096;">ðŸ“¹ Recording available to catch up</small><br><span style="background:#f6ad55; color:#744210; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:600;">ðŸŽ« Makeup credit added</span>`;
+              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;"> Absent</span><br><small style="color:#718096;"> Recording available to catch up</small><br><span style="background:#f6ad55; color:#744210; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:600;"> Makeup credit added</span>`;
             } else if (s.student_attendance === 'Unexcused') {
-              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">âœ— Absent</span><br><small style="color:#718096;">ðŸ“¹ Recording available to catch up</small>`;
+              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;"> Absent</span><br><small style="color:#718096;"> Recording available to catch up</small>`;
             } else if (s.status === 'Completed') {
               attendanceDisplay = `<span style="color:#718096;">Pending</span>`;
             } else {
@@ -5843,9 +5796,9 @@ setTimeout(() => {
           } else {
             // Private session - use session status
             if (s.status === 'Completed') {
-              attendanceDisplay = `<span style="color:#38a169; font-weight:600;">âœ“ Present</span>`;
+              attendanceDisplay = `<span style="color:#38a169; font-weight:600;"> Present</span>`;
             } else if (s.status === 'Missed') {
-              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;">âœ— Absent</span>`;
+              attendanceDisplay = `<span style="color:#e53e3e; font-weight:600;"> Absent</span>`;
             } else if (s.status === 'Cancelled' || s.status === 'Cancelled by Parent') {
               const cancelledByText = s.cancelled_by ? ` (by ${s.cancelled_by})` : '';
               attendanceDisplay = `<span style="color:#718096;">Cancelled${cancelledByText}</span>`;
@@ -5862,7 +5815,7 @@ setTimeout(() => {
 
           return `<tr>
             <td>${serialLabel}${programLabel}</td>
-            <td>${t.date}<br><small style="color:#718096; font-size:0.78rem;">ðŸ“† ${t.weekday}</small>${s.session_topic ? `<br><small style="color:#B05D9E; font-weight:600; font-size:0.78rem;">ðŸ“Œ ${s.session_topic}</small>` : ''}</td>
+            <td>${t.date}<br><small style="color:#718096; font-size:0.78rem;"> ${t.weekday}</small>${s.session_topic ? `<br><small style="color:#B05D9E; font-weight:600; font-size:0.78rem;"> ${s.session_topic}</small>` : ''}</td>
             <td>${t.time}</td>
             <td>${getSessionClassBadge(s)}</td>
             <td><span style="background:#edf2f7; color:#2d3748; padding:3px 8px; border-radius:8px; font-size:0.78rem; font-weight:700;">${getSessionDurationLabel(s)}</span></td>
@@ -5882,13 +5835,13 @@ setTimeout(() => {
 
       const resubmitWarning = isResubmit ? `
         <div style="background:#fff8e1;border:2px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.88rem;color:#744210;">
-          âš ï¸ <strong>You already submitted homework for this session.</strong><br>
+           <strong>You already submitted homework for this session.</strong><br>
           You can still add more files, comments, or links for the same homework.
         </div>` : '';
 
       const existingList = existingFiles.length > 0 ? `
         <div style="background:#f0fff4;border:1.5px solid #68d391;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.83rem;color:#276749;">
-          <strong>âœ… Already submitted (${existingFiles.length} file${existingFiles.length > 1 ? 's' : ''}):</strong>
+          <strong> Already submitted (${existingFiles.length} file${existingFiles.length > 1 ? 's' : ''}):</strong>
           <ul style="margin:6px 0 0 16px;">${existingFiles.map(n => `<li>${n}</li>`).join('')}</ul>
         </div>` : '';
 
@@ -5901,15 +5854,15 @@ setTimeout(() => {
       modal.innerHTML = `
         <div id="hwSubmitModalPanel" style="background:white;border-radius:16px;padding:30px;max-width:500px;width:100%;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 20px 60px rgba(0,0,0,0.3);box-sizing:border-box;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h2 style="margin:0;color:#B05D9E;font-size:1.3rem;">${isResubmit ? 'ðŸ”„ Resubmit Homework' : 'ðŸ“¤ Submit Homework'}</h2>
-            <button onclick="closeHwSubmitModal()" style="background:#e53e3e;color:white;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;">âœ•</button>
+            <h2 style="margin:0;color:#B05D9E;font-size:1.3rem;">${isResubmit ? ' Resubmit Homework' : ' Submit Homework'}</h2>
+            <button onclick="closeHwSubmitModal()" style="background:#e53e3e;color:white;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;"></button>
           </div>
           <p style="color:#718096;margin-bottom:15px;font-size:0.9rem;">${sessionHeading}</p>
           ${resubmitWarning}
           ${existingList}
           <div style="background:#fff8f0;border:1px solid #f6ad55;border-radius:8px;padding:12px;margin-bottom:18px;font-size:0.85rem;color:#744210;">
-            ðŸ“Ž Accepted: Images, PDFs, MP4/video, Word docs, PowerPoints & more. Max 1GB per file. Smaller/compressed videos upload faster.<br>
-            ðŸŽ¯ <strong>Tip:</strong> Select multiple files at once! Uploading many files still earns <strong>10 points</strong> on the leaderboard.
+             Accepted: Images, PDFs, MP4/video, Word docs, PowerPoints & more. Max 1GB per file. Smaller/compressed videos upload faster.<br>
+             <strong>Tip:</strong> Select multiple files at once! Uploading many files still earns <strong>10 points</strong> on the leaderboard.
           </div>
           <div style="margin-bottom:18px;">
             <label style="display:block;font-weight:600;color:#4a5568;margin-bottom:8px;">Select Files</label>
@@ -5941,7 +5894,7 @@ setTimeout(() => {
           </div>
           <button id="hwSubmitBtn" onclick="submitHwFiles(${sessionId})"
             style="width:100%;padding:14px;background:linear-gradient(135deg,#B05D9E,#8B4789);color:white;border:none;border-radius:10px;cursor:pointer;font-size:1rem;font-weight:700;">
-            ðŸ“¤ Upload Homework
+             Upload Homework
           </button>
         </div>
       `;
@@ -6240,15 +6193,15 @@ setTimeout(() => {
           const isSubmission = ['Parent', 'Admin'].includes(hw.uploaded_by);
           const isWorksheet = !isSubmission;
           const fileExt = hw.file_name ? hw.file_name.split('.').pop().toLowerCase() : '';
-          const fileIcon = ['mp4', 'mov', 'avi'].includes(fileExt) ? 'ðŸŽ¥' :
-                          ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt) ? 'ðŸ–¼ï¸' :
-                          ['pdf'].includes(fileExt) ? 'ðŸ“„' :
-                          ['doc', 'docx'].includes(fileExt) ? 'ðŸ“' :
-                          ['ppt', 'pptx'].includes(fileExt) ? 'ðŸ“Š' : 'ðŸ“';
+          const fileIcon = ['mp4', 'mov', 'avi'].includes(fileExt) ? '' :
+                          ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt) ? '' :
+                          ['pdf'].includes(fileExt) ? '' :
+                          ['doc', 'docx'].includes(fileExt) ? '' :
+                          ['ppt', 'pptx'].includes(fileExt) ? '' : '';
 
           const gradeDisplay = hw.feedback_grade
             ? `<span style="background: #38a169; color: white; padding: 3px 10px; border-radius: 4px; font-size: 0.85rem;">${hw.feedback_grade}</span>`
-            : '<span style="color: #f6ad55; font-size: 0.85rem;">â³ Pending Review</span>';
+            : '<span style="color: #f6ad55; font-size: 0.85rem;"> Pending Review</span>';
 
           const feedbackDisplay = hw.feedback_comments
             ? `<p style="color: #4a5568; font-size: 0.9rem; margin-top: 8px; padding: 10px; background: #f0fff4; border-radius: 6px;"><strong>Teacher's Feedback:</strong> ${hw.feedback_comments}</p>`
@@ -6338,9 +6291,9 @@ setTimeout(() => {
                 ${!hw.file_name && !isWorksheet ? `<p style="color:#4a5568; font-size:0.85rem; margin:4px 0 0;">${submittedItemLabel}</p>` : ''}
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                   ${reviewStatusDisplay}
-                  ${isSubmission && hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Teacher Corrections')" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">ðŸ“ View Corrections</button>` : ''}
+                  ${isSubmission && hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Teacher Corrections')" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;"> View Corrections</button>` : ''}
                   ${viewButton}
-                  ${downloadUrl ? `<button onclick="forceDownload('${fileUrl}', '${(hw.file_name || 'download').replace(/'/g, "\\'")}')" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">â¬‡ï¸ Download</button>` : ''}
+                  ${downloadUrl ? `<button onclick="forceDownload('${fileUrl}', '${(hw.file_name || 'download').replace(/'/g, "\\'")}')" style="background: #667eea; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;"> Download</button>` : ''}
                   ${isSubmission ? `<button onclick="deleteHomework(${hw.id})" style="background: #e53e3e; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>` : ''}
                 </div>
               </div>
@@ -6574,7 +6527,7 @@ setTimeout(() => {
         });
 
         if (res.ok) {
-          alert('Thank you for your feedback! ðŸŒŸ');
+          alert('Thank you for your feedback! ');
           closeFeedbackModal();
           loadBadges(); // Reload badges as feedback might award one
           loadScoreHistory();
@@ -6602,19 +6555,19 @@ setTimeout(() => {
       modal.innerHTML = `
         <div style="background:white;border-radius:16px;padding:30px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-            <h2 style="margin:0;color:#c53030;font-size:1.2rem;">ðŸš« Cancel Class</h2>
-            <button onclick="document.getElementById('cancelReasonModal').remove()" style="background:#e53e3e;color:white;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-weight:700;font-size:0.9rem;">âœ•</button>
+            <h2 style="margin:0;color:#c53030;font-size:1.2rem;"> Cancel Class</h2>
+            <button onclick="document.getElementById('cancelReasonModal').remove()" style="background:#e53e3e;color:white;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-weight:700;font-size:0.9rem;"></button>
           </div>
           <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;padding:14px;margin-bottom:18px;">
-            <p style="margin:0;color:#742a2a;font-size:0.9rem;">ðŸ“… <strong>${sessionLabel}</strong></p>
+            <p style="margin:0;color:#742a2a;font-size:0.9rem;"> <strong>${sessionLabel}</strong></p>
           </div>
           <div style="margin-bottom:18px;">
             <label style="display:block;font-weight:600;color:#4a5568;margin-bottom:8px;">Reason for cancellation <span style="color:#718096;font-weight:400;font-size:0.85rem;">(optional)</span></label>
-            <textarea id="cancelReasonText" rows="3" placeholder="e.g. Child is unwell, family emergency, scheduling conflictâ€¦"
+            <textarea id="cancelReasonText" rows="3" placeholder="e.g. Child is unwell, family emergency, scheduling conflict"
               style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.9rem;font-family:inherit;resize:vertical;"></textarea>
           </div>
           <div style="background:#e6fffa;border:1px solid #81e6d9;border-radius:8px;padding:12px;margin-bottom:20px;font-size:0.85rem;color:#234e52;">
-            ðŸŽ A <strong>makeup credit</strong> will be added to your account automatically.
+             A <strong>makeup credit</strong> will be added to your account automatically.
           </div>
           <div style="display:flex;gap:12px;">
             <button onclick="document.getElementById('cancelReasonModal').remove()"
@@ -6636,7 +6589,7 @@ setTimeout(() => {
       }
       const reason = (document.getElementById('cancelReasonText')?.value || '').trim();
       const btn = document.getElementById('confirmCancelBtn');
-      if (btn) { btn.disabled = true; btn.textContent = 'Cancellingâ€¦'; }
+      if (btn) { btn.disabled = true; btn.textContent = 'Cancelling'; }
 
       try {
         const res = await fetch('/api/parent/cancel-class', {
@@ -6651,7 +6604,7 @@ setTimeout(() => {
           // Show success toast
           const toast = document.createElement('div');
           toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#38a169;color:white;padding:14px 28px;border-radius:30px;font-weight:600;font-size:0.95rem;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
-          toast.textContent = 'âœ… Class cancelled! Makeup credit added.';
+          toast.textContent = ' Class cancelled! Makeup credit added.';
           document.body.appendChild(toast);
           setTimeout(() => toast.remove(), 3500);
           loadUpcoming(false);
@@ -6751,7 +6704,7 @@ setTimeout(() => {
         const errorCount = failures.length;
 
         if (successCount > 0) {
-          alert(`âœ… ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+          alert(` ${successCount} file(s) uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
           e.target.reset();
           homeworkFormSelectedFiles = errorCount > 0
             ? files.filter(file => failures.some(message => message.startsWith(`${file.name}:`)))
@@ -6770,7 +6723,7 @@ setTimeout(() => {
         alert(err.message || 'Error uploading homework');
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'ðŸ“¤ Upload Homework';
+        submitBtn.textContent = ' Upload Homework';
       }
     });
 
@@ -6820,7 +6773,7 @@ setTimeout(() => {
         // For other file types, show download prompt
         content = `
           <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 400px;">
-            <p style="font-size: 4rem; margin-bottom: 20px;">ðŸ“</p>
+            <p style="font-size: 4rem; margin-bottom: 20px;"></p>
             <h3 style="color: #2d3748; margin-bottom: 10px;">${fileName}</h3>
             <p style="color: #718096; margin-bottom: 20px;">This file type cannot be previewed in browser.</p>
             <a href="${url}" download="${fileName}" style="background: #9f7aea; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">Download File</a>
@@ -6832,8 +6785,8 @@ setTimeout(() => {
       modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;';
       modal.innerHTML = `
         <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 90%; z-index: 1;">
-          <a href="${url}" download="${fileName}" style="background: #667eea; color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; white-space: nowrap;">â¬‡ï¸ Download</a>
-          <button onclick="document.getElementById('filePreviewModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">âœ• Close</button>
+          <a href="${url}" download="${fileName}" style="background: #667eea; color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; white-space: nowrap;"> Download</a>
+          <button onclick="document.getElementById('filePreviewModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"> Close</button>
         </div>
         <p style="color: white; margin-bottom: 15px; font-size: 1rem; margin-top: 50px; text-align: center; word-break: break-word;">${fileName}</p>
         ${content}
@@ -6903,11 +6856,11 @@ setTimeout(() => {
         const docViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
         modal.innerHTML = `
           <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; z-index: 1002; max-width: 90%;">
-            <span style="background: linear-gradient(135deg, #B05D9E, #8B4789); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">ðŸ”’ View Only</span>
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">âœ• Close</button>
+            <span style="background: linear-gradient(135deg, #B05D9E, #8B4789); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;"> View Only</span>
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"> Close</button>
           </div>
-          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;">ðŸ“Š ${fileName}</p>
-          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">ðŸ“‹ Viewing as: ${parentName} | ${dateStr}</p>
+          <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;"> ${fileName}</p>
+          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;"> Viewing as: ${parentName} | ${dateStr}</p>
           <div style="position: relative; width: 95vw; max-width: 1200px; height: 80vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
             <iframe src="${docViewerUrl}" style="width: 100%; height: 100%; border: none;" sandbox="allow-scripts allow-same-origin" allow=""></iframe>
             <!-- Dense watermark overlay -->
@@ -6916,16 +6869,16 @@ setTimeout(() => {
             </div>
             <!-- Top toolbar blocker with Fluent Feathers Academy branding -->
             <div style="position: absolute; top: 0; left: 0; right: 0; height: 55px; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-              <span style="color: white; font-weight: 700; font-size: 1.1rem; letter-spacing: 1px;">ðŸŽ“ FLUENT FEATHERS ACADEMY - Class Material</span>
+              <span style="color: white; font-weight: 700; font-size: 1.1rem; letter-spacing: 1px;"> FLUENT FEATHERS ACADEMY - Class Material</span>
             </div>
             <!-- Bottom blocker to hide download options -->
             <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 50px; background: linear-gradient(to top, #B05D9E, rgba(176,93,158,0.8)); pointer-events: auto; z-index: 1001; display: flex; align-items: center; justify-content: center;">
-              <span style="color: white; font-size: 0.85rem; opacity: 0.9;">ðŸ”’ Protected Material - For Learning Purposes Only</span>
+              <span style="color: white; font-size: 0.85rem; opacity: 0.9;"> Protected Material - For Learning Purposes Only</span>
             </div>
             <!-- Right side blocker for any side menus -->
             <div style="position: absolute; top: 55px; right: 0; width: 50px; height: calc(100% - 105px); background: linear-gradient(to left, rgba(176,93,158,0.95), transparent); pointer-events: auto; z-index: 1001;"></div>
           </div>
-          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">âš ï¸ This material is for viewing only. Downloading or sharing is not permitted.</p>
+          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;"> This material is for viewing only. Downloading or sharing is not permitted.</p>
         `;
       } else if (viewerUrl && fileType === 'pdf') {
         // PDF - Use object embed for Cloudinary raw URLs, iframe for Google Docs viewer
@@ -6937,11 +6890,11 @@ setTimeout(() => {
 
         modal.innerHTML = `
           <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; max-width: 90%;">
-            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">ðŸ”’ View Only</span>
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">âœ• Close</button>
+            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;"> View Only</span>
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"> Close</button>
           </div>
-          <p style="color: white; margin-bottom: 10px; font-size: 1rem; margin-top: 50px; word-break: break-word;">ðŸ“„ ${fileName}</p>
-          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">ðŸ“‹ Viewing as: ${parentName} | ${dateStr}</p>
+          <p style="color: white; margin-bottom: 10px; font-size: 1rem; margin-top: 50px; word-break: break-word;"> ${fileName}</p>
+          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;"> Viewing as: ${parentName} | ${dateStr}</p>
           <div style="position: relative; width: 95vw; max-width: 1200px; height: 80vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
             ${pdfViewerContent}
             <!-- Dense watermark overlay -->
@@ -6950,12 +6903,12 @@ setTimeout(() => {
             </div>
             <!-- Top toolbar blocker with Fluent Feathers Academy branding -->
             <div style="position: absolute; top: 0; left: 0; right: 0; height: 55px; background: linear-gradient(135deg, #B05D9E 0%, #8B4789 100%); pointer-events: auto; display: flex; align-items: center; justify-content: center; z-index: 1001; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-              <span style="color: white; font-weight: 700; font-size: 1.1rem; letter-spacing: 1px;">ðŸŽ“ FLUENT FEATHERS ACADEMY - Class Material</span>
+              <span style="color: white; font-weight: 700; font-size: 1.1rem; letter-spacing: 1px;"> FLUENT FEATHERS ACADEMY - Class Material</span>
             </div>
             <!-- Bottom blocker -->
             <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 45px; background: linear-gradient(to top, rgba(176,93,158,0.95), transparent); pointer-events: auto; z-index: 1001;"></div>
           </div>
-          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">âš ï¸ This material is for viewing only. Downloading or sharing is not permitted.</p>
+          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;"> This material is for viewing only. Downloading or sharing is not permitted.</p>
         `;
       } else if (fileType === 'image') {
         // Create multiple watermarks for images
@@ -6966,11 +6919,11 @@ setTimeout(() => {
         }
         modal.innerHTML = `
           <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; max-width: 90%;">
-            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">ðŸ”’ View Only</span>
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">âœ• Close</button>
+            <span style="background: linear-gradient(135deg, #f6ad55, #ed8936); color: #744210; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;"> View Only</span>
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"> Close</button>
           </div>
-          <p style="color: white; margin-bottom: 10px; font-size: 1rem; margin-top: 50px; word-break: break-word;">ðŸ“Š ${fileName}</p>
-          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;">ðŸ“‹ Viewing as: ${parentName} | ${dateStr}</p>
+          <p style="color: white; margin-bottom: 10px; font-size: 1rem; margin-top: 50px; word-break: break-word;"> ${fileName}</p>
+          <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;"> Viewing as: ${parentName} | ${dateStr}</p>
           <div style="position: relative; display: inline-block;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
             <img src="${url}" style="max-width: 95vw; max-height: 75vh; border-radius: 8px;" draggable="false" onmousedown="return false;" oncopy="return false;">
             <!-- Multiple watermark overlays for images -->
@@ -6978,15 +6931,15 @@ setTimeout(() => {
               ${imgWatermarks}
             </div>
           </div>
-          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;">âš ï¸ This material is for viewing only. Downloading or sharing is not permitted.</p>
+          <p style="color: #a0aec0; margin-top: 10px; font-size: 0.8rem;"> This material is for viewing only. Downloading or sharing is not permitted.</p>
         `;
       } else {
         modal.innerHTML = `
           <div style="position: absolute; top: 10px; right: 10px;">
-            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">âœ• Close</button>
+            <button onclick="document.getElementById('protectedFileModal').remove()" style="background: #e53e3e; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem;"> Close</button>
           </div>
           <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 400px;">
-            <p style="font-size: 4rem; margin-bottom: 20px;">ðŸ”’</p>
+            <p style="font-size: 4rem; margin-bottom: 20px;"></p>
             <h3 style="color: #2d3748; margin-bottom: 10px;">${fileName}</h3>
             <p style="color: #718096; margin-bottom: 10px;">This file type cannot be previewed in the browser.</p>
             <p style="color: #e53e3e; font-size: 0.9rem;">Downloads are disabled for class materials.</p>
@@ -7050,7 +7003,7 @@ setTimeout(() => {
       selectedRating = 0;
       document.getElementById('feedbackTextArea').value = '';
       // Reset stars
-      document.querySelectorAll('#starRatingContainer .star').forEach(s => s.textContent = 'â˜†');
+      document.querySelectorAll('#starRatingContainer .star').forEach(s => s.textContent = '');
       document.getElementById('feedbackModal').classList.add('active');
     }
 
@@ -7063,7 +7016,7 @@ setTimeout(() => {
       selectedRating = rating;
       document.querySelectorAll('#starRatingContainer .star').forEach(s => {
         const starNum = parseInt(s.getAttribute('data-rating'));
-        s.textContent = starNum <= rating ? 'â­' : 'â˜†';
+        s.textContent = starNum <= rating ? '' : '';
       });
     }
 
@@ -7089,8 +7042,8 @@ setTimeout(() => {
           <div style="background:white; border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:8px;">
             <h3 style="color: #B05D9E; margin-bottom: 10px;">${e.event_name}</h3>
             <p style="margin-bottom: 10px;">${e.event_description || ''}</p>
-            <p><strong>ðŸ“… Date:</strong> ${t.date} | <strong>ðŸ• Time:</strong> ${t.time}</p>
-            ${!e.is_registered ? `<button onclick="registerEvent(${e.id})" class="btn btn-primary" style="margin-top:10px; width: auto; padding: 10px 20px;">Register Now</button>` : '<span style="color:green; font-weight: bold;">âœ“ Registered</span>'}
+            <p><strong> Date:</strong> ${t.date} | <strong> Time:</strong> ${t.time}</p>
+            ${!e.is_registered ? `<button onclick="registerEvent(${e.id})" class="btn btn-primary" style="margin-top:10px; width: auto; padding: 10px 20px;">Register Now</button>` : '<span style="color:green; font-weight: bold;"> Registered</span>'}
           </div>`;
         }).join('');
       } catch(e) {
@@ -7136,7 +7089,7 @@ setTimeout(() => {
         const container = document.getElementById('parentResourcesGrid');
 
         if (resources.length === 0) {
-          container.innerHTML = '<div style="text-align: center; padding: 40px; grid-column: 1/-1; color: #718096;"><div style="font-size: 3rem; margin-bottom: 15px;">ðŸ“š</div><p>No resources available in this category yet.</p><p style="font-size: 0.9rem;">Check back soon for new learning materials!</p></div>';
+          container.innerHTML = '<div style="text-align: center; padding: 40px; grid-column: 1/-1; color: #718096;"><div style="font-size: 3rem; margin-bottom: 15px;"></div><p>No resources available in this category yet.</p><p style="font-size: 0.9rem;">Check back soon for new learning materials!</p></div>';
           return;
         }
 
@@ -7157,7 +7110,7 @@ setTimeout(() => {
           let html = '<div class="resource-card" style="background: ' + cardBg + '; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; border: ' + borderStyle + ';">';
           html += '<div style="padding: 20px; text-align: center;">';
           if (isFeatured) {
-            html += '<div style="background: #e53e3e; color: white; padding: 3px 12px; border-radius: 15px; font-size: 0.7rem; font-weight: bold; display: inline-block; margin-bottom: 10px;">â­ FEATURED</div>';
+            html += '<div style="background: #e53e3e; color: white; padding: 3px 12px; border-radius: 15px; font-size: 0.7rem; font-weight: bold; display: inline-block; margin-bottom: 10px;"> FEATURED</div>';
           }
           html += '<div style="font-size: 3rem; margin-bottom: 10px;">' + typeIcon + '</div>';
           html += '<h3 style="color: ' + textColor + '; margin: 0 0 8px 0; font-size: 1.1rem; line-height: 1.3;">' + escapeHtml(r.title) + '</h3>';
@@ -7171,14 +7124,14 @@ setTimeout(() => {
 
           // Action buttons - View and Download (Resources tab allows all downloads)
           html += '<div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">';
-          html += '<button data-action="view" data-id="' + r.id + '" data-url="' + encodedUrl + '" style="background: #B05D9E; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s;">ðŸ‘ View</button>';
+          html += '<button data-action="view" data-id="' + r.id + '" data-url="' + encodedUrl + '" style="background: #B05D9E; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s;"> View</button>';
 
           if (isDownloadable) {
             // For uploaded files - show download button with proper filename
-            html += '<a href="' + downloadUrl + '" download="' + escapeHtml(r.title || 'download') + '" style="background: #38a169; color: white; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block;">ðŸ“¥ Download</a>';
+            html += '<a href="' + downloadUrl + '" download="' + escapeHtml(r.title || 'download') + '" style="background: #38a169; color: white; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block;"> Download</a>';
           } else {
             // For external links (YouTube, Canva, etc.) - show link indicator
-            html += '<span style="background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.8rem;">ðŸ”— Opens in Browser</span>';
+            html += '<span style="background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.8rem;"> Opens in Browser</span>';
           }
 
           html += '</div>';
@@ -7229,15 +7182,15 @@ setTimeout(() => {
 
     function getParentResourceIcon(category) {
       const icons = {
-        'Videos': 'ðŸŽ¬',
-        'Worksheets': 'ðŸ“',
-        'PDFs': 'ðŸ“„',
-        'Practice': 'âœï¸',
-        'Games': 'ðŸŽ®',
-        'Stories': 'ðŸ“–',
-        'Other': 'ðŸ“¦'
+        'Videos': '',
+        'Worksheets': '',
+        'PDFs': '',
+        'Practice': '',
+        'Games': '',
+        'Stories': '',
+        'Other': ''
       };
-      return icons[category] || 'ðŸ“š';
+      return icons[category] || '';
     }
 
     // Helper to create proper download URL for Cloudinary files
@@ -7294,7 +7247,7 @@ setTimeout(() => {
       const btn = event && event.target ? event.target.closest('button') : null;
       const originalText = btn ? btn.innerHTML : '';
       if (btn) {
-        btn.innerHTML = 'â³';
+        btn.innerHTML = '';
         btn.disabled = true;
       }
 
@@ -7314,7 +7267,7 @@ setTimeout(() => {
         setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 
         if (btn) {
-          btn.innerHTML = 'âœ…';
+          btn.innerHTML = '';
           setTimeout(() => {
             btn.innerHTML = originalText;
             btn.disabled = false;
@@ -7374,7 +7327,7 @@ setTimeout(() => {
         const container = document.getElementById('assessmentsContainer');
 
         if (assessments.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No assessments, awards, or certificates yet. Your teacher will share them here soon. ðŸ“Š</p>';
+          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No assessments, awards, or certificates yet. Your teacher will share them here soon. </p>';
           return;
         }
 
@@ -7390,18 +7343,18 @@ setTimeout(() => {
           });
           allCats = Array.from(allCats);
           const latestRatings = (() => { let r = {}; try { r = typeof ratedAssessments[0].skill_ratings === 'string' ? JSON.parse(ratedAssessments[0].skill_ratings) : ratedAssessments[0].skill_ratings; } catch(e) {} return r; })();
-          const catIcons = { 'Phonics':'ðŸ”¤','Reading':'ðŸ“–','Spoken English':'ðŸ—£ï¸','Grammar':'ðŸ“','Vocabulary':'ðŸ“š','Creative Writing':'âœï¸','Spellings':'ðŸ” ','Handwriting':'âœï¸','Public Speaking':'ðŸŽ¤' };
+          const catIcons = { 'Phonics':'','Reading':'','Spoken English':'','Grammar':'','Vocabulary':'','Creative Writing':'','Spellings':'','Handwriting':'','Public Speaking':'' };
           const bars = allCats.map(cat => {
             const val = latestRatings[cat] || 0;
             const pct = (val / 5) * 100;
             const prev = ratedAssessments.length > 1 ? (() => { let r = {}; try { r = typeof ratedAssessments[1].skill_ratings === 'string' ? JSON.parse(ratedAssessments[1].skill_ratings) : ratedAssessments[1].skill_ratings; } catch(e) {} return r[cat] || 0; })() : 0;
-            const trend = val > prev ? 'â–²' : val < prev ? 'â–¼' : '';
+            const trend = val > prev ? '' : val < prev ? '' : '';
             const trendColor = val > prev ? '#38a169' : val < prev ? '#e53e3e' : '#718096';
             return `
             <div style="margin-bottom:12px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-size:13px;font-weight:600;color:#2d3748;">${catIcons[cat]||'ðŸ“Œ'} ${cat}</span>
-                <span style="font-size:12px;font-weight:700;color:#B05D9E;">${'â˜…'.repeat(val)}${'â˜†'.repeat(5-val)} <span style="color:${trendColor};font-size:10px;">${trend}</span></span>
+                <span style="font-size:13px;font-weight:600;color:#2d3748;">${catIcons[cat]||''} ${cat}</span>
+                <span style="font-size:12px;font-weight:700;color:#B05D9E;">${''.repeat(val)}${''.repeat(5-val)} <span style="color:${trendColor};font-size:10px;">${trend}</span></span>
               </div>
               <div style="background:#e2e8f0;border-radius:20px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#B05D9E,#764ba2);height:100%;border-radius:20px;width:${pct}%;transition:width 0.6s ease;"></div>
@@ -7411,9 +7364,9 @@ setTimeout(() => {
           const latestMonth = ratedAssessments[0].month ? `${monthNames[ratedAssessments[0].month - 1]} ${ratedAssessments[0].year}` : 'Latest Report';
           chartHTML = `
           <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:22px;margin-bottom:18px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-            <h3 style="margin:0 0 16px;color:#2d3748;font-size:16px;">ðŸ“ˆ Skills Progress â€” ${latestMonth}</h3>
+            <h3 style="margin:0 0 16px;color:#2d3748;font-size:16px;"> Skills Progress  ${latestMonth}</h3>
             ${bars}
-            ${ratedAssessments.length > 1 ? `<p style="font-size:11px;color:#a0aec0;margin:8px 0 0;">â–²â–¼ = compared to previous monthly report</p>` : ''}
+            ${ratedAssessments.length > 1 ? `<p style="font-size:11px;color:#a0aec0;margin:8px 0 0;"> = compared to previous monthly report</p>` : ''}
           </div>`;
         }
 
@@ -7438,7 +7391,7 @@ setTimeout(() => {
 
             const isMonthly = a.portal_item_type === 'monthly';
             const isAward = a.portal_item_type === 'award';
-            const itemIcon = isMonthly ? 'ðŸ“Š' : isAward ? 'ðŸ†' : 'ðŸŽ¯';
+            const itemIcon = isMonthly ? '' : isAward ? '' : '';
             const itemTitle = isMonthly
               ? `Monthly Progress Report${a.month && a.year ? ` - ${monthNames[a.month - 1]} ${a.year}` : ''}`
               : isAward ? (a.certificate_title || 'Student Award') : 'Demo Assessment';
@@ -7466,7 +7419,7 @@ setTimeout(() => {
               <div class="assessment-item-body">
                 ${a.certificate_title ? `
                 <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid #f59e0b; border-radius: 15px; padding: 25px; text-align: center; margin-bottom: 15px;">
-                  <div style="font-size: 50px; margin-bottom: 10px;">${isAward ? 'ðŸ†' : isMonthly ? 'ðŸ“œ' : 'ðŸŽ“'}</div>
+                  <div style="font-size: 50px; margin-bottom: 10px;">${isAward ? '' : isMonthly ? '' : ''}</div>
                   <h3 style="color: #92400e; font-size: 22px; margin: 0 0 15px; font-family: 'Georgia', serif;">${a.certificate_title}</h3>
                   <p style="color: #b45309; font-size: 14px; margin: 0 0 8px;">Presented to</p>
                   <h2 style="color: #C41E3A; font-size: 26px; margin: 0 0 15px; font-family: 'Georgia', serif; text-transform: uppercase;">${currentStudent.name}</h2>
@@ -7489,37 +7442,37 @@ setTimeout(() => {
                 </div>
 
                 <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:15px;">
-                  ${certUrl ? `<a href="${certUrl}" target="_blank" style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color: white; text-decoration: none; padding: 10px 18px; border-radius: 20px; font-size: 12px; font-weight: 600; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);">ðŸ‘ View Certificate</a>` : ''}
+                  ${certUrl ? `<a href="${certUrl}" target="_blank" style="background: linear-gradient(135deg, #38b2ac 0%, #319795 100%); color: white; text-decoration: none; padding: 10px 18px; border-radius: 20px; font-size: 12px; font-weight: 600; box-shadow: 0 4px 15px rgba(56, 178, 172, 0.3);"> View Certificate</a>` : ''}
                   <button onclick="downloadAssessmentCertificate(${a.id}, '${currentStudent.name.replace(/'/g, "\\'")}', '${a.certificate_title.replace(/'/g, "\\'")}', '${certificateLabel.replace(/'/g, "\\'")}')"
                           style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
-                    ðŸ“¥ Download Certificate PDF
+                     Download Certificate PDF
                   </button>
                 </div>
                 ` : ''}
 
                 ${skillRatings ? `
                 <div style="margin-bottom:20px;">
-                  <h4 style="color:#2d3748;font-size:16px;margin:0 0 12px;">â­ Skills Assessment</h4>
+                  <h4 style="color:#2d3748;font-size:16px;margin:0 0 12px;"> Skills Assessment</h4>
                   <div style="display:flex;flex-direction:column;gap:8px;">
                     ${Object.entries(skillRatings).map(([cat,val])=>`
                     <div style="display:flex;align-items:center;gap:10px;">
                       <span style="font-size:12px;font-weight:600;color:#4a5568;min-width:120px;">${cat}</span>
-                      <span style="color:#f59e0b;font-size:18px;letter-spacing:2px;">${'â˜…'.repeat(val)}${'â˜†'.repeat(5-val)}</span>
+                      <span style="color:#f59e0b;font-size:18px;letter-spacing:2px;">${''.repeat(val)}${''.repeat(5-val)}</span>
                     </div>`).join('')}
                   </div>
                 </div>
                 ` : skills.length > 0 ? `
                 <div style="margin-bottom: 20px;">
-                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 12px;">ðŸ“ Skills Assessed</h4>
+                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 12px;"> Skills Assessed</h4>
                   <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                    ${skills.map(skill => `<span style="background: #f7fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #B05D9E; font-size: 12px; color: #4a5568; font-weight: 600;">âœ“ ${skill}</span>`).join('')}
+                    ${skills.map(skill => `<span style="background: #f7fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #B05D9E; font-size: 12px; color: #4a5568; font-weight: 600;"> ${skill}</span>`).join('')}
                   </div>
                 </div>
                 ` : ''}
 
                 ${a.performance_summary ? `
                 <div style="margin-bottom: 20px;">
-                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px;">ðŸ’¬ Teacher's Feedback</h4>
+                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px;"> Teacher's Feedback</h4>
                   <div style="background: #e6fffa; padding: 15px; border-radius: 8px; border-left: 3px solid #38b2ac;">
                     <p style="margin: 0; color: #2d3748; font-size: 14px; line-height: 1.6;">${a.performance_summary}</p>
                   </div>
@@ -7528,7 +7481,7 @@ setTimeout(() => {
 
                 ${a.areas_of_improvement ? `
                 <div style="margin-bottom: 20px;">
-                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px;">ðŸ“Œ Areas to Focus On</h4>
+                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px;"> Areas to Focus On</h4>
                   <div style="background: #fff5f5; padding: 15px; border-radius: 8px; border-left: 3px solid #fc8181;">
                     <p style="margin: 0; color: #2d3748; font-size: 14px; line-height: 1.6;">${a.areas_of_improvement}</p>
                   </div>
@@ -7537,7 +7490,7 @@ setTimeout(() => {
 
                 ${a.teacher_comments ? `
                 <div style="margin-bottom: 20px;">
-                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px;">ðŸ—£ï¸ Teacher's Comments</h4>
+                  <h4 style="color: #2d3748; font-size: 16px; margin: 0 0 10px;"> Teacher's Comments</h4>
                   <div style="background: #fef5e7; padding: 15px; border-radius: 8px; border-left: 3px solid #f6ad55;">
                     <p style="margin: 0; color: #2d3748; font-size: 14px; line-height: 1.6; font-style: italic;">"${a.teacher_comments}"</p>
                   </div>
@@ -7545,7 +7498,7 @@ setTimeout(() => {
                 ` : ''}
 
                 <div style="text-align: center; padding: 15px; background: #f7fafc; border-radius: 8px; margin-top: 20px;">
-                  <p style="margin: 0; color: #B05D9E; font-size: 13px; font-weight: 600;">ðŸ“… Issued: ${issuedLabel}</p>
+                  <p style="margin: 0; color: #B05D9E; font-size: 13px; font-weight: 600;"> Issued: ${issuedLabel}</p>
                 </div>
               </div>
             </details>`;
@@ -7554,7 +7507,7 @@ setTimeout(() => {
           return `
           <details class="assessment-group" ${groupIndex === 0 ? 'open' : ''}>
             <summary>
-              <div class="assessment-group-title">ðŸ“ ${groupTitle}</div>
+              <div class="assessment-group-title"> ${groupTitle}</div>
               <div class="assessment-group-meta">${group.items.length} item${group.items.length > 1 ? 's' : ''}</div>
             </summary>
             <div>${itemsHTML}</div>
@@ -7577,7 +7530,7 @@ setTimeout(() => {
       // Show loading
       const btn = event.target;
       const originalText = btn.innerHTML;
-      btn.innerHTML = 'â³ Generating PDF...';
+      btn.innerHTML = ' Generating PDF...';
       btn.disabled = true;
 
       try {
@@ -7611,7 +7564,7 @@ setTimeout(() => {
         const fileName = `Certificate_${studentName.replace(/\s+/g, '_')}_${String(dateLabel || 'Certificate').replace(/[^a-zA-Z0-9]+/g, '_')}.pdf`;
         pdf.save(fileName);
 
-        btn.innerHTML = 'âœ… Downloaded!';
+        btn.innerHTML = ' Downloaded!';
         setTimeout(() => {
           btn.innerHTML = originalText;
           btn.disabled = false;
@@ -7658,15 +7611,15 @@ setTimeout(() => {
         container.innerHTML = displayAnnouncements.map(a => {
           const priorityColor = a.priority === 'Urgent' ? '#e53e3e' : a.priority === 'High' ? '#f6ad55' : '#B05D9E';
           const typeIcons = {
-            'Holiday': 'ðŸŽ‰',
-            'Reminder': 'â°',
-            'Update': 'ðŸ“¢',
-            'Challenge Update': 'ðŸ†',
-            'Competition Update': 'ðŸŽ¯',
-            'Results': 'ðŸ¥‡',
-            'General': 'ðŸ“°'
+            'Holiday': '',
+            'Reminder': '',
+            'Update': '',
+            'Challenge Update': '',
+            'Competition Update': '',
+            'Results': '',
+            'General': ''
           };
-          const typeIcon = typeIcons[a.announcement_type] || 'ðŸ“°';
+          const typeIcon = typeIcons[a.announcement_type] || '';
           const formattedDate = new Date(a.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
           // Image HTML if exists
@@ -7685,7 +7638,7 @@ setTimeout(() => {
                   <span style="background: #e2e8f0; color: #4a5568; padding: 4px 10px; border-radius: 10px; font-size: 11px;">${a.announcement_type}</span>
                   <span style="background: ${priorityColor}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">${a.priority}</span>
                 </div>
-                <p style="margin:0; color:#4a5568; font-size:13px;">ðŸ“… ${formattedDate}</p>
+                <p style="margin:0; color:#4a5568; font-size:13px;"> ${formattedDate}</p>
               </div>
               <span style="font-size: 24px; line-height: 1; color: ${priorityColor};">+</span>
             </button>
@@ -7734,7 +7687,7 @@ setTimeout(() => {
       if (!open) {
         body.style.display = 'block';
         const icon = button.querySelector('span');
-        if (icon) icon.textContent = 'âˆ’';
+        if (icon) icon.textContent = '';
       }
     }
 
@@ -7784,7 +7737,7 @@ setTimeout(() => {
         const result = await res.json();
 
         if (res.ok) {
-          alert('âœ… Profile updated successfully!');
+          alert(' Profile updated successfully!');
           // Update local data
           currentStudent.parent_name = updates.parent_name;
           currentStudent.parent_email = updates.parent_email;
@@ -7792,13 +7745,13 @@ setTimeout(() => {
           currentStudent.alternate_contact = updates.alternate_contact;
           currentStudent.date_of_birth = updates.date_of_birth;
         } else {
-          alert('âŒ Failed: ' + (result.error || 'Unknown error'));
+          alert(' Failed: ' + (result.error || 'Unknown error'));
         }
 
         btn.disabled = false;
-        btn.textContent = 'ðŸ’¾ Save Changes';
+        btn.textContent = ' Save Changes';
       } catch (err) {
-        alert('âŒ Error: ' + err.message);
+        alert(' Error: ' + err.message);
       }
     });
 
@@ -8207,7 +8160,7 @@ setTimeout(() => {
       } else {
         // Fallback: copy to clipboard
         navigator.clipboard.writeText(`I just completed today's English quiz! ${resultText}`).then(() => {
-          alert('âœ… Result copied to clipboard!');
+          alert(' Result copied to clipboard!');
         });
       }
     }
@@ -8231,6 +8184,7 @@ setTimeout(() => {
     let spellingAnswerLog = [];
 
     async function initVocabularyLab() {
+      currentStudentId = currentStudent?.id;
       if (!currentStudentId) return;
       selectedVocabularyMeaning = '';
       const feedback = document.getElementById('vocabularyFeedback');
@@ -8246,7 +8200,7 @@ setTimeout(() => {
           return;
         }
         currentVocabularyWord = data.word;
-        document.getElementById('vocabularyWordBadge').textContent = `${currentVocabularyWord.category || 'Daily Word'} • ${currentVocabularyWord.difficulty || 'Practice'}`;
+        document.getElementById('vocabularyWordBadge').textContent = `${currentVocabularyWord.category || 'Daily Word'}  ${currentVocabularyWord.difficulty || 'Practice'}`;
         document.getElementById('vocabularyWordText').textContent = currentVocabularyWord.word || 'Daily Word';
         document.getElementById('vocabularyMeaningText').textContent = currentVocabularyWord.meaning || '';
         document.getElementById('vocabularyExampleText').textContent = currentVocabularyWord.example_sentence ? `Example: ${currentVocabularyWord.example_sentence}` : '';
@@ -8320,6 +8274,7 @@ setTimeout(() => {
     }
 
     async function startSpellingBee() {
+      currentStudentId = currentStudent?.id;
       if (!currentStudentId) return;
       try {
         const res = await fetch(`/api/spelling/bee?student_id=${currentStudentId}`, {
@@ -8443,10 +8398,12 @@ setTimeout(() => {
 
   <!-- Footer -->
   <footer style="background: white; padding: 20px; text-align: center; margin-top: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-    <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with â¤ï¸ By Aaliya</p>
+    <p style="margin: 0; color: #B05D9E; font-size: 14px; font-weight: 600;">Made with  By Aaliya</p>
   </footer>
 </body>
 </html>
+
+
 
 
 

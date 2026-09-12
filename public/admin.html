@@ -546,26 +546,6 @@
         </div>
         <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
-            <h3 style="margin:0; color:#2d3748;">🔤 Phonics Questions</h3>
-            <button onclick="loadPhonicsQuestionsAdmin()" class="btn btn-primary">Refresh Questions</button>
-          </div>
-          <form id="phonicsQuestionForm" onsubmit="savePhonicsQuestionAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
-            <input type="hidden" id="phonicsQuestionId">
-            <div class="form-group" style="margin:0;"><label>Sound</label><input id="phonicsSound" type="text" placeholder="SH" required></div>
-            <div class="form-group" style="margin:0;"><label>Display Label</label><input id="phonicsDisplayLabel" type="text" placeholder="SH" required></div>
-            <div class="form-group" style="margin:0;"><label>Correct Answer</label><input id="phonicsCorrectAnswer" type="text" placeholder="SH" required></div>
-            <div class="form-group" style="margin:0;"><label>Incorrect Options</label><input id="phonicsIncorrectOptions" type="text" placeholder="CH, TH, WH" required></div>
-            <div class="form-group" style="margin:0;"><label>Audio URL</label><input id="phonicsAudioUrl" type="url" placeholder="https://.../sh.mp3"></div>
-            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="phonicsAgeGroup"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="phonicsDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-            <div class="form-group" style="margin:0;"><label>Category</label><input id="phonicsCategory" type="text" placeholder="consonant digraphs" required></div>
-            <button class="btn btn-success" type="submit">Save Question</button>
-            <button class="btn" type="button" onclick="resetPhonicsQuestionForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
-          </form>
-          <div id="phonicsQuestionsAdminList" style="display:grid; gap:10px;"></div>
-        </div>
-        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
             <h3 style="margin:0; color:#2d3748;">📚 Vocabulary Words</h3>
             <button onclick="loadVocabularyWordsAdmin()" class="btn btn-primary">Refresh Words</button>
           </div>
@@ -4877,7 +4857,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
-      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadSpeakingTopicsAdmin(); loadPhonicsQuestionsAdmin(); loadVocabularyWordsAdmin(); loadSpellingWordsAdmin(); }
+      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadSpeakingTopicsAdmin(); loadVocabularyWordsAdmin(); loadSpellingWordsAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
@@ -4885,7 +4865,6 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     const LEARNING_LAB_ADMIN_MODULES = [
-      { id: 'phonics', name: 'Phonics Lab', icon: '🔤', status: 'active' },
       { id: 'vocabulary', name: 'Vocabulary Games', icon: '📚', status: 'active' },
       { id: 'spelling', name: 'Spelling Bee', icon: '🔠', status: 'active' },
       { id: 'speaking', name: 'Speaking Practice', icon: '🎤', status: 'active' },
@@ -17376,6 +17355,7 @@ function initializeQuizTab() {
   </div>
 </body>
 </html>
+
 
 
 

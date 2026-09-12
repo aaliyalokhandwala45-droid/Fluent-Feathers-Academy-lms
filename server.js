@@ -25630,20 +25630,33 @@ function estimateWritingOriginalityRisk(storyText) {
   const words = text.toLowerCase().match(/[a-z']+/g) || [];
   const unique = new Set(words);
   const uniqueRatio = words.length ? unique.size / words.length : 1;
+  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+  const avgSentenceLength = sentences.length ? words.length / sentences.length : 0;
+  const longSentenceCount = sentences.filter(s => s.split(/\s+/).length > 28).length;
   const polishedSignals = [
     /in conclusion/i,
     /as an ai/i,
     /it is important to note/i,
     /moreover/i,
     /furthermore/i,
-    /testament to/i
+    /testament to/i,
+    /delve/i,
+    /captivating/i,
+    /vivid tapestry/i,
+    /embarked on a journey/i,
+    /a sense of wonder/i,
+    /little did .* know/i,
+    /from that day forward/i,
+    /heartwarming/i,
+    /unwavering/i,
+    /remarkable/i
   ].filter(rx => rx.test(text)).length;
-  const longSentenceCount = text.split(/[.!?]+/).filter(s => s.trim().split(/\s+/).length > 35).length;
-  if (polishedSignals >= 2 || (words.length > 180 && uniqueRatio < 0.38 && longSentenceCount >= 2)) return 'high';
-  if (polishedSignals >= 1 || (words.length > 120 && uniqueRatio < 0.45)) return 'medium';
+  const paragraphCount = text.split(/\n\s*\n/).filter(Boolean).length;
+  const tooPolishedForChild = words.length >= 140 && avgSentenceLength >= 18 && uniqueRatio >= 0.48 && longSentenceCount >= 2;
+  if (polishedSignals >= 2 || tooPolishedForChild || (words.length > 220 && paragraphCount >= 3 && avgSentenceLength >= 16)) return 'high';
+  if (polishedSignals >= 1 || (words.length > 120 && (uniqueRatio < 0.42 || avgSentenceLength >= 17 || longSentenceCount >= 1))) return 'medium';
   return 'low';
 }
-
 function getDefaultWritingFeedback(storyText) {
   const wordCount = (String(storyText || '').match(/\b\w+\b/g) || []).length;
   const risk = estimateWritingOriginalityRisk(storyText);
@@ -25706,13 +25719,20 @@ Respond only as JSON:
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
   const score = Number(parsed.score);
+    const heuristicRisk = estimateWritingOriginalityRisk(storyText);
+  const parsedRisk = ['low', 'medium', 'high'].includes(String(parsed.originality_risk || '').toLowerCase())
+    ? String(parsed.originality_risk).toLowerCase()
+    : heuristicRisk;
+  const riskRank = { low: 0, medium: 1, high: 2 };
+  const finalRisk = riskRank[heuristicRisk] > riskRank[parsedRisk] ? heuristicRisk : parsedRisk;
   feedback = {
     ...feedback,
     ...parsed,
     score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : feedback.score,
-    originality_risk: ['low', 'medium', 'high'].includes(String(parsed.originality_risk || '').toLowerCase())
-      ? String(parsed.originality_risk).toLowerCase()
-      : feedback.originality_risk
+    originality_risk: finalRisk,
+    originality_notes: finalRisk === 'high'
+      ? 'Possible AI-generated or plagiarised content. Ask the child to explain the story and rewrite parts in their own voice.'
+      : (parsed.originality_notes || feedback.originality_notes)
   };
   return feedback;
 }
@@ -27335,6 +27355,7 @@ app.listen(PORT, () => {
     backfillQuizChampionBadges();
   }, 2000); // Wait 2 seconds after startup
 });
+
 
 
 
