@@ -22158,6 +22158,24 @@ app.get('/api/today-special-day', async (req, res) => {
 });
 
 // Admin: Get quiz attempts by date
+// Admin: Get Learning Lab activity records by date
+app.get('/api/admin/learning-lab-attempts', async (req, res) => {
+  try {
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format' });
+    const [writing, speaking, spelling] = await Promise.all([
+      pool.query(`SELECT ws.id, 'writing' AS activity, ws.student_id, COALESCE(s.name, 'Unknown student') AS student_name, ws.submission_date AS activity_date, ws.created_at, ws.completion_status, ws.story_title, ws.story_text, wp.genre, wp.prompt_text, ws.score, ws.grammar_feedback, ws.sentence_feedback, ws.punctuation_feedback, ws.vocabulary_feedback, ws.structure_feedback, ws.strengths_summary, ws.improvement_suggestion, ws.originality_risk, ws.originality_notes FROM writing_submissions ws LEFT JOIN students s ON s.id = ws.student_id LEFT JOIN writing_prompts wp ON wp.id = ws.prompt_id WHERE ws.submission_date = $1 ORDER BY ws.created_at DESC`, [date]),
+      pool.query(`SELECT sa.id, 'speaking' AS activity, sa.student_id, COALESCE(s.name, 'Unknown student') AS student_name, sa.attempt_date AS activity_date, sa.created_at, sa.completion_status, sa.difficulty, sa.duration_seconds, sa.confidence_rating, sa.reflection_data, sa.ai_feedback, st.topic_text, st.category, sf.voice_pace, sf.voice_volume, sf.voice_modulation, sf.filler_words_detected, sf.facial_expressiveness, sf.camera_engagement, sf.hand_gestures_detected, sf.gesture_variety, sf.presentation_confidence, sf.vocabulary_variety, sf.sentence_construction, sf.grammar_patterns, sf.clarity_of_expression, sf.language_feedback, sf.strengths_summary, sf.improvement_suggestion FROM speaking_attempts sa LEFT JOIN students s ON s.id = sa.student_id LEFT JOIN speaking_topics st ON st.id = sa.topic_id LEFT JOIN speaking_feedback sf ON sf.attempt_id = sa.id WHERE sa.attempt_date = $1 ORDER BY sa.created_at DESC`, [date]),
+      pool.query(`SELECT spa.id, 'spelling' AS activity, spa.student_id, COALESCE(s.name, 'Unknown student') AS student_name, COALESCE(spa.attempt_date, spa.created_at::date) AS activity_date, spa.created_at, spa.game_type, spa.total_words, spa.correct_words, spa.incorrect_words, spa.answers_data FROM spelling_attempts spa LEFT JOIN students s ON s.id = spa.student_id WHERE COALESCE(spa.attempt_date, spa.created_at::date) = $1 ORDER BY spa.created_at DESC`, [date])
+    ]);
+    const rows = [...writing.rows.map(row => ({ ...row, activity_label: 'Writing Studio' })), ...speaking.rows.map(row => ({ ...row, activity_label: 'Speaking Practice' })), ...spelling.rows.map(row => ({ ...row, activity_label: 'Spelling Bee' }))].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(rows);
+  } catch (err) {
+    console.error('Error loading Learning Lab attempts:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/admin/quiz-attempts', async (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
