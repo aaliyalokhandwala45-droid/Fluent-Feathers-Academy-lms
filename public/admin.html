@@ -510,7 +510,7 @@
     <div id="learningLabTab" class="tab-content">
       <div class="section">
         <h2 style="margin: 0 0 10px; color: #B05D9E;">🧠 Learning Lab</h2>
-        <p style="color: #718096; margin: 0 0 20px;">Track the available learning activities and their rollout status for the parent portal.</p>
+        <p style="color: #718096; margin: 0 0 20px;">Manage Learning Lab access and the active activities shown on the parent portal.</p>
                 <div id="learningHubLaunchControls" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:16px;">
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
             <div style="font-weight:800;color:#2d3748;margin-bottom:6px;">Parent Portal Visibility</div>
@@ -534,9 +534,9 @@
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
             <div>
               <h3 style="margin:0; color:#2d3748;">Learning Lab Subscriptions</h3>
-              <p style="margin:4px 0 0; color:#718096; font-size:0.9rem;">Activate $5/month access for one student. Access automatically stops after the expiry date.</p>
+              <p style="margin:4px 0 0; color:#718096; font-size:0.9rem;">Manually allow Learning Lab access for students who are not currently taking paid classes. Access automatically stops after the expiry date.</p>
             </div>
-            <button type="button" onclick="loadLearningLabSubscriptions(true)" class="btn btn-primary">Refresh Subscriptions</button>
+            <button type="button" onclick="loadLearningLabSubscriptions(true)" class="btn btn-primary">Refresh Access</button>
           </div>
           <div style="display:grid;grid-template-columns:2fr 120px auto;gap:10px;align-items:end;margin-bottom:14px;">
             <div class="form-group" style="margin:0;"><label>Select Student</label><select id="learningLabSubscriptionStudent"><option value="">Select student...</option></select></div>
@@ -562,27 +562,6 @@
         </div>
         <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
-            <h3 style="margin:0; color:#2d3748;">📚 Vocabulary Words</h3>
-            <button onclick="loadVocabularyWordsAdmin()" class="btn btn-primary">Refresh Words</button>
-          </div>
-          <form id="vocabularyWordForm" onsubmit="saveVocabularyWordAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
-            <input type="hidden" id="vocabularyWordId">
-            <div class="form-group" style="margin:0;"><label>Word</label><input id="vocabularyWord" type="text" placeholder="curious" required></div>
-            <div class="form-group" style="margin:0; grid-column:span 2;"><label>Meaning</label><input id="vocabularyMeaning" type="text" placeholder="wanting to know or learn something" required></div>
-            <div class="form-group" style="margin:0; grid-column:span 2;"><label>Example Sentence</label><input id="vocabularyExample" type="text" placeholder="The curious child opened the old map." required></div>
-            <div class="form-group" style="margin:0;"><label>Synonyms</label><input id="vocabularySynonyms" type="text" placeholder="interested, eager"></div>
-            <div class="form-group" style="margin:0;"><label>Antonyms</label><input id="vocabularyAntonyms" type="text" placeholder="bored"></div>
-            <div class="form-group" style="margin:0;"><label>Word Family</label><input id="vocabularyFamily" type="text" placeholder="curiosity, curiously"></div>
-            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="vocabularyAgeGroup"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="vocabularyDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-            <div class="form-group" style="margin:0;"><label>Category</label><input id="vocabularyCategory" type="text" placeholder="character traits" required></div>
-            <button class="btn btn-success" type="submit">Save Word</button>
-            <button class="btn" type="button" onclick="resetVocabularyWordForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
-          </form>
-          <div id="vocabularyWordsAdminList" style="display:grid; gap:10px;"></div>
-        </div>
-        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
             <h3 style="margin:0; color:#2d3748;">🔠 Spelling Bee Words</h3>
             <button onclick="loadSpellingWordsAdmin()" class="btn btn-primary">Refresh Words</button>
           </div>
@@ -599,26 +578,6 @@
             <button class="btn" type="button" onclick="resetSpellingWordForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
           </form>
           <div id="spellingWordsAdminList" style="display:grid; gap:10px;"></div>
-        </div>
-
-        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
-            <h3 style="margin:0; color:#2d3748;">📖 Reading Stories</h3>
-            <button onclick="loadReadingStoriesAdmin()" class="btn btn-primary">Refresh Stories</button>
-          </div>
-          <form id="readingStoryForm" onsubmit="saveReadingStoryAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; align-items:end; margin-bottom:16px;">
-            <input type="hidden" id="readingStoryId">
-            <div class="form-group" style="margin:0;"><label>Title</label><input id="readingTitle" type="text" required placeholder="The Rainy Day Plan"></div>
-            <div class="form-group" style="margin:0;"><label>Age Group</label><select id="readingAgeGroup"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-            <div class="form-group" style="margin:0;"><label>Difficulty</label><select id="readingDifficulty"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-            <div class="form-group" style="margin:0;"><label>Category</label><input id="readingCategory" type="text" required placeholder="comprehension"></div>
-            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Story Text</label><textarea id="readingStoryTextInput" rows="5" required placeholder="Paste the short story here..."></textarea></div>
-            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Moral / Teaching Point</label><input id="readingMoral" type="text" placeholder="Optional"></div>
-            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Comprehension Questions</label><div id="readingQuestionsBuilder" style="display:grid; gap:10px;"></div><button class="btn btn-sm" type="button" onclick="addReadingQuestionAdmin()" style="margin-top:10px; background:#4a5568; color:white;">Add Question</button><textarea id="readingQuestionsJson" style="display:none;"></textarea><small>Add inference, grammar, vocabulary, reference to context, and contextual clues questions.</small></div>
-            <button class="btn btn-success" type="submit">Save Story</button>
-            <button class="btn" type="button" onclick="resetReadingStoryForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
-          </form>
-          <div id="readingStoriesAdminList" style="display:grid; gap:10px;"></div>
         </div>
       </div>
     </div>
@@ -4891,7 +4850,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
-      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadVocabularyWordsAdmin(); loadSpellingWordsAdmin(); loadReadingStoriesAdmin(); }
+      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadSpellingWordsAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
@@ -4899,11 +4858,10 @@ I'm passionate about helping children develop confidence in communication!"></te
     }
 
     const LEARNING_LAB_ADMIN_MODULES = [
-      { id: 'vocabulary', name: 'Vocabulary Games', icon: '📚', status: 'active' },
-      { id: 'spelling', name: 'Spelling Bee', icon: '🔠', status: 'active' },
-      { id: 'speaking', name: 'Speaking Practice', icon: '🎤', status: 'active' },
-      { id: 'writing', name: 'Writing Studio', icon: '✍️', status: 'active' },
-      { id: 'reading', name: 'Reading Zone', icon: '📖', status: 'active' }
+      { id: 'quiz', name: 'Daily Quiz', icon: '&#129504;', status: 'active' },
+      { id: 'spelling', name: 'Spelling Bee', icon: '&#128288;', status: 'active' },
+      { id: 'speaking', name: 'Speaking Practice', icon: '&#127908;', status: 'active' },
+      { id: 'writing', name: 'Writing Studio', icon: '&#9997;', status: 'active' }
     ];
 
     function renderLearningLabAdminOverview() {
@@ -17094,14 +17052,14 @@ function initializeQuizTab() {
     async function loadVocabularyWordsAdmin() {
       const container = document.getElementById('vocabularyWordsAdminList');
       if (!container) return;
-      container.innerHTML = '<p style="color:#718096; margin:0;">Loading vocabulary words...</p>';
+      container.innerHTML = '<p style="color:#718096; margin:0;">Loading archived vocabulary records...</p>';
       try {
         const res = await fetch('/api/admin/vocabulary-words');
-        if (!res.ok) throw new Error('Failed to load vocabulary words');
+        if (!res.ok) throw new Error('Failed to load archived vocabulary records');
         const words = await res.json();
         window.__vocabularyAdminWords = words;
         if (!words.length) {
-          container.innerHTML = '<p style="color:#718096; margin:0;">No vocabulary words yet.</p>';
+          container.innerHTML = '<p style="color:#718096; margin:0;">No archived vocabulary records.</p>';
           return;
         }
         container.innerHTML = words.map(word => `
@@ -17363,7 +17321,7 @@ function initializeQuizTab() {
           throw new Error(rows.error || 'Could not load subscriptions');
         }
         populateLearningLabSubscriptionStudents(rows);
-        if (status) status.textContent = 'Subscription access is $5/month. Paid access expires automatically after the expiry date.';
+        if (status) status.textContent = 'Paid class students get Learning Lab included automatically. Manual $5/month Learning Lab access expires automatically after the expiry date.';
         container.innerHTML = rows.map(row => {
           const active = row.is_active === true || row.is_active === 'true';
           const expires = row.expires_at ? new Date(row.expires_at).toLocaleDateString() : 'No expiry';
@@ -17500,13 +17458,13 @@ function initializeQuizTab() {
       const container = document.getElementById('readingStoriesAdminList');
       if (!container) return;
       resetReadingStoryForm();
-      container.innerHTML = '<p style="color:#718096; margin:0;">Loading reading stories...</p>';
+      container.innerHTML = '<p style="color:#718096; margin:0;">Loading archived reading records...</p>';
       try {
         const res = await fetch('/api/admin/reading-stories');
-        if (!res.ok) throw new Error('Failed to load reading stories');
+        if (!res.ok) throw new Error('Failed to load archived reading records');
         const stories = await res.json();
         window.__readingAdminStories = stories;
-        if (!stories.length) { container.innerHTML = '<p style="color:#718096; margin:0;">No reading stories yet.</p>'; return; }
+        if (!stories.length) { container.innerHTML = '<p style="color:#718096; margin:0;">No archived reading records.</p>'; return; }
         container.innerHTML = stories.map(story => `
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
             <div style="min-width:220px;flex:1;">

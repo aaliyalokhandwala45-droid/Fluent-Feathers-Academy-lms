@@ -25864,6 +25864,19 @@ async function getLearningHubAccess(studentId) {
     [studentId]
   );
   const subscription = subscriptionResult.rows[0] || null;
+  const studentResult = await executeQuery(
+    `SELECT id, is_active, fees_paid, remaining_sessions FROM students WHERE id = $1`,
+    [studentId]
+  );
+  const student = studentResult.rows[0] || {};
+  let paidRemainingSessions = Number(student.remaining_sessions || 0);
+  try {
+    const balance = await getStudentSessionBalance(studentId);
+    paidRemainingSessions = Number(balance?.paid_remaining_sessions ?? paidRemainingSessions);
+  } catch (err) {
+    console.warn('Learning Lab balance check failed:', err.message);
+  }
+  const hasActiveClassAccess = student.is_active !== false && Number(student.fees_paid || 0) > 0 && paidRemainingSessions > 0;
 
   const usageResult = await executeQuery(
     `SELECT
@@ -25873,44 +25886,41 @@ async function getLearningHubAccess(studentId) {
         WHERE student_id = $1 AND completion_status IN ('recorded', 'analyzed', 'completed')) AS speaking_used,
        (SELECT COUNT(*)::int FROM writing_submissions
         WHERE student_id = $1) AS writing_used,
-       (SELECT COUNT(*)::int FROM vocabulary_attempts
-        WHERE student_id = $1 AND completion_status = 'completed') AS vocabulary_used,
        (SELECT COUNT(*)::int FROM spelling_attempts
-        WHERE student_id = $1 AND completion_status = 'completed') AS spelling_used,
-       (SELECT COUNT(*)::int FROM reading_attempts
-        WHERE student_id = $1 AND completion_status = 'completed') AS reading_used`,
+        WHERE student_id = $1 AND completion_status = 'completed') AS spelling_used`,
     [studentId]
   );
   const usage = usageResult.rows[0] || {};
   const quizUsed = Number(usage.quiz_used || 0);
   const speakingUsed = Number(usage.speaking_used || 0);
   const writingUsed = Number(usage.writing_used || 0);
-  const vocabularyUsed = Number(usage.vocabulary_used || 0);
   const spellingUsed = Number(usage.spelling_used || 0);
-  const readingUsed = Number(usage.reading_used || 0);
   const hubSettings = await getLearningHubSettings();
   const feesEnabled = hubSettings.fees_enabled;
-  const paid = !!subscription;
+  const paid = hasActiveClassAccess || !!subscription;
+  const locked = feesEnabled && !paid;
+  const task = (used) => ({ used, free_limit: 0, remaining_free: paid || !feesEnabled ? null : 0, locked });
 
   return {
     paid,
+    class_access: hasActiveClassAccess,
+    subscription_access: !!subscription,
+    access_source: hasActiveClassAccess ? 'paid_classes' : (subscription ? 'learning_lab_subscription' : 'none'),
+    paid_remaining_sessions: paidRemainingSessions,
     fees_enabled: feesEnabled,
     monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
     subscription,
     tasks: {
-      quiz: { used: quizUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - quizUsed), locked: feesEnabled && !paid && quizUsed >= 1 },
-      vocabulary: { used: vocabularyUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - vocabularyUsed), locked: feesEnabled && !paid && vocabularyUsed >= 1 },
-      spelling: { used: spellingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - spellingUsed), locked: feesEnabled && !paid && spellingUsed >= 1 },
-      reading: { used: readingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - readingUsed), locked: feesEnabled && !paid && readingUsed >= 1 },
-      speaking: { used: speakingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - speakingUsed), locked: feesEnabled && !paid && speakingUsed >= 1 },
-      writing: { used: writingUsed, free_limit: 1, remaining_free: (paid || !feesEnabled) ? null : Math.max(0, 1 - writingUsed), locked: feesEnabled && !paid && writingUsed >= 1 }
+      quiz: task(quizUsed),
+      spelling: task(spellingUsed),
+      speaking: task(speakingUsed),
+      writing: task(writingUsed)
     }
   };
 }
-
 function learningHubPaywallPayload(task, access) {
   return {
-    error: `Your free ${task} trial is complete. Learning Hub costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month to continue.`,
+    error: `Learning Lab access is required for ${task}. Learning Lab costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month for students who are not currently taking paid classes.`,
     code: 'LEARNING_HUB_PAYMENT_REQUIRED',
     paywall_required: true,
     monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,

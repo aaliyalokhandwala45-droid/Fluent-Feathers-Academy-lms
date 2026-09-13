@@ -1297,47 +1297,10 @@
         <div class="section">
           <div class="learning-lab-hero">
             <h2>&#129504; Learning Lab</h2>
-            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Lab includes Daily Quiz, Vocabulary, Spelling Bee, Speaking Practice, and Writing Studio. Pay $5/month for the full Learning Lab subscription after the free trial. Contact your teacher to activate Learning Lab access.</p>
+            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Lab includes Daily Quiz, Spelling Bee, Speaking Practice, and Writing Studio. Students with active paid classes get Learning Lab access included. Students not taking classes can contact the teacher for the $5/month Learning Lab subscription.</p>
           </div>
           <div id="learningHubAccessNotice" style="display:none; background:#fffbeb; border:1px solid #fbbf24; color:#92400e; border-radius:12px; padding:12px 14px; margin:0 0 16px; font-weight:700;"></div>
           <div id="learningLabCards" class="learning-lab-grid"></div>
-
-
-          <div id="readingZonePanel" style="display:none; margin-top:24px;">
-            <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <h2 style="margin:0 0 8px;color:#166534;">&#128214; Reading Zone</h2>
-              <p style="margin:0;color:#166534;line-height:1.5;">Read today short story and answer comprehension questions.</p>
-            </div>
-            <div id="readingStoryCard" style="background:white;border:2px solid #e5e7eb;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <div id="readingStoryBadge" style="display:inline-block;background:#dcfce7;color:#166534;padding:6px 10px;border-radius:999px;font-weight:800;margin-bottom:10px;">Daily Story</div>
-              <h3 id="readingStoryTitle" style="font-size:1.5rem;margin:0 0 10px;color:#1f2937;">Loading...</h3>
-              <div id="readingStoryText" style="color:#374151;line-height:1.75;margin-bottom:16px;white-space:pre-line;"></div>
-              <div id="readingQuestions" style="display:grid;gap:14px;"></div>
-              <button id="readingSubmitBtn" class="btn btn-primary" onclick="submitReadingAttempt()" style="margin-top:14px;">Submit Answers</button>
-              <div id="readingFeedback" style="display:none;margin-top:14px;border-radius:12px;padding:14px;font-weight:800;"></div>
-            </div>
-          </div>
-          <div id="vocabularyLabPanel" style="display:none; margin-top:24px;">
-            <div style="background:#ecfeff;border:1.5px solid #67e8f9;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <h2 style="margin:0 0 8px;color:#155e75;">&#128218; Vocabulary Lab</h2>
-              <p style="margin:0;color:#0f766e;line-height:1.5;">Learn one new word every day, practise its meaning, and write your own sentence.</p>
-            </div>
-            <div id="vocabularyWordCard" style="background:white;border:2px solid #e5e7eb;border-radius:16px;padding:20px;margin-bottom:16px;">
-              <div id="vocabularyWordBadge" style="display:inline-block;background:#dbeafe;color:#1d4ed8;padding:6px 10px;border-radius:999px;font-weight:800;margin-bottom:10px;">Daily Word</div>
-              <h3 id="vocabularyWordText" style="font-size:2rem;margin:0 0 8px;color:#1f2937;">Loading...</h3>
-              <p id="vocabularyMeaningText" style="color:#4b5563;line-height:1.6;margin:0 0 10px;"></p>
-              <p id="vocabularyExampleText" style="color:#64748b;margin:0 0 14px;"></p>
-              <div id="vocabularyChoices" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;"></div>
-              <textarea id="vocabularySentenceInput" rows="3" placeholder="Write your own sentence using today word..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:12px;resize:vertical;margin-bottom:10px;"></textarea>
-              <button class="btn btn-primary" onclick="submitVocabularyPractice()">Submit Vocabulary Practice</button>
-              <div id="vocabularyFeedback" style="display:none;margin-top:12px;border-radius:12px;padding:12px;font-weight:800;"></div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;">
-              <div class="learning-card locked"><h4>Meaning Match</h4><p>Choose the right meaning.</p></div>
-              <div class="learning-card locked"><h4>Sentence Builder</h4><p>Use the word correctly.</p></div>
-              <div class="learning-card locked"><h4>Synonym Sort</h4><p>Find related words.</p></div>
-            </div>
-          </div>
 
           <div id="spellingBeePanel" style="display:none; margin-top:24px;">
             <div style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:16px;padding:20px;margin-bottom:16px;">
@@ -3112,9 +3075,7 @@ setTimeout(() => {
       { id: 'quiz', name: 'Daily Quiz', icon: '&#129504;', description: 'Daily English questions for grammar, vocabulary, spelling, and punctuation.', status: 'active' },
       { id: 'spelling', name: 'Spelling Bee', icon: '&#128288;', description: 'Listen, spell, and master tricky words.', status: 'active' },
       { id: 'speaking', name: 'Speaking Practice', icon: '&#127908;', description: 'Record a short answer and get speaking feedback.', status: 'active' },
-      { id: 'vocabulary', name: 'Vocabulary Games', icon: '&#128218;', description: 'Daily word practice with meaning, sentence, and synonym games.', status: 'active' },
-      { id: 'writing', name: 'Writing Studio', icon: '&#9997;', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' },
-      { id: 'reading', name: 'Reading Zone', icon: '&#128214;', description: 'Read a short daily story and answer comprehension questions.', status: 'active' }
+      { id: 'writing', name: 'Writing Studio', icon: '&#9997;', description: 'Creative writing tasks with prompts, word banks, image upload, and feedback.', status: 'active' }
     ];
 
     let learningHubAccess = null;
@@ -3164,13 +3125,13 @@ setTimeout(() => {
         notice.style.display = 'none';
         return;
       }
-      const lockedTasks = ['quiz', 'reading', 'vocabulary', 'spelling', 'speaking', 'writing'].filter(id => learningHubAccess.tasks?.[id]?.locked);
+      const lockedTasks = ['quiz', 'spelling', 'speaking', 'writing'].filter(id => learningHubAccess.tasks?.[id]?.locked);
       if (!learningHubAccess.fees_enabled) {
         notice.style.display = 'none';
         return;
       }
       if (learningHubAccess.paid) {
-        notice.textContent = `Learning Lab subscription active. Daily Quiz, Reading Zone, Vocabulary, Spelling Bee, Speaking and Writing are unlocked.`;
+        notice.textContent = `Learning Lab access active. Daily Quiz, Spelling Bee, Speaking Practice, and Writing Studio are unlocked.`;
         notice.style.display = 'block';
         notice.style.background = '#ecfdf5';
         notice.style.borderColor = '#6ee7b7';
@@ -3178,8 +3139,8 @@ setTimeout(() => {
         return;
       }
       notice.textContent = lockedTasks.length
-        ? `Free trial used. Learning Lab is $5/month for full access to all activities. Contact your teacher for Learning Lab subscription.`
-        : `Free trial: 1 task each for Daily Quiz, Reading Zone, Vocabulary, Spelling Bee, Speaking and Writing. After that, Learning Lab is $5/month for full access to all activities. Contact your teacher for subscription.`;
+        ? `Learning Lab access is locked. Students not currently taking paid classes can contact the teacher for the $5/month Learning Lab subscription.`
+        : `Paid class students get Learning Lab access included. Students not taking classes can contact the teacher for the $5/month Learning Lab subscription.`;
       notice.style.display = 'block';
       notice.style.background = '#fffbeb';
       notice.style.borderColor = '#fbbf24';
@@ -3224,11 +3185,11 @@ setTimeout(() => {
           : isPayLocked
           ? `event.preventDefault(); showLearningHubPaywall('${module.id}')`
           : `openLearningLabModule('${module.id}')`;
-        const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : taskAccess && learningHubAccess?.fees_enabled && !learningHubAccess?.paid ? 'Free Trial' : 'Active';
+        const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : learningHubAccess?.access_source === 'paid_classes' ? 'Included' : 'Active';
         const helperText = isPayLocked
-          ? `Free trial used. Learning Lab is $5/month for full access.`
+          ? `Learning Lab access is $5/month for students who are not currently taking paid classes.`
           : taskAccess && !learningHubAccess?.paid
-          ? `${taskAccess.remaining_free} free task${taskAccess.remaining_free === 1 ? '' : 's'} left`
+          ? module.description
           : module.description;
         return `
           <div class="learning-card ${isLocked || isPayLocked ? 'locked' : ''}">
@@ -3247,8 +3208,8 @@ setTimeout(() => {
     }
 
     function showLearningHubPaywall(moduleId) {
-      const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : moduleId === 'quiz' ? 'Daily Quiz' : moduleId === 'reading' ? 'Reading Zone' : moduleId === 'vocabulary' ? 'Vocabulary Games' : moduleId === 'spelling' ? 'Spelling Bee' : 'Learning Hub';
-      alert(`${taskName} free trial is complete. Learning Lab is $5/month for full access. Contact your teacher for subscription.`);
+      const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : moduleId === 'quiz' ? 'Daily Quiz' : moduleId === 'spelling' ? 'Spelling Bee' : 'Learning Lab';
+      alert(`${taskName} requires Learning Lab access. Students not taking classes can contact the teacher for the $5/month subscription.`);
     }
 
     // ============================================================================
@@ -3430,21 +3391,10 @@ setTimeout(() => {
       }
       const speakingPanel = document.getElementById('speakingLabPanel');
       const writingPanel = document.getElementById('writingStudioPanel');
-      const readingPanel = document.getElementById('readingZonePanel');
-      const vocabularyPanel = document.getElementById('vocabularyLabPanel');
       const spellingPanel = document.getElementById('spellingBeePanel');
-      if (readingPanel) readingPanel.style.display = 'none';
-      if (vocabularyPanel) vocabularyPanel.style.display = 'none';
       if (spellingPanel) spellingPanel.style.display = 'none';
       if (speakingPanel) speakingPanel.style.display = 'none';
       if (writingPanel) writingPanel.style.display = 'none';
-
-      if (moduleId === 'vocabulary') {
-        if (vocabularyPanel) vocabularyPanel.style.display = 'block';
-        initVocabularyLab();
-        setTimeout(() => vocabularyPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-        return;
-      }
 
       if (moduleId === 'spelling') {
         if (spellingPanel) spellingPanel.style.display = 'block';
@@ -8188,94 +8138,11 @@ setTimeout(() => {
     };
 
   
-    let currentVocabularyWord = null;
-    let selectedVocabularyMeaning = '';
     let spellingWords = [];
     let currentSpellingIndex = 0;
     let spellingCorrectCount = 0;
     let spellingIncorrectCount = 0;
     let spellingAnswerLog = [];
-
-    async function initVocabularyLab() {
-      currentStudentId = currentStudent?.id;
-      if (!currentStudentId) return;
-      selectedVocabularyMeaning = '';
-      const feedback = document.getElementById('vocabularyFeedback');
-      if (feedback) feedback.style.display = 'none';
-      try {
-        const res = await fetch(`/api/vocabulary/today-word?student_id=${currentStudentId}`, {
-          headers: { 'x-student-id': currentStudentId }
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not load vocabulary word');
-        if (data.premium_locked) {
-          alert('Your free Vocabulary trial is complete. Premium access will be available when Learning Hub launches.');
-          return;
-        }
-        currentVocabularyWord = data.word;
-        document.getElementById('vocabularyWordBadge').textContent = `${currentVocabularyWord.category || 'Daily Word'}  ${currentVocabularyWord.difficulty || 'Practice'}`;
-        document.getElementById('vocabularyWordText').textContent = currentVocabularyWord.word || 'Daily Word';
-        document.getElementById('vocabularyMeaningText').textContent = currentVocabularyWord.meaning || '';
-        document.getElementById('vocabularyExampleText').textContent = currentVocabularyWord.example_sentence ? `Example: ${currentVocabularyWord.example_sentence}` : '';
-        document.getElementById('vocabularySentenceInput').value = '';
-        document.getElementById('vocabularyChoices').innerHTML = (currentVocabularyWord.meaning_choices || []).map(choice => `
-          <button type="button" class="learning-card" onclick="selectVocabularyMeaning('${escapeHtml(String(choice)).replace(/'/g, '&#39;')}')" style="text-align:left;cursor:pointer;">
-            ${escapeHtml(choice)}
-          </button>
-        `).join('');
-      } catch (err) {
-        alert('Error loading vocabulary: ' + err.message);
-      }
-    }
-
-    function selectVocabularyMeaning(choice) {
-      selectedVocabularyMeaning = choice;
-      const buttons = document.querySelectorAll('#vocabularyChoices button');
-      buttons.forEach(btn => {
-        const isSelected = btn.textContent.trim() === choice;
-        btn.style.borderColor = isSelected ? '#0891b2' : '#e5e7eb';
-        btn.style.background = isSelected ? '#ecfeff' : 'white';
-      });
-    }
-
-    async function submitVocabularyPractice() {
-      if (!currentVocabularyWord || !currentStudentId) return;
-      const sentence = document.getElementById('vocabularySentenceInput').value.trim();
-      if (!selectedVocabularyMeaning) {
-        alert('Please choose the meaning first.');
-        return;
-      }
-      if (sentence.length < 10) {
-        alert('Please write one sentence using today word.');
-        return;
-      }
-      const meaningCorrect = selectedVocabularyMeaning === currentVocabularyWord.meaning;
-      const wordUsed = sentence.toLowerCase().includes(String(currentVocabularyWord.word || '').toLowerCase());
-      const score = (meaningCorrect ? 1 : 0) + (wordUsed ? 1 : 0);
-      const res = await fetch('/api/vocabulary/attempts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-student-id': currentStudentId },
-        body: JSON.stringify({
-          student_id: currentStudentId,
-          word_id: currentVocabularyWord.id,
-          game_type: 'daily_word',
-          score,
-          total_questions: 2,
-          answers_data: { selected_meaning: selectedVocabularyMeaning, sentence, meaning_correct: meaningCorrect, word_used: wordUsed }
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Could not save vocabulary practice');
-        return;
-      }
-      const feedback = document.getElementById('vocabularyFeedback');
-      feedback.style.display = 'block';
-      feedback.style.background = score === 2 ? '#dcfce7' : '#fef3c7';
-      feedback.style.color = score === 2 ? '#166534' : '#92400e';
-      feedback.textContent = score === 2 ? 'Great work. You matched the meaning and used the word in a sentence.' : 'Good try. Review the meaning and make sure your sentence uses today word.';
-      await renderLearningLabCards();
-    }
 
     async function initSpellingBee() {
       document.getElementById('spellingComplete').style.display = 'none';
@@ -8408,76 +8275,7 @@ setTimeout(() => {
         console.warn('Could not save spelling attempt:', err.message);
       }
     }
-    let currentReadingStory = null;
-    let readingSelectedAnswers = {};
-
-    async function initReadingZone() {
-      currentStudentId = currentStudent?.id;
-      if (!currentStudentId) return;
-      readingSelectedAnswers = {};
-      const feedback = document.getElementById('readingFeedback');
-      if (feedback) feedback.style.display = 'none';
-      try {
-        const res = await fetch(`/api/reading/today-story?student_id=${currentStudentId}`, { headers: studentAuthHeaders() });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not load reading story');
-        if (data.premium_locked) {
-          alert('Your free Reading Zone trial is complete. Learning Lab is $5/month for full access. Contact your teacher for subscription.');
-          return;
-        }
-        currentReadingStory = data.story;
-        document.getElementById('readingStoryBadge').textContent = `${currentReadingStory.category || 'Daily Story'} - ${currentReadingStory.difficulty || 'Practice'}`;
-        document.getElementById('readingStoryTitle').textContent = currentReadingStory.title || 'Today Story';
-        document.getElementById('readingStoryText').textContent = currentReadingStory.story_text || '';
-        document.getElementById('readingQuestions').innerHTML = (currentReadingStory.questions || []).map(q => `
-          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:14px;">
-            <div style="font-size:0.78rem;font-weight:800;color:#166534;text-transform:uppercase;margin-bottom:6px;">${escapeHtml((q.type || 'comprehension').replace(/_/g, ' '))}</div>
-            <div style="font-weight:800;color:#1f2937;margin-bottom:10px;">${escapeHtml(q.question)}</div>
-            <div style="display:grid;gap:8px;">${(q.options || []).map((opt, idx) => `
-              <label style="display:flex;gap:8px;align-items:flex-start;background:white;border:1px solid #e5e7eb;border-radius:10px;padding:10px;cursor:pointer;">
-                <input type="radio" name="reading-q-${q.id}" value="${idx}" onchange="selectReadingAnswer(${q.id}, ${idx})" style="margin-top:3px;">
-                <span>${escapeHtml(opt)}</span>
-              </label>
-            `).join('')}</div>
-          </div>
-        `).join('');
-      } catch (err) {
-        alert('Error loading Reading Zone: ' + err.message);
-      }
-    }
-
-    function selectReadingAnswer(questionId, answerIndex) {
-      readingSelectedAnswers[questionId] = answerIndex;
-    }
-
-    async function submitReadingAttempt() {
-      if (!currentReadingStory || !currentStudentId) return;
-      const questions = currentReadingStory.questions || [];
-      if (questions.some(q => readingSelectedAnswers[q.id] === undefined)) {
-        alert('Please answer all reading questions before submitting.');
-        return;
-      }
-      const res = await fetch('/api/reading/attempts', {
-        method: 'POST',
-        headers: { ...studentAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          student_id: currentStudentId,
-          story_id: currentReadingStory.id,
-          answers: questions.map(q => ({ question_id: q.id, selected_answer: readingSelectedAnswers[q.id] }))
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Could not submit reading answers');
-        return;
-      }
-      const feedback = document.getElementById('readingFeedback');
-      feedback.style.display = 'block';
-      feedback.style.background = '#dcfce7';
-      feedback.style.color = '#166534';
-      feedback.innerHTML = `Score: ${data.correct_answers} / ${data.total_questions}<br>Accuracy: ${Math.round(data.accuracy)}%`;
-      await renderLearningLabCards();
-    }</script>
+    </script>
 
   <!-- Footer -->
   <footer style="background: white; padding: 20px; text-align: center; margin-top: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
