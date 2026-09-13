@@ -1600,11 +1600,12 @@
                 <th style="padding: 15px; text-align: center;">Total Points</th>
                 <th style="padding: 15px; text-align: center;">Homework Pts</th>
                 <th style="padding: 15px; text-align: center;">Challenge Pts</th>
+                <th style="padding: 15px; text-align: center;">Quiz Pts</th>
                 <th style="padding: 15px; text-align: center;">Badge Pts</th>
               </tr>
             </thead>
             <tbody id="leaderboardBody">
-              <tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">Loading...</td></tr>
+              <tr><td colspan="7" style="text-align: center; padding: 30px; color: #718096;">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -12473,7 +12474,8 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       { type: 'poetry_star', name: '🌸 Poetry Star', desc: 'Created or recited poetry beautifully!' },
       { type: 'book_worm', name: '📚 Bookworm', desc: 'Shows a wonderful love for reading!' },
       { type: 'critical_thinker', name: '🧠 Critical Thinker', desc: 'Analyzed and evaluated ideas thoughtfully!' },
-      { type: 'most_improved', name: '🚀 Most Improved', desc: 'Made the biggest improvement this period!' }
+      { type: 'most_improved', name: '🚀 Most Improved', desc: 'Made the biggest improvement this period!' },
+      { type: 'consistent_quiz_champion', name: '🏆 Consistent Quiz Champion', desc: 'Stayed consistent on the daily quiz throughout and earned a special 100-point bonus!' }
     ];
 
     // Gradient colors for badge cards (cycles through these)
@@ -12795,6 +12797,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
               </td>
               <td style="padding: 15px; text-align: center; color: #3182ce; font-weight: 600;">${student.homework_points || 0}</td>
               <td style="padding: 15px; text-align: center; color: #9f7aea; font-weight: 600;">${student.challenge_points || 0}</td>
+              <td style="padding: 15px; text-align: center; color: #d69e2e; font-weight: 600;">${student.quiz_points || 0}</td>
               <td style="padding: 15px; text-align: center; color: #38a169; font-weight: 600;">${student.badge_points || 0}</td>
             </tr>
           `;

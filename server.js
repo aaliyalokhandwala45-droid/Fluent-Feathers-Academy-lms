@@ -4174,6 +4174,60 @@ async function runMigrations() {
       console.log('Migration 62 note:', err.message);
     }
 
+    // Migration 63: Daily quiz bonus points + Consistent Quiz Champion for Ridhaan Arya
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS quiz_point_bonuses (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          points INTEGER NOT NULL,
+          reason TEXT NOT NULL,
+          awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(student_id, reason)
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_quiz_point_bonuses_student ON quiz_point_bonuses(student_id)`);
+      await client.query(`ALTER TABLE quiz_point_bonuses ENABLE ROW LEVEL SECURITY`);
+      await client.query(`
+        DO $$ BEGIN
+          CREATE POLICY "Allow all for service role" ON quiz_point_bonuses FOR ALL USING (true) WITH CHECK (true);
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$
+      `);
+
+      const ridhaan = await client.query(
+        `SELECT id FROM students WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+        ['Ridhaan Arya']
+      );
+      if (ridhaan.rows.length > 0) {
+        const studentId = ridhaan.rows[0].id;
+        await client.query(
+          `INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
+           SELECT $1, $2, $3, $4
+           WHERE NOT EXISTS (
+             SELECT 1 FROM student_badges WHERE student_id = $1 AND badge_type = $2
+           )`,
+          [
+            studentId,
+            'consistent_quiz_champion',
+            '🏆 Consistent Quiz Champion',
+            'Stayed consistent on the daily quiz throughout and earned a special 100-point bonus!'
+          ]
+        );
+        await client.query(
+          `INSERT INTO quiz_point_bonuses (student_id, points, reason)
+           VALUES ($1, 100, 'Consistent Quiz Champion bonus')
+           ON CONFLICT (student_id, reason) DO NOTHING`,
+          [studentId]
+        );
+        console.log('✅ Migration 63: Awarded Consistent Quiz Champion badge and 100 quiz bonus points to Ridhaan Arya');
+      } else {
+        console.log('✅ Migration 63: Created quiz_point_bonuses table (Ridhaan Arya not found yet)');
+      }
+    } catch (err) {
+      console.log('Migration 63 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -19200,9 +19254,9 @@ async function calculateStudentScores(startDate, endDate) {
       GROUP BY student_id
     ),
     quiz_pts AS (
-      SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts
-      FROM quiz_attempts
-      WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
+      SELECT student_id, COALESCE(SUM(points), 0) as pts
+      FROM quiz_point_bonuses
+      WHERE awarded_at >= $1::date AND awarded_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
     badge_pts AS (
@@ -19218,16 +19272,16 @@ async function calculateStudentScores(startDate, endDate) {
       s.parent_name,
       COALESCE(h.pts, 0) as homework_score,
       COALESCE(c.pts, 0) as challenge_score,
-      0 as quiz_score,
+      COALESCE(q.pts, 0) as quiz_score,
       COALESCE(b.pts, 0) as badge_score,
-      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
     LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
     ORDER BY total_score DESC, homework_score DESC, challenge_score DESC, badge_score DESC, s.name ASC
   `, [startDate, endDate]);
   return result.rows;
@@ -19430,9 +19484,9 @@ app.get('/api/leaderboard', async (req, res) => {
         GROUP BY student_id
       ),
       quiz_pts AS (
-        SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts
-        FROM quiz_attempts
-        WHERE 1=1 ${useDateFilter ? `AND completed_at >= $1::timestamp AND completed_at < ($2::timestamp + INTERVAL '1 day')` : ''}
+        SELECT student_id, COALESCE(SUM(points), 0) as pts
+        FROM quiz_point_bonuses
+        WHERE 1=1 ${useDateFilter ? `AND awarded_at >= $1::timestamp AND awarded_at < ($2::timestamp + INTERVAL '1 day')` : ''}
         GROUP BY student_id
       ),
       badge_pts AS (
@@ -19453,9 +19507,9 @@ app.get('/api/leaderboard', async (req, res) => {
         s.program_name,
         COALESCE(h.pts, 0) as homework_points,
         COALESCE(c.pts, 0) as challenge_points,
-        0 as quiz_points,
+        COALESCE(q.pts, 0) as quiz_points,
         COALESCE(b.pts, 0) as badge_points,
-        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score,
+        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score,
         COALESCE(bc.badge_count, 0) as total_badges,
         (SELECT badge_name FROM student_badges WHERE student_id = s.id ${bdgLatestFilter} ORDER BY earned_date DESC LIMIT 1) as latest_badge
       FROM students s
@@ -19465,8 +19519,8 @@ app.get('/api/leaderboard', async (req, res) => {
       LEFT JOIN badge_pts b ON s.id = b.student_id
       LEFT JOIN badge_counts bc ON s.id = bc.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, badge_points DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework_points DESC, challenge_points DESC, quiz_points DESC, badge_points DESC, s.name ASC
     `, params);
     res.json({ leaderboard: result.rows });
   } catch (err) {
@@ -19504,9 +19558,9 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             AND sc.status = 'Completed'
         ),
         quiz_scores AS (
-          SELECT COALESCE(SUM(qa.points_awarded), 0) AS points
-          FROM quiz_attempts qa
-          WHERE qa.student_id = $1
+          SELECT COALESCE(SUM(qpb.points), 0) AS points
+          FROM quiz_point_bonuses qpb
+          WHERE qpb.student_id = $1
         ),
         badge_scores AS (
           SELECT COUNT(*) * ${BADGE_POINT_VALUE} AS points
@@ -19527,7 +19581,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
         SELECT
           COALESCE((SELECT points FROM homework_scores), 0) AS homework_points,
           COALESCE((SELECT points FROM challenge_scores), 0) AS challenge_points,
-          0 AS quiz_points,
+          COALESCE((SELECT points FROM quiz_scores), 0) AS quiz_points,
           COALESCE((SELECT points FROM badge_scores), 0) AS badge_points,
           COALESCE((SELECT points FROM class_points_total), 0) AS class_points,
           COALESCE((SELECT count FROM pending_challenges), 0) AS pending_challenges
@@ -19610,6 +19664,18 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             'awarded'::text AS status
           FROM class_points cp
           WHERE cp.student_id = $1
+        ),
+        quiz_bonus_history AS (
+          SELECT
+            'leaderboard'::text AS score_group,
+            'quiz'::text AS score_type,
+            qpb.points::int AS points,
+            qpb.awarded_at AS occurred_at,
+            'Daily quiz bonus'::text AS title,
+            COALESCE(qpb.reason, 'Daily quiz bonus points') AS detail,
+            'awarded'::text AS status
+          FROM quiz_point_bonuses qpb
+          WHERE qpb.student_id = $1
         )
         SELECT *
         FROM (
@@ -19622,6 +19688,8 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           SELECT * FROM badge_history
           UNION ALL
           SELECT * FROM class_points_history
+          UNION ALL
+          SELECT * FROM quiz_bonus_history
         ) history
         ORDER BY occurred_at DESC NULLS LAST
         LIMIT 100
@@ -19631,13 +19699,13 @@ app.get('/api/students/:id/score-history', async (req, res) => {
     const totalsRow = totalsResult.rows[0] || {};
     const homeworkPoints = parseInt(totalsRow.homework_points) || 0;
     const challengePoints = parseInt(totalsRow.challenge_points) || 0;
-    const quizPoints = 0;
+    const quizPoints = parseInt(totalsRow.quiz_points) || 0;
     const badgePoints = parseInt(totalsRow.badge_points) || 0;
     const classPoints = parseInt(totalsRow.class_points) || 0;
 
     res.json({
       totals: {
-        leaderboard_total: homeworkPoints + challengePoints + badgePoints,
+        leaderboard_total: homeworkPoints + challengePoints + quizPoints + badgePoints,
         homework_points: homeworkPoints,
         challenge_points: challengePoints,
         quiz_points: quizPoints,
@@ -19700,8 +19768,8 @@ app.get('/api/awards/current', async (req, res) => {
       GROUP BY student_id
     ),
     quiz_pts AS (
-      SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts FROM quiz_attempts
-      WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
+      SELECT student_id, COALESCE(SUM(points), 0) as pts FROM quiz_point_bonuses
+      WHERE awarded_at >= $1::date AND awarded_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
     badge_pts AS (
@@ -19712,17 +19780,17 @@ app.get('/api/awards/current', async (req, res) => {
     SELECT s.id, s.name,
       COALESCE(h.pts, 0) as homework,
       COALESCE(c.pts, 0) as challenges,
-      0 as quizzes,
+      COALESCE(q.pts, 0) as quizzes,
       COALESCE(b.pts, 0) as badges,
-      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
     LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
+    ORDER BY total_score DESC, homework DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
     LIMIT 1
   `, [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]);
   return result.rows[0] || null;
@@ -19808,8 +19876,8 @@ app.get('/api/awards/by-period', async (req, res) => {
         GROUP BY student_id
       ),
       quiz_pts AS (
-        SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts FROM quiz_attempts
-        WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
+        SELECT student_id, COALESCE(SUM(points), 0) as pts FROM quiz_point_bonuses
+        WHERE awarded_at >= $1::date AND awarded_at < ($2::date + INTERVAL '1 day')
         GROUP BY student_id
       ),
       badge_pts AS (
@@ -19820,17 +19888,17 @@ app.get('/api/awards/by-period', async (req, res) => {
       SELECT s.id, s.name,
         COALESCE(h.pts, 0) as homework,
         COALESCE(c.pts, 0) as challenges,
-        0 as quizzes,
+        COALESCE(q.pts, 0) as quizzes,
         COALESCE(b.pts, 0) as badges,
-        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
+        COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
       FROM students s
       LEFT JOIN homework_pts h ON s.id = h.student_id
       LEFT JOIN challenge_pts c ON s.id = c.student_id
       LEFT JOIN quiz_pts q ON s.id = q.student_id
       LEFT JOIN badge_pts b ON s.id = b.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework DESC, challenges DESC, badges DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
       LIMIT 1
     `, [start, end]);
     res.json({ winner: result.rows[0] || null });
