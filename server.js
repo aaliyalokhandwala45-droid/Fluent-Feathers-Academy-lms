@@ -25853,6 +25853,17 @@ async function seedWritingPromptsIfEmpty() {
 }
 
 async function getLearningHubAccess(studentId) {
+  const latestAccessResult = await executeQuery(
+    `SELECT id, status, expires_at
+     FROM learning_hub_subscriptions
+     WHERE student_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [studentId]
+  );
+  const latestAccess = latestAccessResult.rows[0] || null;
+  const adminBlocked = latestAccess?.status === 'cancelled' && (!latestAccess.expires_at || new Date(latestAccess.expires_at) > new Date());
+
   const subscriptionResult = await executeQuery(
     `SELECT id, status, monthly_price_usd, starts_at, expires_at
      FROM learning_hub_subscriptions
@@ -25897,15 +25908,16 @@ async function getLearningHubAccess(studentId) {
   const spellingUsed = Number(usage.spelling_used || 0);
   const hubSettings = await getLearningHubSettings();
   const feesEnabled = hubSettings.fees_enabled;
-  const paid = hasActiveClassAccess || !!subscription;
+  const paid = !adminBlocked && (hasActiveClassAccess || !!subscription);
   const locked = feesEnabled && !paid;
   const task = (used) => ({ used, free_limit: 0, remaining_free: paid || !feesEnabled ? null : 0, locked });
 
   return {
     paid,
-    class_access: hasActiveClassAccess,
+    class_access: !adminBlocked && hasActiveClassAccess,
+    admin_blocked: adminBlocked,
     subscription_access: !!subscription,
-    access_source: hasActiveClassAccess ? 'paid_classes' : (subscription ? 'learning_lab_subscription' : 'none'),
+    access_source: adminBlocked ? 'admin_blocked' : (hasActiveClassAccess ? 'paid_classes' : (subscription ? 'learning_lab_subscription' : 'none')),
     paid_remaining_sessions: paidRemainingSessions,
     fees_enabled: feesEnabled,
     monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
@@ -25962,7 +25974,8 @@ app.get('/api/admin/learning-hub/subscriptions', async (req, res) => {
     const result = await executeQuery(`
       SELECT s.id AS student_id, s.name, s.parent_email,
              lhs.id AS subscription_id, lhs.status, lhs.monthly_price_usd, lhs.starts_at, lhs.expires_at,
-             CASE WHEN lhs.id IS NOT NULL AND lhs.status = 'active' AND (lhs.expires_at IS NULL OR lhs.expires_at > NOW()) THEN true ELSE false END AS is_active
+             CASE WHEN lhs.id IS NOT NULL AND lhs.status = 'active' AND (lhs.expires_at IS NULL OR lhs.expires_at > NOW()) THEN true ELSE false END AS is_active,
+             CASE WHEN lhs.id IS NOT NULL AND lhs.status = 'cancelled' AND (lhs.expires_at IS NULL OR lhs.expires_at > NOW()) THEN true ELSE false END AS is_blocked
       FROM students s
       LEFT JOIN LATERAL (
         SELECT * FROM learning_hub_subscriptions sub
@@ -26004,6 +26017,51 @@ app.post('/api/admin/learning-hub/subscriptions', express.json(), async (req, re
   }
 });
 
+app.post('/api/admin/learning-hub/subscriptions/:studentId/block', express.json(), async (req, res) => {
+  if (!requireAdminPasswordHeader(req, res)) return;
+  try {
+    const studentId = Number(req.params.studentId);
+    if (!Number.isInteger(studentId) || studentId <= 0) return res.status(400).json({ error: 'Valid student id is required' });
+    const student = await executeQuery('SELECT id, name FROM students WHERE id = $1 AND is_active = true', [studentId]);
+    if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
+    await executeQuery(`UPDATE learning_hub_subscriptions SET status = 'expired', updated_at = CURRENT_TIMESTAMP WHERE student_id = $1 AND status = 'active'`, [studentId]);
+    const result = await executeQuery(
+      `INSERT INTO learning_hub_subscriptions (student_id, status, monthly_price_usd, starts_at, expires_at)
+       VALUES ($1, 'cancelled', $2, CURRENT_TIMESTAMP, NULL)
+       RETURNING *`,
+      [studentId, LEARNING_HUB_MONTHLY_PRICE_USD]
+    );
+    res.json({ success: true, subscription: result.rows[0], message: `Learning Lab access blocked for ${student.rows[0].name}.` });
+  } catch (err) {
+    console.error('Learning Hub access block error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/learning-hub/subscriptions/:studentId/unblock', express.json(), async (req, res) => {
+  if (!requireAdminPasswordHeader(req, res)) return;
+  try {
+    const studentId = Number(req.params.studentId);
+    if (!Number.isInteger(studentId) || studentId <= 0) return res.status(400).json({ error: 'Valid student id is required' });
+    const result = await executeQuery(
+      `UPDATE learning_hub_subscriptions
+       SET status = 'expired', expires_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+       WHERE id = (
+         SELECT id FROM learning_hub_subscriptions
+         WHERE student_id = $1 AND status = 'cancelled'
+         ORDER BY created_at DESC
+         LIMIT 1
+       )
+       RETURNING *`,
+      [studentId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Blocked Learning Lab access not found' });
+    res.json({ success: true, subscription: result.rows[0], message: 'Learning Lab access unblocked.' });
+  } catch (err) {
+    console.error('Learning Hub access unblock error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post('/api/admin/learning-hub/subscriptions/:id/pause', express.json(), async (req, res) => {
   if (!requireAdminPasswordHeader(req, res)) return;
   try {

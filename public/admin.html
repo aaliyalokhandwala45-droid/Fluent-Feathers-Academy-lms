@@ -17355,6 +17355,34 @@ function initializeQuizTab() {
       loadLearningLabSubscriptions();
     }
 
+
+    async function blockLearningLabAccess(studentId) {
+      const pass = getLearningLabAdminPassword(true);
+      if (!pass) return;
+      if (!confirm('Block Learning Lab access for this student? This will override paid-class access until you allow access again.')) return;
+      const res = await fetch(`/api/admin/learning-hub/subscriptions/${studentId}/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': pass }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data.error || 'Could not block Learning Lab access');
+      alert(data.message || 'Learning Lab access blocked.');
+      loadLearningLabSubscriptions();
+    }
+
+    async function unblockLearningLabAccess(studentId) {
+      const pass = getLearningLabAdminPassword(true);
+      if (!pass) return;
+      if (!confirm('Allow Learning Lab access for this student again? Paid-class access or manual subscription rules will apply.')) return;
+      const res = await fetch(`/api/admin/learning-hub/subscriptions/${studentId}/unblock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': pass }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data.error || 'Could not allow Learning Lab access');
+      alert(data.message || 'Learning Lab access allowed.');
+      loadLearningLabSubscriptions();
+    }
     async function pauseLearningLabSubscription(subscriptionId) {
       const pass = getLearningLabAdminPassword(true);
       if (!pass) return;
