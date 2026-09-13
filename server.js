@@ -25955,7 +25955,17 @@ async function getLearningHubAccess(studentId) {
   } catch (err) {
     console.warn('Learning Lab balance check failed:', err.message);
   }
-  const hasActiveClassAccess = student.is_active !== false && Number(student.fees_paid || 0) > 0 && paidRemainingSessions > 0;
+  const upcomingResult = await executeQuery(
+    `SELECT COUNT(*)::int AS upcoming_count
+     FROM sessions sess
+     LEFT JOIN session_attendance sa ON sa.session_id = sess.id AND sa.student_id = $1
+     WHERE (sess.student_id = $1 OR sa.student_id = $1)
+       AND sess.session_date >= CURRENT_DATE
+       AND COALESCE(sess.status, 'Pending') NOT IN ('Completed', 'Cancelled', 'Cancelled by Parent', 'Missed', 'Excused', 'Unexcused')`,
+    [studentId]
+  );
+  const upcomingClassCount = Number(upcomingResult.rows[0]?.upcoming_count || 0);
+  const hasActiveClassAccess = student.is_active !== false && Number(student.fees_paid || 0) > 0 && paidRemainingSessions > 0 && upcomingClassCount > 0;
 
   const usageResult = await executeQuery(
     `SELECT
@@ -25977,8 +25987,16 @@ async function getLearningHubAccess(studentId) {
   const hubSettings = await getLearningHubSettings();
   const feesEnabled = hubSettings.fees_enabled;
   const paid = !adminBlocked && (hasActiveClassAccess || !!subscription);
-  const locked = feesEnabled && !paid;
-  const task = (used) => ({ used, free_limit: 0, remaining_free: paid || !feesEnabled ? null : 0, locked });
+  const hasTrialAccess = !adminBlocked && !paid;
+  const task = (used) => {
+    const remainingFree = hasTrialAccess ? Math.max(0, 1 - used) : null;
+    return {
+      used,
+      free_limit: hasTrialAccess ? 1 : 0,
+      remaining_free: remainingFree,
+      locked: feesEnabled && !paid && (!hasTrialAccess || used >= 1)
+    };
+  };
 
   return {
     paid,
@@ -25987,6 +26005,8 @@ async function getLearningHubAccess(studentId) {
     subscription_access: !!subscription,
     access_source: adminBlocked ? 'admin_blocked' : (hasActiveClassAccess ? 'paid_classes' : (subscription ? 'learning_lab_subscription' : 'none')),
     paid_remaining_sessions: paidRemainingSessions,
+    upcoming_class_count: upcomingClassCount,
+    trial_access: hasTrialAccess,
     fees_enabled: feesEnabled,
     monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
     subscription,
@@ -26000,7 +26020,7 @@ async function getLearningHubAccess(studentId) {
 }
 function learningHubPaywallPayload(task, access) {
   return {
-    error: `Learning Lab access is required for ${task}. Learning Lab costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month for students who are not currently taking paid classes.`,
+    error: `Your free ${task} trial is complete. Learning Lab costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month for students who are not currently taking paid classes.`,
     code: 'LEARNING_HUB_PAYMENT_REQUIRED',
     paywall_required: true,
     monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,

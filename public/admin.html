@@ -533,6 +533,22 @@
         <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
             <div>
+              <h3 style="margin:0; color:#2d3748;">📋 Learning Lab Activity Records</h3>
+              <p style="margin:4px 0 0; color:#718096; font-size:0.9rem;">See who participated, what they tried, their answers or submission, and how they performed.</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <label style="font-weight:700; color:#4a5568;">Date</label>
+              <input id="learningLabAttemptsDate" type="date" value="" style="padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0;" onchange="loadLearningLabAttempts(this.value)">
+              <button type="button" onclick="loadLearningLabAttempts()" class="btn btn-primary">🔄 Load Records</button>
+            </div>
+          </div>
+          <div id="learningLabAttemptsList" style="display:grid; gap:10px;">
+            <p style="color:#718096; text-align:center; padding:20px;">Loading Learning Lab records...</p>
+          </div>
+        </div>
+        <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <div>
               <h3 style="margin:0; color:#2d3748;">Learning Lab Subscriptions</h3>
               <p style="margin:4px 0 0; color:#718096; font-size:0.9rem;">Manually allow Learning Lab access for students who are not currently taking paid classes. Access automatically stops after the expiry date.</p>
             </div>
@@ -4851,7 +4867,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
-      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadSpellingWordsAdmin(); }
+      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabAttempts(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadSpellingWordsAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
@@ -17289,6 +17305,87 @@ function initializeQuizTab() {
       }
     }
 
+    function learningLabRecordValue(value) {
+      if (value === null || value === undefined || value === '') return '—';
+      if (typeof value === 'object') return escapeHtml(JSON.stringify(value, null, 2));
+      return escapeHtml(String(value));
+    }
+
+    function renderLearningLabRecordDetails(record) {
+      if (record.activity === 'writing') {
+        return `
+          <div style="display:grid;gap:8px;">
+            <div><strong>Genre:</strong> ${learningLabRecordValue(record.genre)} </div>
+            <div><strong>Prompt:</strong> ${learningLabRecordValue(record.prompt_text)}</div>
+            <div><strong>Title:</strong> ${learningLabRecordValue(record.story_title)}</div>
+            <div style="white-space:pre-wrap;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><strong>Student writing:</strong><br>${learningLabRecordValue(record.story_text)}</div>
+            <div><strong>Score:</strong> ${learningLabRecordValue(record.score)}/100 · <strong>Status:</strong> ${learningLabRecordValue(record.completion_status)}</div>
+            <div><strong>Grammar:</strong> ${learningLabRecordValue(record.grammar_feedback)} · <strong>Sentence:</strong> ${learningLabRecordValue(record.sentence_feedback)}</div>
+            <div><strong>Punctuation:</strong> ${learningLabRecordValue(record.punctuation_feedback)} · <strong>Vocabulary:</strong> ${learningLabRecordValue(record.vocabulary_feedback)}</div>
+            <div><strong>Structure:</strong> ${learningLabRecordValue(record.structure_feedback)}</div>
+            <div><strong>Strengths:</strong> ${learningLabRecordValue(record.strengths_summary)}</div>
+            <div><strong>Next step:</strong> ${learningLabRecordValue(record.improvement_suggestion)}</div>
+            <div><strong>Originality:</strong> ${learningLabRecordValue(record.originality_risk)} · ${learningLabRecordValue(record.originality_notes)}</div>
+          </div>`;
+      }
+      if (record.activity === 'speaking') {
+        return `
+          <div style="display:grid;gap:8px;">
+            <div><strong>Topic:</strong> ${learningLabRecordValue(record.topic_text)} (${learningLabRecordValue(record.category)})</div>
+            <div><strong>Status:</strong> ${learningLabRecordValue(record.completion_status)} · <strong>Difficulty:</strong> ${learningLabRecordValue(record.difficulty)}</div>
+            <div><strong>Duration:</strong> ${record.duration_seconds == null ? '—' : `${record.duration_seconds} seconds`} · <strong>Confidence:</strong> ${learningLabRecordValue(record.confidence_rating)}/5</div>
+            <div><strong>Voice:</strong> ${learningLabRecordValue(record.voice_pace)} pace, ${learningLabRecordValue(record.voice_volume)} volume, ${learningLabRecordValue(record.voice_modulation)} modulation</div>
+            <div><strong>Presentation:</strong> camera ${learningLabRecordValue(record.camera_engagement)}, facial expression ${learningLabRecordValue(record.facial_expressiveness)}, gestures ${learningLabRecordValue(record.gesture_variety)}</div>
+            <div><strong>Language:</strong> vocabulary ${learningLabRecordValue(record.vocabulary_variety)}, sentences ${learningLabRecordValue(record.sentence_construction)}, grammar ${learningLabRecordValue(record.grammar_patterns)}, clarity ${learningLabRecordValue(record.clarity_of_expression)}</div>
+            <div><strong>Filler words:</strong> ${learningLabRecordValue(record.filler_words_detected)} · <strong>Hand gestures:</strong> ${learningLabRecordValue(record.hand_gestures_detected)}</div>
+            <div><strong>Feedback:</strong> ${learningLabRecordValue(record.language_feedback)}</div>
+            <div><strong>Strengths:</strong> ${learningLabRecordValue(record.strengths_summary)}</div>
+            <div><strong>Next step:</strong> ${learningLabRecordValue(record.improvement_suggestion)}</div>
+            <div><strong>Student reflection:</strong> ${learningLabRecordValue(record.reflection_data)}</div>
+          </div>`;
+      }
+      const answers = Array.isArray(record.answers_data) ? record.answers_data : [];
+      return `
+        <div style="display:grid;gap:8px;">
+          <div><strong>Words:</strong> ${learningLabRecordValue(record.total_words)} · <strong>Correct:</strong> ${learningLabRecordValue(record.correct_words)} · <strong>Incorrect:</strong> ${learningLabRecordValue(record.incorrect_words)} · <strong>Accuracy:</strong> ${record.total_words ? Math.round((Number(record.correct_words || 0) / Number(record.total_words)) * 100) : 0}%</div>
+          <div><strong>Answers:</strong></div>
+          ${answers.length ? answers.map((answer, index) => `<div style="background:${answer.correct ? '#f0fff4' : '#fff5f5'};border:1px solid ${answer.correct ? '#9ae6b4' : '#feb2b2'};border-radius:8px;padding:9px;">Word ${index + 1}: ${learningLabRecordValue(answer.typed_word)} · ${answer.correct ? 'Correct' : 'Incorrect'} · Word ID: ${learningLabRecordValue(answer.word_id)}</div>`).join('') : '<div>No answer details recorded.</div>'}
+        </div>`;
+    }
+
+    async function loadLearningLabAttempts(date) {
+      const selectedDate = date || document.getElementById('learningLabAttemptsDate')?.value || getLocalDateString();
+      const input = document.getElementById('learningLabAttemptsDate');
+      const container = document.getElementById('learningLabAttemptsList');
+      if (!container) return;
+      if (input) input.value = selectedDate;
+      container.innerHTML = '<p style="color:#718096;text-align:center;padding:20px;">Loading Learning Lab records...</p>';
+      try {
+        const response = await fetch(`/api/admin/learning-lab-attempts?date=${selectedDate}`);
+        const records = await response.json();
+        if (!response.ok) throw new Error(records.error || 'Could not load Learning Lab records');
+        if (!Array.isArray(records) || records.length === 0) {
+          container.innerHTML = '<p style="color:#718096;text-align:center;padding:20px;">No Learning Lab activity found for this date.</p>';
+          return;
+        }
+        container.innerHTML = records.map(record => {
+          const when = record.created_at ? new Date(record.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : selectedDate;
+          const summary = record.activity === 'writing'
+            ? `Score: ${record.score ?? '—'}/100 · ${record.completion_status || 'submitted'}`
+            : record.activity === 'speaking'
+              ? `${record.completion_status || 'started'} · ${record.duration_seconds ?? '—'} seconds · confidence ${record.confidence_rating ?? '—'}/5`
+              : `${record.correct_words || 0}/${record.total_words || 0} correct · ${record.total_words ? Math.round((Number(record.correct_words || 0) / Number(record.total_words)) * 100) : 0}% accuracy`;
+          return `<details style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
+            <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-weight:700;color:#2d3748;"><span>${learningLabRecordValue(record.student_name)} · ${learningLabRecordValue(record.activity_label)}</span><span style="font-weight:500;color:#4a5568;">${learningLabRecordValue(summary)} · ${learningLabRecordValue(when)}</span></summary>
+            <div style="margin-top:12px;color:#4a5568;font-size:0.92rem;">${renderLearningLabRecordDetails(record)}</div>
+          </details>`;
+        }).join('');
+      } catch (error) {
+        console.error('Error loading Learning Lab records:', error);
+        container.innerHTML = `<p style="color:#c53030;text-align:center;padding:20px;">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
     function getLearningLabAdminPassword(forcePrompt = false) {
       let pass = sessionStorage.getItem('learningLabAdminPassword') || '';
       if (forcePrompt || !pass) {
@@ -17327,11 +17424,16 @@ function initializeQuizTab() {
         if (status) status.textContent = 'Paid class students get Learning Lab included automatically. Manual $5/month Learning Lab access expires automatically after the expiry date.';
         container.innerHTML = rows.map(row => {
           const active = row.is_active === true || row.is_active === 'true';
+          const blocked = row.is_blocked === true || row.is_blocked === 'true' || row.status === 'cancelled';
           const expires = row.expires_at ? new Date(row.expires_at).toLocaleDateString() : 'No expiry';
           const starts = row.starts_at ? new Date(row.starts_at).toLocaleDateString() : '-';
-          return `<div style="background:${active ? '#ecfdf5' : '#f8fafc'};border:1px solid ${active ? '#6ee7b7' : '#e2e8f0'};border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
-            <div><strong style="color:#1f2937;">${row.name}</strong><div style="color:#718096;font-size:0.85rem;">${row.parent_email || ''}</div><div style="color:#4b5563;font-size:0.85rem;">Status: ${active ? 'Active' : (row.status || 'No subscription')} | Start: ${starts} | Expiry: ${expires}</div></div>
-            ${active && row.subscription_id ? `<button type="button" class="btn btn-sm" style="background:#b91c1c;color:white;" onclick="pauseLearningLabSubscription(${row.subscription_id})">Pause Access</button>` : ''}
+          const statusLabel = blocked ? 'Blocked by admin' : (active ? 'Manual access active' : (row.status || 'No manual access'));
+          return `<div style="background:${blocked ? '#fff1f2' : active ? '#ecfdf5' : '#f8fafc'};border:1px solid ${blocked ? '#fda4af' : active ? '#6ee7b7' : '#e2e8f0'};border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+            <div><strong style="color:#1f2937;">${row.name}</strong><div style="color:#718096;font-size:0.85rem;">${row.parent_email || ''}</div><div style="color:#4b5563;font-size:0.85rem;">Status: ${statusLabel} | Start: ${starts} | Expiry: ${expires}</div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${blocked ? `<button type="button" class="btn btn-sm" style="background:#15803d;color:white;" onclick="unblockLearningLabAccess(${row.student_id})">Allow Access</button>` : `<button type="button" class="btn btn-sm" style="background:#b91c1c;color:white;" onclick="blockLearningLabAccess(${row.student_id})">Block Access</button>`}
+              ${active && row.subscription_id ? `<button type="button" class="btn btn-sm" style="background:#92400e;color:white;" onclick="pauseLearningLabSubscription(${row.subscription_id})">Pause Manual Subscription</button>` : ''}
+            </div>
           </div>`;
         }).join('') || '<p style="color:#718096;margin:0;">No students found.</p>';
       } catch (err) {

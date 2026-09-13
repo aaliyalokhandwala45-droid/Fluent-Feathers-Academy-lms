@@ -1298,7 +1298,7 @@
         <div class="section">
           <div class="learning-lab-hero">
             <h2>&#129504; Learning Lab</h2>
-            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Lab includes Daily Quiz, Spelling Bee, Speaking Practice, and Writing Studio. Students with active paid classes get Learning Lab access included. Students not taking classes can contact the teacher for the $5/month Learning Lab subscription.</p>
+            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Lab includes Daily Quiz, Spelling Bee, Speaking Practice, and Writing Studio. Students with active paid classes and upcoming sessions get Learning Lab included. Paused or completed students get one free trial for each activity, then can contact the teacher for the $5/month Learning Lab subscription.</p>
           </div>
           <div id="learningHubAccessNotice" style="display:none; background:#fffbeb; border:1px solid #fbbf24; color:#92400e; border-radius:12px; padding:12px 14px; margin:0 0 16px; font-weight:700;"></div>
           <div id="learningLabCards" class="learning-lab-grid"></div>
@@ -3140,8 +3140,8 @@ setTimeout(() => {
         return;
       }
       notice.textContent = lockedTasks.length
-        ? `Learning Lab access is locked. Students not currently taking paid classes can contact the teacher for the $5/month Learning Lab subscription.`
-        : `Paid class students get Learning Lab access included. Students not taking classes can contact the teacher for the $5/month Learning Lab subscription.`;
+        ? `Free trial used. Learning Lab is $5/month for students not currently taking paid classes. Contact the teacher for subscription access.`
+        : `Paused or completed students get 1 free trial for each Learning Lab activity. After that, Learning Lab is $5/month for students not currently taking paid classes.`;
       notice.style.display = 'block';
       notice.style.background = '#fffbeb';
       notice.style.borderColor = '#fbbf24';
@@ -3186,11 +3186,11 @@ setTimeout(() => {
           : isPayLocked
           ? `event.preventDefault(); showLearningHubPaywall('${module.id}')`
           : `openLearningLabModule('${module.id}')`;
-        const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : learningHubAccess?.access_source === 'paid_classes' ? 'Included' : 'Active';
+        const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : learningHubAccess?.access_source === 'paid_classes' ? 'Included' : learningHubAccess?.trial_access ? 'Free Trial' : 'Active';
         const helperText = isPayLocked
-          ? `Learning Lab access is $5/month for students who are not currently taking paid classes.`
+          ? `Free trial used. Learning Lab is $5/month for students not currently taking paid classes.`
           : taskAccess && !learningHubAccess?.paid
-          ? module.description
+          ? `${taskAccess.remaining_free} free trial${taskAccess.remaining_free === 1 ? '' : 's'} left`
           : module.description;
         return `
           <div class="learning-card ${isLocked || isPayLocked ? 'locked' : ''}">
@@ -3210,7 +3210,7 @@ setTimeout(() => {
 
     function showLearningHubPaywall(moduleId) {
       const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : moduleId === 'quiz' ? 'Daily Quiz' : moduleId === 'spelling' ? 'Spelling Bee' : 'Learning Lab';
-      alert(`${taskName} requires Learning Lab access. Students not taking classes can contact the teacher for the $5/month subscription.`);
+      alert(`${taskName} free trial is complete. Learning Lab is $5/month for students not currently taking paid classes. Contact the teacher for subscription access.`);
     }
 
     // ============================================================================
