@@ -1,4 +1,4 @@
-﻿
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -614,7 +614,7 @@
             <div class="form-group" style="margin:0;"><label>Category</label><input id="readingCategory" type="text" required placeholder="comprehension"></div>
             <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Story Text</label><textarea id="readingStoryTextInput" rows="5" required placeholder="Paste the short story here..."></textarea></div>
             <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Moral / Teaching Point</label><input id="readingMoral" type="text" placeholder="Optional"></div>
-            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Questions JSON</label><textarea id="readingQuestionsJson" rows="8" required></textarea><small>Use question types: inference, grammar, vocabulary, reference_context, contextual_clues.</small></div>
+            <div class="form-group" style="margin:0; grid-column:1/-1;"><label>Comprehension Questions</label><div id="readingQuestionsBuilder" style="display:grid; gap:10px;"></div><button class="btn btn-sm" type="button" onclick="addReadingQuestionAdmin()" style="margin-top:10px; background:#4a5568; color:white;">Add Question</button><textarea id="readingQuestionsJson" style="display:none;"></textarea><small>Add inference, grammar, vocabulary, reference to context, and contextual clues questions.</small></div>
             <button class="btn btn-success" type="submit">Save Story</button>
             <button class="btn" type="button" onclick="resetReadingStoryForm()" style="background:#e5e7eb;color:#374151;">Clear</button>
           </form>
@@ -17420,15 +17420,82 @@ function initializeQuizTab() {
       ];
     }
 
+    function readingQuestionTypeLabelAdmin(type) {
+      const labels = { inference: 'Inference', grammar: 'Grammar', vocabulary: 'Vocabulary', reference_context: 'Reference to Context', contextual_clues: 'Contextual Clues' };
+      return labels[type] || type;
+    }
+
+    function renderReadingQuestionsAdmin(questions) {
+      const container = document.getElementById('readingQuestionsBuilder');
+      if (!container) return;
+      const list = Array.isArray(questions) && questions.length ? questions : defaultReadingQuestionsAdmin();
+      const types = ['inference', 'grammar', 'vocabulary', 'reference_context', 'contextual_clues'];
+      container.innerHTML = list.map((q, index) => {
+        const options = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
+        while (options.length < 4) options.push('');
+        const correct = Number.isInteger(Number(q.correct_answer)) ? Number(q.correct_answer) : 0;
+        return `
+          <div class="reading-question-card" data-index="${index}" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;display:grid;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <strong style="color:#1f2937;">Question ${index + 1}</strong>
+              <button class="btn btn-sm" type="button" onclick="removeReadingQuestionAdmin(${index})" style="background:#fed7d7;color:#9b2c2c;">Remove</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+              <label style="display:grid;gap:4px;font-weight:600;color:#4a5568;">Question Type
+                <select data-field="type">${types.map(type => `<option value="${type}" ${type === q.type ? 'selected' : ''}>${readingQuestionTypeLabelAdmin(type)}</option>`).join('')}</select>
+              </label>
+              <label style="display:grid;gap:4px;font-weight:600;color:#4a5568;">Correct Answer
+                <select data-field="correct_answer">${[0,1,2,3].map(i => `<option value="${i}" ${i === correct ? 'selected' : ''}>Option ${i + 1}</option>`).join('')}</select>
+              </label>
+            </div>
+            <label style="display:grid;gap:4px;font-weight:600;color:#4a5568;">Question
+              <textarea data-field="question" rows="2" placeholder="Write the question here...">${escapeHtml(q.question || '')}</textarea>
+            </label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+              ${options.map((opt, optIndex) => `<label style="display:grid;gap:4px;font-weight:600;color:#4a5568;">Option ${optIndex + 1}<input data-option="${optIndex}" type="text" value="${escapeHtml(opt || '')}" placeholder="Answer choice"></label>`).join('')}
+            </div>
+            <label style="display:grid;gap:4px;font-weight:600;color:#4a5568;">Explanation
+              <input data-field="explanation" type="text" value="${escapeHtml(q.explanation || '')}" placeholder="Why this answer is correct">
+            </label>
+          </div>`;
+      }).join('');
+      syncReadingQuestionsJsonAdmin();
+    }
+
+    function getReadingQuestionsFromBuilderAdmin() {
+      return Array.from(document.querySelectorAll('#readingQuestionsBuilder .reading-question-card')).map(card => ({
+        type: card.querySelector('[data-field="type"]')?.value || 'inference',
+        question: (card.querySelector('[data-field="question"]')?.value || '').trim(),
+        options: [0,1,2,3].map(i => (card.querySelector(`[data-option="${i}"]`)?.value || '').trim()),
+        correct_answer: Number(card.querySelector('[data-field="correct_answer"]')?.value || 0),
+        explanation: (card.querySelector('[data-field="explanation"]')?.value || '').trim()
+      })).filter(q => q.question || q.options.some(Boolean));
+    }
+
+    function syncReadingQuestionsJsonAdmin() {
+      const hidden = document.getElementById('readingQuestionsJson');
+      if (hidden) hidden.value = JSON.stringify(getReadingQuestionsFromBuilderAdmin());
+    }
+
+    function addReadingQuestionAdmin() {
+      const questions = getReadingQuestionsFromBuilderAdmin();
+      questions.push({ type: 'inference', question: '', options: ['', '', '', ''], correct_answer: 0, explanation: '' });
+      renderReadingQuestionsAdmin(questions);
+    }
+
+    function removeReadingQuestionAdmin(index) {
+      const questions = getReadingQuestionsFromBuilderAdmin();
+      questions.splice(index, 1);
+      renderReadingQuestionsAdmin(questions.length ? questions : defaultReadingQuestionsAdmin());
+    }
+
     function resetReadingStoryForm() {
       const form = document.getElementById('readingStoryForm');
       if (form) form.reset();
       const id = document.getElementById('readingStoryId');
       if (id) id.value = '';
-      const q = document.getElementById('readingQuestionsJson');
-      if (q) q.value = JSON.stringify(defaultReadingQuestionsAdmin(), null, 2);
+      renderReadingQuestionsAdmin(defaultReadingQuestionsAdmin());
     }
-
     async function loadReadingStoriesAdmin() {
       const container = document.getElementById('readingStoriesAdminList');
       if (!container) return;
@@ -17468,17 +17535,18 @@ function initializeQuizTab() {
       document.getElementById('readingAgeGroup').value = story.age_group || 'young';
       document.getElementById('readingDifficulty').value = story.difficulty || 'beginner';
       document.getElementById('readingCategory').value = story.category || 'comprehension';
-      document.getElementById('readingQuestionsJson').value = JSON.stringify(Array.isArray(story.questions) ? story.questions : [], null, 2);
+      renderReadingQuestionsAdmin(Array.isArray(story.questions) ? story.questions : defaultReadingQuestionsAdmin());
       document.getElementById('readingStoryForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     async function saveReadingStoryAdmin(event) {
       event.preventDefault();
-      let questions;
-      try { questions = JSON.parse(document.getElementById('readingQuestionsJson').value); } catch (err) { alert('Questions JSON is invalid.'); return; }
+      const questions = getReadingQuestionsFromBuilderAdmin();
       const id = document.getElementById('readingStoryId').value;
       const payload = { title: document.getElementById('readingTitle').value.trim(), story_text: document.getElementById('readingStoryTextInput').value.trim(), moral: document.getElementById('readingMoral').value.trim(), age_group: document.getElementById('readingAgeGroup').value, difficulty: document.getElementById('readingDifficulty').value, category: document.getElementById('readingCategory').value.trim(), questions };
-      if (!payload.title || !payload.story_text || !payload.category || !Array.isArray(questions) || questions.length < 3) { alert('Please add title, story, category, and at least 3 questions.'); return; }
+      const completeQuestions = questions.filter(q => q.question && q.options.filter(Boolean).length >= 2);
+      if (!payload.title || !payload.story_text || !payload.category || completeQuestions.length < 3) { alert('Please add title, story, category, and at least 3 complete questions.'); return; }
+      payload.questions = completeQuestions;
       const res = await fetch(id ? `/api/admin/reading-stories/${id}` : '/api/admin/reading-stories', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { alert(data.error || 'Failed to save reading story'); return; }
