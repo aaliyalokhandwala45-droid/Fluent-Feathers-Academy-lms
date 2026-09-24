@@ -4230,6 +4230,19 @@ async function runMigrations() {
 
     console.log('✅ All database migrations completed successfully!');
 
+    // Migration 64: Schedule Learning Lab content by date, while retaining history for repeat checks.
+    try {
+      await client.query(`ALTER TABLE spelling_words ADD COLUMN IF NOT EXISTS available_on DATE`);
+      await client.query(`ALTER TABLE speaking_topics ADD COLUMN IF NOT EXISTS available_on DATE`);
+      await client.query(`ALTER TABLE writing_prompts ADD COLUMN IF NOT EXISTS available_on DATE`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_spelling_words_available_on ON spelling_words(available_on, age_group, active)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_speaking_topics_available_on ON speaking_topics(available_on, age_group, active)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_writing_prompts_available_on ON writing_prompts(available_on, age_group, active)`);
+      console.log('Learning Lab daily-content schedule ready');
+    } catch (err) {
+      console.log('Learning Lab daily-content migration note:', err.message);
+    }
+
     // Auto-sync badges for students who should have them
     try {
       const students = await client.query('SELECT id, completed_sessions FROM students WHERE is_active = true');
@@ -23357,6 +23370,23 @@ app.get('/api/announcements', async (req, res) => {
   }
 });
 
+async function getAnnouncementRecipients() {
+  const recipients = await pool.query(`
+    SELECT DISTINCT ON (LOWER(parent_email)) parent_email, parent_name
+    FROM (
+      SELECT parent_email, parent_name, 0 AS recipient_priority
+      FROM students
+      WHERE is_active = true AND parent_email IS NOT NULL AND TRIM(parent_email) <> ''
+      UNION ALL
+      SELECT parent_email, parent_name, 1 AS recipient_priority
+      FROM demo_leads
+      WHERE parent_email IS NOT NULL AND TRIM(parent_email) <> ''
+    ) recipients
+    ORDER BY LOWER(parent_email), recipient_priority, parent_name NULLS LAST
+  `);
+  return recipients;
+}
+
 app.post('/api/announcements', upload.single('image'), async (req, res) => {
   const { title, content, announcement_type, priority, send_email } = req.body;
   try {
@@ -23402,11 +23432,7 @@ app.post('/api/announcements', upload.single('image'), async (req, res) => {
 
     // Send emails if requested
     if (send_email === 'true' || send_email === true) {
-      const students = await pool.query(`
-        SELECT DISTINCT parent_email, parent_name, name as student_name
-        FROM students
-        WHERE is_active = true AND parent_email IS NOT NULL
-      `);
+      const students = await getAnnouncementRecipients();
 
       for (const student of students.rows) {
         const emailHtml = getAnnouncementEmail({
@@ -23441,7 +23467,7 @@ app.post('/api/announcements', upload.single('image'), async (req, res) => {
   }
 });
 
-// Send announcement email to all active students
+// Send announcement email to active parents and demo parents
 app.post('/api/announcements/:id/send-email', async (req, res) => {
   try {
     const announcement = await pool.query('SELECT * FROM announcements WHERE id = $1', [req.params.id]);
@@ -23451,11 +23477,7 @@ app.post('/api/announcements/:id/send-email', async (req, res) => {
 
     const { title, content, announcement_type, priority } = announcement.rows[0];
 
-    const students = await pool.query(`
-      SELECT DISTINCT parent_email, parent_name, name as student_name
-      FROM students
-      WHERE is_active = true AND parent_email IS NOT NULL
-    `);
+    const students = await getAnnouncementRecipients();
 
     let emailsSent = 0;
     for (const student of students.rows) {
@@ -25983,7 +26005,9 @@ async function getLearningHubAccess(studentId) {
     [studentId]
   );
   const upcomingClassCount = Number(upcomingResult.rows[0]?.upcoming_count || 0);
-  const hasActiveClassAccess = student.is_active !== false && Number(student.fees_paid || 0) > 0 && paidRemainingSessions > 0 && upcomingClassCount > 0;
+  // A paid class package remains valid even while the next class has not yet been scheduled.
+  // Requiring an upcoming session here was incorrectly turning paid students into trial users.
+  const hasActiveClassAccess = student.is_active !== false && paidRemainingSessions > 0;
 
   const usageResult = await executeQuery(
     `SELECT
@@ -26003,18 +26027,12 @@ async function getLearningHubAccess(studentId) {
   const writingUsed = Number(usage.writing_used || 0);
   const spellingUsed = Number(usage.spelling_used || 0);
   const hubSettings = await getLearningHubSettings();
-  const feesEnabled = hubSettings.fees_enabled;
+  // Learning Lab is included with an active paid class package only. Students whose
+  // classes are paused, finished, or not enrolled must have an active Lab subscription.
+  const feesEnabled = true;
   const paid = !adminBlocked && (hasActiveClassAccess || !!subscription);
-  const hasTrialAccess = !adminBlocked && !paid;
-  const task = (used) => {
-    const remainingFree = hasTrialAccess ? Math.max(0, 1 - used) : null;
-    return {
-      used,
-      free_limit: hasTrialAccess ? 1 : 0,
-      remaining_free: remainingFree,
-      locked: feesEnabled && !paid && (!hasTrialAccess || used >= 1)
-    };
-  };
+  const hasTrialAccess = false;
+  const task = (used) => ({ used, free_limit: 0, remaining_free: 0, locked: !paid });
 
   return {
     paid,
@@ -26038,17 +26056,15 @@ async function getLearningHubAccess(studentId) {
 }
 function learningHubPaywallPayload(task, access) {
   return {
-    error: `Your free ${task} trial is complete. Learning Lab costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month for students who are not currently taking paid classes.`,
-    code: 'LEARNING_HUB_PAYMENT_REQUIRED',
-    paywall_required: true,
-    monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD,
-    access
+    error: 'Learning Lab is included with active paid classes. Students whose classes are paused, finished, or not enrolled need an active Learning Lab subscription.',
+    code: 'LEARNING_HUB_PAYMENT_REQUIRED', paywall_required: true,
+    monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD, access
   };
 }
 
 async function requireLearningHubTaskAccess(studentId, task) {
   const access = await getLearningHubAccess(studentId);
-  if (!access.fees_enabled || access.paid || !access.tasks[task]?.locked) return { allowed: true, access };
+  if (access.paid) return { allowed: true, access };
   return { allowed: false, access, payload: learningHubPaywallPayload(task, access) };
 }
 
@@ -26622,15 +26638,36 @@ app.get('/api/spelling/bee', async (req, res) => {
     const student = await executeQuery(`SELECT id, date_of_birth, grade FROM students WHERE id = $1`, [studentId]);
     if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
 
+    const access = await requireLearningHubTaskAccess(studentId, 'spelling');
+    if (!access.allowed) return res.status(402).json(access.payload);
+    const latestAttempt = await executeQuery(
+      `SELECT completed_at FROM spelling_attempts
+       WHERE student_id = $1 AND completion_status = 'completed'
+       ORDER BY completed_at DESC LIMIT 1`,
+      [studentId]
+    );
+    const lastCompletedAt = latestAttempt.rows[0]?.completed_at ? new Date(latestAttempt.rows[0].completed_at) : null;
+    const nextAvailableAt = lastCompletedAt ? new Date(lastCompletedAt.getTime() + 24 * 60 * 60 * 1000) : null;
+    if (nextAvailableAt && Date.now() < nextAvailableAt.getTime()) {
+      return res.json({ cooldown: true, next_available_at: nextAvailableAt.toISOString(), words: [], access });
+    }
+
     const ageGroup = getStudentAgeGroup(student.rows[0]);
+    const today = new Date().toISOString().split('T')[0];
     let words = await executeQuery(
       `SELECT *
        FROM spelling_words
-       WHERE age_group = $1 AND active = true
-       ORDER BY RANDOM()
+       WHERE age_group = $1 AND active = true AND available_on = $2
+       ORDER BY id
        LIMIT 10`,
-      [ageGroup]
+      [ageGroup, today]
     );
+    if (words.rows.length < 5) {
+      words = await executeQuery(
+        `SELECT * FROM spelling_words WHERE age_group = $1 AND active = true AND available_on IS NULL ORDER BY RANDOM() LIMIT 10`,
+        [ageGroup]
+      );
+    }
     if (words.rows.length < 5) {
       words = await executeQuery(
         `SELECT *
@@ -26650,9 +26687,10 @@ app.get('/api/spelling/bee', async (req, res) => {
         { id: 'word_scramble', name: 'Word Scramble' }
       ],
       trial,
-      premium_locked: trial.premium_locked,
+      premium_locked: false,
+      cooldown: false,
       words: words.rows.map(buildSpellingWordResponse),
-      access: await getLearningHubAccess(studentId)
+      access
     });
   } catch (err) {
     console.error('Error loading spelling bee:', err.message);
@@ -26818,6 +26856,94 @@ app.delete('/api/admin/vocabulary-words/:id', async (req, res) => {
   }
 });
 
+function normalizeDailyContentText(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getScheduledContentDate(value) {
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const date = String(value || tomorrow).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : tomorrow;
+}
+
+async function generateLearningLabContentWithAI(type, ageGroup, availableOn) {
+  if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY is not configured.');
+  const sources = {
+    spelling: { table: 'spelling_words', field: 'word', count: 10, format: '[{"word":"","clue":"","example_sentence":"","difficulty":"beginner|intermediate|advanced","category":""}]' },
+    speaking: { table: 'speaking_topics', field: 'topic_text', count: 1, format: '[{"topic_text":"","difficulty":"beginner|intermediate|advanced","category":""}]' },
+    writing: { table: 'writing_prompts', field: 'prompt_text', count: 1, format: '[{"genre":"","prompt_text":"","difficulty":"beginner|intermediate|advanced","structure_steps":[""],"phrase_bank":[""],"idioms":[""],"proverbs":[""],"vocabulary":[""]}]' }
+  };
+  const config = sources[type];
+  if (!config) throw new Error('Invalid Learning Lab content type');
+  const history = await executeQuery(
+    'SELECT ' + config.field + ' AS text FROM ' + config.table + ' WHERE age_group = $1 ORDER BY created_at DESC LIMIT 250',
+    [ageGroup]
+  );
+  const used = history.rows.map(row => String(row.text || '')).filter(Boolean).join(' | ');
+  const prompt = 'You create fresh English learning activities for children in the ' + ageGroup + ' age group. Generate exactly ' + config.count + ' ' + type + ' item(s) for ' + availableOn + '. Never repeat, paraphrase, or reuse these past items: ' + (used || 'none') + '. Return JSON only, with this exact shape: ' + config.format + '. Make every item child-safe, specific, and classroom-ready.';
+  const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+    model: GROQ_TEXT_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.8,
+    max_tokens: 1800
+  }, { headers: { Authorization: 'Bearer ' + process.env.GROQ_API_KEY } });
+  const raw = response.data.choices?.[0]?.message?.content || '[]';
+  const json = raw.match(/\[[\s\S]*\]/)?.[0] || raw;
+  const items = JSON.parse(json);
+  if (!Array.isArray(items)) throw new Error('AI returned an invalid content list');
+  const seen = new Set(history.rows.map(row => normalizeDailyContentText(row.text)));
+  const fresh = items.filter(item => {
+    const text = normalizeDailyContentText(item.word || item.topic_text || item.prompt_text);
+    if (!text || seen.has(text)) return false;
+    seen.add(text);
+    return true;
+  });
+  if (fresh.length < config.count) throw new Error('AI repeated existing material. Please generate again.');
+  return fresh;
+}
+
+app.post('/api/admin/learning-lab/generate-content', express.json(), async (req, res) => {
+  try {
+    const type = String(req.body.type || '').trim().toLowerCase();
+    const ageGroup = ['young', 'intermediate', 'advanced'].includes(req.body.age_group) ? req.body.age_group : 'young';
+    const availableOn = getScheduledContentDate(req.body.available_on);
+    const items = await generateLearningLabContentWithAI(type, ageGroup, availableOn);
+    const difficulty = value => ['beginner', 'intermediate', 'advanced'].includes(value) ? value : (ageGroup === 'young' ? 'beginner' : ageGroup);
+    const saved = [];
+    for (const item of items) {
+      if (type === 'spelling') {
+        const result = await executeQuery(
+          `INSERT INTO spelling_words (word, clue, example_sentence, difficulty, age_group, category, active, available_on)
+           VALUES ($1, $2, $3, $4, $5, $6, true, $7) RETURNING *`,
+          [String(item.word).trim(), String(item.clue || 'Spell the word carefully.').trim(), String(item.example_sentence || '').trim() || null, difficulty(item.difficulty), ageGroup, String(item.category || 'daily spelling bee').trim(), availableOn]
+        );
+        saved.push(result.rows[0]);
+      } else if (type === 'speaking') {
+        const result = await executeQuery(
+          `INSERT INTO speaking_topics (age_group, difficulty, category, topic_text, generated_by_ai, approved_by_admin, active, available_on)
+           VALUES ($1, $2, $3, $4, true, true, true, $5) RETURNING *`,
+          [ageGroup, difficulty(item.difficulty), String(item.category || 'daily speaking').trim(), String(item.topic_text).trim(), availableOn]
+        );
+        saved.push(result.rows[0]);
+      } else if (type === 'writing') {
+        const list = value => JSON.stringify(Array.isArray(value) ? value.map(v => String(v).trim()).filter(Boolean) : []);
+        const result = await executeQuery(
+          `INSERT INTO writing_prompts (age_group, difficulty, genre, prompt_text, structure_steps, phrase_bank, idioms, proverbs, vocabulary, active, approved_by_admin, available_on)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true, $10) RETURNING *`,
+          [ageGroup, difficulty(item.difficulty), String(item.genre || 'Creative Writing').trim(), String(item.prompt_text).trim(), list(item.structure_steps), list(item.phrase_bank), list(item.idioms), list(item.proverbs), list(item.vocabulary), availableOn]
+        );
+        saved.push(result.rows[0]);
+      } else {
+        return res.status(400).json({ error: 'Type must be spelling, speaking, or writing' });
+      }
+    }
+    res.json({ success: true, type, age_group: ageGroup, available_on: availableOn, items: saved });
+  } catch (err) {
+    console.error('Learning Lab AI generation error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get('/api/admin/spelling-words', async (req, res) => {
   try {
     const result = await executeQuery(`SELECT * FROM spelling_words ORDER BY created_at DESC, id DESC`);
@@ -26909,7 +27035,8 @@ app.get('/api/writing/today-prompt', async (req, res) => {
       `SELECT *
        FROM writing_prompts
        WHERE age_group = $1 AND active = true AND approved_by_admin = true
-       ORDER BY md5(id::text || $2)
+         AND (available_on = $2 OR available_on IS NULL)
+       ORDER BY CASE WHEN available_on = $2 THEN 0 ELSE 1 END, md5(id::text || $2)
        LIMIT 1`,
       [ageGroup, today]
     );
@@ -26920,7 +27047,8 @@ app.get('/api/writing/today-prompt', async (req, res) => {
         `SELECT *
          FROM writing_prompts
          WHERE age_group = $1 AND active = true AND approved_by_admin = true
-         ORDER BY md5(id::text || $2)
+           AND (available_on = $2 OR available_on IS NULL)
+         ORDER BY CASE WHEN available_on = $2 THEN 0 ELSE 1 END, md5(id::text || $2)
          LIMIT 1`,
         [ageGroup, today]
       );
@@ -26937,9 +27065,18 @@ app.get('/api/writing/today-prompt', async (req, res) => {
       [studentId, prompt.id, today]
     );
 
+    const latestSubmission = await executeQuery(
+      `SELECT created_at FROM writing_submissions WHERE student_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [studentId]
+    );
+    const lastWritingAt = latestSubmission.rows[0]?.created_at ? new Date(latestSubmission.rows[0].created_at) : null;
+    const nextWritingAvailableAt = lastWritingAt ? new Date(lastWritingAt.getTime() + 24 * 60 * 60 * 1000) : null;
+    const writingCooldown = !!(nextWritingAvailableAt && Date.now() < nextWritingAvailableAt.getTime());
     res.json({
       prompt: buildWritingPromptResponse(prompt),
       submission: submitted.rows[0] || null,
+      cooldown: writingCooldown,
+      next_available_at: writingCooldown ? nextWritingAvailableAt.toISOString() : null,
       access: await getLearningHubAccess(studentId)
     });
   } catch (err) {
@@ -26964,6 +27101,15 @@ app.post('/api/writing/submit', handleUpload('image', 1, 'writing'), async (req,
     if (storyText.length > 12000) return res.status(400).json({ error: 'Story is too long. Please keep it under 12,000 characters.' });
     const writingAccess = await requireLearningHubTaskAccess(studentId, 'writing');
     if (!writingAccess.allowed) return res.status(402).json(writingAccess.payload);
+    const recentSubmission = await executeQuery(
+      `SELECT created_at FROM writing_submissions WHERE student_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [studentId]
+    );
+    const lastWritingAt = recentSubmission.rows[0]?.created_at ? new Date(recentSubmission.rows[0].created_at) : null;
+    const writingAvailableAt = lastWritingAt ? new Date(lastWritingAt.getTime() + 24 * 60 * 60 * 1000) : null;
+    if (writingAvailableAt && Date.now() < writingAvailableAt.getTime()) {
+      return res.status(429).json({ error: 'Writing Studio will be available again at ' + writingAvailableAt.toISOString(), code: 'LEARNING_LAB_COOLDOWN', next_available_at: writingAvailableAt.toISOString() });
+    }
     if (req.file) {
       const ext = path.extname(req.file.originalname || req.file.filename || '').toLowerCase();
       const mime = String(req.file.mimetype || '').toLowerCase();
@@ -27121,7 +27267,7 @@ app.get('/api/speaking/today-topic', async (req, res) => {
       return res.json({
         attempt_id: null,
         topic_id: null,
-        topic_text: `Your free speaking trial is complete. Learning Hub costs $${LEARNING_HUB_MONTHLY_PRICE_USD}/month to continue.`,
+        topic_text: `Speaking Practice is available with active paid classes or an active Learning Lab subscription.`,
         difficulty: 'locked',
         is_new: false,
         attempts_used: speakingAccess.access.tasks.speaking.used,
@@ -27143,12 +27289,24 @@ app.get('/api/speaking/today-topic', async (req, res) => {
     );
     const usedAttempts = Number(attemptLimitResult.rows[0]?.used_attempts || 0);
     const attemptsRemaining = Math.max(0, 2 - usedAttempts);
+    const oldestRecentAttempt = await executeQuery(
+      `SELECT created_at FROM speaking_attempts
+       WHERE student_id = $1 AND created_at >= NOW() - INTERVAL '24 hours'
+         AND completion_status IN ('recorded', 'analyzed', 'completed')
+       ORDER BY created_at ASC LIMIT 1`,
+      [studentId]
+    );
+    const oldestSpeakingAt = oldestRecentAttempt.rows[0]?.created_at ? new Date(oldestRecentAttempt.rows[0].created_at) : null;
+    const nextSpeakingAvailableAt = attemptsRemaining <= 0 && oldestSpeakingAt
+      ? new Date(oldestSpeakingAt.getTime() + 24 * 60 * 60 * 1000).toISOString()
+      : null;
 
     const dailyTopicResult = await executeQuery(
       `SELECT *
        FROM speaking_topics
        WHERE age_group = $1 AND active = true AND approved_by_admin = true
-       ORDER BY md5(id::text || $2)
+         AND (available_on = $2 OR available_on IS NULL)
+       ORDER BY CASE WHEN available_on = $2 THEN 0 ELSE 1 END, md5(id::text || $2)
        LIMIT 1`,
       [ageGroup, today]
     );
@@ -27211,7 +27369,8 @@ app.get('/api/speaking/today-topic', async (req, res) => {
         is_new: false,
         attempts_used: usedAttempts,
         attempts_remaining: 0,
-        limit_reached: true
+        limit_reached: true,
+        next_available_at: nextSpeakingAvailableAt
       });
     }
 

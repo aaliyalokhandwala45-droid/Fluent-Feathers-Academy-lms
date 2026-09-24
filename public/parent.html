@@ -936,6 +936,13 @@
       <div id="homeworkTab" class="tab-content">
         <div class="section">
           <h2> Upload Homework</h2>
+          <div style="background:linear-gradient(135deg,#eef6ff 0%,#f7f0ff 100%);border:1px solid #cbd5e1;border-left:4px solid #667eea;border-radius:8px;padding:12px 14px;margin:0 0 18px;color:#334155;font-size:0.86rem;line-height:1.55;">
+            <strong>Homework points</strong><br>
+            Submit within 24 hours after class: <strong>15 points</strong><br>
+            Submit after 24 hours but within 7 days: <strong>10 points</strong><br>
+            Submit after 7 days: <strong>5 points</strong><br>
+            Submit every assigned homework on time in one week: <strong>+10 consistency bonus</strong> and a consistency badge.
+          </div>
           <form id="uploadHomeworkForm">
             <div class="form-group">
               <label>Select Session *</label>
@@ -1298,7 +1305,7 @@
         <div class="section">
           <div class="learning-lab-hero">
             <h2>&#129504; Learning Lab</h2>
-            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Lab includes Daily Quiz, Spelling Bee, Speaking Practice, and Writing Studio. Students with active paid classes and upcoming sessions get Learning Lab included. Paused or completed students get one free trial for each activity, then can contact the teacher for the $5/month Learning Lab subscription.</p>
+            <p style="margin: 0; color: #4a5568; line-height: 1.6;">Learning Lab includes Daily Quiz, Spelling Bee, Speaking Practice, and Writing Studio. Learning Lab is included for students with active paid classes. Students whose classes are paused or finished, and students who are not enrolled, need an active Learning Lab subscription.</p>
           </div>
           <div id="learningHubAccessNotice" style="display:none; background:#fffbeb; border:1px solid #fbbf24; color:#92400e; border-radius:12px; padding:12px 14px; margin:0 0 16px; font-weight:700;"></div>
           <div id="learningLabCards" class="learning-lab-grid"></div>
@@ -3146,6 +3153,12 @@ setTimeout(() => {
       return learningHubSettings;
     }
 
+    function formatLearningLabAvailability(value) {
+      const time = new Date(value);
+      if (Number.isNaN(time.getTime())) return 'soon';
+      return time.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+
     async function loadLearningHubAccess() {
       if (!currentStudent?.id) return null;
       try {
@@ -3181,8 +3194,8 @@ setTimeout(() => {
         return;
       }
       notice.textContent = lockedTasks.length
-        ? `Free trial used. Learning Lab is $5/month for students not currently taking paid classes. Contact the teacher for subscription access.`
-        : `Paused or completed students get 1 free trial for each Learning Lab activity. After that, Learning Lab is $5/month for students not currently taking paid classes.`;
+        ? `Learning Lab is included with active paid classes. Paused, finished, or not-enrolled students need a Learning Lab subscription.`
+        : `Paused, finished, or not-enrolled students need a Learning Lab subscription to use these activities.`;
       notice.style.display = 'block';
       notice.style.background = '#fffbeb';
       notice.style.borderColor = '#fbbf24';
@@ -3227,7 +3240,7 @@ setTimeout(() => {
           : isPayLocked
           ? `event.preventDefault(); showLearningHubPaywall('${module.id}')`
           : `openLearningLabModule('${module.id}')`;
-        const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : learningHubAccess?.access_source === 'paid_classes' ? 'Included' : learningHubAccess?.trial_access ? 'Free Trial' : 'Active';
+        const badgeText = isLocked ? 'Coming Soon' : isPayLocked ? learningHubPriceLabel() : learningHubAccess?.access_source === 'paid_classes' ? 'Included' : learningHubAccess?.subscription_access ? 'Subscribed' : 'Locked';
         const helperText = isPayLocked
           ? `Free trial used. Learning Lab is $5/month for students not currently taking paid classes.`
           : taskAccess && !learningHubAccess?.paid
@@ -3251,7 +3264,7 @@ setTimeout(() => {
 
     function showLearningHubPaywall(moduleId) {
       const taskName = moduleId === 'speaking' ? 'Speaking Practice' : moduleId === 'writing' ? 'Writing Studio' : moduleId === 'quiz' ? 'Daily Quiz' : moduleId === 'spelling' ? 'Spelling Bee' : 'Learning Lab';
-      alert(`${taskName} free trial is complete. Learning Lab is $5/month for students not currently taking paid classes. Contact the teacher for subscription access.`);
+      alert(`${taskName} is available with active paid classes or an active Learning Lab subscription.`);
     }
 
     // ============================================================================
@@ -3494,6 +3507,15 @@ setTimeout(() => {
         }
         const data = await res.json();
         currentWritingPrompt = data.prompt;
+        const writingButton = document.getElementById('submitWritingBtn');
+        const writingStatus = document.getElementById('writingSubmitStatus');
+        if (data.cooldown) {
+          if (writingButton) { writingButton.disabled = true; writingButton.style.opacity = '0.6'; }
+          if (writingStatus) { writingStatus.textContent = 'Writing Studio will be active again at ' + formatLearningLabAvailability(data.next_available_at) + '.'; writingStatus.style.display = 'block'; }
+        } else {
+          if (writingButton) { writingButton.disabled = false; writingButton.style.opacity = '1'; }
+          if (writingStatus) writingStatus.style.display = 'none';
+        }
         if (data.access) {
           learningHubAccess = data.access;
           updateLearningHubAccessNotice();
@@ -3676,8 +3698,8 @@ setTimeout(() => {
         const limitNotice = document.getElementById('speakingLimitNotice');
         const startBtn = document.getElementById('startRecordBtn');
         const paywallMessage = data.paywall_required
-          ? `Your free Speaking Practice trial is complete. Learning Lab is $5/month for full access. Contact your teacher for subscription.`
-          : 'You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.';
+          ? `Speaking Practice is available with active paid classes or an active Learning Lab subscription.`
+          : (data.next_available_at ? 'Speaking Practice will be active again at ' + formatLearningLabAvailability(data.next_available_at) + '.' : 'You have used both speaking practice attempts for the last 24 hours. Please try again tomorrow.');
         if (data.limit_reached || !data.attempt_id) {
           if (limitNotice) {
             limitNotice.textContent = paywallMessage;
@@ -4686,7 +4708,7 @@ setTimeout(() => {
       const myScore = leaderboardData.find(s => s.id === currentStudent.id)?.total_score || 0;
       const myRank  = leaderboardData.findIndex(s => s.id === currentStudent.id) + 1;
       const myBadges = allBadges.length;
-      const medals = ['','','','4','5'];
+      const medals = ['1','2','3','4','5'];
       const top5 = leaderboardData.slice(0, 5);
       const podiumHTML = _plbBuildPodium(leaderboardData);
 
@@ -7879,11 +7901,16 @@ setTimeout(() => {
           quizContainer.style.display = 'none';
           statusDiv.style.display = 'none';
           cooldownDiv.style.display = 'none';
+
         } else if (status.lastAttempt) {
           startContainer.style.display = 'none';
           quizContainer.style.display = 'none';
           statusDiv.style.display = 'block';
           cooldownDiv.style.display = 'none';
+          if (status.nextQuizTime && new Date(status.nextQuizTime) > new Date()) {
+            cooldownDiv.style.display = 'block';
+            cooldownDiv.innerHTML = 'Daily Quiz will be active again at ' + formatLearningLabAvailability(status.nextQuizTime) + '.';
+          }
 
           const score = status.lastAttempt.score;
           const maxScore = status.lastAttempt.total_questions;
@@ -7923,7 +7950,7 @@ setTimeout(() => {
         await loadLearningHubAccess();
         const quizAccess = learningHubAccess?.tasks?.quiz;
         if (learningHubAccess?.fees_enabled && quizAccess?.locked) {
-          alert('Your free Daily Quiz trial is complete. Learning Lab is $5/month for full access. Contact your teacher for subscription.');
+          alert('Daily Quiz is available with active paid classes or an active Learning Lab subscription.');
           return;
         }
         const selectedLevel = document.getElementById('dailyQuizLevelSelect')?.value || 'beginner';
@@ -8233,6 +8260,12 @@ setTimeout(() => {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Could not load spelling bee');
+        if (data.cooldown) {
+          const complete = document.getElementById('spellingComplete');
+          complete.style.display = 'block';
+          complete.innerHTML = '<p style="margin:0;color:#92400e;font-weight:800;">Spelling Bee will be active again at ' + formatLearningLabAvailability(data.next_available_at) + '.</p>';
+          return;
+        }
         if (data.premium_locked) {
           alert('Your free Spelling Bee trial is complete. Premium access will be available when Learning Hub launches.');
           return;

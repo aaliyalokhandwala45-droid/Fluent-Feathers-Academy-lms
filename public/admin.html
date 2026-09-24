@@ -530,6 +530,22 @@
           </div>
         </div>
         <div id="learningLabAdminOverview" style="display: grid; gap: 14px;"></div>
+
+        <div style="background:#f8fafc;border:1px solid #dbeafe;border-radius:8px;padding:16px;margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+            <div><h3 style="margin:0;color:#1e3a5f;">AI Daily Content</h3><p style="margin:4px 0 0;color:#64748b;font-size:.9rem;">Generate fresh material for the next day. Existing material is checked so it is not repeated.</p></div>
+            <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+              <div class="form-group" style="margin:0;"><label>Date</label><input id="learningLabGenerateDate" type="date"></div>
+              <div class="form-group" style="margin:0;"><label>Age Group</label><select id="learningLabGenerateAge"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary" onclick="generateLearningLabContent('spelling')">Generate Spelling Bee Words</button>
+            <button type="button" class="btn btn-primary" onclick="generateLearningLabContent('speaking')">Generate Speaking Topic</button>
+            <button type="button" class="btn btn-primary" onclick="generateLearningLabContent('writing')">Generate Writing Prompt</button>
+          </div>
+          <div id="learningLabGenerateStatus" style="margin-top:10px;color:#475569;font-size:.9rem;"></div>
+        </div>
         <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
             <div>
@@ -550,7 +566,7 @@
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
             <div>
               <h3 style="margin:0; color:#2d3748;">Learning Lab Subscriptions</h3>
-              <p style="margin:4px 0 0; color:#718096; font-size:0.9rem;">Manually allow Learning Lab access for students who are not currently taking paid classes. Access automatically stops after the expiry date.</p>
+              <p style="margin:4px 0 0; color:#718096; font-size:0.9rem;">Activate a paid Learning Lab subscription for students whose classes are paused, finished, or not enrolled. Access automatically stops after the expiry date.</p>
             </div>
             <button type="button" onclick="loadLearningLabSubscriptions(true)" class="btn btn-primary">Refresh Access</button>
           </div>
@@ -2469,7 +2485,7 @@ Answer: B" style="width:100%; min-height:220px; padding:12px; border:1px solid #
           </div>
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
             <input type="checkbox" id="sendAnnouncementEmail" checked style="width: auto; margin: 0;">
-            <label for="sendAnnouncementEmail" style="margin: 0; cursor: pointer;">Send Email to All Active Students/Parents</label>
+            <label for="sendAnnouncementEmail" style="margin: 0; cursor: pointer;">Send Email to Active Parents and Demo Parents</label>
           </div>
           <button type="submit" class="btn btn-primary">Create Announcement</button>
         </form>
@@ -4867,7 +4883,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
-      if (tabName === 'learningLab') { loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabAttempts(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadSpellingWordsAdmin(); }
+      if (tabName === 'learningLab') { setLearningLabGenerateDate(); loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabAttempts(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadSpellingWordsAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
         setTimeout(initWhiteboard, 100); // Small delay to ensure canvas is visible
@@ -4908,6 +4924,34 @@ I'm passionate about helping children develop confidence in communication!"></te
           </div>
         `).join('')}
       `;
+    }
+
+    function setLearningLabGenerateDate() {
+      const input = document.getElementById('learningLabGenerateDate');
+      if (input && !input.value) input.value = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    }
+
+    async function generateLearningLabContent(type) {
+      setLearningLabGenerateDate();
+      const date = document.getElementById('learningLabGenerateDate')?.value;
+      const ageGroup = document.getElementById('learningLabGenerateAge')?.value || 'young';
+      const status = document.getElementById('learningLabGenerateStatus');
+      if (status) status.textContent = 'Generating fresh content...';
+      try {
+        const res = await fetch('/api/admin/learning-lab/generate-content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, age_group: ageGroup, available_on: date })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not generate content');
+        const label = type === 'spelling' ? data.items.length + ' spelling words' : (type === 'speaking' ? 'a speaking topic' : 'a writing prompt');
+        if (status) status.textContent = 'Scheduled ' + label + ' for ' + data.available_on + '.';
+        if (type === 'spelling') loadSpellingWordsAdmin();
+        if (type === 'speaking') loadSpeakingTopicsAdmin();
+      } catch (err) {
+        if (status) status.textContent = err.message;
+      }
     }
 
     async function loadSpeakingTopicsAdmin() {
@@ -13598,7 +13642,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       const id = document.getElementById('editAnnouncementId').value;
       const title = document.getElementById('editAnnouncementTitle').value;
 
-      if (!confirm(`Send email for "${title}" to all active students/parents?`)) return;
+      if (!confirm(`Send email for "${title}" to active parents and demo parents?`)) return;
 
       try {
         const res = await fetch(`/api/announcements/${id}/send-email`, {
