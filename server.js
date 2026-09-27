@@ -14,7 +14,6 @@ const cron = require('node-cron');
 const cloudinary = require('cloudinary').v2;
 const firebaseAdmin = require('firebase-admin');
 require('dotenv').config();
-I
 const app = express();
 
 const PORT = process.env.PORT || 3000;
