@@ -12686,7 +12686,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         const w = d.winner;
         body.innerHTML = w
           ? `<div style="font-size:1.2rem;font-weight:bold;margin:4px 0;">${w.name}</div>
-             <div style="font-size:11px;opacity:0.85;">📝 ${w.homework||0} HW &nbsp;·&nbsp; 🎯 ${w.challenges||0} challenges &nbsp;·&nbsp; 🏅 ${w.badges||0} badges</div>
+             <div style="font-size:11px;opacity:0.85;">📝 ${w.homework||0} HW &nbsp;·&nbsp; 🎯 ${w.challenges||0} challenges &nbsp;·&nbsp; 🏅 ${w.badges||0} badge points</div>
              <div style="font-size:10px;opacity:0.7;margin-top:3px;">Score: ${w.total_score||0}</div>
              <div style="margin-top:8px;background:rgba(255,255,255,0.2);border-radius:8px;padding:4px 8px;font-size:10px;">🔥 Leading!</div>`
           : '<div style="margin-top:8px;background:rgba(0,0,0,0.18);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">😴 No activity this period</div>';

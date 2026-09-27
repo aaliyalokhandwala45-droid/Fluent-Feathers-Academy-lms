@@ -18829,7 +18829,7 @@ app.get('/api/sessions/:sessionId/has-feedback/:studentId', async (req, res) => 
 });
 
 // ==================== BADGES SYSTEM ====================
-async function awardBadge(studentId, badgeType, badgeName, badgeDescription) {
+async function awardBadge(studentId, badgeType, badgeName, badgeDescription, earnedDate = null) {
   try {
     const existing = await pool.query(
       'SELECT id FROM student_badges WHERE student_id = $1 AND badge_type = $2',
@@ -18838,9 +18838,9 @@ async function awardBadge(studentId, badgeType, badgeName, badgeDescription) {
 
     if (existing.rows.length === 0) {
       await pool.query(`
-        INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
-        VALUES ($1, $2, $3, $4)
-      `, [studentId, badgeType, badgeName, badgeDescription]);
+        INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description, earned_date)
+        VALUES ($1, $2, $3, $4, COALESCE($5::timestamp, CURRENT_TIMESTAMP))
+      `, [studentId, badgeType, badgeName, badgeDescription, earnedDate]);
       return true;
     }
     return false;
@@ -21760,13 +21760,23 @@ async function backfillQuizChampionBadges() {
   try {
     console.log('🔄 Backfilling Quiz Champion badges for existing perfect scores...');
 
-    // Find all perfect quiz attempts that don't have badges
+    // Match canonical badge IDs and IDs written by the earlier Date-string bug.
     const result = await pool.query(`
-      SELECT qa.student_id, qa.quiz_date
+      SELECT qa.student_id, qa.quiz_date::text AS quiz_date
       FROM quiz_attempts qa
-      LEFT JOIN student_badges sb ON qa.student_id = sb.student_id
-        AND sb.badge_type = CONCAT('daily_quiz_champion_', qa.quiz_date::text)
-      WHERE qa.score = 10 AND sb.id IS NULL
+      WHERE qa.score = 10
+        AND NOT EXISTS (
+          SELECT 1
+          FROM student_badges sb
+          WHERE sb.student_id = qa.student_id
+            AND (
+              sb.badge_type = CONCAT('daily_quiz_champion_', qa.quiz_date::text)
+              OR to_date(
+                substring(sb.badge_type FROM '^daily_quiz_champion_[A-Za-z]{3} ([A-Za-z]{3} [0-9]{1,2} [0-9]{4})'),
+                'Mon DD YYYY'
+              ) = qa.quiz_date
+            )
+        )
     `);
 
     console.log(`Found ${result.rows.length} perfect quiz attempts without badges`);
@@ -21778,7 +21788,8 @@ async function backfillQuizChampionBadges() {
         row.student_id,
         uniqueBadgeType,
         DAILY_QUIZ_BADGE_NAME,
-        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${row.quiz_date})`
+        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${row.quiz_date})`,
+        row.quiz_date
       );
       if (badgeAwarded) awarded++;
     }
