@@ -15359,14 +15359,7 @@ async function runAiHomeworkDraftReview(materialId) {
   );
 
   const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) {
-    await pool.query(
-      `UPDATE materials SET ai_review_status = 'manual_required', ai_review_error = $1, ai_reviewed_at = CURRENT_TIMESTAMP WHERE id = $2`,
-      ['GROQ_API_KEY is not configured.', materialId]
-    );
-    return;
-  }
-
+  const openAiKey = process.env.OPENAI_API_KEY;
   const studentName = material.student_name || 'the student';
   const fileName = material.file_name || '';
   const filePath = material.file_path || '';
@@ -15374,6 +15367,14 @@ async function runAiHomeworkDraftReview(materialId) {
   const link = material.submission_link || '';
   const hasVisibleText = !!comment || !!link || filePath === 'MANUAL' || filePath?.startsWith('LINK:');
   const isImage = isHomeworkImageFile(fileName, filePath);
+  const useOpenAiImageReview = process.env.OPENAI_HOMEWORK_VISION === 'true' && !!openAiKey;
+  if ((isImage && !groqKey && !useOpenAiImageReview) || (!isImage && !groqKey)) {
+    await pool.query(
+      `UPDATE materials SET ai_review_status = 'manual_required', ai_review_error = $1, ai_reviewed_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [isImage ? 'Configure an accessible Groq vision model, or explicitly enable OpenAI image review.' : 'GROQ_API_KEY is required for text review.', materialId]
+    );
+    return;
+  }
 
   try {
     let response;
@@ -15396,22 +15397,28 @@ ${feedbackStyle}`;
     if (isImage) {
       const imageInput = await buildHomeworkImageInputForAi(material);
       if (!imageInput) throw new Error('Image file could not be read for AI review.');
-      response = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
-          model: GROQ_VISION_MODEL,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: `${systemPrompt}\n\nStudent: ${studentName}\nFile: ${fileName || 'homework image'}\nRead the worksheet/writeup carefully from the image.` },
-              { type: 'image_url', image_url: { url: imageInput } }
-            ]
-          }],
-          max_tokens: 600,
-          temperature: 0.2
-        },
-        { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 45000 }
-      );
+      const imageReviewMessages = [{
+        role: 'user',
+        content: [
+          { type: 'text', text: `${systemPrompt}\n\nStudent: ${studentName}\nFile: ${fileName || 'homework image'}\nRead the worksheet/writeup carefully from the image.` },
+          { type: 'image_url', image_url: { url: imageInput } }
+        ]
+      }];
+      if (useOpenAiImageReview) {
+        response = await axios.post(
+          'https://api.openai.com/v1/chat/completions',
+          { model: 'gpt-4o-mini', messages: imageReviewMessages, max_tokens: 600, temperature: 0.2 },
+          { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` }, timeout: 45000 }
+        );
+      } else if (groqKey) {
+        response = await axios.post(
+          'https://api.groq.com/openai/v1/chat/completions',
+          { model: GROQ_VISION_MODEL, messages: imageReviewMessages, max_tokens: 600, temperature: 0.2 },
+          { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` }, timeout: 45000 }
+        );
+      } else {
+        throw new Error('Image review requires OPENAI_API_KEY or a configured Groq vision model.');
+      }
     } else if (hasVisibleText) {
       response = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
