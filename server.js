@@ -18973,6 +18973,7 @@ function homeworkDurationMinutesSql(sessionAlias = 's') {
 
 function homeworkPointsSql(materialAlias = 'm', sessionAlias = 's') {
   return `CASE
+    WHEN ${materialAlias}.uploaded_at < DATE '2026-09-24' THEN 10
     WHEN ${sessionAlias}.id IS NULL THEN ${HOMEWORK_VERY_LATE_POINTS}
     WHEN ${materialAlias}.uploaded_at <= (${sessionAlias}.session_date + ${sessionAlias}.session_time + ${homeworkDurationMinutesSql(sessionAlias)} * INTERVAL '1 minute') + INTERVAL '24 hours' THEN ${HOMEWORK_ON_TIME_POINTS}
     WHEN ${materialAlias}.uploaded_at <= (${sessionAlias}.session_date + ${sessionAlias}.session_time + ${homeworkDurationMinutesSql(sessionAlias)} * INTERVAL '1 minute') + INTERVAL '7 days' THEN ${HOMEWORK_LATE_POINTS}
