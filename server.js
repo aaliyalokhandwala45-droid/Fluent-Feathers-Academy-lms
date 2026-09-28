@@ -20557,7 +20557,6 @@ app.post('/api/assessments/ai-suggest', express.json(), async (req, res) => {
       : 'No previous assessments.';
 
     const isDemo = assessment_type === 'demo';
-    const feedbackStyle = getPersonalisedTeacherFeedbackInstructions(studentName);
     const prompt = `You are an expert English language teacher's assistant helping fill out a ${isDemo ? 'demo class' : 'monthly'} student assessment.
 
 Student: ${studentName}${studentAge}
@@ -20588,14 +20587,19 @@ Return ONLY valid JSON in this exact format:
     "Reading": 3
   },
   "certificate_title": "Star of the Month",
-  "performance_summary": "35-70 word personalised feedback written directly to the student, following the required style.",
+  "performance_summary": "35-70 word formal, personalised progress report for the student's parent or guardian.",
   "grade_suggestion": "A"
 }
 
 For certificate_title, choose the most appropriate from: Star of the Month, Most Improved, Creative Writing Star, Reading Champion, Speaking Star, Spelling Bee Champion, Student of the Week, Student of the Month, Handwriting Excellence, Grammar Guru, or leave as empty string if no award is warranted.
 
 For performance_summary, follow these rules exactly:
-${feedbackStyle}
+- Write for the student's parent or guardian, not for the child. Use a professional, formal, courteous tone suitable for a school progress report.
+- Refer to the child by name or as "your child" in the third person. Never address the child directly; do not use "you" or "your" to mean the child.
+- Summarise specific strengths and progress supported by the teacher's notes or assessment history. Do not invent achievements or claim skills that were not mentioned.
+- If an area needs improvement, describe it constructively and include one practical way the parent can support learning at home.
+- Use clear British English and complete, grammatically correct sentences. Avoid slang, emojis, exclamation-heavy encouragement, generic praise, and direct-to-child closings.
+- Keep the report between 35 and 70 words and make it specific to this student and assessment period.
 
 Return ONLY JSON. No markdown. No explanation.`;
 
@@ -26909,7 +26913,7 @@ app.post('/api/admin/learning-lab/generate-content', async (req, res) => {
   try {
     const existingResult = await executeQuery(
       `SELECT LOWER(TRIM(${contentConfig.valueColumn})) AS value
-       FROM ${contentConfig.table} WHERE age_group = $1 ORDER BY created_at DESC`,
+       FROM ${contentConfig.table} WHERE age_group = $1::varchar(20) ORDER BY created_at DESC`,
       [ageGroup]
     );
     const existingValues = existingResult.rows.map(row => row.value).filter(Boolean);
@@ -26952,20 +26956,20 @@ app.post('/api/admin/learning-lab/generate-content', async (req, res) => {
         if (!clue) continue;
         result = await executeQuery(
           `INSERT INTO spelling_words (word, clue, example_sentence, audio_text, letter_count, age_group, difficulty, category, active, available_on)
-           VALUES ($1, $2, $3, $1, LENGTH($1), $4, $5, $6, true, $7) RETURNING *`,
-          [value, clue, String(item.example_sentence || '').trim() || null, ageGroup, difficulty[ageGroup], String(item.category || 'general').trim().slice(0, 80), availableOn]
+           VALUES ($1::text, $2::text, $3::text, $4::text, LENGTH($1::text), $5::varchar(20), $6::varchar(20), $7::varchar(80), true, $8::date) RETURNING *`,
+          [value, clue, String(item.example_sentence || '').trim() || null, value, ageGroup, difficulty[ageGroup], String(item.category || 'general').trim().slice(0, 80), availableOn]
         );
       } else if (type === 'speaking') {
         result = await executeQuery(
           `INSERT INTO speaking_topics (age_group, difficulty, category, topic_text, generated_by_ai, approved_by_admin, active, available_on)
-           VALUES ($1, $2, $3, $4, true, true, true, $5) RETURNING *`,
+           VALUES ($1::varchar(20), $2::varchar(20), $3::varchar(50), $4::text, true, true, true, $5::date) RETURNING *`,
           [ageGroup, difficulty[ageGroup], String(item.category || 'general').trim().slice(0, 50), value, availableOn]
         );
       } else {
         const toJsonArray = value => JSON.stringify(Array.isArray(value) ? value.map(entry => String(entry).trim()).filter(Boolean) : []);
         result = await executeQuery(
           `INSERT INTO writing_prompts (age_group, difficulty, genre, prompt_text, structure_steps, phrase_bank, idioms, proverbs, vocabulary, active, approved_by_admin, available_on)
-           VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true, $10) RETURNING *`,
+           VALUES ($1::varchar(20), $2::varchar(20), $3::varchar(50), $4::text, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true, $10::date) RETURNING *`,
           [ageGroup, difficulty[ageGroup], String(item.genre || 'Creative Writing').trim().slice(0, 50), value, toJsonArray(item.structure_steps), toJsonArray(item.phrase_bank), toJsonArray(item.idioms), toJsonArray(item.proverbs), toJsonArray(item.vocabulary), availableOn]
         );
       }
