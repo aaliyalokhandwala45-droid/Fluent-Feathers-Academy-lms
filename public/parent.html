@@ -306,8 +306,9 @@
     .close-modal { background: #e53e3e; color: white; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
     .close-modal:empty::before { content: 'X'; }
     .star-rating { display: flex; justify-content: center; gap: 10px; font-size: 48px; margin: 20px 0; }
-    .star { cursor: pointer; color: #ddd; transition: all 0.2s; }
+    .star { appearance: none; border: 0; padding: 0; background: transparent; cursor: pointer; color: #ddd; transition: all 0.2s; }
     .star.active, .star:hover { color: #FFD700; transform: scale(1.2); }
+    .star:focus-visible { outline: 2px solid #805ad5; outline-offset: 3px; border-radius: 3px; }
     .payment-history-item { background: #f7fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #B05D9E; margin-bottom: 15px; }
     .payment-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
@@ -1696,11 +1697,11 @@
         <div style="text-align: center; margin-bottom: 20px;">
           <p style="font-size: 18px; color: #4a5568; margin-bottom: 15px;">How was your class on <strong><span id="feedbackSessionDate"></span></strong>?</p>
           <div class="star-rating" id="starRatingContainer" style="font-size: 2.5rem; cursor: pointer;">
-            <span class="star" data-rating="1" onclick="setRating(1)"></span>
-            <span class="star" data-rating="2" onclick="setRating(2)"></span>
-            <span class="star" data-rating="3" onclick="setRating(3)"></span>
-            <span class="star" data-rating="4" onclick="setRating(4)"></span>
-            <span class="star" data-rating="5" onclick="setRating(5)"></span>
+            <button type="button" class="star" data-rating="1" aria-label="1 star" aria-pressed="false" onclick="setRating(1)">&#9733;</button>
+            <button type="button" class="star" data-rating="2" aria-label="2 stars" aria-pressed="false" onclick="setRating(2)">&#9733;</button>
+            <button type="button" class="star" data-rating="3" aria-label="3 stars" aria-pressed="false" onclick="setRating(3)">&#9733;</button>
+            <button type="button" class="star" data-rating="4" aria-label="4 stars" aria-pressed="false" onclick="setRating(4)">&#9733;</button>
+            <button type="button" class="star" data-rating="5" aria-label="5 stars" aria-pressed="false" onclick="setRating(5)">&#9733;</button>
           </div>
         </div>
         <div class="form-group">
@@ -7033,8 +7034,10 @@ setTimeout(() => {
       document.getElementById('feedbackSessionDate').textContent = sessionDate;
       selectedRating = 0;
       document.getElementById('feedbackTextArea').value = '';
-      // Reset stars
-      document.querySelectorAll('#starRatingContainer .star').forEach(s => s.textContent = '');
+      document.querySelectorAll('#starRatingContainer .star').forEach(star => {
+        star.classList.remove('active');
+        star.setAttribute('aria-pressed', 'false');
+      });
       document.getElementById('feedbackModal').classList.add('active');
     }
 
@@ -7045,9 +7048,10 @@ setTimeout(() => {
 
     function setRating(rating) {
       selectedRating = rating;
-      document.querySelectorAll('#starRatingContainer .star').forEach(s => {
-        const starNum = parseInt(s.getAttribute('data-rating'));
-        s.textContent = starNum <= rating ? '' : '';
+      document.querySelectorAll('#starRatingContainer .star').forEach(star => {
+        const isSelected = Number(star.dataset.rating) <= rating;
+        star.classList.toggle('active', isSelected);
+        star.setAttribute('aria-pressed', String(isSelected));
       });
     }
 
