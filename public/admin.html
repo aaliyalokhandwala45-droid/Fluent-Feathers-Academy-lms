@@ -533,10 +533,10 @@
 
         <div style="background:#f8fafc;border:1px solid #dbeafe;border-radius:8px;padding:16px;margin-bottom:18px;">
           <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-            <div><h3 style="margin:0;color:#1e3a5f;">AI Daily Content</h3><p style="margin:4px 0 0;color:#64748b;font-size:.9rem;">Generate fresh material for the next day. Existing material is checked so it is not repeated.</p></div>
+            <div><h3 style="margin:0;color:#1e3a5f;">AI Daily Content</h3><p style="margin:4px 0 0;color:#64748b;font-size:.9rem;">Generate for the selected date. Spelling creates 10 words per age group; speaking and writing topics are assigned individually without repeats.</p></div>
             <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
               <div class="form-group" style="margin:0;"><label>Date</label><input id="learningLabGenerateDate" type="date"></div>
-              <div class="form-group" style="margin:0;"><label>Age Group</label><select id="learningLabGenerateAge"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+              <div class="form-group" style="margin:0;"><label>Age Group (Speaking/Writing)</label><select id="learningLabGenerateAge"><option value="young">Young</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
             </div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -4951,7 +4951,7 @@ I'm passionate about helping children develop confidence in communication!"></te
           throw new Error(`Server returned ${res.status} without JSON: ${responseText.slice(0, 180)}`);
         }
         if (!res.ok) throw new Error(data.error || 'Could not generate content');
-        const label = type === 'spelling' ? data.items.length + ' spelling words' : (type === 'speaking' ? 'a speaking topic' : 'a writing prompt');
+        const label = type === 'spelling' ? `${data.items.length} spelling words (10 each for young, intermediate and advanced)` : (type === 'speaking' ? 'a speaking topic' : 'a writing prompt');
         if (status) status.textContent = 'Scheduled ' + label + ' for ' + data.available_on + '.';
         if (type === 'spelling') loadSpellingWordsAdmin();
         if (type === 'speaking') loadSpeakingTopicsAdmin();

@@ -1327,6 +1327,12 @@
               <div id="spellingFeedback" style="display:none;margin-top:12px;border-radius:12px;padding:12px;font-weight:800;"></div>
             </div>
             <div id="spellingComplete" style="display:none;background:#f0fdf4;border:1.5px solid #86efac;border-radius:16px;padding:18px;text-align:center;"></div>
+            <div style="margin-top:24px;">
+              <h3 style="color:#2d3748;margin-bottom:14px;">Your Spelling History</h3>
+              <div id="spellingHistoryList" style="display:grid;gap:12px;">
+                <p style="color:#718096;text-align:center;padding:20px;">No spelling attempts yet. Complete a Spelling Bee to see it here.</p>
+              </div>
+            </div>
           </div>
           <div id="speakingLabPanel" style="display: none; margin-top: 24px;">
           <!-- Hero Section -->
@@ -1490,17 +1496,6 @@
             <!-- Self-Reflection -->
             <div style="background: white; border: 1.5px solid #e5e7eb; border-radius: 16px; padding: 18px; margin-bottom: 20px;">
               <h4 style="color: #2d3748; margin: 0 0 14px; font-size: 1.1rem;"> Your Self-Reflection</h4>
-
-              <div style="margin-bottom: 14px;">
-                <div style="font-weight: 700; color: #4a5568; margin-bottom: 8px;">How confident did you feel? (1-5 stars)</div>
-                <div style="display: flex; gap: 8px;">
-                  <button onclick="setConfidence(1)" id="conf-1" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
-                  <button onclick="setConfidence(2)" id="conf-2" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
-                  <button onclick="setConfidence(3)" id="conf-3" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
-                  <button onclick="setConfidence(4)" id="conf-4" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
-                  <button onclick="setConfidence(5)" id="conf-5" class="confidence-btn" style="font-size: 2rem; background: none; border: none; cursor: pointer; opacity: 0.4;"></button>
-                </div>
-              </div>
 
               <div style="margin-bottom: 14px;">
                 <div style="font-weight: 700; color: #4a5568; margin-bottom: 8px;">What went well? (Check all that apply)</div>
@@ -3665,7 +3660,6 @@ setTimeout(() => {
     let recordingDurationInterval = null;
     let currentAttemptId = null;
     let currentStudentId = null;
-    let selectedConfidenceRating = 0;
 
     async function initSpeakingLab() {
       currentStudentId = currentStudent?.id;
@@ -3759,11 +3753,6 @@ setTimeout(() => {
       document.getElementById('resumeRecordBtn').style.display = 'none';
       document.getElementById('recordingDuration').style.display = 'none';
       document.getElementById('recordingDuration').textContent = '00:00';
-      selectedConfidenceRating = 0;
-      for (let i = 1; i <= 5; i++) {
-        const btn = document.getElementById(`conf-${i}`);
-        if (btn) btn.style.opacity = '0.4';
-      }
       ['ref-clear', 'ref-vocab', 'ref-examples', 'ref-gestures', 'ref-expression', 'ref-ending'].forEach(id => {
         const checkbox = document.getElementById(id);
         if (checkbox) checkbox.checked = false;
@@ -3962,20 +3951,8 @@ setTimeout(() => {
       document.getElementById('improvementSuggestion').textContent = feedback.improvement_suggestion || 'Keep practicing regularly to build confidence.';
     }
 
-    function setConfidence(rating) {
-      selectedConfidenceRating = rating;
-      for (let i = 1; i <= 5; i++) {
-        const btn = document.getElementById(`conf-${i}`);
-        btn.style.opacity = i <= rating ? '1' : '0.4';
-      }
-    }
-
     async function submitReflection() {
       try {
-        if (selectedConfidenceRating < 1 || selectedConfidenceRating > 5) {
-          alert('Please choose how confident you felt by tapping 1 to 5 stars.');
-          return;
-        }
         const reflectionData = {
           spoke_clearly: document.getElementById('ref-clear').checked,
           used_vocab: document.getElementById('ref-vocab').checked,
@@ -3990,7 +3967,6 @@ setTimeout(() => {
           body: JSON.stringify({
             attempt_id: currentAttemptId,
             student_id: currentStudentId,
-            confidence_rating: selectedConfidenceRating,
             reflection_responses: reflectionData
           })
         });
@@ -4031,8 +4007,8 @@ setTimeout(() => {
                 <div style="font-size: 0.85rem; color: #718096; margin-top: 4px;"> ${new Date(h.attempt_date).toLocaleDateString()}</div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: 0.8rem; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
-                  ${h.difficulty || 'N/A'}
+                <div style="font-size: 0.8rem; background: ${h.completion_status === 'completed' ? '#dcfce7' : '#fef3c7'}; color: ${h.completion_status === 'completed' ? '#166534' : '#92400e'}; padding: 4px 8px; border-radius: 6px; font-weight: 600;">
+                  ${h.completion_status === 'completed' ? 'Completed' : 'Attempted'} · ${h.difficulty || 'Practice'}
                 </div>
               </div>
             </div>
@@ -8243,12 +8219,15 @@ setTimeout(() => {
     let spellingAnswerLog = [];
 
     async function initSpellingBee() {
+      currentStudentId = currentStudent?.id;
+      if (!currentStudentId) return;
       document.getElementById('spellingComplete').style.display = 'none';
       document.getElementById('spellingPlayButton').disabled = true;
       document.getElementById('spellingSubmitButton').disabled = true;
       document.getElementById('spellingAnswerInput').disabled = true;
       document.getElementById('spellingClueText').textContent = 'Press Start Spelling Bee.';
       document.getElementById('spellingFeedback').style.display = 'none';
+      await loadSpellingHistory();
     }
 
     async function startSpellingBee() {
@@ -8362,7 +8341,7 @@ setTimeout(() => {
       complete.style.display = 'block';
       complete.innerHTML = `<h3 style="margin:0 0 8px;color:#14532d;">Score: ${spellingCorrectCount} / ${total}</h3><p style="margin:0;color:#166534;font-weight:800;">Accuracy: ${accuracy}%</p>`;
       try {
-        await fetch('/api/spelling/attempts', {
+        const response = await fetch('/api/spelling/attempts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-student-id': currentStudentId },
           body: JSON.stringify({
@@ -8374,9 +8353,38 @@ setTimeout(() => {
             answers_data: spellingAnswerLog
           })
         });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Could not save your spelling attempt.');
+        await loadSpellingHistory();
         await renderLearningLabCards();
       } catch (err) {
-        console.warn('Could not save spelling attempt:', err.message);
+        complete.insertAdjacentHTML('beforeend', `<p style="color:#b91c1c;margin:10px 0 0;">Your score could not be saved: ${escapeHtml(err.message)}</p>`);
+      }
+    }
+
+    async function loadSpellingHistory() {
+      const container = document.getElementById('spellingHistoryList');
+      if (!container || !currentStudentId) return;
+      try {
+        const response = await fetch(`/api/spelling/history?student_id=${currentStudentId}`, {
+          headers: studentAuthHeaders()
+        });
+        const history = await response.json();
+        if (!response.ok) throw new Error(history.error || 'Could not load spelling history.');
+        if (!history.length) {
+          container.innerHTML = '<p style="color:#718096;text-align:center;padding:20px;">No spelling attempts yet. Complete a Spelling Bee to see it here.</p>';
+          return;
+        }
+        container.innerHTML = history.map(attempt => {
+          const accuracy = attempt.total_words ? Math.round((Number(attempt.correct_words || 0) / Number(attempt.total_words)) * 100) : 0;
+          const date = new Date(attempt.attempt_date || attempt.created_at).toLocaleDateString();
+          return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div><strong>Spelling Bee</strong><div style="font-size:.86rem;color:#64748b;margin-top:4px;">${escapeHtml(date)}</div></div>
+            <div style="font-weight:700;color:#334155;">${Number(attempt.correct_words || 0)} / ${Number(attempt.total_words || 0)} correct · ${accuracy}%</div>
+          </div>`;
+        }).join('');
+      } catch (error) {
+        container.innerHTML = `<p style="color:#b91c1c;text-align:center;padding:20px;">${escapeHtml(error.message)}</p>`;
       }
     }
     </script>

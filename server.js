@@ -3903,12 +3903,57 @@ async function runMigrations() {
       await executeQuery(`ALTER TABLE spelling_words ADD COLUMN IF NOT EXISTS available_on DATE`);
       await executeQuery(`ALTER TABLE speaking_topics ADD COLUMN IF NOT EXISTS available_on DATE`);
       await executeQuery(`ALTER TABLE writing_prompts ADD COLUMN IF NOT EXISTS available_on DATE`);
+      await executeQuery(`ALTER TABLE spelling_words ADD COLUMN IF NOT EXISTS generated_by_ai BOOLEAN NOT NULL DEFAULT false`);
+      await executeQuery(`UPDATE spelling_words SET generated_by_ai = true WHERE available_on IS NOT NULL AND generated_by_ai = false`);
       await executeQuery(`CREATE INDEX IF NOT EXISTS idx_spelling_words_available ON spelling_words(age_group, available_on, active)`);
       await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_topics_available ON speaking_topics(age_group, available_on, active)`);
       await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_prompts_available ON writing_prompts(age_group, available_on, active)`);
       console.log('✅ Migration 61: Learning Lab content scheduling enabled');
     } catch (err) {
       console.log('ℹ️ Migration 61 note:', err.message);
+    }
+
+    // Migration 62: Per-student daily speaking and writing assignments
+    try {
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS learning_lab_content_assignments (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          content_type VARCHAR(20) NOT NULL CHECK (content_type IN ('speaking', 'writing')),
+          content_id INTEGER NOT NULL,
+          assigned_on DATE NOT NULL DEFAULT CURRENT_DATE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(student_id, content_type, assigned_on),
+          UNIQUE(student_id, content_type, content_id)
+        )
+      `);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_learning_lab_assignments_student ON learning_lab_content_assignments(student_id, content_type, assigned_on)`);
+      console.log('✅ Migration 62: Per-student Learning Lab assignments enabled');
+    } catch (err) {
+      console.log('ℹ️ Migration 62 note:', err.message);
+    }
+
+    // Migration 63: Preserve spelling-word deduplication after daily cleanup
+    try {
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS learning_lab_spelling_word_history (
+          id SERIAL PRIMARY KEY,
+          age_group VARCHAR(20) NOT NULL,
+          normalized_word TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(age_group, normalized_word)
+        )
+      `);
+      await executeQuery(
+        `INSERT INTO learning_lab_spelling_word_history (age_group, normalized_word)
+         SELECT DISTINCT age_group, LOWER(TRIM(word))
+         FROM spelling_words
+         WHERE TRIM(word) <> ''
+         ON CONFLICT DO NOTHING`
+      );
+      console.log('✅ Migration 63: Spelling word reuse history enabled');
+    } catch (err) {
+      console.log('ℹ️ Migration 63 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -8394,6 +8439,17 @@ cron.schedule('*/15 * * * *', async () => {
     await checkAndSendEventReminders();
   } catch (err) {
     console.error('❌ Error in reminder cron job:', err);
+  }
+});
+
+cron.schedule('5 0 * * *', async () => {
+  try {
+    const result = await executeQuery(
+      `DELETE FROM spelling_words WHERE generated_by_ai = true AND available_on < CURRENT_DATE`
+    );
+    if (result.rowCount > 0) console.log(`🧹 Removed ${result.rowCount} expired AI spelling words`);
+  } catch (err) {
+    console.error('Learning Lab spelling cleanup failed:', err.message);
   }
 });
 
@@ -26155,6 +26211,7 @@ app.get('/api/spelling/bee', async (req, res) => {
     if (student.rows.length === 0) return res.status(404).json({ error: 'Student not found' });
     const access = await requireLearningHubTaskAccess(studentId, 'spelling');
     if (!access.allowed) return res.json({ words: [], premium_locked: true, access: access.access });
+    await executeQuery(`DELETE FROM spelling_words WHERE generated_by_ai = true AND available_on < CURRENT_DATE`);
     const ageGroup = getStudentAgeGroup(student.rows[0]);
     const words = await executeQuery(
       `SELECT id, word, clue, example_sentence, audio_url, COALESCE(audio_text, word) AS audio_text, COALESCE(letter_count, LENGTH(word)) AS letter_count
@@ -26207,6 +26264,92 @@ app.post('/api/spelling/attempts', async (req, res) => {
   }
 });
 
+app.get('/api/spelling/history', async (req, res) => {
+  try {
+    const studentId = req.query.student_id || req.headers['x-student-id'];
+    if (!studentId) return res.status(400).json({ error: 'student_id required' });
+    const history = await executeQuery(
+      `SELECT id, attempt_date, created_at, total_words, correct_words, incorrect_words
+       FROM spelling_attempts
+       WHERE student_id = $1
+       ORDER BY COALESCE(attempt_date, created_at::date) DESC, created_at DESC
+       LIMIT 20`,
+      [studentId]
+    );
+    return res.json(history.rows);
+  } catch (err) {
+    console.error('Error fetching spelling history:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+async function getOrAssignLearningLabContent(studentId, contentType, ageGroup, today, preferredContentId = null) {
+  const contentTable = contentType === 'speaking' ? 'speaking_topics' : 'writing_prompts';
+  const priorUseFilter = contentType === 'speaking'
+    ? `AND NOT EXISTS (SELECT 1 FROM speaking_topics_used used WHERE used.student_id = $2 AND used.topic_id = content.id)
+       AND NOT EXISTS (SELECT 1 FROM speaking_attempts attempt WHERE attempt.student_id = $2 AND attempt.topic_id = content.id)`
+    : `AND NOT EXISTS (SELECT 1 FROM writing_submissions submission WHERE submission.student_id = $2 AND submission.prompt_id = content.id)`;
+  const approvalFilter = contentType === 'writing' ? 'AND content.approved_by_admin = true' : '';
+
+  const existing = await executeQuery(
+    `SELECT content.*
+     FROM learning_lab_content_assignments assignment
+     JOIN ${contentTable} content ON content.id = assignment.content_id
+     WHERE assignment.student_id = $1 AND assignment.content_type = $2 AND assignment.assigned_on = $3
+     LIMIT 1`,
+    [studentId, contentType, today]
+  );
+  if (existing.rows[0]) return existing.rows[0];
+
+  let content = null;
+  if (preferredContentId) {
+    const preferred = await executeQuery(
+      `SELECT * FROM ${contentTable}
+       WHERE id = $1 AND age_group = $2 AND active = true
+         AND (available_on IS NULL OR available_on <= CURRENT_DATE)
+       LIMIT 1`,
+      [preferredContentId, ageGroup]
+    );
+    content = preferred.rows[0] || null;
+  }
+
+  if (!content) {
+    const candidate = await executeQuery(
+      `SELECT content.*
+       FROM ${contentTable} content
+       WHERE content.age_group = $1 AND content.active = true
+         AND (content.available_on IS NULL OR content.available_on <= CURRENT_DATE)
+         ${approvalFilter}
+         AND NOT EXISTS (
+           SELECT 1 FROM learning_lab_content_assignments previous
+           WHERE previous.student_id = $2 AND previous.content_type = $3 AND previous.content_id = content.id
+         )
+         ${priorUseFilter}
+      ORDER BY (content.approved_by_admin = true) DESC, (content.available_on = CURRENT_DATE) DESC, md5(content.id::text || $2::text || $4::text)
+       LIMIT 1`,
+      [ageGroup, studentId, contentType, today]
+    );
+    content = candidate.rows[0] || null;
+  }
+  if (!content) return null;
+
+  await executeQuery(
+    `INSERT INTO learning_lab_content_assignments (student_id, content_type, content_id, assigned_on)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT DO NOTHING`,
+    [studentId, contentType, content.id, today]
+  );
+  const assigned = await executeQuery(
+    `SELECT content.*
+     FROM learning_lab_content_assignments assignment
+     JOIN ${contentTable} content ON content.id = assignment.content_id
+     WHERE assignment.student_id = $1 AND assignment.content_type = $2 AND assignment.assigned_on = $3
+     LIMIT 1`,
+    [studentId, contentType, today]
+  );
+  return assigned.rows[0] || null;
+}
+
 /**
  * GET /api/writing/today-prompt
  * Get today's Writing Studio prompt for a student
@@ -26224,30 +26367,12 @@ app.get('/api/writing/today-prompt', async (req, res) => {
 
     const ageGroup = getStudentAgeGroup(student.rows[0]);
     const today = new Date().toISOString().split('T')[0];
-    const promptResult = await executeQuery(
-      `SELECT *
-       FROM writing_prompts
-       WHERE age_group = $1 AND active = true AND approved_by_admin = true
-         AND (available_on IS NULL OR available_on <= CURRENT_DATE)
-       ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
-       LIMIT 1`,
-      [ageGroup, today]
-    );
-    let prompt = promptResult.rows[0];
+    let prompt = await getOrAssignLearningLabContent(studentId, 'writing', ageGroup, today);
     if (!prompt) {
       await seedWritingPromptsIfEmpty();
-      const retryPromptResult = await executeQuery(
-        `SELECT *
-         FROM writing_prompts
-         WHERE age_group = $1 AND active = true AND approved_by_admin = true
-           AND (available_on IS NULL OR available_on <= CURRENT_DATE)
-         ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
-         LIMIT 1`,
-        [ageGroup, today]
-      );
-      prompt = retryPromptResult.rows[0];
+      prompt = await getOrAssignLearningLabContent(studentId, 'writing', ageGroup, today);
     }
-    if (!prompt) return res.status(503).json({ error: 'No writing prompts available' });
+    if (!prompt) return res.status(503).json({ error: 'No new writing prompts are available for this student yet.' });
 
     const submitted = await executeQuery(
       `SELECT id, completion_status, score, created_at
@@ -26465,33 +26590,6 @@ app.get('/api/speaking/today-topic', async (req, res) => {
     const usedAttempts = Number(attemptLimitResult.rows[0]?.used_attempts || 0);
     const attemptsRemaining = Math.max(0, 2 - usedAttempts);
 
-    const dailyTopicResult = await executeQuery(
-      `SELECT *
-       FROM speaking_topics
-       WHERE age_group = $1 AND active = true AND approved_by_admin = true
-         AND (available_on IS NULL OR available_on <= CURRENT_DATE)
-       ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
-       LIMIT 1`,
-      [ageGroup, today]
-    );
-
-    let topic = dailyTopicResult.rows[0];
-    if (!topic) {
-      const fallbackTopicResult = await executeQuery(
-        `SELECT *
-         FROM speaking_topics
-         WHERE age_group = $1 AND active = true AND (available_on IS NULL OR available_on <= CURRENT_DATE)
-         ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
-         LIMIT 1`,
-        [ageGroup, today]
-      );
-      topic = fallbackTopicResult.rows[0];
-    }
-
-    if (!topic) {
-      return res.status(503).json({ error: 'No speaking topics available' });
-    }
-
     const existingAttempt = await executeQuery(
       `SELECT sa.id, sa.topic_id, sa.completion_status, st.topic_text, st.difficulty FROM speaking_attempts sa
        JOIN speaking_topics st ON sa.topic_id = st.id
@@ -26503,6 +26601,9 @@ app.get('/api/speaking/today-topic', async (req, res) => {
     );
 
     const existingAttemptRow = existingAttempt.rows[0] || null;
+    const topic = await getOrAssignLearningLabContent(studentId, 'speaking', ageGroup, today, existingAttemptRow?.topic_id);
+    if (!topic) return res.status(503).json({ error: 'No new speaking topics are available for this student yet.' });
+
     if (existingAttemptRow) {
       if (Number(existingAttemptRow.topic_id) !== Number(topic.id)) {
         await executeQuery(
@@ -26783,18 +26884,15 @@ Respond in JSON with this structure (use lowercase strings):
  */
 app.post('/api/speaking/reflection', async (req, res) => {
   try {
-    const { attempt_id, student_id, confidence_rating, reflection_responses } = req.body;
+    const { attempt_id, student_id, reflection_responses } = req.body;
     if (!attempt_id || !student_id) return res.status(400).json({ error: 'attempt_id and student_id required' });
-    const safeConfidenceRating = Number(confidence_rating);
-    if (!Number.isInteger(safeConfidenceRating) || safeConfidenceRating < 1 || safeConfidenceRating > 5) {
-      return res.status(400).json({ error: 'Please choose a confidence rating from 1 to 5 stars.' });
-    }
 
-    await executeQuery(
-      `UPDATE speaking_attempts SET confidence_rating = $1, reflection_data = $2, completion_status = 'completed'
-       WHERE id = $3 AND student_id = $4`,
-      [safeConfidenceRating, JSON.stringify(reflection_responses), attempt_id, student_id]
+    const updated = await executeQuery(
+      `UPDATE speaking_attempts SET reflection_data = $1, completion_status = 'completed'
+       WHERE id = $2 AND student_id = $3 RETURNING id`,
+      [JSON.stringify(reflection_responses || {}), attempt_id, student_id]
     );
+    if (!updated.rows.length) return res.status(404).json({ error: 'Speaking attempt not found.' });
 
     return res.json({ success: true });
   } catch (err) {
@@ -26837,13 +26935,13 @@ app.get('/api/speaking/history', async (req, res) => {
     if (!studentId) return res.status(400).json({ error: 'student_id required' });
 
     const history = await executeQuery(
-      `SELECT sa.id, sa.attempt_date, sa.difficulty, sa.duration_seconds, sa.confidence_rating,
+      `SELECT sa.id, sa.attempt_date, sa.difficulty, sa.duration_seconds, sa.completion_status,
               st.topic_text, sf.strengths_summary, sf.improvement_suggestion
        FROM speaking_attempts sa
        JOIN speaking_topics st ON sa.topic_id = st.id
        LEFT JOIN speaking_feedback sf ON sa.id = sf.attempt_id
-       WHERE sa.student_id = $1 AND sa.completion_status = 'completed'
-       ORDER BY sa.attempt_date DESC
+      WHERE sa.student_id = $1 AND sa.completion_status IN ('recorded', 'analyzed', 'completed')
+      ORDER BY sa.created_at DESC
        LIMIT 20`,
       [studentId]
     );
@@ -26911,66 +27009,104 @@ app.post('/api/admin/learning-lab/generate-content', async (req, res) => {
   }[type];
 
   try {
-    const existingResult = await executeQuery(
-      `SELECT LOWER(TRIM(${contentConfig.valueColumn})) AS value
-       FROM ${contentConfig.table} WHERE age_group = $1::varchar(20) ORDER BY created_at DESC`,
-      [ageGroup]
-    );
-    const existingValues = existingResult.rows.map(row => row.value).filter(Boolean);
-    const prompt = `You create high-quality English learning material for children.\nAge group: ${ageGroup}. Difficulty: ${difficulty[ageGroup]}.\nAvailability date: ${availableOn}.\n${contentConfig.instruction}\nDo not repeat or closely rephrase any existing material below.\nExisting material to avoid:\n${existingValues.length ? existingValues.slice(0, 100).map((value, index) => `${index + 1}. ${value}`).join('\n') : 'None'}\nReturn only valid JSON, without markdown fences or commentary.`;
-
-    groqUsageTracker.recordCall();
-    const response = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        model: GROQ_TEXT_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.75,
-        max_tokens: type === 'spelling' ? 1400 : 1200
-      },
-      { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` }, timeout: 45000 }
-    );
-
-    const rawContent = String(response.data.choices?.[0]?.message?.content || '').trim();
-    const opening = type === 'spelling' ? rawContent.indexOf('[') : rawContent.indexOf('{');
-    const closing = type === 'spelling' ? rawContent.lastIndexOf(']') : rawContent.lastIndexOf('}');
-    if (opening < 0 || closing <= opening) throw new Error('The AI returned an empty or invalid response. Please try again.');
-    const parsed = JSON.parse(rawContent.slice(opening, closing + 1));
-    const generatedItems = type === 'spelling' ? (Array.isArray(parsed) ? parsed : parsed.items) : [parsed];
-    if (!Array.isArray(generatedItems) || !generatedItems.length) {
-      throw new Error('The AI did not return usable content. Please try again.');
+    if (type === 'spelling') {
+      await executeQuery(`DELETE FROM spelling_words WHERE generated_by_ai = true AND available_on < CURRENT_DATE`);
     }
 
-    const existingSet = new Set(existingValues);
-    const insertedItems = [];
-    for (const item of generatedItems) {
-      if (!item || typeof item !== 'object') continue;
-      const value = String(type === 'spelling' ? item.word || '' : type === 'speaking' ? item.topic_text || '' : item.prompt_text || '').trim();
-      const normalized = value.toLowerCase();
-      if (!value || existingSet.has(normalized)) continue;
-      existingSet.add(normalized);
+    const targetAgeGroups = type === 'spelling' ? ageGroups : [ageGroup];
+    const generatedByAgeGroup = {};
+    const pendingItems = [];
+    for (const contentAgeGroup of targetAgeGroups) {
+      const existingResult = await executeQuery(
+        `SELECT LOWER(TRIM(${contentConfig.valueColumn})) AS value
+         FROM ${contentConfig.table} WHERE age_group = $1::varchar(20) ORDER BY created_at DESC`,
+        [contentAgeGroup]
+      );
+      const archivedWords = type === 'spelling'
+        ? await executeQuery(
+            `SELECT normalized_word AS value FROM learning_lab_spelling_word_history WHERE age_group = $1::varchar(20)`,
+            [contentAgeGroup]
+          )
+        : { rows: [] };
+      const existingValues = [...existingResult.rows, ...archivedWords.rows].map(row => row.value).filter(Boolean);
+      const prompt = `You create high-quality English learning material for children.\nAge group: ${contentAgeGroup}. Difficulty: ${difficulty[contentAgeGroup]}.\nAvailability date: ${availableOn}.\n${contentConfig.instruction}\nDo not repeat or closely rephrase any existing material below.\nExisting material to avoid:\n${existingValues.length ? existingValues.slice(0, 100).map((value, index) => `${index + 1}. ${value}`).join('\n') : 'None'}\nReturn only valid JSON, without markdown fences or commentary.`;
 
+      groqUsageTracker.recordCall();
+      const response = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: GROQ_TEXT_MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.75,
+          max_tokens: type === 'spelling' ? 1400 : 1200
+        },
+        { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` }, timeout: 45000 }
+      );
+
+      const rawContent = String(response.data.choices?.[0]?.message?.content || '').trim();
+      const opening = type === 'spelling' ? rawContent.indexOf('[') : rawContent.indexOf('{');
+      const closing = type === 'spelling' ? rawContent.lastIndexOf(']') : rawContent.lastIndexOf('}');
+      if (opening < 0 || closing <= opening) throw new Error('The AI returned an empty or invalid response. Please try again.');
+      const parsed = JSON.parse(rawContent.slice(opening, closing + 1));
+      const generatedItems = type === 'spelling' ? (Array.isArray(parsed) ? parsed : parsed.items) : [parsed];
+      if (!Array.isArray(generatedItems) || !generatedItems.length) {
+        throw new Error('The AI did not return usable content. Please try again.');
+      }
+
+      const existingSet = new Set(existingValues);
+      const ageGroupItems = [];
+      for (const item of generatedItems) {
+        if (!item || typeof item !== 'object') continue;
+        const value = String(type === 'spelling' ? item.word || '' : type === 'speaking' ? item.topic_text || '' : item.prompt_text || '').trim();
+        const normalized = value.toLowerCase();
+        if (!value || existingSet.has(normalized)) continue;
+        existingSet.add(normalized);
+        if (type === 'spelling' && !String(item.clue || '').trim()) continue;
+        ageGroupItems.push({ ...item, age_group: contentAgeGroup });
+      }
+
+      if (type === 'spelling' && ageGroupItems.length !== 10) {
+        throw new Error(`AI returned ${ageGroupItems.length} new spelling words for ${contentAgeGroup}, but exactly 10 are required. Please try again.`);
+      }
+      pendingItems.push(...ageGroupItems);
+      generatedByAgeGroup[contentAgeGroup] = ageGroupItems.length;
+    }
+
+    const insertedItems = [];
+    if (type === 'spelling') {
+      await executeQuery(
+        `DELETE FROM spelling_words WHERE generated_by_ai = true AND available_on = $1::date`,
+        [availableOn]
+      );
+    }
+    for (const item of pendingItems) {
+      const contentAgeGroup = item.age_group;
+      const value = String(type === 'spelling' ? item.word : type === 'speaking' ? item.topic_text : item.prompt_text).trim();
       let result;
       if (type === 'spelling') {
-        const clue = String(item.clue || '').trim();
-        if (!clue) continue;
         result = await executeQuery(
-          `INSERT INTO spelling_words (word, clue, example_sentence, audio_text, letter_count, age_group, difficulty, category, active, available_on)
-           VALUES ($1::text, $2::text, $3::text, $4::text, LENGTH($1::text), $5::varchar(20), $6::varchar(20), $7::varchar(80), true, $8::date) RETURNING *`,
-          [value, clue, String(item.example_sentence || '').trim() || null, value, ageGroup, difficulty[ageGroup], String(item.category || 'general').trim().slice(0, 80), availableOn]
+          `INSERT INTO spelling_words (word, clue, example_sentence, audio_text, letter_count, age_group, difficulty, category, active, available_on, generated_by_ai)
+           VALUES ($1::text, $2::text, $3::text, $4::text, LENGTH($1::text), $5::varchar(20), $6::varchar(20), $7::varchar(80), true, $8::date, true) RETURNING *`,
+          [value, String(item.clue).trim(), String(item.example_sentence || '').trim() || null, value, contentAgeGroup, difficulty[contentAgeGroup], String(item.category || 'general').trim().slice(0, 80), availableOn]
+        );
+        await executeQuery(
+          `INSERT INTO learning_lab_spelling_word_history (age_group, normalized_word)
+           VALUES ($1::varchar(20), LOWER(TRIM($2::text)))
+           ON CONFLICT DO NOTHING`,
+          [contentAgeGroup, value]
         );
       } else if (type === 'speaking') {
         result = await executeQuery(
           `INSERT INTO speaking_topics (age_group, difficulty, category, topic_text, generated_by_ai, approved_by_admin, active, available_on)
            VALUES ($1::varchar(20), $2::varchar(20), $3::varchar(50), $4::text, true, true, true, $5::date) RETURNING *`,
-          [ageGroup, difficulty[ageGroup], String(item.category || 'general').trim().slice(0, 50), value, availableOn]
+          [contentAgeGroup, difficulty[contentAgeGroup], String(item.category || 'general').trim().slice(0, 50), value, availableOn]
         );
       } else {
         const toJsonArray = value => JSON.stringify(Array.isArray(value) ? value.map(entry => String(entry).trim()).filter(Boolean) : []);
         result = await executeQuery(
           `INSERT INTO writing_prompts (age_group, difficulty, genre, prompt_text, structure_steps, phrase_bank, idioms, proverbs, vocabulary, active, approved_by_admin, available_on)
            VALUES ($1::varchar(20), $2::varchar(20), $3::varchar(50), $4::text, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true, $10::date) RETURNING *`,
-          [ageGroup, difficulty[ageGroup], String(item.genre || 'Creative Writing').trim().slice(0, 50), value, toJsonArray(item.structure_steps), toJsonArray(item.phrase_bank), toJsonArray(item.idioms), toJsonArray(item.proverbs), toJsonArray(item.vocabulary), availableOn]
+          [contentAgeGroup, difficulty[contentAgeGroup], String(item.genre || 'Creative Writing').trim().slice(0, 50), value, toJsonArray(item.structure_steps), toJsonArray(item.phrase_bank), toJsonArray(item.idioms), toJsonArray(item.proverbs), toJsonArray(item.vocabulary), availableOn]
         );
       }
       insertedItems.push(result.rows[0]);
@@ -26979,7 +27115,7 @@ app.post('/api/admin/learning-lab/generate-content', async (req, res) => {
     if (!insertedItems.length) {
       return res.status(502).json({ error: 'The AI response only contained repeated or incomplete content. Please try again.' });
     }
-    return res.json({ type, age_group: ageGroup, available_on: availableOn, items: insertedItems });
+    return res.json({ type, age_group: type === 'spelling' ? 'all' : ageGroup, generated_by_age_group: generatedByAgeGroup, available_on: availableOn, items: insertedItems });
   } catch (err) {
     const providerMessage = err.response?.data?.error?.message || err.response?.data?.message;
     const message = String(providerMessage || err.message || 'Unknown error').slice(0, 500);
