@@ -3898,6 +3898,19 @@ async function runMigrations() {
       console.log('ℹ️ Migration 60 note:', err.message);
     }
 
+    // Migration 61: Schedule Learning Lab content
+    try {
+      await executeQuery(`ALTER TABLE spelling_words ADD COLUMN IF NOT EXISTS available_on DATE`);
+      await executeQuery(`ALTER TABLE speaking_topics ADD COLUMN IF NOT EXISTS available_on DATE`);
+      await executeQuery(`ALTER TABLE writing_prompts ADD COLUMN IF NOT EXISTS available_on DATE`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_spelling_words_available ON spelling_words(age_group, available_on, active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_speaking_topics_available ON speaking_topics(age_group, available_on, active)`);
+      await executeQuery(`CREATE INDEX IF NOT EXISTS idx_writing_prompts_available ON writing_prompts(age_group, available_on, active)`);
+      console.log('✅ Migration 61: Learning Lab content scheduling enabled');
+    } catch (err) {
+      console.log('ℹ️ Migration 61 note:', err.message);
+    }
+
     console.log('✅ All database migrations completed successfully!');
 
     // Auto-sync badges for students who should have them
@@ -26141,7 +26154,10 @@ app.get('/api/spelling/bee', async (req, res) => {
     const ageGroup = getStudentAgeGroup(student.rows[0]);
     const words = await executeQuery(
       `SELECT id, word, clue, example_sentence, audio_url, COALESCE(audio_text, word) AS audio_text, COALESCE(letter_count, LENGTH(word)) AS letter_count
-       FROM spelling_words WHERE age_group = $1 AND active = true ORDER BY md5(id::text || CURRENT_DATE::text) LIMIT 10`,
+       FROM spelling_words
+       WHERE age_group = $1 AND active = true AND (available_on IS NULL OR available_on <= CURRENT_DATE)
+       ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || CURRENT_DATE::text)
+       LIMIT 10`,
       [ageGroup]
     );
     res.json({ words: words.rows, premium_locked: false, access: access.access });
@@ -26208,7 +26224,8 @@ app.get('/api/writing/today-prompt', async (req, res) => {
       `SELECT *
        FROM writing_prompts
        WHERE age_group = $1 AND active = true AND approved_by_admin = true
-       ORDER BY md5(id::text || $2)
+         AND (available_on IS NULL OR available_on <= CURRENT_DATE)
+       ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
        LIMIT 1`,
       [ageGroup, today]
     );
@@ -26219,7 +26236,8 @@ app.get('/api/writing/today-prompt', async (req, res) => {
         `SELECT *
          FROM writing_prompts
          WHERE age_group = $1 AND active = true AND approved_by_admin = true
-         ORDER BY md5(id::text || $2)
+           AND (available_on IS NULL OR available_on <= CURRENT_DATE)
+         ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
          LIMIT 1`,
         [ageGroup, today]
       );
@@ -26447,7 +26465,8 @@ app.get('/api/speaking/today-topic', async (req, res) => {
       `SELECT *
        FROM speaking_topics
        WHERE age_group = $1 AND active = true AND approved_by_admin = true
-       ORDER BY md5(id::text || $2)
+         AND (available_on IS NULL OR available_on <= CURRENT_DATE)
+       ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
        LIMIT 1`,
       [ageGroup, today]
     );
@@ -26457,8 +26476,8 @@ app.get('/api/speaking/today-topic', async (req, res) => {
       const fallbackTopicResult = await executeQuery(
         `SELECT *
          FROM speaking_topics
-         WHERE age_group = $1 AND active = true
-         ORDER BY md5(id::text || $2)
+         WHERE age_group = $1 AND active = true AND (available_on IS NULL OR available_on <= CURRENT_DATE)
+         ORDER BY (available_on = CURRENT_DATE) DESC, md5(id::text || $2)
          LIMIT 1`,
         [ageGroup, today]
       );
@@ -26843,6 +26862,126 @@ app.get('/api/admin/spelling-words', async (req, res) => {
   } catch (err) {
     console.error('Error fetching spelling words:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/learning-lab/generate-content', async (req, res) => {
+  const { type, age_group: ageGroup, available_on: availableOn } = req.body || {};
+  const ageGroups = ['young', 'intermediate', 'advanced'];
+  const difficulty = { young: 'beginner', intermediate: 'intermediate', advanced: 'advanced' };
+  if (!['spelling', 'speaking', 'writing'].includes(type)) {
+    return res.status(400).json({ error: 'Choose spelling, speaking, or writing content.' });
+  }
+  if (!ageGroups.includes(ageGroup)) {
+    return res.status(400).json({ error: 'Choose a valid age group.' });
+  }
+  const availableOnText = String(availableOn || '');
+  const availableOnDate = /^\d{4}-\d{2}-\d{2}$/.test(availableOnText)
+    ? new Date(`${availableOnText}T00:00:00.000Z`)
+    : null;
+  if (!availableOnDate || Number.isNaN(availableOnDate.getTime()) || availableOnDate.toISOString().slice(0, 10) !== availableOnText) {
+    return res.status(400).json({ error: 'Choose a valid availability date.' });
+  }
+
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    return res.status(503).json({ error: 'GROQ_API_KEY is not configured on the server.' });
+  }
+
+  const contentConfig = {
+    spelling: {
+      table: 'spelling_words',
+      valueColumn: 'word',
+      instruction: 'Create exactly 10 age-appropriate spelling bee words. Return a JSON array of objects with word, clue, example_sentence, and category. The example sentence must use the word naturally.'
+    },
+    speaking: {
+      table: 'speaking_topics',
+      valueColumn: 'topic_text',
+      instruction: 'Create one fresh, age-appropriate English speaking practice topic. Return one JSON object with category and topic_text. The topic should invite a thoughtful spoken answer and be suitable for a child.'
+    },
+    writing: {
+      table: 'writing_prompts',
+      valueColumn: 'prompt_text',
+      instruction: 'Create one fresh, age-appropriate creative writing prompt. Return one JSON object with genre, prompt_text, structure_steps (array of 3-5 short steps), phrase_bank (array of 4-6 phrases), idioms (array of 2-3 idioms), proverbs (array of 1-2 proverbs), and vocabulary (array of 5-8 words).'
+    }
+  }[type];
+
+  try {
+    const existingResult = await executeQuery(
+      `SELECT LOWER(TRIM(${contentConfig.valueColumn})) AS value
+       FROM ${contentConfig.table} WHERE age_group = $1 ORDER BY created_at DESC`,
+      [ageGroup]
+    );
+    const existingValues = existingResult.rows.map(row => row.value).filter(Boolean);
+    const prompt = `You create high-quality English learning material for children.\nAge group: ${ageGroup}. Difficulty: ${difficulty[ageGroup]}.\nAvailability date: ${availableOn}.\n${contentConfig.instruction}\nDo not repeat or closely rephrase any existing material below.\nExisting material to avoid:\n${existingValues.length ? existingValues.slice(0, 100).map((value, index) => `${index + 1}. ${value}`).join('\n') : 'None'}\nReturn only valid JSON, without markdown fences or commentary.`;
+
+    groqUsageTracker.recordCall();
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: GROQ_TEXT_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.75,
+        max_tokens: type === 'spelling' ? 1400 : 1200
+      },
+      { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` }, timeout: 45000 }
+    );
+
+    const rawContent = String(response.data.choices?.[0]?.message?.content || '').trim();
+    const opening = type === 'spelling' ? rawContent.indexOf('[') : rawContent.indexOf('{');
+    const closing = type === 'spelling' ? rawContent.lastIndexOf(']') : rawContent.lastIndexOf('}');
+    if (opening < 0 || closing <= opening) throw new Error('The AI returned an empty or invalid response. Please try again.');
+    const parsed = JSON.parse(rawContent.slice(opening, closing + 1));
+    const generatedItems = type === 'spelling' ? (Array.isArray(parsed) ? parsed : parsed.items) : [parsed];
+    if (!Array.isArray(generatedItems) || !generatedItems.length) {
+      throw new Error('The AI did not return usable content. Please try again.');
+    }
+
+    const existingSet = new Set(existingValues);
+    const insertedItems = [];
+    for (const item of generatedItems) {
+      if (!item || typeof item !== 'object') continue;
+      const value = String(type === 'spelling' ? item.word || '' : type === 'speaking' ? item.topic_text || '' : item.prompt_text || '').trim();
+      const normalized = value.toLowerCase();
+      if (!value || existingSet.has(normalized)) continue;
+      existingSet.add(normalized);
+
+      let result;
+      if (type === 'spelling') {
+        const clue = String(item.clue || '').trim();
+        if (!clue) continue;
+        result = await executeQuery(
+          `INSERT INTO spelling_words (word, clue, example_sentence, audio_text, letter_count, age_group, difficulty, category, active, available_on)
+           VALUES ($1, $2, $3, $1, LENGTH($1), $4, $5, $6, true, $7) RETURNING *`,
+          [value, clue, String(item.example_sentence || '').trim() || null, ageGroup, difficulty[ageGroup], String(item.category || 'general').trim().slice(0, 80), availableOn]
+        );
+      } else if (type === 'speaking') {
+        result = await executeQuery(
+          `INSERT INTO speaking_topics (age_group, difficulty, category, topic_text, generated_by_ai, approved_by_admin, active, available_on)
+           VALUES ($1, $2, $3, $4, true, true, true, $5) RETURNING *`,
+          [ageGroup, difficulty[ageGroup], String(item.category || 'general').trim().slice(0, 50), value, availableOn]
+        );
+      } else {
+        const toJsonArray = value => JSON.stringify(Array.isArray(value) ? value.map(entry => String(entry).trim()).filter(Boolean) : []);
+        result = await executeQuery(
+          `INSERT INTO writing_prompts (age_group, difficulty, genre, prompt_text, structure_steps, phrase_bank, idioms, proverbs, vocabulary, active, approved_by_admin, available_on)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, true, true, $10) RETURNING *`,
+          [ageGroup, difficulty[ageGroup], String(item.genre || 'Creative Writing').trim().slice(0, 50), value, toJsonArray(item.structure_steps), toJsonArray(item.phrase_bank), toJsonArray(item.idioms), toJsonArray(item.proverbs), toJsonArray(item.vocabulary), availableOn]
+        );
+      }
+      insertedItems.push(result.rows[0]);
+    }
+
+    if (!insertedItems.length) {
+      return res.status(502).json({ error: 'The AI response only contained repeated or incomplete content. Please try again.' });
+    }
+    return res.json({ type, age_group: ageGroup, available_on: availableOn, items: insertedItems });
+  } catch (err) {
+    const providerMessage = err.response?.data?.error?.message || err.response?.data?.message;
+    const message = String(providerMessage || err.message || 'Unknown error').slice(0, 500);
+    const status = err.response?.status === 429 ? 429 : err.response ? 502 : 500;
+    console.error(`Learning Lab ${type} generation failed:`, message);
+    return res.status(status).json({ error: `Could not generate content: ${message}` });
   }
 });
 

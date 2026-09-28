@@ -4943,7 +4943,13 @@ I'm passionate about helping children develop confidence in communication!"></te
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type, age_group: ageGroup, available_on: date })
         });
-        const data = await res.json().catch(() => ({}));
+        const responseText = await res.text();
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error(`Server returned ${res.status} without JSON: ${responseText.slice(0, 180)}`);
+        }
         if (!res.ok) throw new Error(data.error || 'Could not generate content');
         const label = type === 'spelling' ? data.items.length + ' spelling words' : (type === 'speaking' ? 'a speaking topic' : 'a writing prompt');
         if (status) status.textContent = 'Scheduled ' + label + ' for ' + data.available_on + '.';
