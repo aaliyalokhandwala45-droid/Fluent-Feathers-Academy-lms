@@ -306,7 +306,7 @@
     .close-modal { background: #e53e3e; color: white; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
     .close-modal:empty::before { content: 'X'; }
     .star-rating { display: flex; justify-content: center; gap: 10px; font-size: 48px; margin: 20px 0; }
-    .star { appearance: none; border: 0; padding: 0; background: transparent; cursor: pointer; color: #ddd; transition: all 0.2s; }
+    .star { appearance: none; border: 0; padding: 0; background: transparent; cursor: pointer; color: #ddd; font: inherit; font-size: 1em; line-height: 1; min-width: 48px; min-height: 48px; transition: all 0.2s; }
     .star.active, .star:hover { color: #FFD700; transform: scale(1.2); }
     .star:focus-visible { outline: 2px solid #805ad5; outline-offset: 3px; border-radius: 3px; }
     .payment-history-item { background: #f7fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #B05D9E; margin-bottom: 15px; }
