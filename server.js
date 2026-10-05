@@ -19139,7 +19139,7 @@ async function calculateStudentScores(startDate, endDate) {
       COALESCE(c.pts, 0) as challenge_score,
       COALESCE(q.pts, 0) as quiz_score,
       COALESCE(b.pts, 0) as badge_score,
-      COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN consistency_pts cp ON s.id = cp.student_id
@@ -19147,8 +19147,8 @@ async function calculateStudentScores(startDate, endDate) {
     LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, homework_score DESC, consistency_score DESC, challenge_score DESC, quiz_score DESC, badge_score DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) > 0 OR COALESCE(c.pts, 0) > 0)
+    ORDER BY total_score DESC, homework_score DESC, consistency_score DESC, challenge_score DESC, badge_score DESC, s.name ASC
   `, [startDate, endDate]);
   return result.rows;
 }
@@ -19445,7 +19445,7 @@ app.get('/api/leaderboard', async (req, res) => {
         COALESCE(c.pts, 0) as challenge_points,
         COALESCE(q.pts, 0) as quiz_points,
         COALESCE(b.pts, 0) as badge_points,
-        COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score,
+        COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score,
         COALESCE(bc.badge_count, 0) as total_badges,
         (SELECT badge_name FROM student_badges WHERE student_id = s.id ${bdgLatestFilter} ORDER BY earned_date DESC LIMIT 1) as latest_badge
       FROM students s
@@ -19456,8 +19456,8 @@ app.get('/api/leaderboard', async (req, res) => {
       LEFT JOIN badge_pts b ON s.id = b.student_id
       LEFT JOIN badge_counts bc ON s.id = bc.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework_points DESC, consistency_points DESC, challenge_points DESC, quiz_points DESC, badge_points DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) > 0 OR COALESCE(c.pts, 0) > 0)
+      ORDER BY total_score DESC, homework_points DESC, consistency_points DESC, challenge_points DESC, badge_points DESC, s.name ASC
     `, params);
     res.json({ leaderboard: result.rows });
   } catch (err) {
