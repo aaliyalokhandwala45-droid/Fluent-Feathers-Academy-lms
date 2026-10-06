@@ -3559,7 +3559,7 @@ async function runMigrations() {
       );
 
       if (repairSetting.rows[0]?.setting_value !== 'true') {
-        const repairSummary = await repairHistoricalQuizAttempts(client, { syncBadges: true });
+        const repairSummary = await repairHistoricalQuizAttempts(client);
         await client.query(
           `INSERT INTO admin_settings (setting_key, setting_value, updated_at)
            VALUES ('migration_56_quiz_attempt_repair_done', 'true', CURRENT_TIMESTAMP)
@@ -3568,7 +3568,7 @@ async function runMigrations() {
         );
         console.log(
           `✅ Migration 56: Repaired ${repairSummary.repaired}/${repairSummary.scanned} historical quiz attempt(s), ` +
-          `skipped ${repairSummary.skipped}, awarded ${repairSummary.badges_awarded} missing quiz badge(s)`
+          `skipped ${repairSummary.skipped}`
         );
       } else {
         console.log('✅ Migration 56: Historical quiz attempt repair already applied');
@@ -3954,6 +3954,29 @@ async function runMigrations() {
       console.log('✅ Migration 63: Spelling word reuse history enabled');
     } catch (err) {
       console.log('ℹ️ Migration 63 note:', err.message);
+    }
+
+    // Migration 64: Remove quiz practice points from leaderboard totals
+    try {
+      const rewardSetting = await client.query(
+        `SELECT setting_value FROM admin_settings
+         WHERE setting_key = 'migration_64_quiz_rewards_removed' LIMIT 1`
+      );
+      if (rewardSetting.rows[0]?.setting_value !== 'true') {
+        const resetResult = await client.query(
+          `UPDATE quiz_attempts SET points_awarded = 0
+           WHERE COALESCE(points_awarded, 0) <> 0`
+        );
+        await client.query(
+          `INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+           VALUES ('migration_64_quiz_rewards_removed', 'true', CURRENT_TIMESTAMP)
+           ON CONFLICT (setting_key)
+           DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP`
+        );
+        console.log(`✅ Migration 64: Removed quiz points from ${resetResult.rowCount || 0} practice attempts`);
+      }
+    } catch (err) {
+      console.log('ℹ️ Migration 64 note:', err.message);
     }
 
     console.log('✅ All database migrations completed successfully!');
@@ -8972,9 +8995,6 @@ async function generateDailyQuiz() {
 
 const DAILY_QUIZ_QUESTION_COUNT = 10;
 const DAILY_QUIZ_DURATION_SECONDS = 5 * 60;
-const DAILY_QUIZ_BADGE_TYPE = 'daily_quiz_champion';
-const DAILY_QUIZ_BADGE_NAME = '🏆 Quiz Champion';
-const DAILY_QUIZ_BADGE_DESCRIPTION = 'Scored 10/10 in the daily quiz!';
 const QUIZ_ALLOWED_CATEGORIES = [
   'grammar',
   'vocabulary',
@@ -9382,7 +9402,6 @@ async function loadQuizAnswerKeysByQuestionIds(questionIds, db = pool) {
 }
 
 async function repairHistoricalQuizAttempts(db = pool, options = {}) {
-  const syncBadges = options.syncBadges !== false;
   const attemptsResult = await db.query(`
     SELECT id, student_id, quiz_date, level, answers, score, points_awarded
     FROM quiz_attempts
@@ -9394,8 +9413,7 @@ async function repairHistoricalQuizAttempts(db = pool, options = {}) {
     scanned: attemptsResult.rows.length,
     repaired: 0,
     unchanged: 0,
-    skipped: 0,
-    badges_awarded: 0
+    skipped: 0
   };
 
   for (const attempt of attemptsResult.rows) {
@@ -9458,7 +9476,7 @@ async function repairHistoricalQuizAttempts(db = pool, options = {}) {
       continue;
     }
 
-    const correctedPoints = correctedScore * QUIZ_POINT_VALUE;
+    const correctedPoints = 0;
     const previousScore = Number(attempt.score) || 0;
     const previousPoints = Number(attempt.points_awarded) || 0;
 
@@ -9475,24 +9493,6 @@ async function repairHistoricalQuizAttempts(db = pool, options = {}) {
       summary.unchanged++;
     }
 
-    if (syncBadges && correctedScore === DAILY_QUIZ_QUESTION_COUNT) {
-      const badgeResult = await db.query(
-        `SELECT id
-         FROM student_badges
-         WHERE student_id = $1 AND badge_type = $2
-         LIMIT 1`,
-        [attempt.student_id, DAILY_QUIZ_BADGE_TYPE]
-      );
-
-      if (badgeResult.rows.length === 0) {
-        await db.query(
-          `INSERT INTO student_badges (student_id, badge_type, badge_name, badge_description)
-           VALUES ($1, $2, $3, $4)`,
-          [attempt.student_id, DAILY_QUIZ_BADGE_TYPE, DAILY_QUIZ_BADGE_NAME, DAILY_QUIZ_BADGE_DESCRIPTION]
-        );
-        summary.badges_awarded++;
-      }
-    }
   }
 
   return summary;
@@ -19022,7 +19022,6 @@ const HOMEWORK_VERY_LATE_POINTS = 5;
 const HOMEWORK_CONSISTENCY_BONUS = 10;
 const CHALLENGE_POINT_VALUE = 10;
 const BADGE_POINT_VALUE = 2;
-const QUIZ_POINT_VALUE = 1; // Quiz result points per correct answer (max 10 per quiz)
 
 function homeworkDurationMinutesSql(sessionAlias = 's') {
   return `COALESCE((
@@ -19074,7 +19073,6 @@ function getPodiumEmail(studentName, rank, periodLabel, totalScore, breakdown) {
       <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:18px 0;">
         <p style="margin:0 0 8px;color:#4a5568;">Homework: <strong>${breakdown.homework} pts</strong></p>
         <p style="margin:0 0 8px;color:#4a5568;">Challenges: <strong>${breakdown.challenges} pts</strong></p>
-        <p style="margin:0 0 8px;color:#4a5568;">Daily Quiz: <strong>${breakdown.quizzes || 0} pts</strong></p>
         <p style="margin:0;color:#4a5568;">Badges: <strong>${breakdown.badges} pts</strong></p>
         <p style="margin:10px 0 0;font-size:18px;color:#553c9a;font-weight:700;">Total: ${totalScore} points</p>
       </div>
@@ -19117,16 +19115,11 @@ async function calculateStudentScores(startDate, endDate) {
         AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
-    quiz_pts AS (
-      SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts
-      FROM quiz_attempts
-      WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
-      GROUP BY student_id
-    ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
       FROM student_badges
-      WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
+      WHERE badge_type NOT LIKE '%quiz%'
+        AND earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     )
     SELECT
@@ -19137,14 +19130,12 @@ async function calculateStudentScores(startDate, endDate) {
       COALESCE(h.pts, 0) as homework_score,
       COALESCE(cp.pts, 0) as consistency_score,
       COALESCE(c.pts, 0) as challenge_score,
-      COALESCE(q.pts, 0) as quiz_score,
       COALESCE(b.pts, 0) as badge_score,
       COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN consistency_pts cp ON s.id = cp.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
-    LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
       AND (COALESCE(h.pts, 0) > 0 OR COALESCE(c.pts, 0) > 0)
@@ -19230,7 +19221,6 @@ function getStudentAwardEmail(studentName, awardTitle, periodLabel, totalScore, 
         <p style="margin:4px 0;color:#4a5568;">📝 Homework Submitted: <strong>${breakdown.homework} pts</strong></p>
         <p style="margin:4px 0;color:#4a5568;">🎯 Challenges Completed: <strong>${breakdown.challenges} pts</strong></p>
         <p style="margin:4px 0;color:#4a5568;">🏅 Badges Earned: <strong>${breakdown.badges} pts</strong></p>
-        <p style="margin:4px 0;color:#4a5568;">Daily Quiz: <strong>${breakdown.quizzes || 0} pts</strong></p>
         <p style="margin:10px 0 0;font-size:18px;font-weight:700;color:#B05D9E;">Total: ${totalScore} points</p>
       </div>
       <p style="font-size:15px;color:#4a5568;line-height:1.6;">Keep up the amazing work! We're so proud of ${studentName}'s dedication and progress at Fluent Feathers Academy. 💜</p>
@@ -19340,7 +19330,6 @@ async function awardStudentOfPeriod(periodType) {
       const winnerEmailHTML = getStudentAwardEmail(winner.name, awardTitle, periodLabel, winner.total_score, {
         homework: winner.homework_score,
         challenges: winner.challenge_score,
-        quizzes: winner.quiz_score,
         badges: winner.badge_score
       }, certificateUrl);
       await sendEmail(winner.parent_email, `${awardTitle} - ${winner.name} | Fluent Feathers Academy`, winnerEmailHTML, winner.parent_name, 'Student Award');
@@ -19358,7 +19347,6 @@ async function awardStudentOfPeriod(periodType) {
         {
           homework: podiumStudent.homework_score,
           challenges: podiumStudent.challenge_score,
-          quizzes: podiumStudent.quiz_score,
           badges: podiumStudent.badge_score
         }
       );
@@ -19418,22 +19406,16 @@ app.get('/api/leaderboard', async (req, res) => {
           ${chFilter}
         GROUP BY student_id
       ),
-      quiz_pts AS (
-        SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts
-        FROM quiz_attempts
-        WHERE 1=1 ${useDateFilter ? `AND completed_at >= $1::timestamp AND completed_at < ($2::timestamp + INTERVAL '1 day')` : ''}
-        GROUP BY student_id
-      ),
       badge_pts AS (
         SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
         FROM student_badges
-        WHERE 1=1 ${bdgFilter}
+        WHERE badge_type NOT LIKE '%quiz%' ${bdgFilter}
         GROUP BY student_id
       ),
       badge_counts AS (
         SELECT student_id, COUNT(*) as badge_count
         FROM student_badges
-        WHERE 1=1 ${bdgFilter}
+        WHERE badge_type NOT LIKE '%quiz%' ${bdgFilter}
         GROUP BY student_id
       )
       SELECT
@@ -19443,16 +19425,14 @@ app.get('/api/leaderboard', async (req, res) => {
         COALESCE(h.pts, 0) as homework_points,
         COALESCE(cp.pts, 0) as consistency_points,
         COALESCE(c.pts, 0) as challenge_points,
-        COALESCE(q.pts, 0) as quiz_points,
         COALESCE(b.pts, 0) as badge_points,
         COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score,
         COALESCE(bc.badge_count, 0) as total_badges,
-        (SELECT badge_name FROM student_badges WHERE student_id = s.id ${bdgLatestFilter} ORDER BY earned_date DESC LIMIT 1) as latest_badge
+        (SELECT badge_name FROM student_badges WHERE student_id = s.id AND badge_type NOT LIKE '%quiz%' ${bdgLatestFilter} ORDER BY earned_date DESC LIMIT 1) as latest_badge
       FROM students s
       LEFT JOIN homework_pts h ON s.id = h.student_id
       LEFT JOIN consistency_pts cp ON s.id = cp.student_id
       LEFT JOIN challenge_pts c ON s.id = c.student_id
-      LEFT JOIN quiz_pts q ON s.id = q.student_id
       LEFT JOIN badge_pts b ON s.id = b.student_id
       LEFT JOIN badge_counts bc ON s.id = bc.student_id
       WHERE s.is_active = true
@@ -19500,15 +19480,11 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           WHERE sc.student_id = $1
             AND sc.status = 'Completed'
         ),
-        quiz_scores AS (
-          SELECT COALESCE(SUM(qa.points_awarded), 0) AS points
-          FROM quiz_attempts qa
-          WHERE qa.student_id = $1
-        ),
         badge_scores AS (
           SELECT COUNT(*) * ${BADGE_POINT_VALUE} AS points
           FROM student_badges sb
           WHERE sb.student_id = $1
+            AND sb.badge_type NOT LIKE '%quiz%'
         ),
         class_points_total AS (
           SELECT COALESCE(SUM(cp.points), 0) AS points
@@ -19525,7 +19501,6 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           COALESCE((SELECT points FROM homework_scores), 0) AS homework_points,
           COALESCE((SELECT points FROM consistency_scores), 0) AS consistency_points,
           COALESCE((SELECT points FROM challenge_scores), 0) AS challenge_points,
-          COALESCE((SELECT points FROM quiz_scores), 0) AS quiz_points,
           COALESCE((SELECT points FROM badge_scores), 0) AS badge_points,
           COALESCE((SELECT points FROM class_points_total), 0) AS class_points,
           COALESCE((SELECT count FROM pending_challenges), 0) AS pending_challenges
@@ -19597,18 +19572,6 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           WHERE sc.student_id = $1
             AND sc.status = 'Submitted'
         ),
-        quiz_history AS (
-          SELECT
-            'leaderboard'::text AS score_group,
-            'quiz'::text AS score_type,
-            COALESCE(qa.points_awarded, 0)::int AS points,
-            qa.completed_at AS occurred_at,
-            'Daily quiz attempted'::text AS title,
-            'Quiz date: ' || qa.quiz_date::text || ' • Score: ' || COALESCE(qa.score, 0)::text || '/10' AS detail,
-            'awarded'::text AS status
-          FROM quiz_attempts qa
-          WHERE qa.student_id = $1
-        ),
         badge_history AS (
           SELECT
             'leaderboard'::text AS score_group,
@@ -19620,6 +19583,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             'awarded'::text AS status
           FROM student_badges sb
           WHERE sb.student_id = $1
+            AND sb.badge_type NOT LIKE '%quiz%'
         ),
         class_points_history AS (
           SELECT
@@ -19643,8 +19607,6 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           UNION ALL
           SELECT * FROM pending_challenge_history
           UNION ALL
-          SELECT * FROM quiz_history
-          UNION ALL
           SELECT * FROM badge_history
           UNION ALL
           SELECT * FROM class_points_history
@@ -19658,17 +19620,15 @@ app.get('/api/students/:id/score-history', async (req, res) => {
     const homeworkPoints = parseInt(totalsRow.homework_points) || 0;
     const consistencyPoints = parseInt(totalsRow.consistency_points) || 0;
     const challengePoints = parseInt(totalsRow.challenge_points) || 0;
-    const quizPoints = parseInt(totalsRow.quiz_points) || 0;
     const badgePoints = parseInt(totalsRow.badge_points) || 0;
     const classPoints = parseInt(totalsRow.class_points) || 0;
 
     res.json({
       totals: {
-        leaderboard_total: homeworkPoints + consistencyPoints + challengePoints + quizPoints + badgePoints,
+        leaderboard_total: homeworkPoints + consistencyPoints + challengePoints + badgePoints,
         homework_points: homeworkPoints,
         consistency_points: consistencyPoints,
         challenge_points: challengePoints,
-        quiz_points: quizPoints,
         badge_points: badgePoints,
         class_points: classPoints,
         pending_challenges: parseInt(totalsRow.pending_challenges) || 0
@@ -19731,32 +19691,26 @@ app.get('/api/awards/current', async (req, res) => {
         AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     ),
-    quiz_pts AS (
-      SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts FROM quiz_attempts
-      WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
-      GROUP BY student_id
-    ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
-      WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
+      WHERE badge_type NOT LIKE '%quiz%'
+        AND earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
       GROUP BY student_id
     )
     SELECT s.id, s.name,
       COALESCE(h.pts, 0) as homework,
       COALESCE(cp.pts, 0) as consistency,
       COALESCE(c.pts, 0) as challenges,
-      COALESCE(q.pts, 0) as quizzes,
       COALESCE(b.pts, 0) as badges,
-      COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
+      COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
     FROM students s
     LEFT JOIN homework_pts h ON s.id = h.student_id
     LEFT JOIN consistency_pts cp ON s.id = cp.student_id
     LEFT JOIN challenge_pts c ON s.id = c.student_id
-    LEFT JOIN quiz_pts q ON s.id = q.student_id
     LEFT JOIN badge_pts b ON s.id = b.student_id
     WHERE s.is_active = true
-      AND (COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-    ORDER BY total_score DESC, homework DESC, consistency DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
+      AND (COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+    ORDER BY total_score DESC, homework DESC, consistency DESC, challenges DESC, badges DESC, s.name ASC
     LIMIT 1
   `, [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]);
   return result.rows[0] || null;
@@ -19845,32 +19799,26 @@ app.get('/api/awards/by-period', async (req, res) => {
           AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
         GROUP BY student_id
       ),
-      quiz_pts AS (
-        SELECT student_id, COALESCE(SUM(points_awarded), 0) as pts FROM quiz_attempts
-        WHERE completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
-        GROUP BY student_id
-      ),
       badge_pts AS (
         SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
-        WHERE earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
+        WHERE badge_type NOT LIKE '%quiz%'
+          AND earned_date >= $1::date AND earned_date < ($2::date + INTERVAL '1 day')
         GROUP BY student_id
       )
       SELECT s.id, s.name,
         COALESCE(h.pts, 0) as homework,
         COALESCE(cp.pts, 0) as consistency,
         COALESCE(c.pts, 0) as challenges,
-        COALESCE(q.pts, 0) as quizzes,
         COALESCE(b.pts, 0) as badges,
-        COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0) as total_score
+        COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0) as total_score
       FROM students s
       LEFT JOIN homework_pts h ON s.id = h.student_id
       LEFT JOIN consistency_pts cp ON s.id = cp.student_id
       LEFT JOIN challenge_pts c ON s.id = c.student_id
-      LEFT JOIN quiz_pts q ON s.id = q.student_id
       LEFT JOIN badge_pts b ON s.id = b.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(q.pts, 0) + COALESCE(b.pts, 0)) > 0
-      ORDER BY total_score DESC, homework DESC, consistency DESC, challenges DESC, quizzes DESC, badges DESC, s.name ASC
+        AND (COALESCE(h.pts, 0) + COALESCE(cp.pts, 0) + COALESCE(c.pts, 0) + COALESCE(b.pts, 0)) > 0
+      ORDER BY total_score DESC, homework DESC, consistency DESC, challenges DESC, badges DESC, s.name ASC
       LIMIT 1
     `, [start, end]);
     res.json({ winner: result.rows[0] || null });
@@ -19951,7 +19899,6 @@ app.post('/api/admin/resend-award-email', async (req, res) => {
         breakdown = {
           homework: studentScore.homework_score,
           challenges: studentScore.challenge_score,
-          quizzes: studentScore.quiz_score,
           badges: studentScore.badge_score
         };
       }
@@ -21780,7 +21727,7 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
 
     const perfectScore = correctAnswers === DAILY_QUIZ_QUESTION_COUNT;
     const bonusPoints = 0;
-    const pointsEarned = correctAnswers * QUIZ_POINT_VALUE;
+    const pointsEarned = 0;
 
     // Save attempt
     await pool.query(`
@@ -21796,84 +21743,24 @@ app.post('/api/daily-quiz/submit', async (req, res) => {
       elapsedSeconds
     ]);
 
-    let badgeAwarded = false;
-    if (perfectScore) {
-      const uniqueBadgeType = `${DAILY_QUIZ_BADGE_TYPE}_${quizDate}`;
-      badgeAwarded = await awardBadge(
-        studentId,
-        uniqueBadgeType,
-        DAILY_QUIZ_BADGE_NAME,
-        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${quizDate})`
-      );
-    }
-
     res.json({
       score: correctAnswers,
       total_questions: DAILY_QUIZ_QUESTION_COUNT,
       points_earned: pointsEarned,
-      base_points: correctAnswers * QUIZ_POINT_VALUE,
+      base_points: 0,
       bonus_points: bonusPoints,
-      badge_awarded: badgeAwarded,
-      badge_name: perfectScore ? DAILY_QUIZ_BADGE_NAME : null,
+      badge_awarded: false,
+      badge_name: null,
       perfect_score: perfectScore,
       time_spent: elapsedSeconds,
       review,
-      message: perfectScore
-        ? `Perfect score! You earned ${pointsEarned} points and unlocked ${DAILY_QUIZ_BADGE_NAME}.`
-        : `Great job! You scored ${correctAnswers}/10 and earned ${pointsEarned} points!`
+      message: `Practice complete! You scored ${correctAnswers}/10.`
     });
   } catch (err) {
     console.error('Quiz submission error:', err);
     res.status(500).json({ error: err.message, message: err.message });
   }
 });
-
-// Backfill Quiz Champion badges for existing perfect scores
-async function backfillQuizChampionBadges() {
-  try {
-    console.log('🔄 Backfilling Quiz Champion badges for existing perfect scores...');
-
-    // Match canonical badge IDs and IDs written by the earlier Date-string bug.
-    const result = await pool.query(`
-      SELECT qa.student_id, qa.quiz_date::text AS quiz_date
-      FROM quiz_attempts qa
-      WHERE qa.score = 10
-        AND NOT EXISTS (
-          SELECT 1
-          FROM student_badges sb
-          WHERE sb.student_id = qa.student_id
-            AND (
-              sb.badge_type = CONCAT('daily_quiz_champion_', qa.quiz_date::text)
-              OR to_date(
-                substring(sb.badge_type FROM '^daily_quiz_champion_[A-Za-z]{3} ([A-Za-z]{3} [0-9]{1,2} [0-9]{4})'),
-                'Mon DD YYYY'
-              ) = qa.quiz_date
-            )
-        )
-    `);
-
-    console.log(`Found ${result.rows.length} perfect quiz attempts without badges`);
-
-    let awarded = 0;
-    for (const row of result.rows) {
-      const uniqueBadgeType = `daily_quiz_champion_${row.quiz_date}`;
-      const badgeAwarded = await awardBadge(
-        row.student_id,
-        uniqueBadgeType,
-        DAILY_QUIZ_BADGE_NAME,
-        `${DAILY_QUIZ_BADGE_DESCRIPTION} (${row.quiz_date})`,
-        row.quiz_date
-      );
-      if (badgeAwarded) awarded++;
-    }
-
-    console.log(`✅ Awarded ${awarded} Quiz Champion badges`);
-    return awarded;
-  } catch (err) {
-    console.error('Error backfilling quiz badges:', err);
-    return 0;
-  }
-}
 
 // Get student's quiz history
 app.get('/api/daily-quiz/history', async (req, res) => {
@@ -22520,7 +22407,7 @@ app.put('/api/admin/daily-quiz-questions', async (req, res) => {
         const answer = Number.isInteger(Number(answers[index])) ? Number(answers[index]) : -1;
         if (answer === Number(question.correct_answer)) correctedScore++;
       });
-      const correctedPoints = correctedScore * QUIZ_POINT_VALUE;
+      const correctedPoints = 0;
 
       if (Number(attempt.score) !== correctedScore || Number(attempt.points_awarded) !== correctedPoints) {
         await pool.query(
@@ -22530,22 +22417,12 @@ app.put('/api/admin/daily-quiz-questions', async (req, res) => {
         recalculatedAttempts++;
       }
 
-      if (correctedScore === DAILY_QUIZ_QUESTION_COUNT) {
-        const badgeAwarded = await awardBadge(
-          attempt.student_id,
-          `${DAILY_QUIZ_BADGE_TYPE}_${date}`,
-          DAILY_QUIZ_BADGE_NAME,
-          `${DAILY_QUIZ_BADGE_DESCRIPTION} (${date})`
-        );
-        if (badgeAwarded) badgesAwarded++;
-      } else {
-        const removedBadgeResult = await pool.query(
-          `DELETE FROM student_badges
-           WHERE student_id = $1 AND badge_type = $2`,
-          [attempt.student_id, `${DAILY_QUIZ_BADGE_TYPE}_${date}`]
-        );
-        badgesRemoved += removedBadgeResult.rowCount || 0;
-      }
+      const removedBadgeResult = await pool.query(
+        `DELETE FROM student_badges
+         WHERE student_id = $1 AND badge_type = $2`,
+        [attempt.student_id, `daily_quiz_champion_${date}`]
+      );
+      badgesRemoved += removedBadgeResult.rowCount || 0;
     }
 
     res.json({
@@ -27255,11 +27132,4 @@ app.delete('/api/admin/speaking-topics/:id', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 LMS Running on port ${PORT}`);
   startKeepAlive();
-
-  // Backfill Quiz Champion badges for existing perfect scores
-  console.log('Starting backfill in 2 seconds...');
-  setTimeout(() => {
-    console.log('Running backfill now...');
-    backfillQuizChampionBadges();
-  }, 2000); // Wait 2 seconds after startup
 });
