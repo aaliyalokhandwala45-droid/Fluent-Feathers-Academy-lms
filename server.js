@@ -25834,11 +25834,13 @@ app.get('/api/live-points/leaderboard', async (req, res) => {
     const range = req.query.range || 'all'; // today | week | all
     const tz = req.query.tz || 'Asia/Kolkata';
     let whereClause = '';
+    let queryParams = [];
     if (range === 'today') {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
       whereClause = `WHERE cp.awarded_at AT TIME ZONE '${tz}' >= '${today}'::date AND cp.awarded_at AT TIME ZONE '${tz}' < ('${today}'::date + interval '1 day')`;
     } else if (range === 'week') {
-      whereClause = `WHERE cp.awarded_at >= date_trunc('week', NOW() AT TIME ZONE '${tz}')`;
+      whereClause = `WHERE cp.awarded_at >= (date_trunc('week', (NOW() AT TIME ZONE $1) + INTERVAL '1 day') - INTERVAL '1 day')`;
+      queryParams = [tz];
     }
     const result = await executeQuery(
       `SELECT s.id AS student_id, s.name AS student_name, COALESCE(SUM(cp.points), 0) AS total_points
@@ -25848,7 +25850,8 @@ app.get('/api/live-points/leaderboard', async (req, res) => {
        GROUP BY s.id, s.name
        HAVING COALESCE(SUM(cp.points), 0) > 0
        ORDER BY total_points DESC
-       LIMIT 20`
+       LIMIT 20`,
+      queryParams
     );
     res.json(result.rows);
   } catch (err) {
