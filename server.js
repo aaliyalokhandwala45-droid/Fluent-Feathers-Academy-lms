@@ -19456,7 +19456,7 @@ app.get('/api/leaderboard', async (req, res) => {
       LEFT JOIN badge_pts b ON s.id = b.student_id
       LEFT JOIN badge_counts bc ON s.id = bc.student_id
       WHERE s.is_active = true
-        AND (COALESCE(h.pts, 0) > 0 OR COALESCE(c.pts, 0) > 0)
+        AND (COALESCE(h.pts, 0) > 0 OR COALESCE(c.pts, 0) > 0 OR COALESCE(b.pts, 0) > 0)
       ORDER BY total_score DESC, homework_points DESC, consistency_points DESC, challenge_points DESC, badge_points DESC, s.name ASC
     `, params);
     res.json({ leaderboard: result.rows });

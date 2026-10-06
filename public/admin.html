@@ -12750,17 +12750,16 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
     // Compute ISO date strings for leaderboard period filter
     function getLeaderboardDateRange(period) {
       const now = new Date();
-      const fmt = d => d.toISOString().split('T')[0];
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const dayOfWeek = now.getDay(); // 0=Sun
       if (period === 'thisweek') {
-        // Mon–today
-        const mon = new Date(now); mon.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); mon.setHours(0,0,0,0);
-        return { start: fmt(mon), end: fmt(now), label: `${mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – Today` };
+        const sun = new Date(now); sun.setDate(now.getDate() - dayOfWeek); sun.setHours(0,0,0,0);
+        return { start: fmt(sun), end: fmt(now), label: `${sun.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – Today` };
       }
       if (period === 'lastweek') {
-        const mon = new Date(now); mon.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) - 7); mon.setHours(0,0,0,0);
-        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-        return { start: fmt(mon), end: fmt(sun), label: `${mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${sun.toLocaleDateString('en-US',{month:'short',day:'numeric'})}` };
+        const sun = new Date(now); sun.setDate(now.getDate() - dayOfWeek - 7); sun.setHours(0,0,0,0);
+        const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+        return { start: fmt(sun), end: fmt(sat), label: `${sun.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${sat.toLocaleDateString('en-US',{month:'short',day:'numeric'})}` };
       }
       if (period === 'thismonth') {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
