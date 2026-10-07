@@ -1752,6 +1752,16 @@ app.get('/api/admin/settings', async (req, res) => {
 // Update admin settings
 app.put('/api/admin/settings', async (req, res) => {
   const { admin_bio, admin_name, admin_title } = req.body;
+  const learningHubSettings = {
+    learning_hub_live: req.body.learning_hub_live,
+    learning_hub_fees_enabled: req.body.learning_hub_fees_enabled
+  };
+  for (const [key, value] of Object.entries(learningHubSettings)) {
+    if (value !== undefined && typeof value !== 'boolean') {
+      return res.status(400).json({ error: `${key} must be a boolean` });
+    }
+  }
+
   try {
     if (admin_bio !== undefined) {
       await pool.query(`
@@ -1773,6 +1783,15 @@ app.put('/api/admin/settings', async (req, res) => {
         VALUES ('admin_title', $1, CURRENT_TIMESTAMP)
         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
       `, [admin_title]);
+    }
+    for (const [key, value] of Object.entries(learningHubSettings)) {
+      if (value !== undefined) {
+        await pool.query(`
+          INSERT INTO admin_settings (setting_key, setting_value, updated_at)
+          VALUES ($1, $2, CURRENT_TIMESTAMP)
+          ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = CURRENT_TIMESTAMP
+        `, [key, String(value)]);
+      }
     }
     res.json({ success: true, message: 'Settings updated successfully!' });
   } catch (err) {
@@ -21405,6 +21424,8 @@ app.delete('/api/challenges/:id', async (req, res) => {
 
 // ==================== DAILY QUIZ API ====================
 
+app.use('/api/daily-quiz', requireLearningHubLive);
+
 // Get quiz status for current student
 app.get('/api/daily-quiz/status', async (req, res) => {
   try {
@@ -26043,12 +26064,47 @@ async function getLearningHubAccess(studentId) {
 }
 
 app.get('/api/learning-hub/settings', async (req, res) => {
-  res.json({
-    live: process.env.LEARNING_HUB_LIVE !== 'false',
-    fees_enabled: process.env.LEARNING_HUB_FEES_ENABLED !== 'false',
-    monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD
-  });
+  try {
+    res.json(await getLearningHubSettings());
+  } catch (err) {
+    console.error('Error fetching Learning Hub settings:', err.message);
+    res.status(500).json({ error: 'Could not load Learning Hub settings' });
+  }
 });
+
+async function getLearningHubSettings() {
+  const result = await pool.query(
+    `SELECT setting_key, setting_value
+     FROM admin_settings
+     WHERE setting_key IN ('learning_hub_live', 'learning_hub_fees_enabled')`
+  );
+  const settings = Object.fromEntries(result.rows.map(row => [row.setting_key, row.setting_value]));
+  return {
+    live: settings.learning_hub_live !== undefined
+      ? settings.learning_hub_live === 'true'
+      : process.env.LEARNING_HUB_LIVE !== 'false',
+    fees_enabled: settings.learning_hub_fees_enabled !== undefined
+      ? settings.learning_hub_fees_enabled === 'true'
+      : process.env.LEARNING_HUB_FEES_ENABLED !== 'false',
+    monthly_price_usd: LEARNING_HUB_MONTHLY_PRICE_USD
+  };
+}
+
+async function requireLearningHubLive(req, res, next) {
+  try {
+    const settings = await getLearningHubSettings();
+    if (!settings.live) {
+      return res.status(503).json({
+        error: 'Learning Hub is currently unavailable.',
+        code: 'LEARNING_HUB_UNLIVE'
+      });
+    }
+    return next();
+  } catch (err) {
+    console.error('Error checking Learning Hub availability:', err.message);
+    return res.status(500).json({ error: 'Could not verify Learning Hub availability' });
+  }
+}
 
 function learningHubPaywallPayload(task, access) {
   return {
@@ -26078,6 +26134,10 @@ app.get('/api/learning-hub/access', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.use('/api/spelling', requireLearningHubLive);
+app.use('/api/writing', requireLearningHubLive);
+app.use('/api/speaking', requireLearningHubLive);
 
 /**
  * GET /api/spelling/bee
