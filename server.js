@@ -17819,11 +17819,11 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
           COALESCE((
             SELECT SUM(ph.amount)
             FROM payment_history ph
-            WHERE ph.student_id = $3
+            WHERE ph.student_id = $2::integer
           ), 0) + COALESCE((
             SELECT SUM(pr.amount)
             FROM payment_renewals pr
-            WHERE pr.student_id = $3
+            WHERE pr.student_id = $2::integer
               AND NOT EXISTS (
                 SELECT 1
                 FROM payment_history ph
