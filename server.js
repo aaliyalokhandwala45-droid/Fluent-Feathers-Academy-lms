@@ -17578,7 +17578,7 @@ async function getRefundableStudentSessions(db, studentId, lockRows = false) {
   const studentResult = await db.query(`
     SELECT id, name, parent_name, parent_email, currency, per_session_fee, fees_paid, completed_sessions, remaining_sessions, class_type
     FROM students
-    WHERE id = $1
+    WHERE id = $1::integer
     ${lockRows ? 'FOR UPDATE' : ''}
   `, [studentId]);
   if (studentResult.rows.length === 0) return null;
@@ -17596,7 +17596,7 @@ async function getRefundableStudentSessions(db, studentId, lockRows = false) {
     LEFT JOIN session_attendance sa
       ON sa.session_id = mc.scheduled_session_id
      AND sa.student_id = mc.student_id
-    WHERE mc.student_id = $1
+    WHERE mc.student_id = $1::integer
       AND LOWER(COALESCE(mc.status, '')) IN ('available', 'scheduled')
       AND (
         LOWER(COALESCE(mc.status, '')) = 'available'
@@ -17630,6 +17630,39 @@ async function getRefundableStudentSessions(db, studentId, lockRows = false) {
 
   const balance = await getStudentSessionBalance(studentId, db);
   const paidRemainingSessions = Math.max(parseInt(balance?.paid_remaining_sessions, 10) || 0, 0);
+  const pendingResult = await db.query(`
+    SELECT
+      (
+        SELECT COUNT(*)
+        FROM sessions sess
+        WHERE sess.student_id = $1::integer
+          AND sess.session_type = 'Private'
+          AND sess.status IN ('Pending', 'Scheduled')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = sess.student_id
+              AND mc.scheduled_session_id = sess.id
+          )
+      ) AS private_pending,
+      (
+        SELECT COUNT(*)
+        FROM session_attendance sa
+        INNER JOIN sessions sess ON sess.id = sa.session_id
+        WHERE sa.student_id = $1::integer
+          AND sess.session_type = 'Group'
+          AND sess.status IN ('Pending', 'Scheduled')
+          AND COALESCE(sa.attendance, 'Pending') = 'Pending'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM makeup_classes mc
+            WHERE mc.student_id = sa.student_id
+              AND mc.scheduled_session_id = sess.id
+          )
+      ) AS group_pending
+  `, [studentId]);
+  const privatePending = parseInt(pendingResult.rows[0]?.private_pending, 10) || 0;
+  const groupPending = parseInt(pendingResult.rows[0]?.group_pending, 10) || 0;
   const studentClassType = String(student.class_type || '').toLowerCase();
   const paidCategory = studentClassType.includes('group') || studentClassType.includes('semi batch')
     ? 'group'
@@ -17638,7 +17671,12 @@ async function getRefundableStudentSessions(db, studentId, lockRows = false) {
     private: { paid_remaining: 0, makeup_credits: makeupCounts.private },
     group: { paid_remaining: 0, makeup_credits: makeupCounts.group }
   };
-  counts[paidCategory].paid_remaining = paidRemainingSessions;
+  counts.private.paid_remaining = Math.min(privatePending, paidRemainingSessions);
+  counts.group.paid_remaining = Math.min(groupPending, paidRemainingSessions - counts.private.paid_remaining);
+  const unclassifiedPaidSessions = paidRemainingSessions -
+    counts.private.paid_remaining -
+    counts.group.paid_remaining;
+  counts[paidCategory].paid_remaining += unclassifiedPaidSessions;
 
   return {
     student,
@@ -17720,7 +17758,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
 
     await client.query(`
       INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
-      VALUES ($1, CURRENT_TIMESTAMP, $2, $3, 'Refund', $4, $5, 'Refunded')
+      VALUES ($1::integer, CURRENT_TIMESTAMP, $2::numeric, $3::text, 'Refund', $4::text, $5::text, 'Refunded')
     `, [studentId, -refundAmount, student.currency || 'INR', totalSessions, notes]);
 
     if (makeupCredits.length > 0) {
@@ -17745,7 +17783,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
         await client.query(`
           UPDATE session_attendance
           SET attendance = 'Cancelled by Parent'
-          WHERE student_id = $1
+          WHERE student_id = $1::integer
             AND session_id = ANY($2::int[])
             AND attendance = 'Pending'
         `, [studentId, scheduledIds]);
@@ -17756,11 +17794,11 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
       UPDATE sessions
       SET status = 'Cancelled',
           notes = CONCAT(COALESCE(notes, ''), CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' | ' END, 'Refunded')
-      WHERE student_id = $1
+      WHERE student_id = $1::integer
         AND session_type = 'Private'
         AND status IN ('Pending', 'Scheduled')
         AND id NOT IN (
-          SELECT scheduled_session_id FROM makeup_classes WHERE student_id = $1 AND scheduled_session_id IS NOT NULL
+          SELECT scheduled_session_id FROM makeup_classes WHERE student_id = $1::integer AND scheduled_session_id IS NOT NULL
         )
     `, [studentId]);
     await client.query(`
@@ -17797,11 +17835,11 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
           ), 0),
           0
         ),
-        total_sessions = $2,
+        total_sessions = $1::integer,
         remaining_sessions = 0,
         session_balance_override = true
-      WHERE id = $3
-    `, [refundAmount, completedSessions, studentId]);
+      WHERE id = $2::integer
+    `, [completedSessions, studentId]);
 
     await client.query('COMMIT');
 
