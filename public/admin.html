@@ -9008,7 +9008,7 @@ if (dueEl) {
     <div><strong>Status:</strong> <span class="${student.is_active ? 'status-active' : 'status-inactive'}">${student.is_active ? 'Active' : 'Inactive'}</span></div>
     <div><button onclick="openEditPaymentModal(${student.id}, '${student.currency}', ${student.ledger_total_paid ?? student.fees_paid ?? 0}, ${student.total_sessions})" class="btn btn-sm" style="background: #667eea; color: white;">✏️ Edit Payment</button></div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-      <button onclick="initiateStudentRefund(${student.id}, '${(student.name || '').replace(/'/g, "\\'")}', ${student.remaining_sessions || 0}, ${student.per_session_fee || 0}, '${student.currency || 'INR'}')" class="btn btn-sm" style="background: #e53e3e; color: white;">💸 Refund Unused Sessions</button>
+      <button onclick="initiateStudentRefund(${student.id}, '${(student.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #e53e3e; color: white;">💸 Refund Unused Sessions</button>
       <button onclick="resendStudentRefundEmail(this, ${student.id}, '${(student.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm" style="background: #805ad5; color: white;">📧 Resend Refund Email</button>
     </div>
   </div>
@@ -9177,30 +9177,59 @@ async function saveEditedPayment() {
   }
 }
 
-async function initiateStudentRefund(studentId, studentName, remainingSessions, perSessionFee, currency) {
-  const unusedSessions = parseInt(remainingSessions || 0, 10);
-  const refundAmount = unusedSessions * parseFloat(perSessionFee || 0);
-
-  if (unusedSessions <= 0 || refundAmount <= 0) {
-    return alert('No unused sessions are available for refund.');
-  }
-
-  const reason = prompt(`Refund reason for ${studentName} (optional):`, `Refund for ${unusedSessions} unused session(s)`);
-  if (reason === null) return;
-
-  if (!confirm(`Refund ${currency} ${refundAmount.toFixed(2)} for ${unusedSessions} unused session(s) and remove the remaining sessions?`)) {
-    return;
-  }
-
+async function initiateStudentRefund(studentId, studentName) {
   try {
+    const previewRes = await fetch(`/api/students/${studentId}/refund-unused-sessions/preview`);
+    const preview = await previewRes.json();
+    if (!previewRes.ok) {
+      return alert('❌ Could not load refund details: ' + (preview.error || 'Unknown error'));
+    }
+
+    const categories = ['private', 'group'];
+    const counts = preview.counts || {};
+    const refundLines = [];
+    let refundAmount = 0;
+    const rates = {};
+
+    for (const category of categories) {
+      const paidCount = Number(counts[category]?.paid_remaining || 0);
+      const makeupCount = Number(counts[category]?.makeup_credits || 0);
+      const count = paidCount + makeupCount;
+      rates[category] = Number(preview.default_rate || 0);
+      if (count <= 0) continue;
+
+      const rateInput = prompt(
+        `Refund rate per ${category} class for ${studentName} (${paidCount} paid remaining + ${makeupCount} makeup credit(s)):`,
+        rates[category].toFixed(2)
+      );
+      if (rateInput === null) return;
+      rates[category] = Number(rateInput);
+      if (!Number.isFinite(rates[category]) || rates[category] < 0) {
+        return alert(`Enter a valid non-negative ${category} class refund rate.`);
+      }
+      refundAmount += count * rates[category];
+      refundLines.push(`${count} ${category} × ${preview.currency} ${rates[category].toFixed(2)} = ${preview.currency} ${(count * rates[category]).toFixed(2)}`);
+    }
+
+    if (refundLines.length === 0 || refundAmount <= 0) {
+      return alert('No unused paid sessions or refundable makeup credits are available.');
+    }
+
+    const reason = prompt(`Refund reason for ${studentName} (optional):`, `Refund for ${preview.total_sessions} unused session(s)`);
+    if (reason === null) return;
+
+    if (!confirm(`Refund ${preview.currency} ${refundAmount.toFixed(2)} for ${studentName}?\n\n${refundLines.join('\n')}\n\nThis removes all remaining sessions and refundable makeup credits.`)) {
+      return;
+    }
+
     const res = await fetch(`/api/students/${studentId}/refund-unused-sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason })
+      body: JSON.stringify({ reason, rates, expected_counts: counts })
     });
     const result = await res.json();
     if (res.ok) {
-      alert('✅ Refund processed successfully!');
+      alert(`✅ Refund processed successfully!\n\n${preview.currency} ${Number(result.refund_amount).toFixed(2)} for ${result.message.replace('Refund processed for ', '')}`);
       await refreshStudentModalAfterPaymentChange();
       loadStudents();
       loadDashboardStats();
@@ -17758,8 +17787,6 @@ function initializeQuizTab() {
   </div>
 </body>
 </html>
-
-
 
 
 

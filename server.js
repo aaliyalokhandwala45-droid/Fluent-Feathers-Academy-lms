@@ -17574,43 +17574,206 @@ app.get('/api/students/:id/payments', async (req, res) => {
   }
 });
 
-// Refund unused sessions for a student and reduce accounting totals
+async function getRefundableStudentSessions(db, studentId, lockRows = false) {
+  const studentResult = await db.query(`
+    SELECT id, name, parent_name, parent_email, currency, per_session_fee, fees_paid, completed_sessions, remaining_sessions, class_type
+    FROM students
+    WHERE id = $1
+    ${lockRows ? 'FOR UPDATE' : ''}
+  `, [studentId]);
+  if (studentResult.rows.length === 0) return null;
+
+  const student = studentResult.rows[0];
+  const makeupResult = await db.query(`
+    SELECT mc.id, mc.status, mc.original_session_id, mc.scheduled_session_id,
+      original_session.session_type AS original_session_type,
+      scheduled_session.session_type AS scheduled_session_type,
+      scheduled_session.status AS scheduled_session_status,
+      sa.attendance AS scheduled_attendance
+    FROM makeup_classes mc
+    LEFT JOIN sessions original_session ON original_session.id = mc.original_session_id
+    LEFT JOIN sessions scheduled_session ON scheduled_session.id = mc.scheduled_session_id
+    LEFT JOIN session_attendance sa
+      ON sa.session_id = mc.scheduled_session_id
+     AND sa.student_id = mc.student_id
+    WHERE mc.student_id = $1
+      AND LOWER(COALESCE(mc.status, '')) IN ('available', 'scheduled')
+      AND (
+        LOWER(COALESCE(mc.status, '')) = 'available'
+        OR mc.scheduled_session_id IS NULL
+        OR (
+          scheduled_session.session_type = 'Private'
+          AND scheduled_session.status IN ('Pending', 'Scheduled')
+        )
+        OR (
+          scheduled_session.session_type = 'Group'
+          AND scheduled_session.status IN ('Pending', 'Scheduled')
+          AND COALESCE(sa.attendance, 'Pending') = 'Pending'
+        )
+      )
+    ORDER BY mc.id
+    ${lockRows ? 'FOR UPDATE OF mc' : ''}
+  `, [studentId]);
+
+  const makeupCounts = { private: 0, group: 0 };
+  const makeupCredits = makeupResult.rows;
+  for (const credit of makeupCredits) {
+    const category = String(
+      credit.original_session_type || credit.scheduled_session_type || student.class_type || ''
+    ).toLowerCase().includes('group') ||
+      String(credit.original_session_type || credit.scheduled_session_type || student.class_type || '')
+        .toLowerCase().includes('semi batch')
+      ? 'group'
+      : 'private';
+    makeupCounts[category]++;
+  }
+
+  const balance = await getStudentSessionBalance(studentId, db);
+  const paidRemainingSessions = Math.max(parseInt(balance?.paid_remaining_sessions, 10) || 0, 0);
+  const studentClassType = String(student.class_type || '').toLowerCase();
+  const paidCategory = studentClassType.includes('group') || studentClassType.includes('semi batch')
+    ? 'group'
+    : 'private';
+  const counts = {
+    private: { paid_remaining: 0, makeup_credits: makeupCounts.private },
+    group: { paid_remaining: 0, makeup_credits: makeupCounts.group }
+  };
+  counts[paidCategory].paid_remaining = paidRemainingSessions;
+
+  return {
+    student,
+    makeupCredits,
+    counts,
+    totalSessions: paidRemainingSessions + makeupCredits.length
+  };
+}
+
+app.get('/api/students/:id/refund-unused-sessions/preview', async (req, res) => {
+  try {
+    const refundState = await getRefundableStudentSessions(pool, req.params.id);
+    if (!refundState) return res.status(404).json({ error: 'Student not found' });
+    res.json({
+      student_name: refundState.student.name,
+      currency: refundState.student.currency || 'INR',
+      default_rate: parseFloat(refundState.student.per_session_fee || 0),
+      counts: refundState.counts,
+      total_sessions: refundState.totalSessions
+    });
+  } catch (err) {
+    console.error('Error loading refund preview:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Refund all unused paid sessions and eligible makeup credits for a student.
 app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
-  const { reason } = req.body || {};
+  const { reason, rates, expected_counts: expectedCounts } = req.body || {};
   const studentId = req.params.id;
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-
-    const studentResult = await client.query(`
-      SELECT id, name, parent_name, parent_email, currency, per_session_fee, fees_paid, completed_sessions, remaining_sessions
-      FROM students
-      WHERE id = $1
-    `, [studentId]);
-
-    if (studentResult.rows.length === 0) {
+    const refundState = await getRefundableStudentSessions(client, studentId, true);
+    if (!refundState) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Student not found' });
     }
 
-    const student = studentResult.rows[0];
-    const remainingSessions = Math.max(parseInt(student.remaining_sessions || 0, 10), 0);
-    const completedSessions = Math.max(parseInt(student.completed_sessions || 0, 10), 0);
-    const refundAmount = remainingSessions * parseFloat(student.per_session_fee || 0);
-
-    if (remainingSessions <= 0 || refundAmount <= 0) {
+    const { student, makeupCredits, counts, totalSessions } = refundState;
+    const sameCounts = expectedCounts &&
+      ['private', 'group'].every(category =>
+        Number(expectedCounts[category]?.paid_remaining) === counts[category].paid_remaining &&
+        Number(expectedCounts[category]?.makeup_credits) === counts[category].makeup_credits
+      );
+    if (!sameCounts) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'No unused sessions are available for refund' });
+      return res.status(409).json({ error: 'The refundable session counts changed. Refresh the preview and try again.' });
     }
 
-    const notes = (reason || '').toString().trim() || `Refund for ${remainingSessions} unused session(s)`;
+    const privateRate = Number(rates?.private);
+    const groupRate = Number(rates?.group);
+    if (!Number.isFinite(privateRate) || privateRate < 0 || !Number.isFinite(groupRate) || groupRate < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Enter a valid non-negative refund rate for private and group sessions.' });
+    }
+
+    const refundAmount = Math.round((
+      (counts.private.paid_remaining + counts.private.makeup_credits) * privateRate +
+      (counts.group.paid_remaining + counts.group.makeup_credits) * groupRate
+    ) * 100) / 100;
+    if (totalSessions <= 0 || refundAmount <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No unused sessions are available for refund.' });
+    }
+
+    const breakdown = ['private', 'group']
+      .filter(category => counts[category].paid_remaining + counts[category].makeup_credits > 0)
+      .map(category => {
+        const categorySessions = counts[category].paid_remaining + counts[category].makeup_credits;
+        const rate = category === 'private' ? privateRate : groupRate;
+        return `${categorySessions} ${category} session(s) at ${student.currency || 'INR'} ${rate.toFixed(2)}`;
+      }).join('; ');
+    const notes = [
+      (reason || '').toString().trim() || `Refund for ${totalSessions} unused session(s)`,
+      `Breakdown: ${breakdown}`
+    ].join(' | ');
 
     await client.query(`
       INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
-      VALUES ($1, CURRENT_TIMESTAMP, $2, $3, $4, $5, $6, $7)
-    `, [studentId, -refundAmount, student.currency || 'INR', 'Refund', remainingSessions, notes, 'Refunded']);
+      VALUES ($1, CURRENT_TIMESTAMP, $2, $3, 'Refund', $4, $5, 'Refunded')
+    `, [studentId, -refundAmount, student.currency || 'INR', totalSessions, notes]);
 
+    if (makeupCredits.length > 0) {
+      const makeupIds = makeupCredits.map(credit => credit.id);
+      const scheduledIds = makeupCredits
+        .filter(credit => credit.scheduled_session_id)
+        .map(credit => credit.scheduled_session_id);
+      await client.query(`
+        UPDATE makeup_classes
+        SET status = 'Refunded', notes = CONCAT(COALESCE(notes, ''), CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' | ' END, 'Refunded')
+        WHERE id = ANY($1::int[])
+      `, [makeupIds]);
+      if (scheduledIds.length > 0) {
+        await client.query(`
+          UPDATE sessions
+          SET status = 'Cancelled',
+              notes = CONCAT(COALESCE(notes, ''), CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' | ' END, 'Refunded')
+          WHERE id = ANY($1::int[])
+            AND session_type = 'Private'
+            AND status IN ('Pending', 'Scheduled')
+        `, [scheduledIds]);
+        await client.query(`
+          UPDATE session_attendance
+          SET attendance = 'Cancelled by Parent'
+          WHERE student_id = $1
+            AND session_id = ANY($2::int[])
+            AND attendance = 'Pending'
+        `, [studentId, scheduledIds]);
+      }
+    }
+
+    await client.query(`
+      UPDATE sessions
+      SET status = 'Cancelled',
+          notes = CONCAT(COALESCE(notes, ''), CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE ' | ' END, 'Refunded')
+      WHERE student_id = $1
+        AND session_type = 'Private'
+        AND status IN ('Pending', 'Scheduled')
+        AND id NOT IN (
+          SELECT scheduled_session_id FROM makeup_classes WHERE student_id = $1 AND scheduled_session_id IS NOT NULL
+        )
+    `, [studentId]);
+    await client.query(`
+      UPDATE session_attendance
+      SET attendance = 'Cancelled by Parent'
+      WHERE student_id = $1
+        AND attendance = 'Pending'
+        AND session_id IN (
+          SELECT id FROM sessions WHERE session_type = 'Group' AND status IN ('Pending', 'Scheduled')
+        )
+    `, [studentId]);
+
+    const completedSessions = Math.max(parseInt(student.completed_sessions || 0, 10), 0);
     await client.query(`
       UPDATE students
       SET
@@ -17652,11 +17815,9 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
         studentName: student.name,
         amount: refundAmount.toFixed(2),
         currency: student.currency || 'INR',
-        sessions: remainingSessions,
+        sessions: totalSessions,
         reason: notes,
-        perSessionFee: parseFloat(student.per_session_fee || 0).toFixed(2),
         originalPaymentAmount: parseFloat(student.fees_paid || 0).toFixed(2),
-        originalSessions: completedSessions + remainingSessions,
         completedSessions,
         refundDate: new Date().toLocaleDateString('en-IN', {
           day: 'numeric',
@@ -17682,9 +17843,11 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Refund processed for ${remainingSessions} unused session(s)`,
+      message: `Refund processed for ${totalSessions} unused session(s)`,
       refund_amount: refundAmount,
-      remaining_sessions_removed: remainingSessions,
+      remaining_sessions_removed: counts.private.paid_remaining + counts.group.paid_remaining,
+      makeup_credits_removed: makeupCredits.length,
+      breakdown: counts,
       email_sent: refundEmailSent
     });
   } catch (err) {
