@@ -9187,19 +9187,37 @@ async function initiateStudentRefund(studentId, studentName) {
 
     const categories = ['private', 'group'];
     const counts = preview.counts || {};
+    const allocation = {};
+    for (const category of categories) {
+      const derivedCount = Number(counts[category]?.paid_remaining || 0) +
+        Number(counts[category]?.makeup_credits || 0);
+      const countInput = prompt(
+        `How many of ${preview.total_sessions} refundable sessions are ${category} for ${studentName}?`,
+        String(derivedCount)
+      );
+      if (countInput === null) return;
+      allocation[category] = Number(countInput);
+      if (!Number.isInteger(allocation[category]) || allocation[category] < 0) {
+        return alert(`Enter a whole, non-negative ${category} session count.`);
+      }
+    }
+    if (allocation.private + allocation.group !== Number(preview.total_sessions)) {
+      return alert(`Private and group counts must add up to ${preview.total_sessions} refundable sessions.`);
+    }
+
     const refundLines = [];
     let refundAmount = 0;
-    const rates = {};
+    const rates = {
+      private: Number(preview.default_rate || 0),
+      group: Number(preview.default_rate || 0)
+    };
 
     for (const category of categories) {
-      const paidCount = Number(counts[category]?.paid_remaining || 0);
-      const makeupCount = Number(counts[category]?.makeup_credits || 0);
-      const count = paidCount + makeupCount;
-      rates[category] = Number(preview.default_rate || 0);
+      const count = allocation[category];
       if (count <= 0) continue;
 
       const rateInput = prompt(
-        `Refund rate per ${category} class for ${studentName} (${paidCount} paid remaining + ${makeupCount} makeup credit(s)):`,
+        `Refund rate per ${category} class for ${studentName} (${count} session(s)):`,
         rates[category].toFixed(2)
       );
       if (rateInput === null) return;
@@ -9225,7 +9243,7 @@ async function initiateStudentRefund(studentId, studentName) {
     const res = await fetch(`/api/students/${studentId}/refund-unused-sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason, rates, expected_counts: counts })
+      body: JSON.stringify({ reason, rates, expected_counts: counts, refund_allocation: allocation })
     });
     const result = await res.json();
     if (res.ok) {
@@ -17787,7 +17805,6 @@ function initializeQuizTab() {
   </div>
 </body>
 </html>
-
 
 
 

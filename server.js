@@ -17705,7 +17705,7 @@ app.get('/api/students/:id/refund-unused-sessions/preview', async (req, res) => 
 
 // Refund all unused paid sessions and eligible makeup credits for a student.
 app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
-  const { reason, rates, expected_counts: expectedCounts } = req.body || {};
+  const { reason, rates, expected_counts: expectedCounts, refund_allocation: refundAllocation } = req.body || {};
   const studentId = req.params.id;
   const client = await pool.connect();
 
@@ -17728,6 +17728,17 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
       return res.status(409).json({ error: 'The refundable session counts changed. Refresh the preview and try again.' });
     }
 
+    const privateSessions = Number(refundAllocation?.private);
+    const groupSessions = Number(refundAllocation?.group);
+    if (
+      !Number.isInteger(privateSessions) || privateSessions < 0 ||
+      !Number.isInteger(groupSessions) || groupSessions < 0 ||
+      privateSessions + groupSessions !== totalSessions
+    ) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Assign all ${totalSessions} refundable sessions to private or group classes.` });
+    }
+
     const privateRate = Number(rates?.private);
     const groupRate = Number(rates?.group);
     if (!Number.isFinite(privateRate) || privateRate < 0 || !Number.isFinite(groupRate) || groupRate < 0) {
@@ -17736,21 +17747,18 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
     }
 
     const refundAmount = Math.round((
-      (counts.private.paid_remaining + counts.private.makeup_credits) * privateRate +
-      (counts.group.paid_remaining + counts.group.makeup_credits) * groupRate
+      privateSessions * privateRate +
+      groupSessions * groupRate
     ) * 100) / 100;
     if (totalSessions <= 0 || refundAmount <= 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'No unused sessions are available for refund.' });
     }
 
-    const breakdown = ['private', 'group']
-      .filter(category => counts[category].paid_remaining + counts[category].makeup_credits > 0)
-      .map(category => {
-        const categorySessions = counts[category].paid_remaining + counts[category].makeup_credits;
-        const rate = category === 'private' ? privateRate : groupRate;
-        return `${categorySessions} ${category} session(s) at ${student.currency || 'INR'} ${rate.toFixed(2)}`;
-      }).join('; ');
+    const breakdown = [
+      privateSessions > 0 ? `${privateSessions} private session(s) at ${student.currency || 'INR'} ${privateRate.toFixed(2)}` : null,
+      groupSessions > 0 ? `${groupSessions} group session(s) at ${student.currency || 'INR'} ${groupRate.toFixed(2)}` : null
+    ].filter(Boolean).join('; ');
     const notes = [
       (reason || '').toString().trim() || `Refund for ${totalSessions} unused session(s)`,
       `Breakdown: ${breakdown}`
@@ -17886,6 +17894,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
       remaining_sessions_removed: counts.private.paid_remaining + counts.group.paid_remaining,
       makeup_credits_removed: makeupCredits.length,
       breakdown: counts,
+      refunded_class_counts: { private: privateSessions, group: groupSessions },
       email_sent: refundEmailSent
     });
   } catch (err) {
