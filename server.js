@@ -6624,7 +6624,8 @@ function getRefundEmail(data) {
     originalSessions,
     paymentDate,
     refundDate,
-    completedSessions
+    completedSessions,
+    originalPaymentCurrency
   } = data;
   const safe = value => escapeHtml(value === null || value === undefined ? '' : value);
 
@@ -6652,7 +6653,7 @@ function getRefundEmail(data) {
           <tr><td style="padding: 10px 0; color: #4a5568;">Unused Sessions Refunded:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(sessions)}</td></tr>
           ${perSessionFee ? `<tr><td style="padding: 10px 0; color: #4a5568;">Fee per Session:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(currency)} ${safe(perSessionFee)}</td></tr>` : ''}
           ${completedSessions !== null && completedSessions !== undefined ? `<tr><td style="padding: 10px 0; color: #4a5568;">Sessions Completed:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(completedSessions)}</td></tr>` : ''}
-          ${originalPaymentAmount ? `<tr><td style="padding: 10px 0; color: #4a5568;">Original Payment:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(currency)} ${safe(originalPaymentAmount)}${originalSessions ? ` for ${safe(originalSessions)} sessions` : ''}</td></tr>` : ''}
+          ${originalPaymentAmount ? `<tr><td style="padding: 10px 0; color: #4a5568;">Latest Payment:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(originalPaymentCurrency || currency)} ${safe(originalPaymentAmount)}${originalSessions ? ` for ${safe(originalSessions)} sessions` : ''}</td></tr>` : ''}
           ${paymentDate ? `<tr><td style="padding: 10px 0; color: #4a5568;">Payment Date:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(paymentDate)}</td></tr>` : ''}
           ${refundDate ? `<tr><td style="padding: 10px 0; color: #4a5568;">Refund Initiated:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(refundDate)}</td></tr>` : ''}
           ${reason ? `<tr><td style="padding: 10px 0; color: #4a5568;">Reason:</td><td style="padding: 10px 0; font-weight: bold; color: #2d3748;">${safe(reason)}</td></tr>` : ''}
@@ -17574,6 +17575,51 @@ app.get('/api/students/:id/payments', async (req, res) => {
   }
 });
 
+async function getLatestRecordedStudentPayment(db, studentId) {
+  const result = await db.query(`
+    SELECT amount, currency, sessions_covered, payment_date
+    FROM (
+      SELECT ph.amount, ph.currency, ph.sessions_covered::text AS sessions_covered,
+        ph.payment_date::date AS payment_date, ph.id, 0 AS source_order
+      FROM payment_history ph
+      WHERE ph.student_id = $1::integer
+        AND ph.amount > 0
+        AND COALESCE(ph.payment_status, 'Paid') <> 'Refunded'
+
+      UNION ALL
+
+      SELECT pr.amount, pr.currency, pr.sessions_added::text AS sessions_covered,
+        pr.renewal_date::date AS payment_date, pr.id, 1 AS source_order
+      FROM payment_renewals pr
+      WHERE pr.student_id = $1::integer
+        AND NOT EXISTS (
+          SELECT 1
+          FROM payment_history ph
+          WHERE ph.student_id = pr.student_id
+            AND ph.payment_date::date = pr.renewal_date::date
+            AND ph.amount = pr.amount
+            AND LOWER(COALESCE(ph.notes, '')) LIKE '%renewal%'
+        )
+    ) recorded_payments
+    ORDER BY payment_date DESC, id DESC, source_order ASC
+    LIMIT 1
+  `, [studentId]);
+
+  const payment = result.rows[0];
+  if (!payment) return null;
+  return {
+    ...payment,
+    payment_date: payment.payment_date instanceof Date
+      ? payment.payment_date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+      : new Date(`${String(payment.payment_date).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC'
+      })
+  };
+}
+
 async function getRefundableStudentSessions(db, studentId, lockRows = false) {
   const studentResult = await db.query(`
     SELECT id, name, parent_name, parent_email, currency, per_session_fee, fees_paid, completed_sessions, remaining_sessions, class_type
@@ -17763,6 +17809,7 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
       (reason || '').toString().trim() || `Refund for ${totalSessions} unused session(s)`,
       `Breakdown: ${breakdown}`
     ].join(' | ');
+    const latestPayment = await getLatestRecordedStudentPayment(client, studentId);
 
     await client.query(`
       INSERT INTO payment_history (student_id, payment_date, amount, currency, payment_method, sessions_covered, notes, payment_status)
@@ -17863,7 +17910,10 @@ app.post('/api/students/:id/refund-unused-sessions', async (req, res) => {
         currency: student.currency || 'INR',
         sessions: totalSessions,
         reason: notes,
-        originalPaymentAmount: parseFloat(student.fees_paid || 0).toFixed(2),
+        originalPaymentAmount: latestPayment ? Math.abs(parseFloat(latestPayment.amount || 0)).toFixed(2) : '',
+        originalPaymentCurrency: latestPayment?.currency || '',
+        originalSessions: parseInt(latestPayment?.sessions_covered, 10) || 0,
+        paymentDate: latestPayment?.payment_date || '',
         completedSessions,
         refundDate: new Date().toLocaleDateString('en-IN', {
           day: 'numeric',
@@ -17961,22 +18011,9 @@ app.post('/api/admin/resend-refund-email', async (req, res) => {
     const refundSessions = sessionsFromRecord || sessionsFromNotes || sessionsFromAmount;
     const refundReason = (refundRecord.notes || `Refund for ${refundSessions} unused session(s)`).toString().trim();
 
-    const originalPaymentResult = await pool.query(`
-      SELECT amount, currency, sessions_covered,
-             TO_CHAR(payment_date, 'FMDD FMMonth YYYY') AS payment_date
-      FROM payment_history
-      WHERE student_id = $1
-        AND amount > 0
-        AND payment_date <= $2
-        AND COALESCE(payment_status, 'Paid') <> 'Refunded'
-      ORDER BY payment_date DESC, id DESC
-      LIMIT 1
-    `, [student.id, refundRecord.payment_date]);
-    const originalPayment = originalPaymentResult.rows[0] || null;
+    const originalPayment = await getLatestRecordedStudentPayment(pool, student.id);
     const originalSessions = parseInt(originalPayment?.sessions_covered, 10) || 0;
-    const completedSessions = originalSessions > 0
-      ? Math.max(originalSessions - refundSessions, 0)
-      : parseInt(student.completed_sessions || 0, 10);
+    const completedSessions = parseInt(student.completed_sessions || 0, 10);
 
     const refundEmailHTML = getRefundEmail({
       parentName: recipientName,
@@ -17987,6 +18024,7 @@ app.post('/api/admin/resend-refund-email', async (req, res) => {
       reason: refundReason,
       perSessionFee: parseFloat(student.per_session_fee || 0).toFixed(2),
       originalPaymentAmount: originalPayment ? Math.abs(parseFloat(originalPayment.amount || 0)).toFixed(2) : '',
+      originalPaymentCurrency: originalPayment?.currency || '',
       originalSessions,
       paymentDate: originalPayment?.payment_date || '',
       refundDate: refundRecord.refund_date || '',
