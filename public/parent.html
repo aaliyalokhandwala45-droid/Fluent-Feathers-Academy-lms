@@ -311,6 +311,11 @@
     .star:focus-visible { outline: 2px solid #805ad5; outline-offset: 3px; border-radius: 3px; }
     .payment-history-item { background: #f7fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #B05D9E; margin-bottom: 15px; }
     .payment-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    #paymentScannerDialog { border: 0; border-radius: 15px; padding: 24px; width: min(92vw, 520px); max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+    #paymentScannerDialog::backdrop { background: rgba(0,0,0,0.6); }
+    .payment-scanner-image { display: block; width: min(100%, 360px); max-height: 48vh; object-fit: contain; margin: 16px auto; border: 1px solid #e2e8f0; border-radius: 10px; }
+    .payment-dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .payment-dialog-header h2 { color: #B05D9E; font-size: 1.35rem; margin: 0; }
 
     /* Certificate Star Animation */
     @keyframes twinkle {
@@ -1001,6 +1006,14 @@
             <div id="renewalWarning" style="display: none; margin-top: 15px; background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; text-align: center;">
                <strong>Low sessions!</strong> Please contact your teacher to renew your package.
             </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: #fff7fc; border: 1px solid #f0d8ea; border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+            <div>
+              <h3 style="margin: 0 0 5px; color: #2d3748;">Ready to make a payment?</h3>
+              <p style="margin: 0; color: #718096;">Open the payment QR code and scan it with your payment app.</p>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="openPaymentScanner()">Make a Payment</button>
           </div>
 
           <div class="payment-grid" style="margin-bottom: 20px;">
@@ -1711,6 +1724,21 @@
       </form>
     </div>
   </div>
+
+  <dialog id="paymentScannerDialog" aria-labelledby="paymentScannerTitle">
+    <div class="payment-dialog-header">
+      <h2 id="paymentScannerTitle">Scan to Pay</h2>
+      <button type="button" class="close-modal" onclick="closePaymentScanner()" aria-label="Close payment QR code" title="Close">X</button>
+    </div>
+    <p style="color: #4a5568; margin: 0;">Scan this QR code with your payment app and enter the amount confirmed by the academy.</p>
+    <img class="payment-scanner-image" src="/payment-scanner.png" alt="Academy's payment QR code">
+    <p style="color: #718096; font-size: 0.9rem;">If you are viewing this page on your phone, save the QR code or open this page on another device to scan it.</p>
+    <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 16px;">
+      <a class="btn btn-primary" href="/payment-scanner.png" download="academy-payment-qr.png" style="text-decoration: none;">Save QR Code</a>
+      <button type="button" class="btn" onclick="closePaymentScanner()" style="background: #edf2f7; color: #2d3748;">Close</button>
+    </div>
+    <p style="color: #718096; font-size: 0.85rem; margin: 16px 0 0; text-align: center;">Your payment history updates after the academy verifies and records the payment.</p>
+  </dialog>
 
   <script>
 
@@ -6369,6 +6397,16 @@ setTimeout(() => {
       }
     }
 
+    function openPaymentScanner() {
+      const dialog = document.getElementById('paymentScannerDialog');
+      if (!dialog.open) dialog.showModal();
+    }
+
+    function closePaymentScanner() {
+      const dialog = document.getElementById('paymentScannerDialog');
+      if (dialog.open) dialog.close();
+    }
+
     async function loadPayments() {
       try {
         await refreshCurrentStudentSnapshot();
@@ -8396,8 +8434,6 @@ setTimeout(() => {
   </footer>
 </body>
 </html>
-
-
 
 
 
