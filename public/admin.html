@@ -1376,12 +1376,12 @@
             <input id="hwFeedbackGrade" type="text" placeholder="A+, A, B+, B, C+…" style="width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;outline:none;">
           </div>
         </div>
-        <div id="hwCommentApprovalWrap" style="display:none;margin-bottom:14px;padding:10px 12px;border-radius:10px;background:#fffaf0;border:1px solid #f6ad55;">
+        <div id="hwHomeworkApprovalWrap" style="display:none;margin-bottom:14px;padding:10px 12px;border-radius:10px;background:#fffaf0;border:1px solid #f6ad55;">
           <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
-            <input id="hwApproveCommentPoints" type="checkbox" style="margin-top:2px;">
+            <input id="hwApproveHomeworkPoints" type="checkbox" style="margin-top:2px;">
             <span style="font-size:12px;color:#744210;line-height:1.5;">
-              <strong>Approve homework points for this comment/link submission</strong><br>
-              Use this only for comment-only homework. If approved, the student gets the normal time-based homework points.
+              <strong>Approve homework points for this submission</strong><br>
+              Students receive the normal time-based homework points only after you approve this submission.
             </span>
           </label>
         </div>
@@ -6573,7 +6573,7 @@ if (dueEl) {
           const linkDisplay = hw.submission_link
             ? `<br><a href="${hw.submission_link}" target="_blank" style="font-size:0.78rem;color:#2b6cb0;word-break:break-all;">🔗 Open submitted link</a>`
             : '';
-          const approvalDisplay = hw.comment_only_submission
+          const approvalDisplay = hw.file_type === 'Homework'
             ? `<br><small style="color:${hw.homework_points_approved ? '#2f855a' : '#dd6b20'};">${hw.homework_points_approved ? '✅ Homework points approved' : '⏳ Homework points pending approval'}</small>`
             : '';
           const aiReviewDisplay = (() => {
@@ -6619,7 +6619,7 @@ if (dueEl) {
               ${hw.ai_review_status === 'ready' && !hw.feedback_given ? `<button onclick="approveAiHomeworkReview(${hw.id})" class="btn btn-sm" style="background:#2b6cb0;color:white;">Approve AI</button>` : ''}
               ${!hw.feedback_given && !['ready','processing','queued','approved'].includes(hw.ai_review_status || '') ? `<button onclick="retryAiHomeworkReview(${hw.id})" class="btn btn-sm" style="background:#805ad5;color:white;">${hw.ai_review_status ? 'Retry AI' : 'Analyze AI'}</button>` : ''}
               <button onclick="openGradeHomeworkModal(${hw.id})" class="btn btn-sm btn-primary">Grade</button>
-              ${hw.comment_only_submission && !hw.homework_points_approved ? `<button onclick="approveHomeworkPoints(${hw.id})" class="btn btn-sm" style="background:#38a169;color:white;">Approve Points</button>` : ''}
+              ${hw.file_type === 'Homework' && !hw.homework_points_approved ? `<button onclick="approveHomeworkPoints(${hw.id})" class="btn btn-sm" style="background:#38a169;color:white;">Approve Points</button>` : ''}
               ${(isImage || isPdf) && fileUrl ? `<button onclick="openAnnotationEditor(${hw.id}, decodeURIComponent('${encodeURIComponent(fileUrl)}'), '${isPdf ? 'pdf' : 'image'}', decodeURIComponent('${encodeURIComponent(hw.student_name || '')}'))" class="btn btn-sm" style="background:#e53e3e;color:white;">✏️ Annotate</button>` : ''}
               ${hw.corrected_file_path ? `<button onclick="previewFile('${hw.corrected_file_path}', 'image', 'Corrected - ${hw.file_name || 'File'}')" class="btn btn-sm" style="background:#f59e0b;color:white;">📝 View Corrected</button>` : ''}
               ${hw.corrected_file_path ? `<a href="${getDownloadUrl(hw.corrected_file_path, `corrected-${hw.file_name || 'homework.png'}`)}" download class="btn btn-sm" style="background:#dd6b20;color:white;text-decoration:none;">⬇️ Corrected</a>` : ''}
@@ -6651,11 +6651,11 @@ if (dueEl) {
       document.getElementById('hwFeedbackGrade').value = hw.feedback_grade || (!hw.feedback_given && hw.ai_review_status === 'ready' ? (hw.ai_suggested_grade || '') : '');
       document.getElementById('hwFeedbackComments').value = hw.feedback_comments || (!hw.feedback_given && hw.ai_review_status === 'ready' ? (hw.ai_suggested_feedback || '') : '');
       document.getElementById('hwFeedbackNotes').value = '';
-      const approvalWrap = document.getElementById('hwCommentApprovalWrap');
-      const approvalInput = document.getElementById('hwApproveCommentPoints');
-      approvalWrap.style.display = hw.comment_only_submission ? 'block' : 'none';
+      const approvalWrap = document.getElementById('hwHomeworkApprovalWrap');
+      const approvalInput = document.getElementById('hwApproveHomeworkPoints');
+      approvalWrap.style.display = hw.file_type === 'Homework' ? 'block' : 'none';
       approvalInput.checked = !!hw.homework_points_approved;
-      approvalInput.disabled = !hw.comment_only_submission;
+      approvalInput.disabled = hw.file_type !== 'Homework';
       const metaDiv = document.getElementById('hwFeedbackSubmissionMeta');
       const metaParts = [];
       if (hw.submission_comment) metaParts.push(`<div style="margin-bottom:8px;"><strong style="color:#4a5568;">Comment:</strong><div style="margin-top:4px;color:#2d3748;white-space:pre-wrap;">${hw.submission_comment}</div></div>`);
@@ -6788,13 +6788,13 @@ if (dueEl) {
 
       if (!existingGrade || !existingComments) {
         openGradeHomeworkModal(homeworkId);
-        const approvalInput = document.getElementById('hwApproveCommentPoints');
+        const approvalInput = document.getElementById('hwApproveHomeworkPoints');
         if (approvalInput) approvalInput.checked = true;
         alert('Add the grade and feedback, then click Save Grade & Feedback to approve the homework points.');
         return;
       }
 
-      if (!confirm('Approve homework points for this comment/link submission?')) return;
+      if (!confirm('Approve homework points for this submission?')) return;
 
       try {
         const res = await fetch(`/api/materials/${homeworkId}/grade`, {
@@ -6889,7 +6889,7 @@ if (dueEl) {
       const id       = document.getElementById('hwFeedbackId').value;
       const grade    = document.getElementById('hwFeedbackGrade').value.trim();
       const comments = document.getElementById('hwFeedbackComments').value.trim();
-      const approveHomeworkPoints = document.getElementById('hwApproveCommentPoints').checked;
+      const approveHomeworkPoints = document.getElementById('hwApproveHomeworkPoints').checked;
       if (!grade)    { document.getElementById('hwFeedbackGrade').focus();    alert('Please enter a grade.'); return; }
       if (!comments) { document.getElementById('hwFeedbackComments').focus(); alert('Please write feedback for the parents before saving.'); return; }
       await gradeHomework(id, grade, comments, approveHomeworkPoints, applyToSession);
@@ -17805,7 +17805,6 @@ function initializeQuizTab() {
   </div>
 </body>
 </html>
-
 
 
 

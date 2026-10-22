@@ -2608,8 +2608,17 @@ async function runMigrations() {
         END
         WHERE homework_points_approved IS NULL
       `);
+      await client.query(`
+        UPDATE materials
+        SET homework_points_approved = false
+        WHERE file_type = 'Homework'
+          AND uploaded_by IN ('Parent', 'Admin')
+          AND COALESCE(file_path, '') <> 'MANUAL'
+          AND COALESCE(feedback_given, 0) = 0
+          AND COALESCE(homework_points_approved, false) = true
+      `);
       await client.query(`ALTER TABLE materials ALTER COLUMN comment_only_submission SET DEFAULT false`);
-      await client.query(`ALTER TABLE materials ALTER COLUMN homework_points_approved SET DEFAULT true`);
+      await client.query(`ALTER TABLE materials ALTER COLUMN homework_points_approved SET DEFAULT false`);
       await client.query(`
         CREATE TABLE IF NOT EXISTS homework_consistency_bonuses (
           id SERIAL PRIMARY KEY,
@@ -2621,7 +2630,7 @@ async function runMigrations() {
         )
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_homework_consistency_week ON homework_consistency_bonuses(week_start)`);
-      console.log('âœ… Materials table updated for comment/link homework submissions');
+      console.log('âœ… Materials table updated for approval-based homework points');
     } catch (err) {
       console.error('âŒ Error updating materials for comment/link submissions:', err.message);
     }
@@ -15625,7 +15634,7 @@ app.post('/api/upload/homework-chunk/:studentId', homeworkChunkUpload.single('ch
     };
     const result = await pool.query(`
       INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by, submission_comment, submission_link, comment_only_submission, homework_points_approved)
-      VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent', $5, $6, false, true)
+      VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent', $5, $6, false, false)
       RETURNING id
     `, [req.params.studentId, req.body.sessionId, originalname, `/uploads/homework/${filename}`, String(req.body.comment || '').trim() || null, String(req.body.link || '').trim() || null]);
     queueHomeworkCloudinarySync(result.rows[0].id, fileInfo);
@@ -15684,7 +15693,7 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
       submissionComment || null,
       submissionLink || null,
       commentOnlySubmission,
-      commentOnlySubmission ? false : true
+      false
     ]);
     createdMaterials.push({ id: firstInsert.rows[0].id, file: req.file });
 
@@ -15696,7 +15705,7 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
 
       const extraInsert = await pool.query(`
         INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by, submission_comment, submission_link, comment_only_submission, homework_points_approved)
-        VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent', NULL, NULL, false, true)
+        VALUES ($1, $2, CURRENT_DATE, 'Homework', $3, $4, 'Parent', NULL, NULL, false, false)
         RETURNING id
       `, [
         req.params.studentId,
@@ -15708,14 +15717,6 @@ app.post('/api/upload/homework/:studentId', handleUpload('file', 50), async (req
     }
 
     clearStudentSessionsCache(req.params.studentId);
-
-    if (!commentOnlySubmission) {
-      setImmediate(() => {
-        awardHomeworkSubmissionRecognition(req.params.studentId).catch(err => {
-          console.warn('Homework badge award failed:', err.message);
-        });
-      });
-    }
 
     for (const material of createdMaterials) {
       queueHomeworkCloudinarySync(material.id, material.file);
@@ -19194,10 +19195,7 @@ async function awardHomeworkSubmissionRecognition(studentId) {
     FROM materials
     WHERE student_id = $1
       AND file_type = 'Homework'
-      AND (
-        COALESCE(comment_only_submission, false) = false
-        OR COALESCE(homework_points_approved, false) = true
-      )
+      AND COALESCE(homework_points_approved, false) = true
   `, [studentId]);
 
   const count = parseInt(hwCount.rows[0].count, 10) || 0;
@@ -19363,7 +19361,7 @@ async function calculateStudentScores(startDate, endDate) {
           AND m.uploaded_by IN ('Parent', 'Admin')
           AND m.student_id IS NOT NULL
           AND m.session_id IS NOT NULL
-          AND (COALESCE(m.comment_only_submission, false) = false OR COALESCE(m.homework_points_approved, false) = true)
+          AND COALESCE(m.homework_points_approved, false) = true
           AND m.uploaded_at >= $1::date AND m.uploaded_at < ($2::date + INTERVAL '1 day')
         ORDER BY m.student_id, m.session_id, m.uploaded_at ASC, m.id ASC
       ) first_homework
@@ -19436,7 +19434,7 @@ async function awardWeeklyHomeworkConsistency(startDate, endDate) {
       JOIN assigned a ON a.session_id = m.session_id AND a.student_id = m.student_id
       WHERE m.file_type = 'Homework'
         AND m.uploaded_by IN ('Parent', 'Admin')
-        AND (COALESCE(m.comment_only_submission, false) = false OR COALESCE(m.homework_points_approved, false) = true)
+        AND COALESCE(m.homework_points_approved, false) = true
       ORDER BY m.student_id, m.session_id, m.uploaded_at ASC, m.id ASC
     ),
     complete_students AS (
@@ -19654,7 +19652,7 @@ app.get('/api/leaderboard', async (req, res) => {
           AND m.uploaded_by IN ('Parent', 'Admin')
           AND m.student_id IS NOT NULL
           AND m.session_id IS NOT NULL
-          AND (COALESCE(m.comment_only_submission, false) = false OR COALESCE(m.homework_points_approved, false) = true)
+          AND COALESCE(m.homework_points_approved, false) = true
           ${useDateFilter ? `AND m.uploaded_at >= $1::date AND m.uploaded_at < ($2::date + INTERVAL '1 day')` : ''}
         ORDER BY m.student_id, m.session_id, m.uploaded_at ASC, m.id ASC
       ) first_homework
@@ -19729,10 +19727,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
               AND m.file_type = 'Homework'
               AND m.uploaded_by IN ('Parent', 'Admin')
               AND m.session_id IS NOT NULL
-              AND (
-                COALESCE(m.comment_only_submission, false) = false
-                OR COALESCE(m.homework_points_approved, false) = true
-              )
+              AND COALESCE(m.homework_points_approved, false) = true
             ORDER BY m.session_id, m.uploaded_at ASC, m.id ASC
           ) first_homework
         ),
@@ -19792,10 +19787,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
             AND m.file_type = 'Homework'
             AND m.uploaded_by IN ('Parent', 'Admin')
             AND m.session_id IS NOT NULL
-            AND (
-              COALESCE(m.comment_only_submission, false) = false
-              OR COALESCE(m.homework_points_approved, false) = true
-            )
+            AND COALESCE(m.homework_points_approved, false) = true
           ORDER BY m.session_id, m.uploaded_at ASC, m.id ASC
         ),
         consistency_history AS (
@@ -19942,7 +19934,7 @@ app.get('/api/awards/current', async (req, res) => {
         FROM materials m LEFT JOIN sessions s ON s.id = m.session_id
         WHERE m.file_type = 'Homework' AND m.uploaded_by IN ('Parent', 'Admin')
           AND m.student_id IS NOT NULL AND m.session_id IS NOT NULL
-          AND (COALESCE(m.comment_only_submission, false) = false OR COALESCE(m.homework_points_approved, false) = true)
+          AND COALESCE(m.homework_points_approved, false) = true
           AND m.uploaded_at >= $1::date AND m.uploaded_at < ($2::date + INTERVAL '1 day')
         ORDER BY m.student_id, m.session_id, m.uploaded_at ASC, m.id ASC
       ) first_homework
@@ -20050,7 +20042,7 @@ app.get('/api/awards/by-period', async (req, res) => {
         FROM materials m LEFT JOIN sessions s ON s.id = m.session_id
         WHERE m.file_type = 'Homework' AND m.uploaded_by IN ('Parent', 'Admin')
           AND m.student_id IS NOT NULL AND m.session_id IS NOT NULL
-          AND (COALESCE(m.comment_only_submission, false) = false OR COALESCE(m.homework_points_approved, false) = true)
+          AND COALESCE(m.homework_points_approved, false) = true
           AND m.uploaded_at >= $1::date AND m.uploaded_at < ($2::date + INTERVAL '1 day')
         ORDER BY m.student_id, m.session_id, m.uploaded_at ASC, m.id ASC
       ) first_homework
@@ -20360,7 +20352,6 @@ app.post('/api/materials/:id/grade', async (req, res) => {
       FROM materials
       WHERE id = ANY($1::int[])
         AND file_type = 'Homework'
-        AND COALESCE(comment_only_submission, false) = true
         AND COALESCE(homework_points_approved, false) = false
     `, [targetIds]);
 
@@ -20371,7 +20362,7 @@ app.post('/api/materials/:id/grade', async (req, res) => {
         feedback_given = 1,
         feedback_date = CURRENT_TIMESTAMP,
         homework_points_approved = CASE
-          WHEN COALESCE(comment_only_submission, false) = true AND $3::boolean = true THEN true
+          WHEN file_type = 'Homework' AND $3::boolean = true THEN true
           ELSE homework_points_approved
         END
       WHERE id = ANY($4::int[])
@@ -20465,8 +20456,7 @@ app.post('/api/materials/:id/ai-review/approve', async (req, res) => {
       return res.status(400).json({ error: 'AI draft review is not ready for approval.' });
     }
 
-    const wasCommentOnlyPending = material.file_type === 'Homework' &&
-      material.comment_only_submission &&
+    const wasHomeworkPointsPending = material.file_type === 'Homework' &&
       !material.homework_points_approved;
 
     await pool.query(`
@@ -20477,7 +20467,7 @@ app.post('/api/materials/:id/ai-review/approve', async (req, res) => {
         feedback_date = CURRENT_TIMESTAMP,
         ai_review_status = 'approved',
         homework_points_approved = CASE
-          WHEN COALESCE(comment_only_submission, false) = true THEN true
+          WHEN file_type = 'Homework' THEN true
           ELSE homework_points_approved
         END
       WHERE id = $1
@@ -20490,7 +20480,7 @@ app.post('/api/materials/:id/ai-review/approve', async (req, res) => {
       );
     }
 
-    if (wasCommentOnlyPending) {
+    if (wasHomeworkPointsPending) {
       await awardHomeworkSubmissionRecognition(material.student_id);
     }
     await awardBadge(material.student_id, 'graded_hw', 'ðŸ“š Homework Hero', 'Received homework feedback');
@@ -20546,7 +20536,7 @@ app.post('/api/materials/:id/annotate', express.json({ limit: '20mb' }), async (
     if (!image_data) return res.status(400).json({ error: 'No annotated image data' });
     const shouldApproveHomeworkPoints = approve_homework_points === true || approve_homework_points === 'true';
     const materialBeforeResult = await pool.query(
-      'SELECT id, student_id, comment_only_submission, homework_points_approved FROM materials WHERE id = $1',
+      'SELECT id, student_id, file_type, homework_points_approved FROM materials WHERE id = $1',
       [req.params.id]
     );
     const materialBefore = materialBeforeResult.rows[0];
@@ -20583,7 +20573,7 @@ app.post('/api/materials/:id/annotate', express.json({ limit: '20mb' }), async (
         feedback_given = 1,
         feedback_date = CURRENT_TIMESTAMP,
         homework_points_approved = CASE
-          WHEN COALESCE(comment_only_submission, false) = true AND $4::boolean = true THEN true
+          WHEN file_type = 'Homework' AND $4::boolean = true THEN true
           ELSE homework_points_approved
         END
       WHERE id = $5
@@ -20603,7 +20593,6 @@ app.post('/api/materials/:id/annotate', express.json({ limit: '20mb' }), async (
 
       if (
         material.file_type === 'Homework' &&
-        materialBefore?.comment_only_submission &&
         !materialBefore?.homework_points_approved &&
         shouldApproveHomeworkPoints
       ) {
@@ -21084,8 +21073,8 @@ app.post('/api/homework/mark-done', async (req, res) => {
       : new Date();
 
     await pool.query(`
-      INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by)
-      VALUES ($1, $2, $3, 'Homework', $4, 'MANUAL', 'Admin')
+      INSERT INTO materials (student_id, session_id, session_date, file_type, file_name, file_path, uploaded_by, homework_points_approved)
+      VALUES ($1, $2, $3, 'Homework', $4, 'MANUAL', 'Admin', true)
     `, [student_id, sessId, sessDate, note || 'Completed offline']);
 
     await awardHomeworkSubmissionRecognition(student_id);
