@@ -2596,7 +2596,7 @@ Answer: B" style="width:100%; min-height:220px; padding:12px; border:1px solid #
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 20px; border: 2px solid #e2e8f0; border-radius: 8px; transition: all 0.2s;" id="typeDemoLabel">
                   <input type="radio" name="assessmentType" value="demo" id="typeDemo" style="width: 18px; height: 18px;">
-                  <span style="font-weight: 600;">🎯 Demo Class Assessment</span>
+                  <span id="typeDemoLabelText" style="font-weight: 600;">🎯 Demo Class Assessment</span>
                 </label>
               </div>
             </div>
@@ -13928,6 +13928,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       document.getElementById('sendAssessmentEmail').checked = true;
       document.getElementById('typeMonthly').checked = true;
       document.getElementById('typeMonthly').dispatchEvent(new Event('change'));
+      document.getElementById('typeDemoLabelText').textContent = '🎯 Demo Class Assessment';
       ASSESSMENT_SKILL_IDS.forEach(id => {
         const el = document.getElementById('skill_' + id);
         if (el) el.checked = false;
@@ -14097,15 +14098,21 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
 
         editingAssessmentId = a.id;
         document.getElementById('assessmentEditId').value = String(a.id);
+        const isAward = isAwardCertificateTitle(a.certificate_title);
         document.getElementById('assessmentEditBanner').style.display = 'block';
-        document.getElementById('assessmentEditBanner').textContent = `Editing assessment for ${a.student_name || a.demo_child_name || 'student'}. Save to update the existing record.`;
+        document.getElementById('assessmentEditBanner').textContent = `${isAward ? 'Editing award certificate' : 'Editing assessment'} for ${a.student_name || a.demo_child_name || 'student'}. Save to update the existing record.`;
         document.getElementById('assessmentCancelEditBtn').style.display = 'inline-flex';
-        document.getElementById('assessmentSubmitBtn').textContent = a.assessment_type === 'demo' ? 'Update Demo Report' : 'Update Assessment';
+        document.getElementById('assessmentSubmitBtn').textContent = isAward ? 'Update Award Certificate' : a.assessment_type === 'demo' ? 'Update Demo Report' : 'Update Assessment';
         document.getElementById('sendAssessmentEmail').checked = false;
 
         if (a.assessment_type === 'demo') {
           document.getElementById('typeDemo').checked = true;
           document.getElementById('typeDemo').dispatchEvent(new Event('change'));
+          if (isAward) {
+            document.getElementById('typeDemoLabelText').textContent = '🏆 Student Award Certificate';
+            document.getElementById('typeDemoLabel').style.borderColor = '#f59e0b';
+            document.getElementById('typeDemoLabel').style.background = '#fffbeb';
+          }
           await loadAssessmentDemoLeads();
           document.getElementById('assessmentDemoLead').value = a.demo_lead_id ? String(a.demo_lead_id) : '';
           document.getElementById('assessmentDemoLead').dispatchEvent(new Event('change'));
@@ -14209,6 +14216,10 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       document.getElementById('demoLeadDate').value = demoDate;
     });
 
+    function isAwardCertificateTitle(title) {
+      return /^[^a-z0-9]*Student of the (Week|Month|Year)$/i.test((title || '').trim());
+    }
+
     async function loadAssessments() {
       try {
         const res = await fetch('/api/assessments');
@@ -14224,21 +14235,26 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
           const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           const skills = a.skills ? JSON.parse(a.skills) : [];
           const skillsText = skills.length > 0 ? (skills.length > 3 ? skills.slice(0, 3).join(', ') + '...' : skills.join(', ')) : 'N/A';
-          const isDemo = a.assessment_type === 'demo';
+          const isAward = isAwardCertificateTitle(a.certificate_title);
+          const isDemo = !isAward && a.assessment_type === 'demo';
           const certTitle = (a.certificate_title || '').toLowerCase();
           let typeLabel;
-          if (certTitle.includes('week')) {
+          if (isAward && certTitle.includes('week')) {
             typeLabel = '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Week Award</span>';
-          } else if (certTitle.includes('month')) {
+          } else if (isAward && certTitle.includes('month')) {
             typeLabel = '<span style="background:#B05D9E;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Month Award</span>';
-          } else if (certTitle.includes('year')) {
+          } else if (isAward && certTitle.includes('year')) {
             typeLabel = '<span style="background:#e53e3e;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Year Award</span>';
           } else if (isDemo) {
             typeLabel = '<span style="background:#38b2ac;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Demo</span>';
           } else {
             typeLabel = '<span style="background:#667eea;color:white;padding:2px 8px;border-radius:4px;font-size:11px;">Monthly</span>';
           }
-          const period = isDemo ? (a.demo_date ? new Date(a.demo_date).toLocaleDateString() : 'Demo Class') : `${monthNames[a.month - 1]} ${a.year}`;
+          const period = isAward
+            ? new Date(a.created_at).toLocaleDateString()
+            : isDemo
+              ? (a.demo_date ? new Date(a.demo_date).toLocaleDateString() : 'Demo Class')
+              : `${monthNames[a.month - 1]} ${a.year}`;
 
           return `
           <tr>
@@ -14251,7 +14267,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             <td>
               <button onclick="viewAssessment(${a.id})" class="btn btn-sm" style="background:#B05D9E;color:white;">View</button>
               <button onclick="editAssessment(${a.id})" class="btn btn-sm" style="background:#f59e0b;color:white;">Edit</button>
-              ${a.certificate_title ? `<button onclick="window.open('/${isDemo ? 'demo-certificate' : 'monthly-certificate'}.html?id=${a.id}', '_blank')" class="btn btn-sm" style="background:#f59e0b;color:white;">🏆 Certificate</button>` : ''}
+              ${a.certificate_title ? `<button onclick="window.open('/${a.assessment_type === 'demo' ? 'demo-certificate' : 'monthly-certificate'}.html?id=${a.id}', '_blank')" class="btn btn-sm" style="background:#f59e0b;color:white;">🏆 Certificate</button>` : ''}
               <button onclick="deleteAssessment(${a.id})" class="btn btn-danger btn-sm">Delete</button>
             </td>
           </tr>
@@ -14408,11 +14424,20 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         const a = await res.json();
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const skillsArray = a.skills ? JSON.parse(a.skills) : [];
-        const isDemo = a.assessment_type === 'demo';
+        const isAward = isAwardCertificateTitle(a.certificate_title);
+        const isDemo = !isAward && a.assessment_type === 'demo';
         const displayName = a.student_name || a.demo_child_name || 'Unknown';
-        const period = isDemo ? (a.demo_date ? new Date(a.demo_date).toLocaleDateString() : 'Demo Class') : `${monthNames[a.month-1]} ${a.year}`;
-        const headerGradient = isDemo ? 'linear-gradient(135deg, #38b2ac 0%, #319795 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        const headerLabel = isDemo ? '🎯 Demo Class Assessment' : '📊 Monthly Assessment';
+        const period = isAward
+          ? new Date(a.created_at).toLocaleDateString()
+          : isDemo
+            ? (a.demo_date ? new Date(a.demo_date).toLocaleDateString() : 'Demo Class')
+            : `${monthNames[a.month-1]} ${a.year}`;
+        const headerGradient = isAward
+          ? 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)'
+          : isDemo
+            ? 'linear-gradient(135deg, #38b2ac 0%, #319795 100%)'
+            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        const headerLabel = isAward ? '🏆 Student Award' : isDemo ? '🎯 Demo Class Assessment' : '📊 Monthly Assessment';
 
         let content = `
           <div style="padding: 20px;">
@@ -17805,7 +17830,3 @@ function initializeQuizTab() {
   </div>
 </body>
 </html>
-
-
-
-

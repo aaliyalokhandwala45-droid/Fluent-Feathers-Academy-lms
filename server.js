@@ -24111,11 +24111,12 @@ app.get('/api/students/:id/assessments', async (req, res) => {
         d.demo_date as demo_date,
         CASE
           WHEN a.assessment_type = 'monthly' THEN 'monthly'
-          WHEN a.certificate_title IN ('Student of the Week', 'Student of the Month', 'Student of the Year') THEN 'award'
+          WHEN a.certificate_title ~* '^[^[:alnum:]]*Student of the (Week|Month|Year)$' THEN 'award'
           ELSE 'demo'
         END as portal_item_type,
         CASE
           WHEN a.assessment_type = 'monthly' THEN 'monthly'
+          WHEN a.certificate_title ~* '^[^[:alnum:]]*Student of the (Week|Month|Year)$' THEN 'award'
           ELSE 'demo'
         END as certificate_page_type,
         COALESCE(a.year, EXTRACT(YEAR FROM a.created_at)::int) as period_year,

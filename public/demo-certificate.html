@@ -90,7 +90,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>Demo Class Certificate</h1>
+      <h1 id="certificatePageTitle">Demo Class Certificate</h1>
       <p>Fluent Feathers Academy By Aaliya</p>
     </div>
 
@@ -134,8 +134,15 @@
           throw new Error('Invalid certificate');
         }
 
+        const isAward = /^[^a-z0-9]*Student of the (Week|Month|Year)$/i.test((data.certificate_title || '').trim());
+        const pageTitle = isAward ? 'Student Award Certificate' : 'Demo Class Certificate';
+        document.getElementById('certificatePageTitle').textContent = pageTitle;
+        document.title = `${pageTitle} - Fluent Feathers Academy`;
+
         const childName = data.demo_child_name || 'Student';
         const demoDate = data.demo_date ? new Date(data.demo_date).toLocaleDateString('en-IN', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        }) : isAward ? new Date(data.created_at).toLocaleDateString('en-IN', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         }) : 'Demo Class';
         const skills = data.skills ? JSON.parse(data.skills) : [];
@@ -193,7 +200,7 @@
             ${skills.length > 0 ? `
             <!-- Skills Observed -->
             <div style="margin-top: 25px; padding: 20px; background: #f0fdf4; border-radius: 12px;">
-              <h3 style="color: #234e52; font-size: 18px; margin: 0 0 15px;">📝 Skills Observed During Demo</h3>
+              <h3 style="color: #234e52; font-size: 18px; margin: 0 0 15px;">${isAward ? '🏆 Award Achievement Areas' : '📝 Skills Observed During Demo'}</h3>
               <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                 ${skills.map(skill => `
                 <span style="background: #e6fffa; padding: 10px 15px; border-radius: 8px; border-left: 4px solid #38b2ac; font-size: 14px; color: #234e52; font-weight: 600;">✓ ${skill}</span>
@@ -204,7 +211,7 @@
 
             ${data.performance_summary ? `
             <div style="margin-top: 20px; padding: 20px; background: #e6fffa; border-radius: 12px; border-left: 4px solid #38b2ac;">
-              <h3 style="color: #234e52; font-size: 16px; margin: 0 0 10px;">📈 Demo Session Summary</h3>
+              <h3 style="color: #234e52; font-size: 16px; margin: 0 0 10px;">${isAward ? '🏆 Award Summary' : '📈 Demo Session Summary'}</h3>
               <p style="margin: 0; color: #234e52; font-size: 14px; line-height: 1.6;">${data.performance_summary}</p>
             </div>
             ` : ''}
@@ -229,7 +236,7 @@
           </button>
 
           <div class="back-link">
-            <p style="color: #718096; font-size: 14px;">Interested in enrolling? Contact us to continue the learning journey!</p>
+            <p style="color: #718096; font-size: 14px;">${isAward ? 'Congratulations on this outstanding achievement!' : 'Interested in enrolling? Contact us to continue the learning journey!'}</p>
           </div>
         `;
       } catch (err) {
