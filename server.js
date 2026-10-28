@@ -17015,9 +17015,14 @@ app.get('/api/students/:studentId/makeup-history', async (req, res) => {
           ELSE m.status
         END as status,
         s.session_date as scheduled_session_date,
-        s.session_time as scheduled_session_time
+        s.session_time as scheduled_session_time,
+        os.session_date as original_session_date,
+        os.session_time as original_session_time,
+        COALESCE(m.credit_date, CAST(m.created_at AS DATE)) as portal_cancelled_date,
+        COALESCE(s.session_date, os.session_date, m.used_date, m.scheduled_date) as class_taken_date
       FROM makeup_classes m
       LEFT JOIN sessions s ON m.scheduled_session_id = s.id
+      LEFT JOIN sessions os ON m.original_session_id = os.id
       LEFT JOIN session_attendance sa
         ON sa.session_id = m.scheduled_session_id
        AND sa.student_id = m.student_id

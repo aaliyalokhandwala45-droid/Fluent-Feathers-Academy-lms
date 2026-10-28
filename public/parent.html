@@ -5259,7 +5259,22 @@ setTimeout(() => {
               statusText = c.status || 'Unknown';
             }
 
-            const earnedDate = c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A';
+            const formatHistoryDate = (value) => {
+              if (!value) return 'N/A';
+              let dateValue = value;
+              if (dateValue instanceof Date) {
+                return isNaN(dateValue.getTime()) ? 'N/A' : dateValue.toLocaleDateString();
+              }
+              if (typeof dateValue === 'string') {
+                dateValue = dateValue.includes('T') ? dateValue.split('T')[0] : dateValue;
+              }
+              const dateObj = new Date(dateValue);
+              return isNaN(dateObj.getTime()) ? dateValue : dateObj.toLocaleDateString();
+            };
+
+            const earnedDate = c.portal_cancelled_date || c.credit_date || (c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A');
+            const classTakenDate = c.class_taken_date || c.original_session_date || c.scheduled_session_date || c.scheduled_date || c.used_date || '';
+            const cancelDate = c.portal_cancelled_date || c.credit_date || (c.created_at ? c.created_at.split('T')[0] : '');
             const addedBy = c.added_by === 'admin' ? 'Added by Teacher' : c.added_by === 'system' ? 'From Cancellation' : '';
             const bgColor = statusLower === 'scheduled' ? 'linear-gradient(135deg, #e9d8fd 0%, #faf5ff 100%)' : '#f7fafc';
             const borderColor = statusLower === 'available' ? '#38a169' : statusLower === 'scheduled' ? '#805ad5' : '#718096';
@@ -5298,11 +5313,16 @@ setTimeout(() => {
               }
             }
 
+            const cancellationLine = cancelDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 6px;">Cancelled on parent portal: ' + formatHistoryDate(cancelDate) + '</div>' : '';
+            const classTakenLine = classTakenDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 4px;">Class taken: ' + formatHistoryDate(classTakenDate) + '</div>' : '';
+
             return '<div style="background: ' + bgColor + '; border-left: 4px solid ' + borderColor + '; padding: 15px; border-radius: 8px; margin-bottom: 12px;">' +
               '<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">' +
                 '<div>' +
                   '<div style="font-weight: 600; color: #2d3748; margin-bottom: 5px;">' + (c.reason || 'Makeup Credit') + '</div>' +
-                  '<div style="font-size: 0.85rem; color: #718096;">Earned: ' + earnedDate + (addedBy ? ' - ' + addedBy : '') + '</div>' +
+                  '<div style="font-size: 0.85rem; color: #718096;">Earned: ' + formatHistoryDate(earnedDate) + (addedBy ? ' - ' + addedBy : '') + '</div>' +
+                  cancellationLine +
+                  classTakenLine +
                   scheduledDiv +
                 '</div>' +
                 '<span style="' + statusBadge + ' padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;">' + statusText + '</span>' +

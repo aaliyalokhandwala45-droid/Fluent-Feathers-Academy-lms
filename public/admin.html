@@ -11449,17 +11449,26 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         const available = credits.filter(c => c.status === 'Available');
         const scheduled = credits.filter(c => c.status === 'Scheduled');
         const used = credits.filter(c => c.status === 'Used');
+        const formatDate = (value) => {
+          if (!value) return 'N/A';
+          const dateValue = value instanceof Date ? value : new Date(value.includes ? (value.includes('T') ? value.split('T')[0] : value) : value);
+          return isNaN(dateValue.getTime()) ? 'N/A' : dateValue.toLocaleDateString();
+        };
 
         let html = '';
 
         if (available.length > 0) {
           html += '<div style="margin-bottom: 10px;"><strong>Available Credits (${available.length}):</strong></div>';
-          html += available.map(c => `
+          html += available.map(c => {
+            const portalCancelDate = formatDate(c.portal_cancelled_date || c.credit_date || c.created_at);
+            const classTakenDate = formatDate(c.class_taken_date || c.original_session_date || c.scheduled_session_date || c.scheduled_date || c.used_date || c.credit_date);
+            return `
             <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 8px; color: #2d3748;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
                   <span style="font-size: 0.85rem;">📋 ${c.reason}</span>
-                  <br><small style="color: #718096;">Added: ${new Date(c.credit_date).toLocaleDateString()} ${c.added_by === 'admin' ? '(by Admin)' : ''}</small>
+                  <br><small style="color: #718096;">Parent portal cancel: ${portalCancelDate} ${c.added_by === 'admin' ? '(by Admin)' : ''}</small>
+                  <br><small style="color: #718096;">Class taken: ${classTakenDate}</small>
                 </div>
                 <div style="display: flex; gap: 5px;">
                   <button onclick="openScheduleMakeupModal(${c.id}, ${studentId}, '${c.reason.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="btn btn-sm" style="background: #38a169; color: white;">📅 Schedule</button>
@@ -11467,27 +11476,40 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                 </div>
               </div>
             </div>
-          `).join('');
+          `;
+          }).join('');
         }
 
         if (scheduled.length > 0) {
           html += '<div style="margin: 10px 0;"><strong>Scheduled (${scheduled.length}):</strong></div>';
-          html += scheduled.map(c => `
+          html += scheduled.map(c => {
+            const portalCancelDate = formatDate(c.portal_cancelled_date || c.credit_date || c.created_at);
+            const classTakenDate = formatDate(c.class_taken_date || c.original_session_date || c.scheduled_session_date || c.scheduled_date || c.used_date || c.credit_date);
+            return `
             <div style="background: rgba(255,255,255,0.5); padding: 10px; border-radius: 6px; margin-bottom: 8px; color: #2d3748;">
               <span style="font-size: 0.85rem;">📅 Scheduled for: ${c.scheduled_date ? new Date(c.scheduled_date).toLocaleDateString() : 'N/A'} at ${c.scheduled_time || 'N/A'}</span>
+              <br><small style="color: #718096;">Parent portal cancel: ${portalCancelDate}</small>
+              <br><small style="color: #718096;">Class taken: ${classTakenDate}</small>
               <br><small style="color: #718096;">Original: ${c.reason}</small>
             </div>
-          `).join('');
+          `;
+          }).join('');
         }
 
         if (used.length > 0) {
           html += '<div style="margin: 10px 0;"><strong>Used (${used.length}):</strong></div>';
-          html += used.map(c => `
+          html += used.map(c => {
+            const portalCancelDate = formatDate(c.portal_cancelled_date || c.credit_date || c.created_at);
+            const classTakenDate = formatDate(c.class_taken_date || c.original_session_date || c.scheduled_session_date || c.scheduled_date || c.used_date || c.credit_date);
+            return `
             <div style="background: rgba(255,255,255,0.3); padding: 10px; border-radius: 6px; margin-bottom: 8px; color: #2d3748; opacity: 0.7;">
               <span style="font-size: 0.85rem;">✅ Used on: ${c.used_date ? new Date(c.used_date).toLocaleDateString() : 'N/A'}</span>
+              <br><small style="color: #718096;">Parent portal cancel: ${portalCancelDate}</small>
+              <br><small style="color: #718096;">Class taken: ${classTakenDate}</small>
               <br><small style="color: #718096;">${c.reason}</small>
             </div>
-          `).join('');
+          `;
+          }).join('');
         }
 
         container.innerHTML = html.replace(/\$\{available\.length\}/g, available.length)
