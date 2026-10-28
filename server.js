@@ -254,6 +254,19 @@ function escapeHtml(text) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+async function logStudentActivity(studentId, actionType, title, details = '', metadata = {}) {
+  if (!studentId) return;
+  try {
+    await pool.query(
+      `INSERT INTO student_activity_logs (student_id, action_type, title, details, metadata)
+       VALUES ($1, $2, $3, $4, COALESCE($5::jsonb, '{}'::jsonb))`,
+      [studentId, actionType, title, details, JSON.stringify(metadata || {})]
+    );
+  } catch (err) {
+    console.error(`Failed to log student activity (${actionType}):`, err.message);
+  }
+}
+
 // Calculate age from date of birth
 function calculateAge(dob) {
   if (!dob) return null;
@@ -2142,6 +2155,22 @@ async function initializeDatabase() {
       )
     `);
 
+    console.log('🔧 Creating student_activity_logs table...');
+    await client.query(`
+      CREATE TABLE student_activity_logs (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        action_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        details TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_student_activity_logs_student_id ON student_activity_logs(student_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_student_activity_logs_created_at ON student_activity_logs(created_at DESC)');
+
     console.log('🔧 Creating demo_leads table...');
     await client.query(`
       CREATE TABLE demo_leads (
@@ -2644,6 +2673,26 @@ async function runMigrations() {
       console.log('✅ Makeup classes columns added for tracking');
     } catch (err) {
       console.error('❌ Error adding makeup_classes columns:', err.message);
+    }
+
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS student_activity_logs (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER NOT NULL,
+          action_type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          details TEXT,
+          metadata JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        )
+      `);
+      await client.query('CREATE INDEX IF NOT EXISTS idx_student_activity_logs_student_id ON student_activity_logs(student_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS idx_student_activity_logs_created_at ON student_activity_logs(created_at DESC)');
+      console.log('✅ Student activity log table ready');
+    } catch (err) {
+      console.error('❌ Error creating student activity log table:', err.message);
     }
 
     // Migration 14: Resource Library table
@@ -12591,6 +12640,14 @@ app.post('/api/students/:id/payment', async (req, res) => {
     await client.query('UPDATE students SET fees_paid = fees_paid + $1 WHERE id = $2', [amount, req.params.id]);
     await client.query('COMMIT');
 
+    await logStudentActivity(
+      Number(req.params.id),
+      'payment',
+      'Payment recorded',
+      `${currency} ${amount} paid via ${payment_method || 'manual'}${notes ? ` - ${notes}` : ''}`,
+      { amount, currency, payment_method, receipt_number, sessions_covered, notes }
+    );
+
     // Send payment confirmation email if requested (outside transaction)
     let emailSent = null;
     if (send_email) {
@@ -13037,6 +13094,20 @@ app.post('/api/schedule/private-classes', async (req, res) => {
         'Schedule'
       );
     }
+
+    const scheduledDetails = classes.map(cls => ({
+      date: cls.date,
+      time: cls.time,
+      use_makeup: !!cls.use_makeup,
+      duration: cls.duration || student.duration || null
+    }));
+    await logStudentActivity(
+      student_id,
+      'schedule',
+      'Classes scheduled',
+      `${classes.length} class${classes.length === 1 ? '' : 'es'} scheduled for ${student.name}.`,
+      { scheduled: scheduledDetails, send_email: send_email !== false, makeup_count: makeupClasses.length }
+    );
 
     const makeupMsg = makeupClasses.length > 0 ? ` (${makeupClasses.length} using makeup credits)` : '';
     const emailMsg = emailSent === true ? ' and email sent!' : emailSent === false ? ' (email failed to send)' : '';
@@ -15083,6 +15154,13 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     }
 
     clearAdminDashboardCache();
+    await logStudentActivity(
+      session.student_id || (studentsToNotify[0] && studentsToNotify[0].id) || null,
+      'reschedule',
+      'Class rescheduled',
+      `Session ${sessionId} moved from ${oldDate} ${oldTime} to ${converted.date} ${converted.time}.`,
+      { session_id: sessionId, old_date: oldDate, old_time: oldTime, new_date: converted.date, new_time: converted.time, reason: reason || 'Schedule adjustment', is_group: session.session_type === 'Group' }
+    );
     res.json({
       message: 'Session rescheduled successfully!',
       new_date: converted.date,
@@ -16889,6 +16967,13 @@ app.post('/api/parent/cancel-class', async (req, res) => {
 
     await client.query('COMMIT');
     clearStudentSessionsCache(id);
+    await logStudentActivity(
+      id,
+      'cancel',
+      'Class cancelled by parent',
+      `${req.body.reason || 'Parent cancelled'} for session ${session.id}.`,
+      { session_id: session.id, is_group: isGroup, reason: req.body.reason || 'Parent cancelled', makeup_credit_added: true }
+    );
 
     maybeSendPaidClassesDoneMakeupEmail(id).catch(err =>
       console.error('Failed to send paid-classes-complete makeup email:', err)
@@ -17019,7 +17104,7 @@ app.get('/api/students/:studentId/makeup-history', async (req, res) => {
         os.session_date as original_session_date,
         os.session_time as original_session_time,
         COALESCE(m.credit_date, CAST(m.created_at AS DATE)) as portal_cancelled_date,
-        COALESCE(s.session_date, os.session_date, m.used_date, m.scheduled_date) as class_taken_date
+        COALESCE(os.session_date, m.used_date) as class_taken_date
       FROM makeup_classes m
       LEFT JOIN sessions s ON m.scheduled_session_id = s.id
       LEFT JOIN sessions os ON m.original_session_id = os.id
@@ -17028,6 +17113,22 @@ app.get('/api/students/:studentId/makeup-history', async (req, res) => {
        AND sa.student_id = m.student_id
       WHERE m.student_id = $1
       ORDER BY m.created_at DESC
+    `, [id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/students/:studentId/activity-logs', async (req, res) => {
+  const id = req.adminStudentId || req.params.studentId;
+  try {
+    const result = await pool.query(`
+      SELECT *
+      FROM student_activity_logs
+      WHERE student_id = $1
+      ORDER BY created_at DESC, id DESC
+      LIMIT 200
     `, [id]);
     res.json(result.rows);
   } catch (err) {
@@ -17159,6 +17260,14 @@ app.put('/api/makeup-credits/:creditId/schedule', async (req, res) => {
     const finalSessionNumber = renumbered.rows[0]?.session_number || sessionNumber;
 
     await client.query('COMMIT');
+
+    await logStudentActivity(
+      student_id,
+      'makeup_schedule',
+      'Makeup credit scheduled',
+      `Makeup credit scheduled for ${session_date} ${session_time}.`,
+      { credit_id: creditId, session_id: newSessionId, session_date, session_time, status: 'Scheduled' }
+    );
 
     // Send email notification to parent
     const studentData = student.rows[0];

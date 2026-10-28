@@ -865,6 +865,7 @@
         <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">&#128226; News<span class="red-dot" id="dotAnnouncements"></span></button>
         <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">&#127881; Events<span class="red-dot" id="dotEvents"></span></button>
         <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">&#128179; Payments<span class="red-dot" id="dotPayments"></span></button>
+        <button class="tab-btn" onclick="showTab('activityLog', event)">&#128366; Activity Log</button>
         <button class="tab-btn" onclick="showTab('profile', event)">&#128100; Profile / Expectations</button>
       </div>
 
@@ -1613,6 +1614,16 @@
               </div>
             </div>
           </div>
+      </div>
+
+      <div id="activityLogTab" class="tab-content">
+        <div class="section">
+          <h2 style="color: #B05D9E; margin-bottom: 8px;"> Activity Log</h2>
+          <p style="color: #718096; margin-bottom: 18px;">Full record of payments, class schedules, cancellations, reschedules, and makeup credit activity for this student.</p>
+          <div id="activityLogContainer">
+            <p style="text-align: center; color: #718096;">Loading activity log...</p>
+          </div>
+        </div>
       </div>
 
       <!-- Profile Tab -->
@@ -4087,6 +4098,7 @@ setTimeout(() => {
       if (name === 'pointsTracker') { loadClassPoints(); loadScoreHistory(); }
       if (name === 'announcements') loadAnnouncements();
       if (name === 'learningLab') renderLearningLabCards();
+      if (name === 'activityLog') loadActivityLog();
     }
 
     function showDashboard() {
@@ -5267,13 +5279,18 @@ setTimeout(() => {
               }
               if (typeof dateValue === 'string') {
                 dateValue = dateValue.includes('T') ? dateValue.split('T')[0] : dateValue;
+                const dateParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue);
+                if (dateParts) {
+                  const localDate = new Date(Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3]));
+                  return isNaN(localDate.getTime()) ? dateValue : localDate.toLocaleDateString();
+                }
               }
               const dateObj = new Date(dateValue);
               return isNaN(dateObj.getTime()) ? dateValue : dateObj.toLocaleDateString();
             };
 
             const earnedDate = c.portal_cancelled_date || c.credit_date || (c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A');
-            const classTakenDate = c.class_taken_date || c.original_session_date || c.scheduled_session_date || c.scheduled_date || c.used_date || '';
+            const originalClassDate = c.original_session_date || c.class_taken_date || '';
             const cancelDate = c.portal_cancelled_date || c.credit_date || (c.created_at ? c.created_at.split('T')[0] : '');
             const addedBy = c.added_by === 'admin' ? 'Added by Teacher' : c.added_by === 'system' ? 'From Cancellation' : '';
             const bgColor = statusLower === 'scheduled' ? 'linear-gradient(135deg, #e9d8fd 0%, #faf5ff 100%)' : '#f7fafc';
@@ -5314,7 +5331,7 @@ setTimeout(() => {
             }
 
             const cancellationLine = cancelDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 6px;">Cancelled on parent portal: ' + formatHistoryDate(cancelDate) + '</div>' : '';
-            const classTakenLine = classTakenDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 4px;">Class taken: ' + formatHistoryDate(classTakenDate) + '</div>' : '';
+            const classTakenLine = originalClassDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 4px;">Original class date: ' + formatHistoryDate(originalClassDate) + '</div>' : '';
 
             return '<div style="background: ' + bgColor + '; border-left: 4px solid ' + borderColor + '; padding: 15px; border-radius: 8px; margin-bottom: 12px;">' +
               '<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">' +
@@ -6425,6 +6442,59 @@ setTimeout(() => {
     function closePaymentScanner() {
       const dialog = document.getElementById('paymentScannerDialog');
       if (dialog.open) dialog.close();
+    }
+
+    async function loadActivityLog() {
+      try {
+        const res = await fetch(`/api/students/${currentStudent.id}/activity-logs`, { headers: authHeaders() });
+        if (!res.ok) throw new Error('Unable to load activity log');
+        const logs = await res.json();
+        const container = document.getElementById('activityLogContainer');
+        if (!Array.isArray(logs) || logs.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #718096;">No activity recorded yet.</p>';
+          return;
+        }
+
+        const formatDate = (value) => {
+          if (!value) return 'N/A';
+          const d = new Date(value);
+          return isNaN(d.getTime()) ? String(value) : d.toLocaleString();
+        };
+
+        const actionColors = {
+          payment: '#38a169',
+          schedule: '#805ad5',
+          cancel: '#e53e3e',
+          reschedule: '#f59e0b',
+          makeup_schedule: '#ed64a6',
+          default: '#4a5568'
+        };
+
+        container.innerHTML = logs.map(log => {
+          const metadata = log.metadata && typeof log.metadata === 'object' ? log.metadata : {};
+          const details = log.details || '';
+          const extra = Object.keys(metadata).length > 0
+            ? `<div style="margin-top:8px; color:#4a5568; font-size:0.82rem; white-space:pre-wrap;">${Object.entries(metadata).map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(' • ')}</div>`
+            : '';
+          const actionColor = actionColors[log.action_type] || actionColors.default;
+          return `
+            <div style="background:#fff; border-left:4px solid ${actionColor}; border-radius:10px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:700; color:#2d3748; margin-bottom:4px;">${log.title || log.action_type}</div>
+                  <div style="font-size:0.83rem; color:#718096;">${formatDate(log.created_at)}</div>
+                </div>
+                <span style="background:${actionColor}; color:white; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; text-transform:uppercase;">${(log.action_type || 'event').replace(/_/g, ' ')}</span>
+              </div>
+              ${details ? `<div style="margin-top:10px; color:#4a5568; font-size:0.9rem; line-height:1.5;">${details}</div>` : ''}
+              ${extra}
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error('Error loading activity log:', e);
+        document.getElementById('activityLogContainer').innerHTML = '<p style="text-align: center; color: #e53e3e;">Error loading activity log.</p>';
+      }
     }
 
     async function loadPayments() {
