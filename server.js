@@ -254,9 +254,31 @@ function escapeHtml(text) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+async function ensureStudentActivityLogsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_activity_logs (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        action_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        details TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_student_activity_logs_student_id ON student_activity_logs(student_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_student_activity_logs_created_at ON student_activity_logs(created_at DESC)');
+  } catch (err) {
+    console.error('Failed to ensure student_activity_logs table exists:', err.message);
+  }
+}
+
 async function logStudentActivity(studentId, actionType, title, details = '', metadata = {}) {
   if (!studentId) return;
   try {
+    await ensureStudentActivityLogsTable();
     await pool.query(
       `INSERT INTO student_activity_logs (student_id, action_type, title, details, metadata)
        VALUES ($1, $2, $3, $4, COALESCE($5::jsonb, '{}'::jsonb))`,
@@ -17122,49 +17144,82 @@ app.get('/api/students/:studentId/makeup-history', async (req, res) => {
 
 app.get('/api/students/:studentId/activity-logs', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
-  const rawDays = Number(req.query.days || 30);
-  const includeAll = req.query.all === '1' || req.query.all === 'true';
-  const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 3650) : 30;
-
   try {
-    let result;
-    if (includeAll) {
-      result = await pool.query(`
-        SELECT *
-        FROM student_activity_logs
-        WHERE student_id = $1
-        ORDER BY created_at DESC, id DESC
-        LIMIT 200
-      `, [id]);
-    } else {
-      result = await pool.query(`
-        SELECT *
-        FROM student_activity_logs
-        WHERE student_id = $1
-          AND created_at >= NOW() - ($2 || ' days')::interval
-        ORDER BY created_at DESC, id DESC
-        LIMIT 200
-      `, [id, String(days)]);
+    await ensureStudentActivityLogsTable();
+    const [recorded, sessions, payments, credits] = await Promise.all([
+      pool.query(`SELECT * FROM student_activity_logs WHERE student_id = $1 ORDER BY created_at DESC, id DESC LIMIT 200`, [id]),
+      pool.query(`
+        SELECT s.id, s.session_type, s.session_date, s.session_time, s.status, s.created_at,
+               COALESCE(sa.attendance, s.attendance) AS attendance,
+               s.cancelled_by, s.teacher_notes
+        FROM sessions s
+        LEFT JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
+        WHERE s.student_id = $1 OR sa.student_id = $1
+        ORDER BY s.created_at DESC, s.id DESC
+        LIMIT 300
+      `, [id]),
+      pool.query(`
+        SELECT id, payment_date, amount, currency, payment_method, receipt_number, sessions_covered, notes
+        FROM payment_history WHERE student_id = $1 ORDER BY payment_date DESC, id DESC LIMIT 200
+      `, [id]),
+      pool.query(`
+        SELECT m.id, m.reason, m.credit_date, m.status, m.used_date, m.scheduled_date,
+               m.scheduled_time, m.created_at, m.added_by, m.original_session_id,
+               original.session_date AS original_class_date,
+               booked.session_date AS makeup_session_date, booked.session_time AS makeup_session_time
+        FROM makeup_classes m
+        LEFT JOIN sessions original ON original.id = m.original_session_id
+        LEFT JOIN sessions booked ON booked.id = m.scheduled_session_id
+        WHERE m.student_id = $1
+        ORDER BY m.created_at DESC, m.id DESC LIMIT 200
+      `, [id])
+    ]);
 
-      if (result.rows.length === 0) {
-        const fallback = await pool.query(`
-          SELECT *
-          FROM student_activity_logs
-          WHERE student_id = $1
-          ORDER BY created_at DESC, id DESC
-          LIMIT 200
-        `, [id]);
+    const logs = recorded.rows
+      // The domain tables below are the source of truth for these event types,
+      // including records created before activity logging was introduced.
+      .filter(row => !['schedule', 'payment', 'makeup_schedule'].includes(row.action_type));
 
-        result = fallback;
-      }
+    for (const s of sessions.rows) {
+      const isCancelled = ['cancelled', 'cancelled by parent'].includes(String(s.status || '').toLowerCase());
+      const hasCancellationLog = recorded.rows.some(row =>
+        ['cancel', 'cancellation'].includes(String(row.action_type || '').toLowerCase()) &&
+        Number(row.metadata?.session_id) === Number(s.id)
+      );
+      if (isCancelled && hasCancellationLog) continue;
+      const isCompleted = ['completed', 'present'].includes(String(s.attendance || s.status || '').toLowerCase());
+      logs.push({
+        id: `session-${s.id}`,
+        action_type: isCancelled ? 'cancel' : isCompleted ? 'class' : 'schedule',
+        title: isCancelled ? 'Class cancelled' : isCompleted ? 'Class attended' : 'Class scheduled',
+        details: `${s.session_type || 'Class'} class on ${s.session_date}${s.session_time ? ` at ${String(s.session_time).slice(0, 5)}` : ''}${s.cancelled_by ? `; cancelled by ${s.cancelled_by}` : ''}${s.teacher_notes ? `; ${s.teacher_notes}` : ''}`,
+        metadata: { session_id: s.id, session_date: s.session_date, status: s.status },
+        created_at: s.created_at || s.session_date
+      });
     }
+    for (const p of payments.rows) {
+      logs.push({
+        id: `payment-${p.id}`, action_type: 'payment', title: 'Payment recorded',
+        details: `${p.currency || ''} ${p.amount}${p.payment_method ? ` via ${p.payment_method}` : ''}${p.sessions_covered ? `; ${p.sessions_covered} sessions` : ''}${p.notes ? `; ${p.notes}` : ''}`,
+        metadata: { receipt_number: p.receipt_number }, created_at: p.payment_date
+      });
+    }
+    for (const c of credits.rows) {
+      logs.push({
+        id: `makeup-${c.id}`, action_type: 'makeup_credit', title: `Makeup credit ${c.status || 'recorded'}`,
+        details: `${c.reason || 'Makeup credit'}${c.original_class_date ? `; original class date: ${c.original_class_date}` : ''}${c.makeup_session_date ? `; makeup class booked for ${c.makeup_session_date}${c.makeup_session_time ? ` at ${String(c.makeup_session_time).slice(0, 5)}` : ''}` : ''}`,
+        metadata: { status: c.status, added_by: c.added_by, credit_date: c.credit_date, used_date: c.used_date },
+        created_at: c.created_at || c.credit_date
+      });
+    }
+    logs.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const result = logs.slice(0, 500);
 
     res.json({
-      logs: result.rows,
-      windowDays: includeAll ? null : days,
-      includeAll,
-      total: result.rows.length,
-      fallbackUsed: !includeAll && result.rows.length > 0 && !req.query.days
+      logs: result,
+      windowDays: null,
+      includeAll: true,
+      total: result.length
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

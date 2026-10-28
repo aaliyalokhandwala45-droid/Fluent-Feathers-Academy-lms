@@ -1042,7 +1042,7 @@
             </div>
             <div class="makeup-history-stat" style="background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);">
               <div class="num" id="makeupScheduledCount">0</div>
-              <div class="label">Scheduled Makeup Classes</div>
+              <div class="label">Booked Makeup Sessions</div>
             </div>
             <div class="makeup-history-stat" style="background: linear-gradient(135deg, #718096 0%, #4a5568 100%);">
               <div class="num" id="makeupUsedCount">0</div>
@@ -5205,10 +5205,10 @@ setTimeout(() => {
         const res = await fetch('/api/students/' + currentStudent.id + '/makeup-history', { headers: authHeaders() });
         const history = await res.json();
 
-        // Count available credits (not used and not scheduled) - case insensitive check
-        const availableCredits = history.filter(c => c.status && c.status.toLowerCase() === 'available').length;
-        const scheduledCredits = history.filter(c => c.status && c.status.toLowerCase() === 'scheduled').length;
-        const usedCredits = history.filter(c => c.status && c.status.toLowerCase() === 'used').length;
+        const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
+        const availableCredits = history.filter(c => normalizeStatus(c.status) === 'available').length;
+        const scheduledCredits = history.filter(c => normalizeStatus(c.status) === 'scheduled').length;
+        const usedCredits = history.filter(c => ['used', 'completed'].includes(normalizeStatus(c.status))).length;
 
         // Update top card makeup display
         const topMakeupDisplay = document.getElementById('displayMakeup');
@@ -5238,7 +5238,7 @@ setTimeout(() => {
         } else {
           historyContainer.innerHTML = history.map(c => {
             let statusBadge, statusText;
-            const statusLower = (c.status || '').toLowerCase();
+            const statusLower = normalizeStatus(c.status);
             if (statusLower === 'available') {
               statusBadge = 'background: #38a169; color: white;';
               statusText = 'Available';
@@ -5263,7 +5263,7 @@ setTimeout(() => {
                 schedBadgeDate = rawSchedDate;
               }
               statusText = 'Scheduled' + (schedBadgeDate ? ' - ' + schedBadgeDate : '');
-            } else if (statusLower === 'used') {
+            } else if (statusLower === 'used' || statusLower === 'completed') {
               statusBadge = 'background: #718096; color: white;';
               statusText = 'Used';
             } else {
@@ -5292,6 +5292,7 @@ setTimeout(() => {
             const earnedDate = c.portal_cancelled_date || c.credit_date || (c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A');
             const originalClassDate = c.original_session_date || c.class_taken_date || '';
             const cancelDate = c.portal_cancelled_date || c.credit_date || (c.created_at ? c.created_at.split('T')[0] : '');
+            const usedDate = c.used_date || c.class_taken_date || c.scheduled_session_date || '';
             const addedBy = c.added_by === 'admin' ? 'Added by Teacher' : c.added_by === 'system' ? 'From Cancellation' : '';
             const bgColor = statusLower === 'scheduled' ? 'linear-gradient(135deg, #e9d8fd 0%, #faf5ff 100%)' : '#f7fafc';
             const borderColor = statusLower === 'available' ? '#38a169' : statusLower === 'scheduled' ? '#805ad5' : '#718096';
@@ -5331,7 +5332,8 @@ setTimeout(() => {
             }
 
             const cancellationLine = cancelDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 6px;">Cancelled on parent portal: ' + formatHistoryDate(cancelDate) + '</div>' : '';
-            const classTakenLine = originalClassDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 4px;">Original class date: ' + formatHistoryDate(originalClassDate) + '</div>' : '';
+            const originalClassLine = originalClassDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 4px;">Original class date: ' + formatHistoryDate(originalClassDate) + '</div>' : '';
+            const usedLine = (statusLower === 'used' || statusLower === 'completed') && usedDate ? '<div style="font-size: 0.82rem; color: #4a5568; margin-top: 6px;">Used on: ' + formatHistoryDate(usedDate) + '</div>' : '';
 
             return '<div style="background: ' + bgColor + '; border-left: 4px solid ' + borderColor + '; padding: 15px; border-radius: 8px; margin-bottom: 12px;">' +
               '<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">' +
@@ -5339,7 +5341,8 @@ setTimeout(() => {
                   '<div style="font-weight: 600; color: #2d3748; margin-bottom: 5px;">' + (c.reason || 'Makeup Credit') + '</div>' +
                   '<div style="font-size: 0.85rem; color: #718096;">Earned: ' + formatHistoryDate(earnedDate) + (addedBy ? ' - ' + addedBy : '') + '</div>' +
                   cancellationLine +
-                  classTakenLine +
+                  originalClassLine +
+                  usedLine +
                   scheduledDiv +
                 '</div>' +
                 '<span style="' + statusBadge + ' padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;">' + statusText + '</span>' +
@@ -6446,13 +6449,13 @@ setTimeout(() => {
 
     async function loadActivityLog() {
       try {
-        const res = await fetch(`/api/students/${currentStudent.id}/activity-logs?days=30`, { headers: authHeaders() });
+        const res = await fetch(`/api/students/${currentStudent.id}/activity-logs?all=1`, { headers: authHeaders() });
         if (!res.ok) throw new Error('Unable to load activity log');
         const payload = await res.json();
         const logs = Array.isArray(payload?.logs) ? payload.logs : [];
         const container = document.getElementById('activityLogContainer');
         if (logs.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096;">No activity recorded in the last 30 days.</p>';
+          container.innerHTML = '<p style="text-align: center; color: #718096;">No class, payment, or makeup activity is available yet.</p>';
           return;
         }
 
@@ -6467,13 +6470,15 @@ setTimeout(() => {
           schedule: '#805ad5',
           cancel: '#e53e3e',
           reschedule: '#f59e0b',
+          class: '#38b2ac',
           makeup_schedule: '#ed64a6',
+          makeup_credit: '#d69e2e',
           default: '#4a5568'
         };
 
         container.innerHTML = `
           <div style="margin-bottom: 12px; color:#4a5568; font-size:0.8rem; font-weight:600;">
-            Showing the most recent activity for this student
+            Showing class schedules, cancellations, payments, and makeup credit activity
           </div>
           ${logs.map(log => {
             const metadata = log.metadata && typeof log.metadata === 'object' ? log.metadata : {};
