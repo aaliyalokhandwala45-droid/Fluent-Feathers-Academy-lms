@@ -6446,12 +6446,13 @@ setTimeout(() => {
 
     async function loadActivityLog() {
       try {
-        const res = await fetch(`/api/students/${currentStudent.id}/activity-logs`, { headers: authHeaders() });
+        const res = await fetch(`/api/students/${currentStudent.id}/activity-logs?days=30`, { headers: authHeaders() });
         if (!res.ok) throw new Error('Unable to load activity log');
-        const logs = await res.json();
+        const payload = await res.json();
+        const logs = Array.isArray(payload?.logs) ? payload.logs : [];
         const container = document.getElementById('activityLogContainer');
-        if (!Array.isArray(logs) || logs.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096;">No activity recorded yet.</p>';
+        if (logs.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #718096;">No activity recorded in the last 30 days.</p>';
           return;
         }
 
@@ -6470,27 +6471,32 @@ setTimeout(() => {
           default: '#4a5568'
         };
 
-        container.innerHTML = logs.map(log => {
-          const metadata = log.metadata && typeof log.metadata === 'object' ? log.metadata : {};
-          const details = log.details || '';
-          const extra = Object.keys(metadata).length > 0
-            ? `<div style="margin-top:8px; color:#4a5568; font-size:0.82rem; white-space:pre-wrap;">${Object.entries(metadata).map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(' • ')}</div>`
-            : '';
-          const actionColor = actionColors[log.action_type] || actionColors.default;
-          return `
-            <div style="background:#fff; border-left:4px solid ${actionColor}; border-radius:10px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-                <div>
-                  <div style="font-weight:700; color:#2d3748; margin-bottom:4px;">${log.title || log.action_type}</div>
-                  <div style="font-size:0.83rem; color:#718096;">${formatDate(log.created_at)}</div>
+        container.innerHTML = `
+          <div style="margin-bottom: 12px; color:#4a5568; font-size:0.8rem; font-weight:600;">
+            Showing the most recent activity for this student
+          </div>
+          ${logs.map(log => {
+            const metadata = log.metadata && typeof log.metadata === 'object' ? log.metadata : {};
+            const details = log.details || '';
+            const extra = Object.keys(metadata).length > 0
+              ? `<div style="margin-top:8px; color:#4a5568; font-size:0.82rem; white-space:pre-wrap;">${Object.entries(metadata).map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(' • ')}</div>`
+              : '';
+            const actionColor = actionColors[log.action_type] || actionColors.default;
+            return `
+              <div style="background:#fff; border-left:4px solid ${actionColor}; border-radius:10px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                  <div>
+                    <div style="font-weight:700; color:#2d3748; margin-bottom:4px;">${log.title || log.action_type}</div>
+                    <div style="font-size:0.83rem; color:#718096;">${formatDate(log.created_at)}</div>
+                  </div>
+                  <span style="background:${actionColor}; color:white; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; text-transform:uppercase;">${(log.action_type || 'event').replace(/_/g, ' ')}</span>
                 </div>
-                <span style="background:${actionColor}; color:white; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; text-transform:uppercase;">${(log.action_type || 'event').replace(/_/g, ' ')}</span>
+                ${details ? `<div style="margin-top:10px; color:#4a5568; font-size:0.9rem; line-height:1.5;">${details}</div>` : ''}
+                ${extra}
               </div>
-              ${details ? `<div style="margin-top:10px; color:#4a5568; font-size:0.9rem; line-height:1.5;">${details}</div>` : ''}
-              ${extra}
-            </div>
-          `;
-        }).join('');
+            `;
+          }).join('')}
+        `;
       } catch (e) {
         console.error('Error loading activity log:', e);
         document.getElementById('activityLogContainer').innerHTML = '<p style="text-align: center; color: #e53e3e;">Error loading activity log.</p>';

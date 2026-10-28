@@ -17122,15 +17122,50 @@ app.get('/api/students/:studentId/makeup-history', async (req, res) => {
 
 app.get('/api/students/:studentId/activity-logs', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
+  const rawDays = Number(req.query.days || 30);
+  const includeAll = req.query.all === '1' || req.query.all === 'true';
+  const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 3650) : 30;
+
   try {
-    const result = await pool.query(`
-      SELECT *
-      FROM student_activity_logs
-      WHERE student_id = $1
-      ORDER BY created_at DESC, id DESC
-      LIMIT 200
-    `, [id]);
-    res.json(result.rows);
+    let result;
+    if (includeAll) {
+      result = await pool.query(`
+        SELECT *
+        FROM student_activity_logs
+        WHERE student_id = $1
+        ORDER BY created_at DESC, id DESC
+        LIMIT 200
+      `, [id]);
+    } else {
+      result = await pool.query(`
+        SELECT *
+        FROM student_activity_logs
+        WHERE student_id = $1
+          AND created_at >= NOW() - ($2 || ' days')::interval
+        ORDER BY created_at DESC, id DESC
+        LIMIT 200
+      `, [id, String(days)]);
+
+      if (result.rows.length === 0) {
+        const fallback = await pool.query(`
+          SELECT *
+          FROM student_activity_logs
+          WHERE student_id = $1
+          ORDER BY created_at DESC, id DESC
+          LIMIT 200
+        `, [id]);
+
+        result = fallback;
+      }
+    }
+
+    res.json({
+      logs: result.rows,
+      windowDays: includeAll ? null : days,
+      includeAll,
+      total: result.rows.length,
+      fallbackUsed: !includeAll && result.rows.length > 0 && !req.query.days
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
