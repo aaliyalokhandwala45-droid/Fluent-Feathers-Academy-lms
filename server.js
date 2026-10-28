@@ -17136,7 +17136,23 @@ app.get('/api/students/:studentId/makeup-history', async (req, res) => {
       WHERE m.student_id = $1
       ORDER BY m.created_at DESC
     `, [id]);
-    res.json(result.rows);
+
+    const totalCredits = result.rows.length;
+    const availableCredits = result.rows.filter(row => String(row.status || '').toLowerCase() === 'available').length;
+    const usedCredits = result.rows.filter(row => String(row.status || '').toLowerCase() === 'used').length;
+    const bookedCredits = result.rows.filter(row => String(row.status || '').toLowerCase() === 'scheduled').length;
+    const visibleRows = result.rows.filter(row => String(row.status || '').toLowerCase() !== 'scheduled');
+
+    const response = visibleRows;
+    response.summary = {
+      total: totalCredits,
+      available: availableCredits,
+      used: usedCredits,
+      booked: bookedCredits,
+      visible: visibleRows.length
+    };
+
+    res.json(response);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
