@@ -422,6 +422,7 @@
         <button class="nav-btn" onclick="showTab('quiz', event)">🧠 <span>Daily Quiz</span></button>
         <button class="nav-btn" onclick="showTab('resources', event)">📚 <span>Resources</span></button>
         <button class="nav-btn" onclick="showTab('learningLab', event)">🧠 <span>Learning Lab</span></button>
+        <button class="nav-btn" onclick="showTab('policyManagement', event)">📋 <span>Policy Management</span></button>
         <button class="nav-btn" onclick="window.location.href='social-media-admin.html'">🎬 <span>Social Media</span></button>
         <button class="nav-btn" onclick="showTab('emails', event)">📧 <span>Email Logs</span></button>
         <button class="nav-btn" onclick="showTab('financials', event)">💰 <span>Financial Reports</span></button>
@@ -507,6 +508,13 @@
         <button class="tab-btn" onclick="showTab('emails', event)">📧 Email Logs</button>
       </div>
 
+    <div id="policyManagementTab" class="tab-content"><div class="section">
+      <h2 style="color:#B05D9E">Policy Management</h2><p style="color:#718096">Edit a draft, then publish a new version to request acknowledgement again.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0"><label>Version<input id="policyAdminVersion" style="display:block;width:100%;padding:10px"></label><label>Effective date<input id="policyAdminDate" type="date" style="display:block;width:100%;padding:10px"></label></div>
+      <div id="policyAdminSections" style="display:grid;gap:12px"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0"><button class="btn" onclick="addPolicyAdminSection()">Add section</button><button class="btn btn-primary" onclick="savePolicyAdminDraft()">Save Draft</button><button class="btn btn-success" onclick="publishPolicyAdminDraft()">Publish Version</button></div>
+      <h3>Versions</h3><div id="policyAdminVersions" style="display:grid;gap:8px"></div><h3 style="margin-top:20px">Acknowledgements</h3><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><select id="policyReportVersion" onchange="loadPolicyAcknowledgements()" style="padding:9px"></select><input id="policyReportSearch" placeholder="Search parent or student" oninput="loadPolicyAcknowledgements()" style="padding:9px;flex:1;min-width:180px"></div>
+      <div class="table-responsive"><table><thead><tr><th>Parent</th><th>Student</th><th>Status</th><th>Date &amp; time</th></tr></thead><tbody id="policyAcknowledgementRows"></tbody></table></div>
+    </div></div>
     <div id="learningLabTab" class="tab-content">
       <div class="section">
         <h2 style="margin: 0 0 10px; color: #B05D9E;">🧠 Learning Lab</h2>
@@ -4890,6 +4898,7 @@ I'm passionate about helping children develop confidence in communication!"></te
       if (tabName === 'financials') loadTabCached('financials', () => loadFinancialReports());
       if (tabName === 'monthlyAssessment') loadTabCached('monthlyAssessment', () => { loadDueAssessments(); loadAssessmentDashboard(); });
       if (tabName === 'socialMedia') loadTabCached('socialMedia', () => loadSocialMediaProjects());
+      if (tabName === 'policyManagement') loadPolicyAdmin();
       if (tabName === 'learningLab') { setLearningLabGenerateDate(); loadLearningHubAdminSettings(); renderLearningLabAdminOverview(); loadLearningLabAttempts(); loadLearningLabSubscriptions(); loadSpeakingTopicsAdmin(); loadSpellingWordsAdmin(); }
       if (tabName === 'quiz') refreshQuizAdminData();
       if (tabName === 'whiteboard') {
@@ -17587,6 +17596,15 @@ function initializeQuizTab() {
       }
     }
 
+    let policyAdminSections=[];
+    function policyAdminPassword(force=false){return getLearningLabAdminPassword(force);}
+    function renderPolicyAdminSections(){const c=document.getElementById('policyAdminSections');c.innerHTML=policyAdminSections.map((x,i)=>`<div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px"><div style="display:flex;gap:8px"><input value="${escapeHtml(x.title||'')}" placeholder="Section title" onchange="policyAdminSections[${i}].title=this.value" style="flex:1;padding:9px"><button onclick="policyAdminSections.splice(${i},1);renderPolicyAdminSections()">Remove</button></div><textarea onchange="policyAdminSections[${i}].content=this.value" style="width:100%;min-height:88px;margin-top:8px;padding:9px">${escapeHtml(x.content||'')}</textarea></div>`).join('');}
+    function addPolicyAdminSection(){policyAdminSections.push({title:'',content:''});renderPolicyAdminSections();}
+    async function loadPolicyAdmin(){const pass=policyAdminPassword();if(!pass)return;await fetch('/api/policies/current');const r=await fetch('/api/admin/policies',{headers:{'x-admin-password':pass}});const d=await r.json();if(!r.ok){alert(d.error||'Could not load policies');return;}const vs=d.versions||[];document.getElementById('policyAdminVersions').innerHTML=vs.map(v=>`<button class="btn" onclick="editPolicyAdminVersion('${escapeHtml(v.version)}')">${escapeHtml(v.version)} · ${v.status}${v.effective_date?' · '+new Date(v.effective_date).toLocaleDateString():''}</button>`).join('');document.getElementById('policyReportVersion').innerHTML=vs.map(v=>`<option value="${escapeHtml(v.version)}">${escapeHtml(v.version)} (${v.status})</option>`).join('');if(vs.length)loadPolicyAcknowledgements();}
+    async function editPolicyAdminVersion(version){const r=await fetch('/api/admin/policies',{headers:{'x-admin-password':policyAdminPassword()}});const d=await r.json();const v=(d.versions||[]).find(x=>x.version===version);if(!v)return;document.getElementById('policyAdminVersion').value=v.status==='published'?'':v.version;document.getElementById('policyAdminDate').value=v.effective_date?String(v.effective_date).slice(0,10):'';policyAdminSections=v.sections||[];renderPolicyAdminSections();}
+    async function savePolicyAdminDraft(){const body={version:document.getElementById('policyAdminVersion').value.trim(),effective_date:document.getElementById('policyAdminDate').value||null,sections:policyAdminSections};const r=await fetch('/api/admin/policies/draft',{method:'PUT',headers:{'Content-Type':'application/json','x-admin-password':policyAdminPassword()},body:JSON.stringify(body)});const d=await r.json();if(!r.ok){alert(d.error||'Could not save draft');return;}alert('Draft saved.');loadPolicyAdmin();}
+    async function publishPolicyAdminDraft(){const v=document.getElementById('policyAdminVersion').value.trim();if(!v)return alert('Enter a policy version.');if(!confirm(`Publish policy version ${v}? Parents will need to acknowledge it.`))return;const r=await fetch(`/api/admin/policies/${encodeURIComponent(v)}/publish`,{method:'POST',headers:{'x-admin-password':policyAdminPassword()}});const d=await r.json();if(!r.ok){alert(d.error||'Save this version as a draft first.');return;}alert('Policy published.');loadPolicyAdmin();}
+    async function loadPolicyAcknowledgements(){const v=document.getElementById('policyReportVersion').value;if(!v)return;const q=new URLSearchParams({version:v,search:document.getElementById('policyReportSearch').value});const r=await fetch('/api/admin/policies/acknowledgements?'+q,{headers:{'x-admin-password':policyAdminPassword()}});const rows=await r.json();if(!r.ok)return;document.getElementById('policyAcknowledgementRows').innerHTML=rows.map(x=>`<tr><td>${escapeHtml(x.parent_name||'')}<br>${escapeHtml(x.parent_email||'')}</td><td>${escapeHtml(x.student_name||'')}</td><td>${x.acknowledged_at?'Acknowledged':'Pending'}</td><td>${x.acknowledged_at?new Date(x.acknowledged_at).toLocaleString():'—'}</td></tr>`).join('');}
     function getLearningLabAdminPassword(forcePrompt = false) {
       let pass = sessionStorage.getItem('learningLabAdminPassword') || '';
       if (forcePrompt || !pass) {

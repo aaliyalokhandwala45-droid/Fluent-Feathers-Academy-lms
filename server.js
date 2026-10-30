@@ -1923,6 +1923,74 @@ function verifyParentAccess(req, res, next) {
   next();
 }
 
+// Parent policy endpoints use a signed, expiring session token issued only after login.
+function createParentSessionToken(email) {
+  const payload = `${String(email).trim().toLowerCase()}:${Date.now() + 30 * 24 * 60 * 60 * 1000}`;
+  const signature = crypto.createHmac('sha256', ADMIN_SECRET || 'development-parent-token-secret').update(payload).digest('hex');
+  return `${Buffer.from(payload).toString('base64url')}.${signature}`;
+}
+function getParentSessionEmail(req) {
+  try {
+    const [encoded, signature] = String(req.headers['x-parent-token'] || '').split('.');
+    const payload = Buffer.from(encoded || '', 'base64url').toString();
+    const expected = crypto.createHmac('sha256', ADMIN_SECRET || 'development-parent-token-secret').update(payload).digest('hex');
+    if (!signature || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+    const splitAt = payload.lastIndexOf(':');
+    const email = payload.slice(0, splitAt), expires = Number(payload.slice(splitAt + 1));
+    return email && expires > Date.now() ? email : null;
+  } catch (_) { return null; }
+}
+
+let policyTablesReady = false;
+let policyTablesPromise = null;
+async function ensurePolicyTables() {
+  if (policyTablesReady) return;
+  if (policyTablesPromise) return policyTablesPromise;
+  policyTablesPromise = (async () => {
+  await pool.query(`CREATE TABLE IF NOT EXISTS academy_policy_versions (
+    id SERIAL PRIMARY KEY, version TEXT NOT NULL UNIQUE, effective_date DATE, sections JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published')), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), published_at TIMESTAMPTZ
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS academy_policy_acknowledgements (
+    id BIGSERIAL PRIMARY KEY, parent_id INTEGER NOT NULL REFERENCES parent_credentials(id), student_id INTEGER NOT NULL REFERENCES students(id),
+    policy_version TEXT NOT NULL REFERENCES academy_policy_versions(version), acknowledged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(parent_id, student_id, policy_version)
+  )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_policy_ack_version ON academy_policy_acknowledgements(policy_version)');
+  const roles = await pool.query("SELECT rolname FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role')");
+  if (roles.rows.some(r => r.rolname === 'service_role')) {
+    for (const table of ['academy_policy_versions', 'academy_policy_acknowledgements']) {
+      await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+      await pool.query(`DROP POLICY IF EXISTS "Service role only" ON ${table}`);
+      await pool.query(`CREATE POLICY "Service role only" ON ${table} FOR ALL TO service_role USING (true) WITH CHECK (true)`);
+    }
+    await pool.query('GRANT SELECT, INSERT, UPDATE, DELETE ON academy_policy_versions, academy_policy_acknowledgements TO authenticated, anon');
+    await pool.query('GRANT ALL PRIVILEGES ON academy_policy_versions, academy_policy_acknowledgements TO service_role');
+    await pool.query('GRANT USAGE, SELECT ON SEQUENCE academy_policy_versions_id_seq, academy_policy_acknowledgements_id_seq TO authenticated, anon, service_role');
+  }
+  policyTablesReady = true;
+  })();
+  try { await policyTablesPromise; } catch (err) { policyTablesPromise = null; throw err; }
+}
+function requirePolicyAdmin(req, res, next) {
+  if (!ADMIN_PASSWORD || req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Admin authentication required' });
+  next();
+}
+const DEFAULT_POLICY_SECTIONS = [
+  { title:'Fixed Class Schedule', content:'Class days and timings are fixed and cannot be changed regularly. If your child is unavailable, please cancel the class through the portal. Rescheduling requests will not be accommodated except in exceptional circumstances.' },
+  { title:'Class Cancellation', content:'Please cancel the class or inform us at least 2–3 hours in advance. Late cancellations or no-shows will be treated as attended classes, and the session will be considered used.' },
+  { title:'Payment Policy', content:'The next package must be paid before the last scheduled class to secure your child\'s slot.\n\nOnce all sessions are completed without renewal, the slot will be considered vacant and may be allotted to another student.\n\nSince new session bookings are processed only in the morning or at night, please complete the payment at least one day in advance.\n\nBookings may take up to 24 hours to reflect on the portal. Last-minute booking requests cannot be accommodated.' },
+  { title:'Regular Attendance', content:'Frequent cancellations disrupt your child\'s progress. Continuous cancellation requests will not be considered.' },
+  { title:'Homework & Practice', content:'Students are expected to submit homework regularly through the portal.\n\nWe encourage all students to participate in the daily quizzes and challenges, as these activities significantly improve learning outcomes.' },
+  { title:'Package Validity', content:'Each package remains valid for a maximum of 3 months from the date of purchase.\n\nAny unused sessions after the validity period will be considered expired and marked as used.' }
+];
+app.get('/api/policies/current', async (req,res) => { try { await ensurePolicyTables(); let result=await pool.query("SELECT * FROM academy_policy_versions WHERE status='published' ORDER BY published_at DESC,id DESC LIMIT 1"); if(!result.rows[0]) { await pool.query("INSERT INTO academy_policy_versions(version,effective_date,sections,status,published_at) VALUES ('1.0',CURRENT_DATE,$1,'published',NOW()) ON CONFLICT(version) DO NOTHING",[JSON.stringify(DEFAULT_POLICY_SECTIONS)]); result=await pool.query("SELECT * FROM academy_policy_versions WHERE status='published' ORDER BY published_at DESC,id DESC LIMIT 1"); } res.json(result.rows[0]||null); } catch(e) {res.status(500).json({error:'Could not load policies'});} });
+app.get('/api/parent/policies/status', async (req,res) => { try { await ensurePolicyTables(); const email=getParentSessionEmail(req); if(!email) return res.status(401).json({error:'Please sign in again'}); const version=await pool.query("SELECT version FROM academy_policy_versions WHERE status='published' ORDER BY published_at DESC,id DESC LIMIT 1"); const parents=await pool.query('SELECT id FROM parent_credentials WHERE LOWER(parent_email)=LOWER($1)',[email]); if(!version.rows[0]||!parents.rows[0]) return res.json({acknowledgements:[]}); const rows=await pool.query('SELECT student_id,policy_version,acknowledged_at FROM academy_policy_acknowledgements WHERE parent_id=$1 AND policy_version=$2',[parents.rows[0].id,version.rows[0].version]); res.json({parent_id:parents.rows[0].id,version:version.rows[0].version,acknowledgements:rows.rows}); } catch(e){res.status(500).json({error:'Could not load acknowledgement status'});} });
+app.post('/api/parent/policies/acknowledge', async (req,res) => { try { await ensurePolicyTables(); const email=getParentSessionEmail(req); if(!email) return res.status(401).json({error:'Please sign in again'}); const studentId=Number(req.body.student_id); const version=String(req.body.version||''); const student=await pool.query('SELECT id FROM students WHERE id=$1 AND LOWER(parent_email)=LOWER($2) AND is_active=true',[studentId,email]); if(!student.rows[0]) return res.status(403).json({error:'Student does not belong to this parent'}); const parent=await pool.query('SELECT id FROM parent_credentials WHERE LOWER(parent_email)=LOWER($1)',[email]); const active=await pool.query("SELECT version FROM academy_policy_versions WHERE status='published' ORDER BY published_at DESC,id DESC LIMIT 1"); if(!parent.rows[0]||active.rows[0]?.version!==version) return res.status(409).json({error:'Policy version changed. Refresh and review the current policy.'}); const saved=await pool.query('INSERT INTO academy_policy_acknowledgements(parent_id,student_id,policy_version) VALUES($1,$2,$3) ON CONFLICT(parent_id,student_id,policy_version) DO UPDATE SET policy_version=EXCLUDED.policy_version RETURNING acknowledged_at',[parent.rows[0].id,studentId,version]); res.json({success:true,acknowledged_at:saved.rows[0].acknowledged_at}); } catch(e){res.status(500).json({error:'Could not save acknowledgement'});} });
+app.get('/api/admin/policies', requirePolicyAdmin, async (req,res)=>{ try {await ensurePolicyTables(); const versions=await pool.query('SELECT * FROM academy_policy_versions ORDER BY id DESC'); res.json({versions:versions.rows});}catch(e){res.status(500).json({error:'Could not load policy history'});} });
+app.put('/api/admin/policies/draft', requirePolicyAdmin, async(req,res)=>{ try {await ensurePolicyTables(); const {version,effective_date,sections}=req.body; if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(String(version||''))||!Array.isArray(sections)||sections.length<1||sections.some(s=>!String(s.title||'').trim()||!String(s.content||'').trim())) return res.status(400).json({error:'Enter a valid version and ensure every section has a title and policy text'}); const saved=await pool.query("INSERT INTO academy_policy_versions(version,effective_date,sections,status) VALUES($1,$2,$3,'draft') ON CONFLICT(version) DO UPDATE SET effective_date=EXCLUDED.effective_date,sections=EXCLUDED.sections WHERE academy_policy_versions.status='draft' RETURNING *",[version,effective_date||null,JSON.stringify(sections)]); if(!saved.rows[0])return res.status(409).json({error:'Published versions are immutable; choose a new version'}); res.json(saved.rows[0]);}catch(e){res.status(500).json({error:'Could not save draft'});} });
+app.post('/api/admin/policies/:version/publish', requirePolicyAdmin, async(req,res)=>{ try {await ensurePolicyTables(); const r=await pool.query("UPDATE academy_policy_versions SET status='published',published_at=NOW() WHERE version=$1 AND status='draft' RETURNING *",[req.params.version]); if(!r.rows[0])return res.status(404).json({error:'Draft version not found'}); res.json(r.rows[0]);}catch(e){res.status(500).json({error:'Could not publish policy'});} });
+app.get('/api/admin/policies/acknowledgements', requirePolicyAdmin, async(req,res)=>{ try {await ensurePolicyTables(); const version=String(req.query.version||''); const r=await pool.query(`SELECT s.id student_id,s.name student_name,s.parent_name,s.parent_email,a.acknowledged_at FROM students s LEFT JOIN parent_credentials pc ON LOWER(pc.parent_email)=LOWER(s.parent_email) LEFT JOIN academy_policy_acknowledgements a ON a.parent_id=pc.id AND a.student_id=s.id AND a.policy_version=$1 WHERE s.is_active=true AND ($2='' OR s.name ILIKE '%'||$2||'%' OR s.parent_name ILIKE '%'||$2||'%') ORDER BY s.parent_name,s.name`,[version,String(req.query.search||'')]); res.json(r.rows);}catch(e){res.status(500).json({error:'Could not load acknowledgement report'});} });
+
 app.use('/api/parent', verifyParentAccess);
 app.use('/api/sessions', verifyParentAccess);
 app.use('/api/upload', verifyParentAccess);
@@ -17620,7 +17688,7 @@ app.post('/api/parent/setup-password', async (req, res) => {
     const students = await getParentPortalStudentsByEmail(parentEmail);
     const h = await bcrypt.hash(req.body.password, 10);
     await pool.query(`INSERT INTO parent_credentials (parent_email, password) VALUES ($1, $2) ON CONFLICT(parent_email) DO UPDATE SET password = $2`, [parentEmail, h]);
-    res.json({ students });
+    res.json({ students, parentToken: createParentSessionToken(parentEmail) });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
@@ -17634,7 +17702,7 @@ app.post('/api/parent/login-password', async (req, res) => {
       return res.status(401).json({ error: 'Incorrect password' });
     }
     const students = await getParentPortalStudentsByEmail(parentEmail);
-    res.json({ students });
+    res.json({ students, parentToken: createParentSessionToken(parentEmail) });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
@@ -17698,7 +17766,7 @@ app.post('/api/parent/verify-otp', async (req, res) => {
     }
     const students = await getParentPortalStudentsByEmail(parentEmail);
     await pool.query('UPDATE parent_credentials SET otp = NULL, otp_expiry = NULL, otp_attempts = 0 WHERE LOWER(parent_email) = LOWER($1)', [parentEmail]);
-    res.json({ students });
+    res.json({ students, parentToken: createParentSessionToken(parentEmail) });
   } catch(e) {
     res.status(500).json({error:e.message});
   }
