@@ -5187,6 +5187,7 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
         <a href="${websiteLink}" target="_blank" style="display:inline-block;color:#B05D9E;font-size:14px;font-weight:700;text-decoration:none;">
           Visit Our Website: Fluent Feathers Academy
         </a>
+        <div style="color:#718096;font-size:12px;margin-top:6px;">Made with &#10084;&#65039; By Aaliya</div>
       </div>
     `;
     if (typeof finalHtml === 'string' && !finalHtml.includes(websiteLink)) {
