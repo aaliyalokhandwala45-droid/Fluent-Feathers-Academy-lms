@@ -17162,7 +17162,7 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
   try {
     await ensureStudentActivityLogsTable();
-    const [recorded, sessions, payments, credits] = await Promise.all([
+    const [recorded, sessions, payments, renewals, credits] = await Promise.all([
       pool.query(`SELECT * FROM student_activity_logs WHERE student_id = $1 ORDER BY created_at DESC, id DESC LIMIT 200`, [id]),
       pool.query(`
         SELECT s.id, s.session_type, s.session_date, s.session_time, s.status, s.created_at,
@@ -17177,6 +17177,10 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
       pool.query(`
         SELECT id, payment_date, amount, currency, payment_method, receipt_number, sessions_covered, notes
         FROM payment_history WHERE student_id = $1 ORDER BY payment_date DESC, id DESC LIMIT 200
+      `, [id]),
+      pool.query(`
+        SELECT id, renewal_date, amount, currency, payment_method, sessions_added, notes
+        FROM payment_renewals WHERE student_id = $1 ORDER BY renewal_date DESC, id DESC LIMIT 200
       `, [id]),
       pool.query(`
         SELECT m.id, m.reason, m.credit_date, m.status, m.used_date, m.scheduled_date,
@@ -17218,6 +17222,13 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
         id: `payment-${p.id}`, action_type: 'payment', title: 'Payment recorded',
         details: `${p.currency || ''} ${p.amount}${p.payment_method ? ` via ${p.payment_method}` : ''}${p.sessions_covered ? `; ${p.sessions_covered} sessions` : ''}${p.notes ? `; ${p.notes}` : ''}`,
         metadata: { receipt_number: p.receipt_number }, created_at: p.payment_date
+      });
+    }
+    for (const p of renewals.rows) {
+      logs.push({
+        id: `renewal-${p.id}`, action_type: 'payment', title: 'Payment renewal recorded',
+        details: `${p.currency || ''} ${p.amount}${p.payment_method ? ` via ${p.payment_method}` : ''}${p.sessions_added ? `; ${p.sessions_added} sessions added` : ''}${p.notes ? `; ${p.notes}` : ''}`,
+        metadata: { renewal_id: p.id }, created_at: p.renewal_date
       });
     }
     for (const c of credits.rows) {
