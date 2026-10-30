@@ -814,49 +814,6 @@
         </div>
       </div>
 
-      <!-- Compact Badge Summary Strip -->
-      <div id="badgeSummaryStrip" class="badge-summary-strip" onclick="showTab('achievements')" style="cursor: pointer;">
-        <div class="badge-summary-inner">
-          <div class="badge-summary-left">
-            <div class="badge-summary-icon"></div>
-            <div class="badge-summary-info">
-              <span class="badge-summary-count"><span id="badgeCountNum">0</span> Badges Earned</span>
-              <span class="badge-summary-latest" id="badgeLatestText">Keep learning to earn badges!</span>
-            </div>
-          </div>
-          <div class="badge-summary-right">
-            <button onclick="event.stopPropagation(); openLeaderboardModal()" class="badge-summary-btn leaderboard-btn"> Leaderboard</button>
-            <button onclick="event.stopPropagation(); showTab('achievements')" class="badge-summary-btn view-all-btn">View All </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Class Points Strip -->
-      <div id="classPointsStrip" style="background:linear-gradient(135deg,#fef9c3,#fde68a);border:1.5px solid #fbbf24;border-radius:12px;padding:11px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 2px 8px rgba(245,200,66,0.25);" onclick="showTab('pointsTracker')">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="font-size:24px;"></div>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:#92400e;"><span id="classPointsTotal">0</span> Class Points</div>
-            <div style="font-size:11px;color:#b45309;" id="classPointsNext">Earn points in live classes!</div>
-          </div>
-        </div>
-        <button onclick="event.stopPropagation();showTab('pointsTracker')" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">View </button>
-      </div>
-
-      <!-- Challenge Summary Strip -->
-      <div id="challengeSummaryStrip" class="challenge-summary-strip" onclick="showTab('challenges')">
-        <div class="challenge-summary-inner">
-          <div class="challenge-summary-left">
-            <div class="challenge-summary-icon"></div>
-            <div class="challenge-summary-info">
-              <span class="challenge-summary-title" id="challengeSummaryTitle">Weekly Challenge</span>
-              <span class="challenge-summary-detail" id="challengeSummaryDetail">Loading...</span>
-            </div>
-          </div>
-          <button onclick="event.stopPropagation(); showTab('challenges')" class="challenge-summary-btn">View Challenge </button>
-        </div>
-      </div>
-
       <div class="tabs">
         <div class="parent-sidebar-brand"><img id="parentSidebarLogo" src="/app-icon.png" alt="Fluent Feathers Academy logo"><div><strong>Fluent Feathers</strong><span>Parent Portal</span></div></div>
         <button class="tab-btn active" onclick="showTab('upcoming', event)">&#128197; Upcoming</button>
@@ -873,7 +830,7 @@
         <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">&#128179; Payments<span class="red-dot" id="dotPayments"></span></button>
         <button class="tab-btn" onclick="showTab('activityLog', event)">&#128366; Activity Log</button>
         <button class="tab-btn" onclick="showTab('profile', event)">&#128100; Profile / Expectations</button>
-        <button class="tab-btn" onclick="showTab('policies', event)">Policies &amp; Guidelines</button>
+        <button class="tab-btn" onclick="showTab('policies', event)">&#128203; Policies &amp; Guidelines</button>
       </div>
       <div class="parent-sidebar-overlay" onclick="toggleParentSidebar(false)"></div>
 
@@ -4160,7 +4117,9 @@ setTimeout(() => {
       document.getElementById('policyAckModalSections').innerHTML = document.getElementById('policySections').innerHTML;
       if (!token) return; const sr=await fetch('/api/parent/policies/status',{headers:{'x-parent-token':token}}); if(!sr.ok)return; const st=await sr.json();
       const ack=(st.acknowledgements||[]).find(a=>Number(a.student_id)===Number(currentStudent?.id)&&a.policy_version===activePolicy.version); const box=document.getElementById('policyAcknowledgeBox');
-      if(ack){document.getElementById('policyAckStatus').textContent=`Acknowledged ${new Date(ack.acknowledged_at).toLocaleString()}`;box.style.display='none';}else{document.getElementById('policyAckStatus').textContent='';box.style.display='block';const popupKey=`${currentStudent?.id}:${activePolicy.version}`;if(popupKey!==policyPopupShownFor&&currentStudent){policyPopupShownFor=popupKey;showTab('policies');document.getElementById('policyAckModal').style.display='flex';}}
+      if(ack){document.getElementById('policyAckStatus').textContent=`Previously acknowledged ${new Date(ack.acknowledged_at).toLocaleString()}`;box.style.display='none';}else{document.getElementById('policyAckStatus').textContent='';box.style.display='block';}
+      const popupKey=String(currentStudent?.id||'');
+      if(!ack&&popupKey&&popupKey!==policyPopupShownFor){policyPopupShownFor=popupKey;showTab('policies');document.getElementById('policyAckModalCheckbox').checked=false;document.getElementById('policyAckModal').style.display='flex';}
     }
     async function acknowledgeCurrentPolicy(fromModal=false){const checkbox=document.getElementById(fromModal?'policyAckModalCheckbox':'policyAckCheckbox');if(!checkbox.checked){alert('Please tick the checkbox to acknowledge the policies.');return;}if(!activePolicy||!currentStudent)return;const r=await fetch('/api/parent/policies/acknowledge',{method:'POST',headers:{'Content-Type':'application/json','x-parent-token':localStorage.getItem('parentPolicyToken')||''},body:JSON.stringify({student_id:currentStudent.id,version:activePolicy.version})});const d=await r.json();if(!r.ok){alert(d.error||'Could not save acknowledgement');return;}document.getElementById('policyAckModal').style.display='none';document.getElementById('policyAckCheckbox').checked=false;document.getElementById('policyAckModalCheckbox').checked=false;await loadParentPolicies();}
     function showDashboard() {
@@ -4173,10 +4132,9 @@ setTimeout(() => {
 
       // Load critical data immediately
       loadMakeupCredits();
-      loadBadges(); // Also updates badge summary strip
+      loadBadges();
       loadClassPoints();
       loadScoreHistory();
-      loadChallengeSummary(); // Updates challenge strip on front page
       loadUpcoming();
       checkForFeedback();
 
@@ -4512,7 +4470,8 @@ setTimeout(() => {
         const container = document.getElementById('badgesContainer');
 
         // Update total count in summary strip and tab
-        document.getElementById('badgeCountNum').textContent = badges.length;
+        const summaryCount = document.getElementById('badgeCountNum');
+        if (summaryCount) summaryCount.textContent = badges.length;
         const tabCount = document.getElementById('badgeCountNumTab');
         if (tabCount) tabCount.textContent = badges.length;
 
