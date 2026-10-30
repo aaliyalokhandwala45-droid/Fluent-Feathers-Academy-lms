@@ -337,14 +337,14 @@
     /* ==================== MOBILE RESPONSIVE STYLES ==================== */
     @media screen and (max-width: 768px) {
       .container.parent-dashboard-open { padding:12px; }
-      .parent-dashboard-open .tabs { width:min(280px,calc(100vw - 48px)); left:calc(-1 * min(280px,calc(100vw - 48px)) - 16px); padding:max(20px,env(safe-area-inset-top)) 10px max(20px,env(safe-area-inset-bottom)); transition:left .3s ease,box-shadow .3s ease; box-shadow:none; }
+      .parent-dashboard-open .tabs { top:0; bottom:0; left:-300px; width:min(280px,calc(100vw - 32px)); max-width:calc(100vw - 32px); height:100dvh; padding:max(20px,env(safe-area-inset-top)) 10px max(20px,env(safe-area-inset-bottom)); transition:left .3s ease,box-shadow .3s ease; box-shadow:none; }
       .parent-dashboard-open.sidebar-open .tabs { left:0; box-shadow:18px 0 40px rgba(0,0,0,.22); }
       .parent-dashboard-open.sidebar-open .parent-sidebar-overlay { display:block; position:fixed; inset:0; z-index:99; background:rgba(17,24,39,.45); }
       .parent-sidebar-toggle { display:inline-block; background:#B05D9E; color:#fff; border:0; border-radius:7px; padding:7px 10px; font-size:20px; line-height:1; cursor:pointer; }
-      #dashboardSection > header { flex-wrap:wrap; align-items:center; gap:10px; padding:14px; }
-      #dashboardSection > header > div:first-of-type { flex:1; min-width:0; gap:9px !important; }
+      #dashboardSection > header { flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; text-align:left; gap:10px; padding:14px; }
+      #dashboardSection > header > div:first-of-type { flex:1; min-width:0; gap:9px !important; justify-content:flex-start !important; }
       #dashboardSection > header > div:first-of-type h1 { font-size:1rem !important; }
-      #dashboardSection > header > div:nth-of-type(2) { width:100%; display:flex !important; flex-wrap:wrap; justify-content:flex-start; gap:7px !important; }
+      #dashboardSection > header > div:nth-of-type(2) { width:100%; display:flex !important; flex-wrap:wrap; justify-content:flex-start !important; gap:7px !important; }
       .container { padding: 10px; }
       header { padding: 15px; flex-direction: column; gap: 10px; text-align: center; }
       header h1 { font-size: 18px; }
