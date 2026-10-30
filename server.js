@@ -15085,6 +15085,7 @@ app.post('/api/sessions/:sessionId/group-attendance', async (req, res) => {
 // Reschedule a session (private or group)
 app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
   const { new_date, new_time, reason } = req.body;
+  const adminTimezone = normalizeTimezone(req.body.timezone) || 'Asia/Kolkata';
   const sessionId = req.params.sessionId;
 
   if (!new_date || !new_time) {
@@ -15105,7 +15106,7 @@ app.post('/api/sessions/:sessionId/reschedule', async (req, res) => {
     const oldTime = session.session_time;
 
     // Convert to UTC if needed
-    const converted = istToUTC(new_date, new_time);
+    const converted = istToUTC(new_date, new_time, adminTimezone);
 
     // Update the session with new date and time
     await client.query(`
@@ -17162,7 +17163,8 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
   const id = req.adminStudentId || req.params.studentId;
   try {
     await ensureStudentActivityLogsTable();
-    const [recorded, sessions, payments, renewals, credits] = await Promise.all([
+    const [studentResult, recorded, sessions, payments, renewals, credits] = await Promise.all([
+      pool.query(`SELECT COALESCE(NULLIF(parent_timezone, ''), NULLIF(timezone, ''), 'Asia/Kolkata') AS parent_timezone FROM students WHERE id = $1`, [id]),
       pool.query(`SELECT * FROM student_activity_logs WHERE student_id = $1 ORDER BY created_at DESC, id DESC LIMIT 200`, [id]),
       pool.query(`
         SELECT s.id, s.session_type, s.session_date, s.session_time, s.status, s.created_at,
@@ -17194,13 +17196,46 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
         ORDER BY m.created_at DESC, m.id DESC LIMIT 200
       `, [id])
     ]);
+    const parentTimezone = normalizeTimezone(studentResult.rows[0]?.parent_timezone || 'Asia/Kolkata');
 
+    const localizeDateTime = (date, time) => {
+      if (!date || !time) return null;
+      const local = formatUTCToLocal(date, time, parentTimezone);
+      return { date: local.date, time: local.time };
+    };
     const logs = recorded.rows
       // The domain tables below are the source of truth for these event types,
       // including records created before activity logging was introduced.
-      .filter(row => !['schedule', 'payment', 'makeup_schedule'].includes(row.action_type));
+      .filter(row => !['schedule', 'payment', 'makeup_schedule'].includes(row.action_type))
+      .map(row => {
+        const metadata = row.metadata && typeof row.metadata === 'object' ? { ...row.metadata } : {};
+        let details = row.details || '';
+        const type = String(row.action_type || '').toLowerCase();
+        if (type === 'reschedule' && metadata.old_date && metadata.old_time && metadata.new_date && metadata.new_time) {
+          const oldLocal = localizeDateTime(metadata.old_date, metadata.old_time);
+          const newLocal = localizeDateTime(metadata.new_date, metadata.new_time);
+          details = `Session ${metadata.session_id || ''} moved from ${oldLocal.date} ${oldLocal.time} to ${newLocal.date} ${newLocal.time}.${metadata.reason ? ` ${metadata.reason}` : ''}`.trim();
+          metadata.old_date = oldLocal.date;
+          metadata.old_time = oldLocal.time;
+          metadata.new_date = newLocal.date;
+          metadata.new_time = newLocal.time;
+        } else if (type === 'makeup_schedule' && metadata.session_date && metadata.session_time) {
+          const local = localizeDateTime(metadata.session_date, metadata.session_time);
+          details = `Makeup credit scheduled for ${local.date} ${local.time}.`;
+          metadata.session_date = local.date;
+          metadata.session_time = local.time;
+        } else if (['cancel', 'cancellation'].includes(type) && metadata.session_id) {
+          const cancelledSession = sessions.rows.find(session => Number(session.id) === Number(metadata.session_id));
+          if (cancelledSession) {
+            const local = localizeDateTime(cancelledSession.session_date, cancelledSession.session_time || '00:00:00');
+            details = `${details}${details ? '; ' : ''}Class was scheduled for ${local.date}${cancelledSession.session_time ? ` at ${local.time}` : ''}.`;
+          }
+        }
+        return { ...row, details, metadata };
+      });
 
     for (const s of sessions.rows) {
+      const localClassTime = formatUTCToLocal(s.session_date, s.session_time || '00:00:00', parentTimezone);
       const isCancelled = ['cancelled', 'cancelled by parent'].includes(String(s.status || '').toLowerCase());
       const hasCancellationLog = recorded.rows.some(row =>
         ['cancel', 'cancellation'].includes(String(row.action_type || '').toLowerCase()) &&
@@ -17212,8 +17247,8 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
         id: `session-${s.id}`,
         action_type: isCancelled ? 'cancel' : isCompleted ? 'class' : 'schedule',
         title: isCancelled ? 'Class cancelled' : isCompleted ? 'Class attended' : 'Class scheduled',
-        details: `${s.session_type || 'Class'} class on ${s.session_date}${s.session_time ? ` at ${String(s.session_time).slice(0, 5)}` : ''}${s.cancelled_by ? `; cancelled by ${s.cancelled_by}` : ''}${s.teacher_notes ? `; ${s.teacher_notes}` : ''}`,
-        metadata: { session_id: s.id, session_date: s.session_date, status: s.status },
+        details: `${s.session_type || 'Class'} class on ${localClassTime.date}${s.session_time ? ` at ${localClassTime.time}` : ''}${s.cancelled_by ? `; cancelled by ${s.cancelled_by}` : ''}${s.teacher_notes ? `; ${s.teacher_notes}` : ''}`,
+        metadata: { session_id: s.id, class_date: localClassTime.date, class_time: s.session_time ? localClassTime.time : null, status: s.status },
         created_at: s.created_at || s.session_date
       });
     }
@@ -17232,9 +17267,13 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
       });
     }
     for (const c of credits.rows) {
+      const originalClassTime = c.original_class_date ? formatUTCToLocal(c.original_class_date, '00:00:00', parentTimezone) : null;
+      const makeupClassTime = c.makeup_session_date
+        ? formatUTCToLocal(c.makeup_session_date, c.makeup_session_time || '00:00:00', parentTimezone)
+        : null;
       logs.push({
         id: `makeup-${c.id}`, action_type: 'makeup_credit', title: `Makeup credit ${c.status || 'recorded'}`,
-        details: `${c.reason || 'Makeup credit'}${c.original_class_date ? `; original class date: ${c.original_class_date}` : ''}${c.makeup_session_date ? `; makeup class booked for ${c.makeup_session_date}${c.makeup_session_time ? ` at ${String(c.makeup_session_time).slice(0, 5)}` : ''}` : ''}`,
+        details: `${c.reason || 'Makeup credit'}${originalClassTime ? `; original class date: ${originalClassTime.date}` : ''}${makeupClassTime ? `; makeup class booked for ${makeupClassTime.date}${c.makeup_session_time ? ` at ${makeupClassTime.time}` : ''}` : ''}`,
         metadata: { status: c.status, added_by: c.added_by, credit_date: c.credit_date, used_date: c.used_date },
         created_at: c.created_at || c.credit_date
       });
@@ -25795,6 +25834,7 @@ process.on('SIGINT', async () => {
 });
 app.post('/api/sessions/bulk-reschedule', async (req, res) => {
   const { sessions } = req.body;
+  const adminTimezone = normalizeTimezone(req.body.timezone) || 'Asia/Kolkata';
   // sessions = [{ session_id, new_date, new_time }]
   const client = await pool.connect();
   try {
@@ -25815,7 +25855,7 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
       }
 
       // Convert to UTC
-      const utc = istToUTC(s.new_date, s.new_time);
+      const utc = istToUTC(s.new_date, s.new_time, adminTimezone);
 
       // Save old date, update new
       await client.query(`
@@ -25904,6 +25944,7 @@ app.post('/api/sessions/bulk-reschedule', async (req, res) => {
 });
 app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
   const { sessions, send_email } = req.body;
+  const adminTimezone = normalizeTimezone(req.body.timezone) || 'Asia/Kolkata';
   const client = await pool.connect();
   try {
     const formatEmailDate = (rawDate) => {
@@ -25942,7 +25983,7 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
         affectedGroups.add(String(old.rows[0].group_id));
       }
 
-      const utc = istToUTC(s.new_date, s.new_time);
+      const utc = istToUTC(s.new_date, s.new_time, adminTimezone);
       await client.query(`
         UPDATE sessions SET
           session_date = $1,
@@ -25981,8 +26022,8 @@ app.post('/api/sessions/bulk-reschedule-group', async (req, res) => {
 
         const sessionRows = sessions.map(s => {
           const local = formatUTCToLocal(
-            istToUTC(s.new_date, s.new_time).date,
-            istToUTC(s.new_date, s.new_time).time,
+            istToUTC(s.new_date, s.new_time, adminTimezone).date,
+            istToUTC(s.new_date, s.new_time, adminTimezone).time,
             student.parent_timezone || student.timezone || 'Asia/Kolkata'
           );
           const timezoneLabel = getTimezoneLabel(student.parent_timezone || student.timezone || 'Asia/Kolkata');

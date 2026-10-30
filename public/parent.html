@@ -872,7 +872,7 @@
       <div id="activityLogTab" class="tab-content">
         <div class="section">
           <h2 style="color: #B05D9E; margin-bottom: 8px;"> Activity Log</h2>
-          <p style="color: #718096; margin-bottom: 18px;">Full record of payments, class schedules, cancellations, reschedules, and makeup credit activity for this student.</p>
+          <p style="color: #718096; margin-bottom: 18px;">Full record of payments, class schedules, cancellations, reschedules, and makeup credit activity for <span id="activityLogStudentName">this student</span>.</p>
           <div id="activityLogContainer">
             <p style="text-align: center; color: #718096;">Loading activity log...</p>
           </div>
@@ -6448,6 +6448,9 @@ setTimeout(() => {
     }
 
     async function loadActivityLog() {
+      const studentName = currentStudent?.name || currentStudent?.student_name || 'this student';
+      const studentNameEl = document.getElementById('activityLogStudentName');
+      if (studentNameEl) studentNameEl.textContent = studentName;
       try {
         const res = await fetch(`/api/students/${currentStudent.id}/activity-logs?all=1`, { headers: authHeaders() });
         if (!res.ok) throw new Error('Unable to load activity log');
@@ -6461,8 +6464,9 @@ setTimeout(() => {
 
         const formatDate = (value) => {
           if (!value) return 'N/A';
+          if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
           const d = new Date(value);
-          return isNaN(d.getTime()) ? String(value) : d.toLocaleString();
+          return isNaN(d.getTime()) ? String(value) : d.toLocaleString(undefined, { timeZone: getPortalTimezone() });
         };
 
         const actionColors = {

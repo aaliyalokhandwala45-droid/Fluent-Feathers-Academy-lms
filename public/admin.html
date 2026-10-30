@@ -1332,7 +1332,7 @@
         <p id="pastSessionsCount" style="color: #718096; font-size: 13px; margin-bottom: 10px;">Showing 10 recent sessions</p>
         <div class="table-responsive">
         <table id="pastSessionsTable">
-          <thead><tr><th>Date (IST)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Date (local)</th><th>Student/Group</th><th>Type</th><th>Session #</th><th>Attendance</th><th>Materials</th><th>Feedback</th><th>Actions</th></tr></thead>
           <tbody id="pastSessionsBody"><tr><td colspan="8">Loading...</td></tr></tbody>
         </table>
         </div>
@@ -1484,7 +1484,7 @@
         </div>
         <button type="submit" class="btn btn-primary">Create Event</button>
       </form></div>
-      <div class="section"><h2>📋 All Events</h2><div class="table-responsive"><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date (IST)</th><th>Time (IST)</th><th>Duration</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div></div>
+      <div class="section"><h2>📋 All Events</h2><div class="table-responsive"><table id="eventsTable"><thead><tr><th>Event Name</th><th>Date (local)</th><th>Time (local)</th><th>Duration</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsBody"><tr><td colspan="7">Loading...</td></tr></tbody></table></div></div>
     </div>
 
     <!-- Class Ratings Tab -->
@@ -2635,6 +2635,14 @@ Answer: B" style="width:100%; min-height:220px; padding:12px; border:1px solid #
             </div>
           </div>
 
+          <div id="assessmentHistoryPanel" style="margin: 8px 0 22px; padding: 16px; background: #f8fafc; border: 1px solid #dbe3ee; border-radius: 12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+              <h3 style="margin:0; color:#334155; font-size:16px;">Student Assessment History</h3>
+              <span id="assessmentHistoryCount" style="color:#64748b; font-size:12px;"></span>
+            </div>
+            <div id="assessmentHistoryContent" style="color:#718096; font-size:13px;">Select a student to see previous report cards and certificates.</div>
+          </div>
+
           <!-- Demo Assessment Fields (hidden by default) -->
           <div id="demoFields" class="form-row" style="display: none;">
             <div class="form-group"><label>Demo Lead *</label>
@@ -3472,7 +3480,7 @@ I'm passionate about helping children develop confidence in communication!"></te
             <input type="date" id="rescheduleDate" required>
           </div>
           <div class="form-group">
-            <label>New Time (IST) *</label>
+            <label>New Time (your timezone) *</label>
             <input type="time" id="rescheduleTime" required>
           </div>
         </div>
@@ -5155,8 +5163,34 @@ I'm passionate about helping children develop confidence in communication!"></te
       if(tabName === 'modalBadges') loadModalBadges();
     }
 
-    // Admin always sees IST timezone
-    function formatSessionTime(session, forceIST = true) {
+    function getAdminTimezone() {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+      } catch (e) {
+        return 'Asia/Kolkata';
+      }
+    }
+
+    function getAdminTimezoneLabel() {
+      return new Intl.DateTimeFormat('en-US', { timeZone: getAdminTimezone(), timeZoneName: 'short' })
+        .formatToParts(new Date()).find(part => part.type === 'timeZoneName')?.value || getAdminTimezone();
+    }
+
+    function getAdminLocalSessionParts(session) {
+      if (!session?.session_date || !session?.session_time) return null;
+      const dateStr = String(session.session_date).includes('T') ? String(session.session_date).split('T')[0] : String(session.session_date).slice(0, 10);
+      let timeStr = String(session.session_time).trim();
+      if (timeStr.length === 5) timeStr += ':00';
+      const date = new Date(`${dateStr}T${timeStr}Z`);
+      if (isNaN(date.getTime())) return null;
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: getAdminTimezone(), year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+      }).formatToParts(date).reduce((result, part) => (result[part.type] = part.value, result), {});
+      return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+    }
+
+    function formatSessionTime(session) {
       try {
         if (!session.session_date || !session.session_time) return 'Invalid Date';
         const dateStr = session.session_date.includes('T') ? session.session_date.split('T')[0] : session.session_date;
@@ -5165,9 +5199,8 @@ I'm passionate about helping children develop confidence in communication!"></te
         const isoString = `${dateStr}T${timeStr}Z`;
         const d = new Date(isoString);
         if (isNaN(d.getTime())) return 'Invalid Date';
-        // Admin dashboard always shows IST
         return d.toLocaleString('en-US', {
-          timeZone: 'Asia/Kolkata',
+          timeZone: getAdminTimezone(),
           month: 'short',
           day: 'numeric',
           hour: 'numeric',
@@ -5355,9 +5388,9 @@ I'm passionate about helping children develop confidence in communication!"></te
 
     function renderUpcomingClassCards(classes) {
       return classes.map(cls => {
-        const dateStr = cls.session_date.includes('T') ? cls.session_date.split('T')[0] : cls.session_date;
-        const d = new Date(dateStr + 'T00:00:00');
-        const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+        const localParts = getAdminLocalSessionParts(cls);
+        const d = new Date(`${localParts?.date || cls.session_date}T12:00:00`);
+        const dayName = d.toLocaleDateString('en-US', { weekday: 'long', timeZone: getAdminTimezone() });
 
         const isDemo = cls.session_type === 'Demo';
         const cardClass = isDemo ? 'class-card class-card-demo' : 'class-card';
@@ -5440,7 +5473,7 @@ I'm passionate about helping children develop confidence in communication!"></te
         <h3>${cls.student_name}${typeLabel}</h3>
         <p>📚 ${cls.class_info || 'N/A'}</p>
         ${!isDemo && !isGroup ? `<div style="display:flex; flex-wrap:wrap; gap:5px; margin:7px 0 6px;">${renderBalanceChips(cls)}</div>` : ''}
-        <p>📅 ${dayName}, ${formatSessionTime(cls)} (IST)</p>
+        <p>📅 ${dayName}, ${formatSessionTime(cls)} (${getAdminTimezoneLabel()})</p>
         <p>🌍 ${isDemo ? 'Demo Class' : 'Student TZ: ' + cls.timezone}</p>
         ${lastTopicHtml}
         ${studentsHtml}
@@ -8583,16 +8616,16 @@ if (dueEl) {
       document.getElementById('rescheduleSessionId').value = session.id;
 
       // Set minimum date to today
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: getAdminTimezone(), year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       document.getElementById('rescheduleDate').min = today;
 
       // Format current date/time for display
       let currentDateTime = 'Unknown';
       try {
-        const dateStr = session.current_date.includes('T') ? session.current_date.split('T')[0] : session.current_date;
-        const d = new Date(dateStr + 'T' + session.current_time + 'Z');
+        const dateStr = String(session.current_date).includes('T') ? String(session.current_date).split('T')[0] : String(session.current_date).slice(0, 10);
+        const d = new Date(`${dateStr}T${session.current_time}Z`);
         currentDateTime = d.toLocaleString('en-US', {
-          timeZone: 'Asia/Kolkata',
+          timeZone: getAdminTimezone(),
           weekday: 'long',
           year: 'numeric',
           month: 'long',
@@ -8633,7 +8666,7 @@ if (dueEl) {
 
       const confirmMsg = 'Are you sure you want to reschedule this class?\n\n' +
         'New Date: ' + newDate + '\n' +
-        'New Time: ' + newTime + ' (IST)\n\n' +
+        'New Time: ' + newTime + ' (' + getAdminTimezoneLabel() + ')\n\n' +
         'Parents will be notified via email.';
 
       if (!confirm(confirmMsg)) return;
@@ -8645,6 +8678,7 @@ if (dueEl) {
           body: JSON.stringify({
             new_date: newDate,
             new_time: newTime,
+            timezone: getAdminTimezone(),
             reason: reason
           })
         });
@@ -9329,7 +9363,9 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         }
 
         studentsList.innerHTML = matches.map(slot => {
-          const dateLabel = new Date(slot.session_date).toLocaleDateString();
+          const localSlot = getAdminLocalSessionParts(slot);
+          const dateLabel = localSlot?.date || slot.session_date;
+          slot.session_time = localSlot?.time || slot.session_time;
           const studentBadges = slot.students.map(st => {
           const sessionNumberText = getAdminSessionNumber(st);
           return `
@@ -9351,6 +9387,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
               <div>
                 <h4 style="margin: 0; color: #4a5568;">🕒 ${dateLabel} at ${slot.session_time}</h4>
                 <div style="font-size: 0.85rem; color: #718096; margin-top: 5px;">
+                  Local timezone: ${getAdminTimezoneLabel()}<br>
                   ${slotSummary}
                 </div>
               </div>
@@ -9624,11 +9661,14 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         document.getElementById('calendarMonthYear').textContent = `${monthNames[month]} ${year}`;
 
-        // Fetch all sessions for this month
-        // Use local date formatting to avoid timezone issues with toISOString()
+        // Fetch a small UTC buffer around the local month so timezone-shifted
+        // sessions at either month edge are still available for local rendering.
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+        const startLocal = new Date(year, month, -1);
+        const endLocal = new Date(year, month, daysInMonth + 2);
+        const dateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const startDate = dateKey(startLocal);
+        const endDate = dateKey(endLocal);
 
         const res = await fetch(`/api/calendar/sessions?start=${startDate}&end=${endDate}`);
         calendarSessions = await res.json();
@@ -9639,26 +9679,10 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       }
     }
 
-    // Convert UTC time to IST (UTC+5:30)
-    function utcToIST(timeStr) {
+    function utcToAdminTime(timeStr, dateStr) {
       if (!timeStr) return '';
-      try {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        let istHours = hours + 5;
-        let istMinutes = minutes + 30;
-
-        if (istMinutes >= 60) {
-          istMinutes -= 60;
-          istHours += 1;
-        }
-        if (istHours >= 24) {
-          istHours -= 24;
-        }
-
-        return `${String(istHours).padStart(2, '0')}:${String(istMinutes).padStart(2, '0')}`;
-      } catch (e) {
-        return timeStr.substring(0, 5);
-      }
+      const local = getAdminLocalSessionParts({ session_date: dateStr || '2000-01-01', session_time: timeStr });
+      return local?.time || timeStr.substring(0, 5);
     }
 
     function renderCalendar() {
@@ -9688,7 +9712,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isToday = dateStr === today;
         const daySessions = calendarSessions.filter(s => {
-          const sessionDate = s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date;
+        const sessionDate = getAdminLocalSessionParts(s)?.date;
           return sessionDate === dateStr;
         });
 
@@ -9699,7 +9723,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             const parts = t.toString().split(':');
             return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
           };
-          return timeToMinutes(a.session_time) - timeToMinutes(b.session_time);
+          return timeToMinutes(getAdminLocalSessionParts(a)?.time) - timeToMinutes(getAdminLocalSessionParts(b)?.time);
         });
 
         let sessionsHtml = '';
@@ -9713,10 +9737,9 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             bgColor = '#667eea'; // Group - purple
           }
 
-          // Convert to IST time display
-          const time = s.session_time ? utcToIST(s.session_time) : '';
+          const time = getAdminLocalSessionParts(s)?.time || '';
 
-          sessionsHtml += `<div style="background: ${bgColor}; color: white; padding: 2px 5px; border-radius: 3px; font-size: 0.7rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${label} - ${time} IST">${time} ${label.split(' ')[0]}</div>`;
+          sessionsHtml += `<div style="background: ${bgColor}; color: white; padding: 2px 5px; border-radius: 3px; font-size: 0.7rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${label} - ${time} ${getAdminTimezoneLabel()}">${time} ${label.split(' ')[0]}</div>`;
         });
 
         if (daySessions.length > 4) {
@@ -9748,10 +9771,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
     }
 
     function showDayDetails(dateStr) {
-      const daySessions = calendarSessions.filter(s => {
-        const sessionDate = s.session_date.includes('T') ? s.session_date.split('T')[0] : s.session_date;
-        return sessionDate === dateStr;
-      });
+      const daySessions = calendarSessions.filter(s => getAdminLocalSessionParts(s)?.date === dateStr);
 
       const dateObj = new Date(dateStr + 'T00:00:00');
       const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -9767,7 +9787,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             const parts = t.toString().split(':');
             return parseInt(parts[0] || 0) * 60 + parseInt(parts[1] || 0);
           };
-          return timeToMinutes(a.session_time) - timeToMinutes(b.session_time);
+          return timeToMinutes(getAdminLocalSessionParts(a)?.time) - timeToMinutes(getAdminLocalSessionParts(b)?.time);
         });
 
         let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
@@ -9783,7 +9803,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             typeLabel = 'Group';
           }
 
-          const time = s.session_time ? utcToIST(s.session_time) : 'N/A';
+          const time = s.session_time ? utcToAdminTime(s.session_time, s.session_date) : 'N/A';
 
           html += `
             <div style="background: #f7fafc; padding: 12px; border-radius: 8px; border-left: 4px solid ${bgColor};">
@@ -9792,7 +9812,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
                 <span style="background: ${bgColor}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem;">${typeLabel}</span>
               </div>
               <div style="color: #718096; font-size: 0.9rem;">
-                🕐 <strong>${time} IST</strong> • Session #${s.session_number || 'N/A'}
+                🕐 <strong>${time} ${getAdminTimezoneLabel()}</strong> • Session #${s.session_number || 'N/A'}
               </div>
               ${s.status ? `<div style="color: #718096; font-size: 0.85rem; margin-top: 5px;">Status: ${s.status}</div>` : ''}
             </div>
@@ -13968,14 +13988,49 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
     }
 
     // ── Auto-prefill from last month when student is selected ────────────
+    function renderAssessmentStudentHistory(records, studentSelected = true) {
+      const content = document.getElementById('assessmentHistoryContent');
+      const count = document.getElementById('assessmentHistoryCount');
+      if (!content || !count) return;
+      if (!studentSelected) {
+        count.textContent = '';
+        content.textContent = 'Select a student to see previous report cards and certificates.';
+        return;
+      }
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const history = (Array.isArray(records) ? records : []).filter(a => a.assessment_type === 'monthly');
+      count.textContent = `${history.length} previous report${history.length === 1 ? '' : 's'}`;
+      if (history.length === 0) {
+        content.innerHTML = '<div style="padding:10px 0;">No previous monthly report cards or certificates for this student.</div>';
+        return;
+      }
+      content.innerHTML = `<div style="display:grid; gap:8px;">${history.map(a => {
+        const month = Number(a.period_month || a.month);
+        const year = a.period_year || a.year || '';
+        const period = month >= 1 && month <= 12 ? `${months[month - 1]} ${year}` : 'Assessment period not recorded';
+        const issueDate = a.created_at ? new Date(a.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) : 'Date unavailable';
+        const certificate = a.certificate_title
+          ? `<span style="color:#92400e; font-weight:700;">🏆 ${escapeHtml(a.certificate_title)}</span>`
+          : '<span style="color:#94a3b8;">No certificate issued</span>';
+        const certificateLink = `<a href="/monthly-certificate.html?id=${encodeURIComponent(a.id)}" target="_blank" rel="noopener" style="font-size:12px; color:#6d28d9; font-weight:700; text-decoration:none;">${a.certificate_title ? 'View report card / certificate' : 'View report card'}</a>`;
+        return `<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:11px 12px; background:white; border:1px solid #e2e8f0; border-radius:9px;">
+          <div><div style="font-weight:700; color:#334155;">${escapeHtml(period)}</div><div style="font-size:12px; color:#64748b; margin-top:3px;">Report card issued: ${escapeHtml(issueDate)}</div></div>
+          <div style="display:grid; gap:5px;">${certificate}${certificateLink}</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
     document.getElementById('assessmentStudent').addEventListener('change', async function() {
       const studentId = this.value;
-      if (!studentId) return;
+      if (!studentId) { renderAssessmentStudentHistory([], false); return; }
       try {
         const r = await fetch(`/api/students/${studentId}/assessments`);
         const assessments = await r.json();
-        if (!assessments || assessments.length === 0) return;
-        const last = assessments[0]; // already ordered DESC by year,month
+        if (!r.ok) throw new Error(assessments?.error || 'Unable to load assessment history');
+        const monthlyAssessments = (Array.isArray(assessments) ? assessments : []).filter(a => a.assessment_type === 'monthly');
+        renderAssessmentStudentHistory(monthlyAssessments);
+        if (monthlyAssessments.length === 0) return;
+        const last = monthlyAssessments[0]; // endpoint orders periods newest first
         // Pre-fill skills
         let previousSkills = [];
         try { previousSkills = last.skills ? JSON.parse(last.skills) : []; } catch(e) {}
@@ -13986,7 +14041,12 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
           try { prevRatings = typeof last.skill_ratings === 'string' ? JSON.parse(last.skill_ratings) : last.skill_ratings; } catch(e) {}
           Object.entries(prevRatings).forEach(([cat, val]) => setStarRating(cat, val));
         }
-      } catch(e) { /* silently ignore prefill errors */ }
+      } catch(e) {
+        const content = document.getElementById('assessmentHistoryContent');
+        const count = document.getElementById('assessmentHistoryCount');
+        if (content) content.textContent = `Could not load this student's assessment history: ${e.message}`;
+        if (count) count.textContent = '';
+      }
     });
 
     // ── Monthly assessment dashboard ──────────────────────────────────────
@@ -15275,7 +15335,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
               <div><strong>Event Name:</strong> ${event.event_name}</div>
               <div><strong>Status:</strong> <span class="${event.status === 'Active' ? 'status-active' : 'status-inactive'}">${event.status}</span></div>
-              <div><strong>Date & Time (IST):</strong> ${eventDate}</div>
+              <div><strong>Date & Time (${getAdminTimezoneLabel()}):</strong> ${eventDate}</div>
               <div><strong>Duration:</strong> ${event.event_duration || 'N/A'}</div>
               <div><strong>Target Audience:</strong> ${event.target_audience || 'All'}</div>
               <div><strong>Max Participants:</strong> ${event.max_participants || 'Unlimited'}</div>
@@ -16030,7 +16090,7 @@ monthlyBody.innerHTML = Object.values(monthlyData).map(m => `
 
       alertDiv.style.display = 'block';
       listDiv.innerHTML = dueStudents.map(s => `
-        <button onclick="document.getElementById('assessmentStudent').value='${s.id}'; document.getElementById('assessmentStudent').scrollIntoView({behavior:'smooth'});"
+        <button onclick="var assessmentSelect=document.getElementById('assessmentStudent'); assessmentSelect.value='${s.id}'; assessmentSelect.dispatchEvent(new Event('change')); assessmentSelect.scrollIntoView({behavior:'smooth'});"
           style="background: white; border: 2px solid #f59e0b; color: #92400e; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
           onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">
           <span>${s.name}</span>
@@ -16070,6 +16130,8 @@ function openBulkReschedule() {
     alert('Bulk reschedule modal not found. Please refresh the page once.');
     return;
   }
+  const timezoneNote = document.getElementById('bulkRescheduleTimezoneNote');
+  if (timezoneNote) timezoneNote.textContent = `All current and new schedule times below use your local timezone (${getAdminTimezone()}).`;
 
   // Populate student dropdown
   const studentSelect = document.getElementById('bulkRescheduleStudent');
@@ -16137,9 +16199,9 @@ async function loadSessionsForBulkReschedule() {
             return `
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:10px;">${sessionNumberText ? `#${sessionNumberText}` : ''}</td>
-              <td style="padding:10px; color:#718096;">${new Date(s.session_date).toLocaleDateString('en-IN')}</td>
-              <td style="padding:10px;"><input type="date" class="bulk-new-date" data-session-id="${s.id}" value="${s.session_date ? s.session_date.split('T')[0] : ''}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
-              <td style="padding:10px;"><input type="time" class="bulk-new-time" data-session-id="${s.id}" value="${(s.session_time || '').toString().substring(0,5)}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
+          <td style="padding:10px; color:#718096;">${getAdminLocalSessionParts(s)?.date || s.session_date}</td>
+              <td style="padding:10px;"><input type="date" class="bulk-new-date" data-session-id="${s.id}" value="${getAdminLocalSessionParts(s)?.date || ''}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
+              <td style="padding:10px;"><input type="time" class="bulk-new-time" data-session-id="${s.id}" value="${getAdminLocalSessionParts(s)?.time || ''}" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;"></td>
             </tr>
           `;
           }).join('')}
@@ -16193,21 +16255,19 @@ async function loadGroupSessionsForBulkReschedule() {
           return `
           <tr style="border-bottom:1px solid #e2e8f0;">
             <td style="padding:10px;">${sessionNumberText ? `#${sessionNumberText}` : ''}</td>
-            <td style="padding:10px; color:#718096;">
-              ${new Date(s.session_date).toLocaleDateString('en-IN')}
-            </td>
+            <td style="padding:10px; color:#718096;">${getAdminLocalSessionParts(s)?.date || s.session_date}</td>
             <td style="padding:10px;">
               <input type="date" class="bulk-group-new-date"
                 data-session-id="${s.id}"
-                data-old-date="${new Date(s.session_date).toLocaleDateString('en-IN')}"
+                data-old-date="${getAdminLocalSessionParts(s)?.date || ''}"
                 data-session-number="${s.session_number}"
-                value="${s.session_date ? s.session_date.split('T')[0] : ''}"
+                value="${getAdminLocalSessionParts(s)?.date || ''}"
                 style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;">
             </td>
             <td style="padding:10px;">
               <input type="time" class="bulk-group-new-time"
                 data-session-id="${s.id}"
-                value="${s.session_time ? s.session_time.substring(0,5) : ''}"
+                value="${getAdminLocalSessionParts(s)?.time || ''}"
                 style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px;">
             </td>
           </tr>
@@ -16240,7 +16300,7 @@ async function submitBulkReschedule() {
       const res = await fetch('/api/sessions/bulk-reschedule', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ sessions, send_email: sendEmail })
+        body: JSON.stringify({ sessions, send_email: sendEmail, timezone: getAdminTimezone() })
       });
       const result = await res.json();
       if (res.ok) {
@@ -16284,7 +16344,7 @@ async function submitBulkReschedule() {
       const res = await fetch('/api/sessions/bulk-reschedule-group', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ sessions, send_email: sendEmail, group_id: groupId })
+        body: JSON.stringify({ sessions, send_email: sendEmail, group_id: groupId, timezone: getAdminTimezone() })
       });
       const result = await res.json();
       if (res.ok) {
@@ -17798,6 +17858,7 @@ function initializeQuizTab() {
       <button onclick="closeBulkReschedule()" class="btn btn-danger btn-sm">✕</button>
     </div>
     <div class="modal-body">
+      <p id="bulkRescheduleTimezoneNote" style="margin:0 0 14px; color:#718096; font-size:0.9rem;"></p>
 
       <!-- Tabs -->
       <div style="display:flex; gap:10px; margin-bottom:20px;">
