@@ -23897,8 +23897,12 @@ app.put('/api/students/:id/expectations', async (req, res) => {
       if (student) {
         await sendAdminPushNotification(
           'Parent Expectations Submitted',
-          `${student.parent_name || 'A parent'} submitted expectations for ${student.name}.`,
-          { studentId: req.params.id, type: 'parent_expectations_submitted' }
+          `${student.parent_name || 'A parent'} shared learning expectations for ${student.name}.`,
+          {
+            studentId: req.params.id,
+            type: 'parent_expectations_submitted',
+            notificationTag: `parent-expectations-${req.params.id}`
+          }
         );
       }
     }

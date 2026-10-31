@@ -69,6 +69,11 @@
   }
   .container.parent-dashboard-open { display:block; max-width:none; width:100%; min-height:100vh; margin:0; padding:20px 26px 24px 266px; }
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+    #dashboardSection > header { flex-wrap:wrap; gap:16px; }
+    #dashboardSection > header .dashboard-brand { flex:1 1 350px; min-width:240px; display:flex; align-items:center; gap:15px; }
+    #dashboardSection > header .dashboard-brand > div { min-width:0; }
+    #dashboardSection > header .dashboard-brand h1 { line-height:1.2; }
+    #dashboardSection > header .dashboard-actions { flex:0 1 auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; align-items:center; }
     header h1 { color: #B05D9E; font-size: 24px; }
     .login-section { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); max-width: 500px; margin: 50px auto; text-align: center; }
     .info-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #B05D9E; }
@@ -78,6 +83,12 @@
     .parent-sidebar-brand img { width:42px; height:42px; object-fit:contain; border-radius:8px; background:#fff; }
     .parent-sidebar-brand strong { font-size:15px; line-height:1.25; }
     .parent-sidebar-brand span { display:block; opacity:.82; font-size:11px; margin-top:3px; }
+    .parent-nav-group { width:100%; margin-top:8px; border-top:1px solid rgba(255,255,255,.18); padding-top:7px; }
+    .parent-nav-group summary { list-style:none; cursor:pointer; color:rgba(255,255,255,.82); padding:9px 13px; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border-radius:8px; }
+    .parent-nav-group summary::-webkit-details-marker { display:none; }
+    .parent-nav-group summary::after { content:'+'; float:right; font-size:15px; line-height:12px; }
+    .parent-nav-group[open] summary::after { content:'\2212'; }
+    .parent-nav-group summary:hover, .parent-nav-group summary:focus-visible { background:rgba(255,255,255,.12); outline:none; }
     .parent-dashboard-open .tabs .tab-btn { width:100%; min-height:44px; padding:11px 13px; border:0; border-radius:9px; background:transparent; color:#fff; font-size:14px; text-align:left; flex-shrink:0; }
     .parent-dashboard-open .tabs .tab-btn:hover { background:rgba(255,255,255,.14); }
     .parent-dashboard-open .tabs .tab-btn.active { background:rgba(255,255,255,.25); color:#fff; border:0; }
@@ -89,6 +100,9 @@
     .tab-btn .red-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; background: #e53e3e; border-radius: 50%; display: none; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    .save-status { display:block; min-height:1.35em; margin-top:10px; font-size:.9rem; font-weight:600; }
+    .empty-state { display:flex; flex-direction:column; align-items:center; gap:6px; padding:26px 18px; text-align:center; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; line-height:1.5; }
+    .empty-state strong { color:#334155; }
     .section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
     .learning-lab-hero { background: linear-gradient(135deg, #fff7ed 0%, #fdf2f8 50%, #f5f3ff 100%); border: 1.5px solid #f3d7f4; border-radius: 18px; padding: 24px 22px; margin-bottom: 22px; }
     .learning-lab-hero h2 { color: #7c3aed; margin: 0 0 8px; font-size: clamp(1.4rem, 2vw, 2rem); }
@@ -343,9 +357,10 @@
       .parent-dashboard-open.sidebar-open .parent-sidebar-overlay { display:block; position:fixed; inset:0; z-index:99; background:rgba(17,24,39,.45); }
       .parent-sidebar-toggle { display:inline-block; background:#B05D9E; color:#fff; border:0; border-radius:7px; padding:7px 10px; font-size:20px; line-height:1; cursor:pointer; }
       #dashboardSection > header { flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; text-align:left; gap:10px; padding:14px; }
-      #dashboardSection > header > div:first-of-type { flex:1; min-width:0; gap:9px !important; justify-content:flex-start !important; }
-      #dashboardSection > header > div:first-of-type h1 { font-size:1rem !important; }
-      #dashboardSection > header > div:nth-of-type(2) { width:100%; display:flex !important; flex-wrap:wrap; justify-content:flex-start !important; gap:7px !important; }
+      #dashboardSection > header .dashboard-brand { flex:1 1 220px; min-width:0; gap:9px; }
+      #dashboardSection > header .dashboard-brand h1 { font-size:1rem !important; overflow-wrap:anywhere; }
+      #dashboardSection > header .dashboard-actions { flex:1 1 100%; width:100%; display:flex; flex-wrap:wrap; justify-content:flex-start; gap:7px; }
+      #parentInstallHint { padding:10px 12px; background:#fff; border-radius:8px; }
       .container { padding: 10px; }
       header { padding: 15px; flex-direction: column; gap: 10px; text-align: center; }
       header h1 { font-size: 18px; }
@@ -359,7 +374,7 @@
       body { overflow-x: hidden; }
 
       /* Header buttons - wrap properly on mobile */
-      header > div { flex-wrap: wrap; justify-content: center; }
+      #dashboardSection > header > div { flex-wrap: wrap; justify-content: flex-start; }
 
       /* Student stats grid - 3 columns on tablet, not 5 */
       .info-card > div:last-child { grid-template-columns: repeat(3, 1fr) !important; }
@@ -763,24 +778,24 @@
 
     <!-- DASHBOARD SECTION -->
     <div id="dashboardSection" style="display: none;">
-      <header>
+      <header class="dashboard-header">
         <button class="parent-sidebar-toggle" type="button" onclick="toggleParentSidebar()" aria-label="Open dashboard navigation">&#9776;</button>
-        <div style="display: flex; align-items: center; gap: 15px;">
+        <div class="dashboard-brand">
           <img id="headerLogo" src="/app-icon.png" alt="Fluent Feathers" style="height: 50px;">
           <div>
             <h1 style="margin: 0; font-size: 24px;">Fluent Feathers Academy By Aaliya</h1>
             <p style="margin: 5px 0 0; color: #718096; font-size: 12px; font-weight: 500;">Empowering Young Minds Through Language & Communication</p>
           </div>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="dashboard-actions">
           <span id="currentChildBadge" style="display: none; background: #e2e8f0; color: #4a5568; padding: 6px 12px; border-radius: 15px; font-size: 0.85rem;">Viewing: <strong id="currentChildName">-</strong></span>
           <button id="switchChildBtn" onclick="showChildSelector()" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.05)'" onmouseleave="this.style.transform='scale(1)'"> Switch Child</button>
           <button id="parentNotifyBtn" type="button" onclick="enableParentNotifications(true)" class="btn btn-sm" style="background: #38b2ac; color: white; font-size: 12px;"> Enable Notifications</button>
           <button id="parentInstallBtn" type="button" onclick="installParentApp()" class="btn btn-sm" style="background: #B05D9E; color: white; font-size: 12px;">Install App</button>
           <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
         </div>
-        <div id="parentInstallHint" style="display:none; margin-top: 10px; font-size: 0.82rem; color: #4a5568; line-height: 1.4;">Tap Install App to add this portal to your Home Screen or desktop.</div>
       </header>
+      <div id="parentInstallHint" style="display:none; margin:-12px 0 18px; font-size:0.82rem; color:#4a5568; line-height:1.4;">Tap Install App to add this portal to your Home Screen or desktop.</div>
 
       <!-- Child Selector Modal for Siblings -->
       <div id="studentSelector">
@@ -819,19 +834,26 @@
         <div class="parent-sidebar-brand"><img id="parentSidebarLogo" src="/app-icon.png" alt="Fluent Feathers Academy logo"><div><strong>Fluent Feathers</strong><span>Parent Portal</span></div></div>
         <button class="tab-btn active" onclick="showTab('upcoming', event)">&#128197; Upcoming</button>
         <button class="tab-btn" onclick="showTab('past', event)">&#128218; Past Classes</button>
-        <button class="tab-btn" onclick="showTab('makeup', event)">&#127873; Makeup</button>
+        <button class="tab-btn" onclick="showTab('makeup', event)">&#127873; Makeup Credit</button>
         <button class="tab-btn" onclick="showTab('assessments', event)">&#128202; Report Cards</button>
-        <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">&#127919; Challenges<span class="red-dot" id="dotChallenges"></span></button>
-        <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">&#128218; Resources<span class="red-dot" id="dotResources"></span></button>
-        <button class="tab-btn" onclick="showTab('learningLab', event)">&#129504; Learning Lab</button>
-        <button class="tab-btn" onclick="showTab('pointsTracker', event)">&#11088; Points Tracker</button>
-        <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">&#127942; Achievements<span class="red-dot" id="dotAchievements"></span></button>
-        <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">&#128226; News<span class="red-dot" id="dotAnnouncements"></span></button>
-        <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">&#127881; Events<span class="red-dot" id="dotEvents"></span></button>
         <button class="tab-btn" id="tabBtnPayments" onclick="showTab('payments', event)">&#128179; Payments<span class="red-dot" id="dotPayments"></span></button>
-        <button class="tab-btn" onclick="showTab('activityLog', event)">&#128366; Activity Log</button>
-        <button class="tab-btn" onclick="showTab('profile', event)">&#128100; Profile / Expectations</button>
-        <button class="tab-btn" onclick="showTab('policies', event)">&#128203; Policies &amp; Guidelines</button>
+        <details class="parent-nav-group">
+          <summary>Learning &amp; Rewards</summary>
+          <button class="tab-btn" id="tabBtnResources" onclick="showTab('resources', event)">&#128218; Resources<span class="red-dot" id="dotResources"></span></button>
+          <button class="tab-btn" id="tabBtnChallenges" onclick="showTab('challenges', event)">&#127919; Challenges<span class="red-dot" id="dotChallenges"></span></button>
+          <button class="tab-btn" onclick="showTab('learningLab', event)">&#129504; Learning Lab</button>
+          <button class="tab-btn" onclick="showTab('pointsTracker', event)">&#11088; Points Tracker</button>
+          <button class="tab-btn" id="tabBtnAchievements" onclick="showTab('achievements', event)">&#127942; Achievements<span class="red-dot" id="dotAchievements"></span></button>
+          <button class="tab-btn" onclick="showTab('hallOfFame', event)">&#127942; Hall of Fame</button>
+        </details>
+        <details class="parent-nav-group">
+          <summary>News &amp; Account</summary>
+          <button class="tab-btn" id="tabBtnAnnouncements" onclick="showTab('announcements', event)">&#128226; News<span class="red-dot" id="dotAnnouncements"></span></button>
+          <button class="tab-btn" id="tabBtnEvents" onclick="showTab('events', event)">&#127881; Events<span class="red-dot" id="dotEvents"></span></button>
+          <button class="tab-btn" onclick="showTab('profile', event)">&#128100; Profile / Expectations</button>
+          <button class="tab-btn" onclick="showTab('activityLog', event)">&#128366; Activity Log</button>
+          <button class="tab-btn" onclick="showTab('policies', event)">&#128203; Policies &amp; Guidelines</button>
+        </details>
       </div>
       <div class="parent-sidebar-overlay" onclick="toggleParentSidebar(false)"></div>
 
@@ -1092,16 +1114,17 @@
           </div>
         </div>
 
-        <!-- Hall of Fame Section -->
-        <div class="section" id="hallOfFameSection" style="display: none;">
+      </div>
+
+      <!-- Hall of Fame Tab -->
+      <div id="hallOfFameTab" class="tab-content">
+        <div class="section" id="hallOfFameSection">
           <div style="text-align: center; margin-bottom: 15px;">
             <h2 style="color: #B05D9E; margin-bottom: 5px;"> Hall of Fame</h2>
             <p style="color: #718096; margin: 0; font-size: 0.85rem;">Celebrating our top performers!</p>
           </div>
-          <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
-          </div>
+          <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;"></div>
         </div>
-
       </div>
 
       <div id="pointsTrackerTab" class="tab-content">
@@ -1616,6 +1639,15 @@
 
       <!-- Profile Tab -->
       <div id="profileTab" class="tab-content">
+        <div class="section" id="parentExpectationsSection">
+          <h2 style="color:#B05D9E;margin-bottom:8px;">Your Expectations <span style="font-size:.75rem;color:#718096;">(Optional)</span></h2>
+          <p style="color:#718096;margin-bottom:15px;font-size:.95rem;line-height:1.5;">Tell your teacher what you hope your child will work toward. You can update this whenever your goals change.</p>
+          <textarea id="myExpectations" rows="3" aria-label="Your expectations for your child's learning" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:.95rem;resize:vertical;" placeholder="For example: I would like my child to improve reading fluency and confidence in speaking."></textarea>
+          <div style="margin-top:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <button id="saveExpectationsBtn" type="button" onclick="saveMyExpectations()" class="btn" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;">Save Expectations</button>
+            <span id="myExpectationsSaveStatus" class="save-status" role="status" aria-live="polite" style="margin:0;"></span>
+          </div>
+        </div>
         <div class="section">
           <h2 style="color: #B05D9E; margin-bottom: 20px;"> Profile Settings</h2>
           <p style="color: #718096; margin-bottom: 25px;">View and update your contact information</p>
@@ -1673,24 +1705,12 @@
             </div>
 
             <div style="margin-top: 25px; text-align: center;">
-              <button type="submit" style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
-                 Save Changes
+              <button id="saveProfileBtn" type="submit" style="background: linear-gradient(135deg, #B05D9E 0%, #764ba2 100%); color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
+                Save Changes
               </button>
+              <span id="profileSaveStatus" class="save-status" role="status" aria-live="polite"></span>
             </div>
           </form>
-        </div>
-
-        <!-- Parent Expectations (moved here from above tabs) -->
-        <div class="section">
-          <h2 style="color: #B05D9E; margin-bottom: 10px;"> My Expectations <span style="font-size: 0.75rem; color: #718096;">(Optional)</span></h2>
-          <p style="color: #718096; margin-bottom: 15px; font-size: 0.9rem;">Scroll down in the Profile/Expectations section to submit your goals and expectations for your child's learning journey. Your teacher will see this.</p>
-          <div id="parentExpectationsSection">
-            <textarea id="myExpectations" rows="3" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; resize: vertical;" placeholder="e.g., I want my child to improve their reading fluency and confidence in speaking..."></textarea>
-            <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
-              <button onclick="saveMyExpectations()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;"> Save Expectations</button>
-              <span id="myExpectationsSaveStatus" style="color: #718096; font-size: 0.85rem;"></span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -4080,12 +4100,24 @@ setTimeout(() => {
     function showTab(name, e) {
       if(e) e.stopPropagation();
       toggleParentSidebar(false);
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.remove('active');
+        el.style.display = 'none';
+      });
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      document.getElementById(name+'Tab').classList.add('active');
+      const tabContent = document.getElementById(name + 'Tab');
+      if (!tabContent) {
+        console.error(`Parent portal tab "${name}" was not found.`);
+        return;
+      }
+      tabContent.classList.add('active');
+      tabContent.style.display = 'block';
       // Highlight the correct tab button
       const tabBtn = document.querySelector(`.tab-btn[onclick*="'${name}'"]`);
       if(tabBtn) tabBtn.classList.add('active');
+      document.querySelectorAll('.parent-nav-group').forEach(group => {
+        group.open = !!tabBtn && group.contains(tabBtn);
+      });
       // Save current tab to localStorage for persistence on refresh
       localStorage.setItem('parentActiveTab', name);
       // Clear red dot when tab is visited
@@ -4097,6 +4129,7 @@ setTimeout(() => {
       if (name === 'announcements') loadAnnouncements();
       if (name === 'learningLab') renderLearningLabCards();
       if (name === 'activityLog') loadActivityLog();
+      if (name === 'hallOfFame') loadHallOfFame();
       if (name === 'policies') loadParentPolicies();
     }
 
@@ -4158,10 +4191,9 @@ setTimeout(() => {
         ]);
       }, 3500);
 
-      // Batch 3 (5.5s): Achievements, Resources, Profile
+      // Batch 3 (5.5s): Resources and Profile
       setTimeout(() => {
         Promise.all([
-          loadHallOfFame().catch(e => console.warn('Failed to pre-load hall of fame:', e.message)),
           loadStudentChallenges().catch(e => console.warn('Failed to pre-load challenges:', e.message)),
           loadParentResources().catch(e => console.warn('Failed to pre-load resources:', e.message))
         ]);
@@ -5200,10 +5232,18 @@ setTimeout(() => {
     async function saveMyExpectations() {
       const expectations = document.getElementById('myExpectations').value.trim();
       const statusEl = document.getElementById('myExpectationsSaveStatus');
+      const saveBtn = document.getElementById('saveExpectationsBtn');
+      if (!currentStudent?.id) {
+        statusEl.textContent = 'Select a student before saving.';
+        statusEl.style.color = '#b91c1c';
+        return;
+      }
 
       try {
         statusEl.textContent = 'Saving...';
         statusEl.style.color = '#718096';
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
 
         const res = await fetch(`/api/students/${currentStudent.id}/expectations`, {
           method: 'PUT',
@@ -5212,16 +5252,19 @@ setTimeout(() => {
         });
 
         if (res.ok) {
-          statusEl.textContent = ' Saved!';
+          statusEl.textContent = 'Expectations saved successfully.';
           statusEl.style.color = '#38b2ac';
-          setTimeout(() => { statusEl.textContent = ''; }, 3000);
         } else {
-          throw new Error('Failed to save');
+          const result = await res.json().catch(() => ({}));
+          throw new Error(result.error || 'Could not save your expectations. Please try again.');
         }
       } catch(e) {
         console.error('Error saving expectations:', e);
-        statusEl.textContent = ' Error saving';
+        statusEl.textContent = e.message || 'Could not save your expectations. Please try again.';
         statusEl.style.color = '#e53e3e';
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Expectations';
       }
     }
 
@@ -6484,7 +6527,7 @@ setTimeout(() => {
         const logs = Array.isArray(payload?.logs) ? payload.logs : [];
         const container = document.getElementById('activityLogContainer');
         if (logs.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096;">No class, payment, or makeup activity is available yet.</p>';
+          container.innerHTML = '<div class="empty-state"><strong>No activity to show yet</strong><span>Class schedules, cancellations, payments, and makeup credit updates will appear here as they happen.</span></div>';
           return;
         }
 
@@ -6608,7 +6651,7 @@ setTimeout(() => {
         ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
         if (history.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096;">No payment records yet</p>';
+          container.innerHTML = '<div class="empty-state"><strong>No payment records yet</strong><span>Payments and package renewals will appear here after they are recorded by the academy.</span></div>';
           return;
         }
 
@@ -7233,7 +7276,7 @@ setTimeout(() => {
         const container = document.getElementById('eventsContainer');
 
         if (events.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No upcoming events</p>';
+          container.innerHTML = '<div class="empty-state"><strong>No upcoming events</strong><span>New academy events and registration details will appear here when they are announced.</span></div>';
           return;
         }
 
@@ -7796,7 +7839,7 @@ setTimeout(() => {
         const res = await fetch('/api/announcements' + query);
         const announcements = await res.json();
         if (announcements.length === 0) {
-          container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No announcements at this time</p>';
+          container.innerHTML = '<div class="empty-state"><strong>You are all caught up</strong><span>Academy news and important updates will appear here when they are posted.</span></div>';
           announcementsPreviewLoaded = true;
           announcementsFullLoaded = true;
           return;
@@ -7915,6 +7958,13 @@ setTimeout(() => {
 
     document.getElementById('profileForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const statusEl = document.getElementById('profileSaveStatus');
+      const btn = document.getElementById('saveProfileBtn');
+      if (!currentStudent?.id) {
+        statusEl.textContent = 'Select a student before saving.';
+        statusEl.style.color = '#b91c1c';
+        return;
+      }
 
       const updates = {
         parent_name: document.getElementById('profileParentName').value,
@@ -7925,9 +7975,10 @@ setTimeout(() => {
       };
 
       try {
-        const btn = e.target.querySelector('button[type="submit"]');
         btn.disabled = true;
         btn.textContent = 'Saving...';
+        statusEl.textContent = 'Saving profile changes...';
+        statusEl.style.color = '#718096';
 
         const res = await fetch(`/api/students/${currentStudent.id}/profile`, {
           method: 'PUT',
@@ -7935,10 +7986,9 @@ setTimeout(() => {
           body: JSON.stringify(updates)
         });
 
-        const result = await res.json();
-
         if (res.ok) {
-          alert(' Profile updated successfully!');
+          statusEl.textContent = 'Profile updated successfully.';
+          statusEl.style.color = '#16803c';
           // Update local data
           currentStudent.parent_name = updates.parent_name;
           currentStudent.parent_email = updates.parent_email;
@@ -7946,13 +7996,17 @@ setTimeout(() => {
           currentStudent.alternate_contact = updates.alternate_contact;
           currentStudent.date_of_birth = updates.date_of_birth;
         } else {
-          alert(' Failed: ' + (result.error || 'Unknown error'));
+          const result = await res.json().catch(() => ({}));
+          statusEl.textContent = result.error || 'Could not save your profile. Please try again.';
+          statusEl.style.color = '#b91c1c';
         }
-
-        btn.disabled = false;
-        btn.textContent = ' Save Changes';
       } catch (err) {
-        alert(' Error: ' + err.message);
+        console.error('Error saving profile:', err);
+        statusEl.textContent = err.message || 'Could not save your profile. Please try again.';
+        statusEl.style.color = '#b91c1c';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
       }
     });
 
