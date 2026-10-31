@@ -946,11 +946,11 @@
                      oninput="filterPastClasses()">
             </div>
             <div style="display: flex; gap: 8px;">
-              <button onclick="showRecentClasses(10)" class="past-filter-btn active" id="btnRecent10" style="padding: 8px 16px; border: 2px solid #B05D9E; background: #B05D9E; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Recent 10</button>
-              <button onclick="showAllClasses()" class="past-filter-btn" id="btnAllClasses" style="padding: 8px 16px; border: 2px solid #B05D9E; background: white; color: #B05D9E; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">All Classes</button>
+              <button onclick="showRecentClasses(10)" class="past-filter-btn" id="btnRecent10" aria-pressed="false" style="padding: 8px 16px; border: 2px solid #B05D9E; background: white; color: #B05D9E; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">Recent 10</button>
+              <button onclick="showAllClasses()" class="past-filter-btn active" id="btnAllClasses" aria-pressed="true" style="padding: 8px 16px; border: 2px solid #B05D9E; background: #B05D9E; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">All Classes</button>
             </div>
           </div>
-          <p id="pastClassCount" style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Showing recent 10 classes</p>
+          <p id="pastClassCount" style="color: #718096; font-size: 0.85rem; margin-bottom: 10px;">Showing all classes</p>
           <div class="table-responsive">
             <table id="pastTable">
               <thead><tr><th>#</th><th>Date / Topic</th><th>Time</th><th>Class</th><th>Duration</th><th>Attendance</th><th>Materials & Submit HW</th><th>HW Status</th><th>Feedback</th></tr></thead>
@@ -1125,6 +1125,26 @@
           </div>
           <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;"></div>
         </div>
+        <div class="section" style="margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+            <div>
+              <h2 style="color:#B05D9E;margin:0 0 4px;">Leaderboard</h2>
+              <p style="color:#718096;margin:0;font-size:0.85rem;">See how students rank by points.</p>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;color:#4a5568;font-size:0.85rem;font-weight:600;">
+              Period
+              <select id="hallLeaderboardPeriod" onchange="loadHallLeaderboard(this.value)" style="border:1px solid #d6bcfa;border-radius:8px;padding:8px 10px;background:white;color:#4a5568;">
+                <option value="all">All Time</option>
+                <option value="thisweek">This Week</option>
+                <option value="lastweek">Last Week</option>
+                <option value="thismonth">This Month</option>
+                <option value="lastmonth">Last Month</option>
+                <option value="thisyear">This Year</option>
+              </select>
+            </label>
+          </div>
+          <div id="hallLeaderboardContent" aria-live="polite"><p style="text-align:center;color:#718096;">Loading leaderboard...</p></div>
+        </div>
       </div>
 
       <div id="pointsTrackerTab" class="tab-content">
@@ -1171,9 +1191,9 @@
           </div>
           <div id="scoreTrackerPending" style="display:none;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;color:#9a3412;font-size:0.82rem;font-weight:600;margin-bottom:14px;"></div>
           <div style="margin-top:2px;">
-            <button id="scoreTrackerShowMoreBtn" onclick="toggleScoreTrackerMore()" style="background:none;border:none;padding:0;color:#6d28d9;font-size:0.9rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Show more</button>
+            <button id="scoreTrackerShowMoreBtn" onclick="toggleScoreTrackerMore()" aria-expanded="true" aria-controls="scoreTrackerExpanded" style="background:none;border:none;padding:0;color:#6d28d9;font-size:0.9rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Show less</button>
           </div>
-          <div id="scoreTrackerExpanded" style="display:none;margin-top:14px;">
+          <div id="scoreTrackerExpanded" style="display:block;margin-top:14px;">
             <div id="scoreHistoryContainer">
               <p style="text-align:center;color:#718096;">Loading points info...</p>
             </div>
@@ -4126,6 +4146,7 @@ setTimeout(() => {
       clearRedDot(name);
       if (name === 'upcoming') loadUpcoming(true);
       if (name === 'past') loadPast(true);
+      if (name === 'makeup') loadMakeupCredits();
       if (name === 'challenges') loadStudentChallenges();
       if (name === 'pointsTracker') { loadClassPoints(); loadScoreHistory(); }
       if (name === 'announcements') loadAnnouncements();
@@ -4553,6 +4574,7 @@ setTimeout(() => {
       const opening = expanded.style.display === 'none' || !expanded.style.display;
       expanded.style.display = opening ? 'block' : 'none';
       btn.textContent = opening ? 'Show less' : 'Show more';
+      btn.setAttribute('aria-expanded', String(opening));
       if (opening) {
         renderScoreHistory();
       }
@@ -4718,6 +4740,47 @@ setTimeout(() => {
         entries.forEach(e => hofLoadWinner(e.opts[0].start, e.opts[0].end, e.id));
       } catch(e) {
         console.error('Error loading hall of fame:', e);
+      }
+      loadHallLeaderboard(document.getElementById('hallLeaderboardPeriod')?.value || 'all');
+    }
+
+    async function loadHallLeaderboard(period = 'all') {
+      const container = document.getElementById('hallLeaderboardContent');
+      if (!container) return;
+      container.innerHTML = '<p style="text-align:center;color:#718096;">Loading leaderboard...</p>';
+      const { start, end, label } = _plbDateRange(period);
+      const url = start && end ? `/api/leaderboard?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}` : '/api/leaderboard';
+      try {
+        const res = await fetch(url, { headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Could not load leaderboard (${res.status}).`);
+        const leaderboard = Array.isArray(data.leaderboard) ? data.leaderboard : [];
+        if (!leaderboard.length) {
+          container.innerHTML = `<p style="text-align:center;color:#718096;">No leaderboard activity for ${escapeHtml(label)} yet.</p>`;
+          return;
+        }
+
+        const myIndex = leaderboard.findIndex(student => String(student.id) === String(currentStudent?.id));
+        const topTen = leaderboard.slice(0, 10);
+        const visibleStudents = myIndex >= 10 ? [...topTen, leaderboard[myIndex]] : topTen;
+        container.innerHTML = `<div style="border:1px solid #e9d5ff;border-radius:12px;overflow:hidden;">
+          <div style="display:flex;justify-content:space-between;gap:10px;padding:12px 14px;background:linear-gradient(90deg,#f6d365 0%,#fda085 100%);color:#4a3b24;font-weight:700;">
+            <span>Top Students</span><span>${escapeHtml(label)}</span>
+          </div>
+          ${visibleStudents.map((student, index) => {
+            const rank = index < 10 ? index + 1 : myIndex + 1;
+            const isCurrent = String(student.id) === String(currentStudent?.id);
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+            return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #f1f5f9;${isCurrent ? 'background:#f5f3ff;' : 'background:white;'}">
+              <span style="min-width:34px;text-align:center;font-weight:800;color:#7c3aed;">${medal}</span>
+              <span style="flex:1;min-width:0;font-weight:700;color:#2d3748;overflow-wrap:anywhere;">${escapeHtml(student.name || 'Student')}${isCurrent ? ' <span style="color:#7c3aed;">(Your child)</span>' : ''}</span>
+              <span style="white-space:nowrap;color:#6d28d9;font-weight:800;">${Number(student.total_score) || 0} pts</span>
+            </div>`;
+          }).join('')}
+        </div>`;
+      } catch (e) {
+        console.error('Error loading Hall of Fame leaderboard:', e);
+        container.innerHTML = '<p style="text-align:center;color:#e53e3e;">Unable to load the leaderboard. Please try again.</p>';
       }
     }
 
@@ -5330,10 +5393,25 @@ setTimeout(() => {
     }
 
     async function loadMakeupCredits() {
+      const historyContainer = document.getElementById('makeupCreditsHistory');
+      const studentId = currentStudent?.id;
+      if (!studentId) {
+        if (historyContainer) historyContainer.innerHTML = '<p style="text-align: center; color: #718096;">Select a student to view makeup credit history.</p>';
+        return;
+      }
+      if (historyContainer) historyContainer.innerHTML = '<p style="text-align: center; color: #718096;">Loading history...</p>';
+
+      const controller = new AbortController();
+      const requestTimeout = setTimeout(() => controller.abort(), 20000);
       try {
         // Use the history endpoint to get full makeup credit history
-        const res = await fetch('/api/students/' + currentStudent.id + '/makeup-history', { headers: authHeaders() });
-        const history = await res.json();
+        const res = await fetch('/api/students/' + encodeURIComponent(studentId) + '/makeup-history', { headers: authHeaders(), signal: controller.signal });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || `Could not load makeup history (${res.status}).`);
+        if (!Array.isArray(payload)) throw new Error(payload.error || 'The makeup history response was invalid.');
+        // Ignore a slower response if the parent switched to another child meanwhile.
+        if (String(currentStudent?.id) !== String(studentId)) return;
+        const history = payload;
 
         const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
         const availableCredits = history.filter(c => normalizeStatus(c.status) === 'available').length;
@@ -5362,11 +5440,10 @@ setTimeout(() => {
         }
 
         // Display history
-        const historyContainer = document.getElementById('makeupCreditsHistory');
         if (history.length === 0) {
-          historyContainer.innerHTML = '<p style="text-align: center; color: #718096;">No makeup credit history</p>';
+          if (historyContainer) historyContainer.innerHTML = '<p style="text-align: center; color: #718096;">No makeup credit history</p>';
         } else {
-          historyContainer.innerHTML = history.map(c => {
+          const historyMarkup = history.map(c => {
             let statusBadge, statusText;
             const statusLower = normalizeStatus(c.status);
             if (statusLower === 'available') {
@@ -5479,9 +5556,17 @@ setTimeout(() => {
               '</div>' +
             '</div>';
           }).join('');
+          if (historyContainer) historyContainer.innerHTML = historyMarkup;
         }
       } catch(e) {
         console.error('Error loading makeup credits:', e);
+        if (historyContainer && String(currentStudent?.id) === String(studentId)) {
+          const errorText = e?.name === 'AbortError' ? 'The request took too long.' : (e?.message || 'Please try again.');
+          const message = String(errorText).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+          historyContainer.innerHTML = `<div style="text-align: center; color: #718096;">Unable to load makeup history. ${message}<br><button type="button" onclick="loadMakeupCredits()" style="margin-top: 10px; padding: 7px 14px; border: 1px solid #B05D9E; border-radius: 7px; background: white; color: #B05D9E; cursor: pointer;">Try again</button></div>`;
+        }
+      } finally {
+        clearTimeout(requestTimeout);
       }
     }
 
@@ -5760,7 +5845,7 @@ setTimeout(() => {
     // 
 
     let allPastSessions = []; // Store all past sessions for filtering
-    let showAllPastClasses = false;
+    let showAllPastClasses = true;
 
     let _pastRetryCount = 0;
     async function loadPast(showLoadingOverlay = false, forceRefresh = false) {
@@ -5790,7 +5875,7 @@ setTimeout(() => {
           return (b.session_time || '00:00:00').localeCompare(a.session_time || '00:00:00');
         });
 
-        // Show recent 10 by default
+        // Show all past classes by default
         _pastRetryCount = 0; // data loaded successfully  reset counter
         renderPastClasses(showAllPastClasses ? allPastSessions : allPastSessions.slice(0, 10));
         updatePastClassCount();
@@ -5809,6 +5894,10 @@ setTimeout(() => {
 
     function showRecentClasses(count) {
       showAllPastClasses = false;
+      document.getElementById('btnRecent10').classList.add('active');
+      document.getElementById('btnRecent10').setAttribute('aria-pressed', 'true');
+      document.getElementById('btnAllClasses').classList.remove('active');
+      document.getElementById('btnAllClasses').setAttribute('aria-pressed', 'false');
       document.getElementById('btnRecent10').style.background = '#B05D9E';
       document.getElementById('btnRecent10').style.color = 'white';
       document.getElementById('btnAllClasses').style.background = 'white';
@@ -5820,6 +5909,10 @@ setTimeout(() => {
 
     function showAllClasses() {
       showAllPastClasses = true;
+      document.getElementById('btnAllClasses').classList.add('active');
+      document.getElementById('btnAllClasses').setAttribute('aria-pressed', 'true');
+      document.getElementById('btnRecent10').classList.remove('active');
+      document.getElementById('btnRecent10').setAttribute('aria-pressed', 'false');
       document.getElementById('btnAllClasses').style.background = '#B05D9E';
       document.getElementById('btnAllClasses').style.color = 'white';
       document.getElementById('btnRecent10').style.background = 'white';
@@ -7686,10 +7779,10 @@ setTimeout(() => {
 
         const groupKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
-        container.innerHTML = chartHTML + groupKeys.map((groupKey, groupIndex) => {
+        container.innerHTML = chartHTML + groupKeys.map(groupKey => {
           const group = grouped[groupKey];
           const groupTitle = `${monthNames[group.month - 1]} ${group.year}`;
-          const itemsHTML = group.items.map((a, itemIndex) => {
+          const itemsHTML = group.items.map(a => {
             const skills = a.skills ? JSON.parse(a.skills) : [];
             let skillRatings = null;
             if (a.skill_ratings) { try { skillRatings = typeof a.skill_ratings === 'string' ? JSON.parse(a.skill_ratings) : a.skill_ratings; } catch(e) {} }
@@ -7710,7 +7803,7 @@ setTimeout(() => {
             const certificateLabel = (isMonthly && a.month && a.year) ? `${monthNames[a.month - 1]} ${a.year}` : issuedLabel;
 
             return `
-            <details class="assessment-item" ${groupIndex === 0 && itemIndex === 0 ? 'open' : ''}>
+            <details class="assessment-item">
               <summary>
                 <div style="display:flex;gap:12px;align-items:flex-start;min-width:0;flex:1;">
                   <div style="font-size:1.5rem;line-height:1;">${itemIcon}</div>
@@ -7810,7 +7903,7 @@ setTimeout(() => {
           }).join('');
 
           return `
-          <details class="assessment-group" ${groupIndex === 0 ? 'open' : ''}>
+          <details class="assessment-group">
             <summary>
               <div class="assessment-group-title"> ${groupTitle}</div>
               <div class="assessment-group-meta">${group.items.length} item${group.items.length > 1 ? 's' : ''}</div>
