@@ -4116,13 +4116,13 @@ setTimeout(() => {
       document.getElementById('policySections').innerHTML = (activePolicy.sections || []).map((x,i) => `<article style="border:1px solid #e2e8f0;border-radius:12px;padding:18px;background:#fff"><h3 style="color:#B05D9E;margin:0 0 8px">${i+1}. ${escapeHtml(x.title)}</h3><p style="white-space:pre-line;line-height:1.65;color:#4a5568;margin:0">${escapeHtml(x.content)}</p></article>`).join('');
       document.getElementById('policyAckModalVersion').textContent = `Version ${activePolicy.version}`;
       document.getElementById('policyAckModalSections').innerHTML = document.getElementById('policySections').innerHTML;
-      if (!token) return; const sr=await fetch('/api/parent/policies/status',{headers:{'x-parent-token':token}}); if(!sr.ok)return; const st=await sr.json();
+      const statusHeaders=token?{'x-parent-token':token}:authHeaders(); const sr=await fetch('/api/parent/policies/status',{headers:statusHeaders}); if(!sr.ok)return; const st=await sr.json();
       const ack=(st.acknowledgements||[]).find(a=>Number(a.student_id)===Number(currentStudent?.id)&&a.policy_version===activePolicy.version); const box=document.getElementById('policyAcknowledgeBox');
-      const tabCheckbox=document.getElementById('policyAckCheckbox'); const tabButton=document.getElementById('policyAckButton');
-      tabCheckbox.checked=!!ack; tabCheckbox.disabled=!!ack; tabButton.style.display=ack?'none':'inline-block'; box.style.display='block';
+      const tabCheckbox=document.getElementById('policyAckCheckbox'); const tabButton=document.getElementById('policyAckButton'); const readOnlyView=isAdminParentView();
+      tabCheckbox.checked=!!ack; tabCheckbox.disabled=!!ack||readOnlyView; tabButton.style.display=ack||readOnlyView?'none':'inline-block'; box.style.display='block';
       if(ack){document.getElementById('policyAckStatus').textContent=`Acknowledged ${new Date(ack.acknowledged_at).toLocaleString()}`;}else{document.getElementById('policyAckStatus').textContent='';}
       const popupKey=String(currentStudent?.id||'');
-      if(!ack&&popupKey&&popupKey!==policyPopupShownFor){policyPopupShownFor=popupKey;showTab('policies');document.getElementById('policyAckModalCheckbox').checked=false;document.getElementById('policyAckModal').style.display='flex';}
+      if(!ack&&!readOnlyView&&popupKey&&popupKey!==policyPopupShownFor){policyPopupShownFor=popupKey;showTab('policies');document.getElementById('policyAckModalCheckbox').checked=false;document.getElementById('policyAckModal').style.display='flex';}
     }
     async function acknowledgeCurrentPolicy(fromModal=false){const checkbox=document.getElementById(fromModal?'policyAckModalCheckbox':'policyAckCheckbox');if(!checkbox.checked){alert('Please tick the checkbox to acknowledge the policies.');return;}if(!activePolicy||!currentStudent)return;const r=await fetch('/api/parent/policies/acknowledge',{method:'POST',headers:{'Content-Type':'application/json','x-parent-token':localStorage.getItem('parentPolicyToken')||''},body:JSON.stringify({student_id:currentStudent.id,version:activePolicy.version})});const d=await r.json();if(!r.ok){alert(d.error||'Could not save acknowledgement');return;}document.getElementById('policyAckModal').style.display='none';document.getElementById('policyAckCheckbox').checked=false;document.getElementById('policyAckModalCheckbox').checked=false;await loadParentPolicies();}
     function showDashboard() {
