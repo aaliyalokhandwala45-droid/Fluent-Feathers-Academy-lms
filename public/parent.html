@@ -4118,7 +4118,9 @@ setTimeout(() => {
       document.getElementById('policyAckModalSections').innerHTML = document.getElementById('policySections').innerHTML;
       if (!token) return; const sr=await fetch('/api/parent/policies/status',{headers:{'x-parent-token':token}}); if(!sr.ok)return; const st=await sr.json();
       const ack=(st.acknowledgements||[]).find(a=>Number(a.student_id)===Number(currentStudent?.id)&&a.policy_version===activePolicy.version); const box=document.getElementById('policyAcknowledgeBox');
-      if(ack){document.getElementById('policyAckStatus').textContent=`Previously acknowledged ${new Date(ack.acknowledged_at).toLocaleString()}`;box.style.display='none';}else{document.getElementById('policyAckStatus').textContent='';box.style.display='block';}
+      const tabCheckbox=document.getElementById('policyAckCheckbox'); const tabButton=document.getElementById('policyAckButton');
+      tabCheckbox.checked=!!ack; tabCheckbox.disabled=!!ack; tabButton.style.display=ack?'none':'inline-block'; box.style.display='block';
+      if(ack){document.getElementById('policyAckStatus').textContent=`Acknowledged ${new Date(ack.acknowledged_at).toLocaleString()}`;}else{document.getElementById('policyAckStatus').textContent='';}
       const popupKey=String(currentStudent?.id||'');
       if(!ack&&popupKey&&popupKey!==policyPopupShownFor){policyPopupShownFor=popupKey;showTab('policies');document.getElementById('policyAckModalCheckbox').checked=false;document.getElementById('policyAckModal').style.display='flex';}
     }
