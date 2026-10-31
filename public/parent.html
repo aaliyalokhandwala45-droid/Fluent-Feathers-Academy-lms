@@ -5421,10 +5421,12 @@ setTimeout(() => {
         // Update top card makeup display
         const topMakeupDisplay = document.getElementById('displayMakeup');
         if (topMakeupDisplay) topMakeupDisplay.textContent = availableCredits;
-        document.getElementById('makeupCount').textContent = availableCredits;
-        document.getElementById('makeupAvailableCount').textContent = availableCredits;
-        document.getElementById('makeupScheduledCount').textContent = scheduledCredits;
-        document.getElementById('makeupUsedCount').textContent = usedCredits;
+        const availableCount = document.getElementById('makeupAvailableCount');
+        const scheduledCount = document.getElementById('makeupScheduledCount');
+        const usedCount = document.getElementById('makeupUsedCount');
+        if (availableCount) availableCount.textContent = availableCredits;
+        if (scheduledCount) scheduledCount.textContent = scheduledCredits;
+        if (usedCount) usedCount.textContent = usedCredits;
 
         const summaryText = document.getElementById('makeupSummaryText');
         if (summaryText) {
