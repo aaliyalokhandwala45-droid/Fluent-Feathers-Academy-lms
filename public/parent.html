@@ -4131,20 +4131,18 @@ setTimeout(() => {
       if (name === 'announcements') loadAnnouncements();
       if (name === 'learningLab') renderLearningLabCards();
       if (name === 'activityLog') loadActivityLog();
-      if (name === 'hallOfFame') {
-        loadHallOfFame();
-        if (e) launchHallOfFameConfetti();
-      }
+      if (name === 'hallOfFame') loadHallOfFame();
+      if (e && ['hallOfFame', 'achievements', 'pointsTracker'].includes(name)) launchPortalConfetti();
       if (name === 'policies') loadParentPolicies();
     }
 
-    function launchHallOfFameConfetti() {
+    function launchPortalConfetti() {
       if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-      if (window.hallOfFameConfettiFrame) cancelAnimationFrame(window.hallOfFameConfettiFrame);
-      document.getElementById('hallOfFameConfettiCanvas')?.remove();
+      if (window.portalConfettiFrame) cancelAnimationFrame(window.portalConfettiFrame);
+      document.getElementById('portalConfettiCanvas')?.remove();
 
       const canvas = document.createElement('canvas');
-      canvas.id = 'hallOfFameConfettiCanvas';
+      canvas.id = 'portalConfettiCanvas';
       canvas.setAttribute('aria-hidden', 'true');
       canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999;';
       document.body.appendChild(canvas);
@@ -4186,14 +4184,14 @@ setTimeout(() => {
         });
 
         if (elapsed < duration) {
-          window.hallOfFameConfettiFrame = requestAnimationFrame(drawConfetti);
+          window.portalConfettiFrame = requestAnimationFrame(drawConfetti);
         } else {
           canvas.remove();
-          window.hallOfFameConfettiFrame = null;
+          window.portalConfettiFrame = null;
         }
       }
 
-      window.hallOfFameConfettiFrame = requestAnimationFrame(drawConfetti);
+      window.portalConfettiFrame = requestAnimationFrame(drawConfetti);
     }
 
     function toggleParentSidebar(forceOpen) {
