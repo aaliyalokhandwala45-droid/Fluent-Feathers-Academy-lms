@@ -379,6 +379,12 @@ select.std:focus { border-color: #B05D9E; }
   75%  {                 opacity: 0.6;  transform: translateX(10px)  scale(1.01); }
   100% { bottom: 108vh;  opacity: 0;   transform: translateX(-20px) scale(0.92); }
 }
+
+.fx-heart { position:absolute; bottom:-70px; left:var(--x); font-size:var(--size); line-height:1; pointer-events:none; filter:drop-shadow(0 0 12px rgba(255,70,130,.7)); animation:heartFloat var(--dur) ease-out forwards; }
+@keyframes heartFloat { 0%{transform:translateY(0) scale(.55) rotate(-12deg);opacity:0} 15%{opacity:1} 100%{transform:translateY(-115vh) scale(1.15) rotate(18deg);opacity:0} }
+.fx-firework { position:absolute; left:var(--x); top:var(--y); width:0; height:0; pointer-events:none; }
+.fx-firework-spark { position:absolute; left:0; top:0; width:8px; height:8px; border-radius:50%; background:var(--color); box-shadow:0 0 10px 3px var(--color); animation:fireworkBurst 1.15s ease-out forwards; }
+@keyframes fireworkBurst { 0%{transform:translate(0,0) scale(.3);opacity:1} 75%{opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(.05);opacity:0} }
 </style>
 </head>
 <body>
@@ -404,6 +410,8 @@ select.std:focus { border-color: #B05D9E; }
         <button class="fx-btn" onclick="fxClap()">👏 Clap</button>
         <button class="fx-btn" onclick="fxDrumroll()">🥁 Drumroll</button>
         <button class="fx-btn" onclick="fxBubbles()">🫧 Bubbles</button>
+        <button class="fx-btn" onclick="fxHearts()">&#128150; Hearts</button>
+        <button class="fx-btn" onclick="fxFireworks()">&#127878; Fireworks</button>
       </div>
       <button onclick="fxClear()" style="margin-top:7px;width:100%;background:#7f1d1d;color:#fca5a5;border:1.5px solid #f87171;border-radius:7px;padding:5px;font-size:11px;font-weight:700;cursor:pointer;">✕ Clear All</button>
     </div>
@@ -1167,6 +1175,20 @@ function fxBubbles() {
 }
 
 // ── FX Audio Functions ──
+
+function fxHearts() {
+ var ov=fxOv(),hearts=[String.fromCodePoint(128150),String.fromCodePoint(128149),String.fromCodePoint(128139),String.fromCodePoint(10084,65039),String.fromCodePoint(128153)];playHeartsFx();
+ for(var i=0;i<30;i++)(function(idx){setTimeout(function(){var h=document.createElement('div');h.className='fx-heart';h.textContent=hearts[Math.floor(Math.random()*hearts.length)];h.style.setProperty('--x',(Math.random()*96)+'vw');h.style.setProperty('--size',(28+Math.random()*44)+'px');h.style.setProperty('--dur',(3.2+Math.random()*1.8)+'s');ov.appendChild(h);setTimeout(function(){if(h.parentNode)h.parentNode.removeChild(h)},5200)},idx*110)})(i);
+ setTimeout(fxClear,9000);
+}
+function fxFireworks() {
+ var ov=fxOv(),colors=['#ff477e','#ffd166','#06d6a0','#4cc9f0','#c77dff','#fff'];playFireworksFx();
+ for(var volley=0;volley<5;volley++)(function(idx){setTimeout(function(){var burst=document.createElement('div');burst.className='fx-firework';burst.style.setProperty('--x',(12+Math.random()*76)+'vw');burst.style.setProperty('--y',(12+Math.random()*52)+'vh');for(var j=0;j<24;j++){var a=2*Math.PI*j/24+(Math.random()-.5)*.18,d=55+Math.random()*105,s=document.createElement('i');s.className='fx-firework-spark';s.style.setProperty('--dx',(Math.cos(a)*d)+'px');s.style.setProperty('--dy',(Math.sin(a)*d)+'px');s.style.setProperty('--color',colors[Math.floor(Math.random()*colors.length)]);burst.appendChild(s)}ov.appendChild(burst);setTimeout(function(){if(burst.parentNode)burst.parentNode.removeChild(burst)},1400)},idx*420)})(volley);
+ setTimeout(fxClear,4000);
+}
+function playHeartsFx(){try{var ctx=ac();function go(){var now=ctx.currentTime;[523.25,659.25,783.99,1046.5].forEach(function(f,i){var t=now+i*.11,o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.14,t+.025);g.gain.exponentialRampToValueAtTime(.001,t+.42);o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+.44)})}ctx.state==='suspended'?ctx.resume().then(go):go()}catch(e){}}
+function playFireworksFx(){try{var ctx=ac();function go(){for(var i=0;i<5;i++)(function(idx){var t=ctx.currentTime+idx*.42,o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(180+Math.random()*100,t);o.frequency.exponentialRampToValueAtTime(900+Math.random()*700,t+.18);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+.55);o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+.57);var b=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.32),ctx.sampleRate),data=b.getChannelData(0);for(var j=0;j<data.length;j++)data[j]=(Math.random()*2-1)*(1-j/data.length);var src=ctx.createBufferSource(),f=ctx.createBiquadFilter(),ng=ctx.createGain();src.buffer=b;f.type='highpass';f.frequency.value=1200;ng.gain.setValueAtTime(.0001,t+.15);ng.gain.exponentialRampToValueAtTime(.16,t+.19);ng.gain.exponentialRampToValueAtTime(.001,t+.52);src.connect(f);f.connect(ng);ng.connect(ctx.destination);src.start(t+.15)})(i)}ctx.state==='suspended'?ctx.resume().then(go):go()}catch(e){}}
+
 function playBubblesFx() {
   try {
     var ctx = ac();
