@@ -7237,7 +7237,9 @@ setTimeout(() => {
         const canva = url.match(/^https?:\/\/(?:www\.)?canva\.com\/design\/([^/?#]+)(?:\/([^/?#]+))?/i);
         const drive = url.match(/^https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/|presentation\/d\/)([^/?#]+)/i);
         if (canva) {
-          viewerUrl = `https://www.canva.com/design/${canva[1]}/${canva[2] || 'view'}?embed`;
+          const canvaHash = canva[2] && !/^(view|edit)$/i.test(canva[2]) ? '/' + canva[2] : '';
+          // Always use Canva's view embed route; a shared edit URL cannot be embedded.
+          viewerUrl = `https://www.canva.com/design/${canva[1]}${canvaHash}/view?embed`;
         } else if (drive) {
           viewerUrl = `https://drive.google.com/file/d/${drive[1]}/preview`;
         } else {
@@ -7276,7 +7278,7 @@ setTimeout(() => {
           <p style="color: white; margin-bottom: 10px; font-size: 1.1rem;"> ${fileName}</p>
           <p style="color: #f6ad55; margin-bottom: 15px; font-size: 0.85rem;"> Viewing as: ${parentName} | ${dateStr}</p>
           <div style="position: relative; width: 95vw; max-width: 1200px; height: 80vh; background: white; border-radius: 8px; overflow: hidden;" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
-            <iframe src="${docViewerUrl}" style="width: 100%; height: 100%; border: none;" sandbox="allow-scripts allow-same-origin" allow=""></iframe>
+            <iframe src="${docViewerUrl}" style="width: 100%; height: 100%; border: none;" ${fileType === 'link' ? '' : 'sandbox="allow-scripts allow-same-origin"'} allow="fullscreen"></iframe>
             <!-- Dense watermark overlay -->
             <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; z-index: 1000;">
               ${watermarkHtml}
