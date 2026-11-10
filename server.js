@@ -6325,8 +6325,7 @@ function getAnnouncementEmail(data) {
                1 AS recipient_priority,
                st.id AS recipient_id
         FROM students st
-        WHERE st.is_active = true
-          AND st.parent_email IS NOT NULL
+        WHERE st.parent_email IS NOT NULL
           AND TRIM(st.parent_email) <> ''
 
         UNION ALL
@@ -8665,8 +8664,7 @@ cron.schedule('10 0 * * *', async () => {
         SELECT s.id
         FROM students s
         JOIN latest_payment p ON p.student_id = s.id
-        WHERE s.is_active = true
-          AND p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
+        WHERE p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
           AND COALESCE(s.remaining_sessions, 0) > 0
           AND NOT EXISTS (
             SELECT 1 FROM sessions sess
@@ -8695,7 +8693,75 @@ cron.schedule('10 0 * * *', async () => {
     `);
     if (result.rowCount > 0) {
       console.log(`Expired unused three-month balances for ${result.rowCount} student(s)`);
-      result.rows.forEach(row => clearStudentSessionsCache(row.id));
+      for (const student of result.rows) {
+        clearStudentSessionsCache(student.id);
+        await logStudentActivity(
+          student.id,
+          'session_expired',
+          'Unused paid sessions expired',
+          'Unused paid sessions expired after three months without attendance from the payment date and were marked as used.',
+          { expiry_rule: '3_months_without_attendance' }
+        );
+      }
+    }
+
+    const expiredMakeups = await pool.query(`
+      WITH latest_payment AS (
+        SELECT student_id, MAX(payment_date) AS payment_date
+        FROM (
+          SELECT student_id, payment_date::date AS payment_date
+          FROM payment_history
+          WHERE amount > 0 AND LOWER(COALESCE(payment_status, 'Paid')) <> 'refunded'
+          UNION ALL
+          SELECT student_id, renewal_date::date AS payment_date
+          FROM payment_renewals
+          WHERE LOWER(COALESCE(status, 'Paid')) = 'paid'
+        ) payments
+        GROUP BY student_id
+      ), eligible_students AS (
+        SELECT s.id AS student_id, p.payment_date
+        FROM students s
+        JOIN latest_payment p ON p.student_id = s.id
+        WHERE p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
+          AND NOT EXISTS (
+            SELECT 1 FROM sessions sess
+            WHERE sess.student_id = s.id
+              AND sess.session_date >= p.payment_date
+              AND sess.status = 'Completed'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM session_attendance sa
+            JOIN sessions sess ON sess.id = sa.session_id
+            WHERE sa.student_id = s.id
+              AND sess.session_date >= p.payment_date
+              AND COALESCE(sa.attendance, '') = 'Present'
+          )
+      )
+      UPDATE makeup_classes mc
+      SET status = 'Expired',
+          notes = concat_ws(E'\\n', NULLIF(mc.notes, ''), 'Expired: unused after three months from payment date')
+      FROM eligible_students e
+      WHERE mc.student_id = e.student_id
+        AND LOWER(COALESCE(mc.status, '')) = 'available'
+      RETURNING mc.student_id, mc.id
+    `);
+    if (expiredMakeups.rowCount > 0) {
+      console.log(`Expired ${expiredMakeups.rowCount} unused makeup credit(s)`);
+      const expiredCreditsByStudent = new Map();
+      for (const credit of expiredMakeups.rows) {
+        const studentId = Number(credit.student_id);
+        expiredCreditsByStudent.set(studentId, [...(expiredCreditsByStudent.get(studentId) || []), credit.id]);
+      }
+      for (const [studentId, creditIds] of expiredCreditsByStudent) {
+        clearStudentSessionsCache(studentId);
+        await logStudentActivity(
+          studentId,
+          'makeup_expired',
+          'Unused makeup classes expired',
+          `${creditIds.length} unused makeup credit${creditIds.length === 1 ? '' : 's'} expired after three months without attendance from the payment date.`,
+          { expiry_rule: '3_months_without_attendance', expired_credit_ids: creditIds }
+        );
+      }
     }
   } catch (err) {
     console.error('Unused session expiry job failed:', err.message);
@@ -16003,9 +16069,9 @@ app.post('/api/events', async (req, res) => {
     let students = [];
 
     if (target_audience === 'All' || !target_audience) {
-      students = await pool.query('SELECT * FROM students WHERE is_active = true');
+      students = await pool.query("SELECT * FROM students WHERE parent_email IS NOT NULL AND TRIM(parent_email) <> ''");
     } else if (target_audience === 'Specific Grades' && specific_grades) {
-      students = await pool.query('SELECT * FROM students WHERE is_active = true AND grade = ANY($1)', [specific_grades.split(',').map(g=>g.trim())]);
+      students = await pool.query("SELECT * FROM students WHERE parent_email IS NOT NULL AND TRIM(parent_email) <> '' AND grade = ANY($1)", [specific_grades.split(',').map(g=>g.trim())]);
     }
 
     let emailsSent = 0;
@@ -21664,7 +21730,7 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
 
     // If assign_to_all, create student_challenges for all active students
     if (assign_to_all === 'true' || assign_to_all === true) {
-      const students = await pool.query('SELECT id FROM students WHERE is_active = true');
+      const students = await pool.query('SELECT id FROM students');
       assignedStudents = students.rows;
       for (const student of assignedStudents) {
         await pool.query(`
@@ -21686,7 +21752,7 @@ app.post('/api/challenges', handleUpload('image'), async (req, res) => {
       const parents = await pool.query(`
         SELECT DISTINCT s.parent_email, s.parent_name, s.name as student_name
         FROM students s
-        WHERE s.is_active = true AND s.parent_email IS NOT NULL
+        WHERE s.parent_email IS NOT NULL AND TRIM(s.parent_email) <> ''
       `);
 
       for (const p of parents.rows) {
