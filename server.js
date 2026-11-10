@@ -8645,6 +8645,62 @@ cron.schedule('5 0 * * *', async () => {
   }
 });
 
+// Expire unused paid sessions when no class was attended during the three months after the latest payment.
+cron.schedule('10 0 * * *', async () => {
+  try {
+    const result = await pool.query(`
+      WITH latest_payment AS (
+        SELECT student_id, MAX(payment_date) AS payment_date
+        FROM (
+          SELECT student_id, payment_date::date AS payment_date
+          FROM payment_history
+          WHERE amount > 0 AND COALESCE(payment_status, 'Paid') <> 'Refunded'
+          UNION ALL
+          SELECT student_id, renewal_date::date AS payment_date
+          FROM payment_renewals
+          WHERE LOWER(COALESCE(status, 'Paid')) = 'paid'
+        ) payments
+        GROUP BY student_id
+      ), expired AS (
+        SELECT s.id
+        FROM students s
+        JOIN latest_payment p ON p.student_id = s.id
+        WHERE s.is_active = true
+          AND p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
+          AND COALESCE(s.remaining_sessions, 0) > 0
+          AND NOT EXISTS (
+            SELECT 1 FROM sessions sess
+            WHERE sess.student_id = s.id
+              AND sess.session_date >= p.payment_date
+              AND sess.status = 'Completed'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM session_attendance sa
+            JOIN sessions sess ON sess.id = sa.session_id
+            WHERE sa.student_id = s.id
+              AND sess.session_date >= p.payment_date
+              AND COALESCE(sa.attendance, '') = 'Present'
+          )
+        FOR UPDATE OF s SKIP LOCKED
+      )
+      UPDATE students s
+      SET completed_sessions = GREATEST(COALESCE(s.completed_sessions, 0), COALESCE(s.total_sessions, 0)),
+          remaining_sessions = 0,
+          session_balance_override = true,
+          renewal_reminder_sent = false,
+          last_reminder_remaining = NULL
+      FROM expired e
+      WHERE s.id = e.id
+      RETURNING s.id, s.name
+    `);
+    if (result.rowCount > 0) {
+      console.log(`Expired unused three-month balances for ${result.rowCount} student(s)`);
+      result.rows.forEach(row => clearStudentSessionsCache(row.id));
+    }
+  } catch (err) {
+    console.error('Unused session expiry job failed:', err.message);
+  }
+});
 console.log('✅ Class & event reminder system initialized - checking every 15 minutes');
 
 // ==================== BIRTHDAY REMINDER CRON JOB ====================
