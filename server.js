@@ -8666,19 +8666,6 @@ cron.schedule('10 0 * * *', async () => {
         JOIN latest_payment p ON p.student_id = s.id
         WHERE p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
           AND COALESCE(s.remaining_sessions, 0) > 0
-          AND NOT EXISTS (
-            SELECT 1 FROM sessions sess
-            WHERE sess.student_id = s.id
-              AND sess.session_date >= p.payment_date
-              AND sess.status = 'Completed'
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM session_attendance sa
-            JOIN sessions sess ON sess.id = sa.session_id
-            WHERE sa.student_id = s.id
-              AND sess.session_date >= p.payment_date
-              AND COALESCE(sa.attendance, '') = 'Present'
-          )
         FOR UPDATE OF s SKIP LOCKED
       )
       UPDATE students s
@@ -8723,26 +8710,20 @@ cron.schedule('10 0 * * *', async () => {
         FROM students s
         JOIN latest_payment p ON p.student_id = s.id
         WHERE p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
-          AND NOT EXISTS (
-            SELECT 1 FROM sessions sess
-            WHERE sess.student_id = s.id
-              AND sess.session_date >= p.payment_date
-              AND sess.status = 'Completed'
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM session_attendance sa
-            JOIN sessions sess ON sess.id = sa.session_id
-            WHERE sa.student_id = s.id
-              AND sess.session_date >= p.payment_date
-              AND COALESCE(sa.attendance, '') = 'Present'
-          )
       )
       UPDATE makeup_classes mc
       SET status = 'Expired',
           notes = concat_ws(E'\\n', NULLIF(mc.notes, ''), 'Expired: unused after three months from payment date')
       FROM eligible_students e
       WHERE mc.student_id = e.student_id
-        AND LOWER(COALESCE(mc.status, '')) = 'available'
+        AND LOWER(COALESCE(mc.status, '')) IN ('available', 'scheduled')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM sessions booked
+          LEFT JOIN session_attendance sa ON sa.session_id = booked.id AND sa.student_id = mc.student_id
+          WHERE booked.id = mc.scheduled_session_id
+            AND (booked.status = 'Completed' OR COALESCE(sa.attendance, booked.attendance, '') = 'Present')
+        )
       RETURNING mc.student_id, mc.id
     `);
     if (expiredMakeups.rowCount > 0) {
