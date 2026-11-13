@@ -13743,7 +13743,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
       const id = document.getElementById('editAnnouncementId').value;
       const title = document.getElementById('editAnnouncementTitle').value;
 
-      if (!confirm(`Send email for "${title}" to active parents and demo parents?`)) return;
+      if (!confirm(`Send email for "${title}" to all parents with an email on file, including parents of inactive students and eligible demo leads?`)) return;
 
       try {
         const res = await fetch(`/api/announcements/${id}/send-email`, {

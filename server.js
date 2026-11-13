@@ -6308,15 +6308,9 @@ function getScheduleEmail(data) {
 </html>`;
 }
 
-function getAnnouncementEmail(data) {
-  const priorityColors = {
-    'Urgent': { bg: '#fed7d7', border: '#c53030', text: '#c53030' },
-    'High': { bg: '#feebc8', border: '#c05621', text: '#c05621' },
-    'Normal': { bg: '#e2e8f0', border: '#718096', text: '#4a5568' }
-  };
-
-  async function getAnnouncementRecipients() {
-    return pool.query(`
+async function getAnnouncementRecipients() {
+  // Include all student records, regardless of active status, and deduplicate by parent email.
+  return pool.query(`
       SELECT parent_email, parent_name, student_name
       FROM (
         SELECT TRIM(st.parent_email) AS parent_email,
@@ -6342,13 +6336,20 @@ function getAnnouncementEmail(data) {
       ) recipients
       WHERE parent_email IS NOT NULL AND parent_email <> ''
       ORDER BY LOWER(parent_email), recipient_priority, recipient_id
-    `).then(result => ({
-      ...result,
-      rows: result.rows.filter((row, index, rows) =>
-        index === rows.findIndex(candidate => candidate.parent_email.toLowerCase() === row.parent_email.toLowerCase())
-      )
-    }));
-  }
+  `).then(result => ({
+    ...result,
+    rows: result.rows.filter((row, index, rows) =>
+      index === rows.findIndex(candidate => candidate.parent_email.toLowerCase() === row.parent_email.toLowerCase())
+    )
+  }));
+}
+
+function getAnnouncementEmail(data) {
+  const priorityColors = {
+    'Urgent': { bg: '#fed7d7', border: '#c53030', text: '#c53030' },
+    'High': { bg: '#feebc8', border: '#c05621', text: '#c05621' },
+    'Normal': { bg: '#e2e8f0', border: '#718096', text: '#4a5568' }
+  };
   const colors = priorityColors[data.priority] || priorityColors['Normal'];
 
   return `<!DOCTYPE html>
@@ -24202,7 +24203,7 @@ app.post('/api/announcements', upload.single('image'), async (req, res) => {
   }
 });
 
-// Send announcement email to all active students
+// Send announcement email to all students, including inactive students.
 app.post('/api/announcements/:id/send-email', async (req, res) => {
   try {
     const announcement = await pool.query('SELECT * FROM announcements WHERE id = $1', [req.params.id]);
