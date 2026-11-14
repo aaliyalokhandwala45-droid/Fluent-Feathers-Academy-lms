@@ -5182,12 +5182,15 @@ async function sendEmail(to, subject, html, recipientName, emailType, options = 
     }
 
     const websiteLink = 'https://sites.google.com/view/fluentfeathersacademybyaaliya/home';
+    // Most email templates include this sign-off already. Keep the shared
+    // website footer, but only add the sign-off here when the template lacks it.
+    const hasAaliyaSignoff = typeof finalHtml === 'string' && /Made\s+with[\s\S]{0,80}By\s+Aaliya/i.test(finalHtml);
     const websiteFooter = `
       <div style="text-align:center;padding:14px 20px 4px;">
         <a href="${websiteLink}" target="_blank" style="display:inline-block;color:#B05D9E;font-size:14px;font-weight:700;text-decoration:none;">
           Visit Our Website: Fluent Feathers Academy
         </a>
-        <div style="color:#718096;font-size:12px;margin-top:6px;">Made with &#10084;&#65039; By Aaliya</div>
+        ${hasAaliyaSignoff ? '' : '<div style="color:#718096;font-size:12px;margin-top:6px;">Made with &#10084;&#65039; By Aaliya</div>'}
       </div>
     `;
     if (typeof finalHtml === 'string' && !finalHtml.includes(websiteLink)) {
