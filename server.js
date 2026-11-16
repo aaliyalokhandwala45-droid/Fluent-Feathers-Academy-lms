@@ -19732,7 +19732,19 @@ const HOMEWORK_LATE_POINTS = 10;
 const HOMEWORK_VERY_LATE_POINTS = 5;
 const HOMEWORK_CONSISTENCY_BONUS = 10;
 const CHALLENGE_POINT_VALUE = 10;
+const CHALLENGE_PROMO_POINT_VALUE = 50;
+const CHALLENGE_PROMO_START_DATE = '2026-11-16';
+const CHALLENGE_PROMO_END_DATE = '2026-12-30';
 const BADGE_POINT_VALUE = 2;
+
+function challengePointValueSql(alias = 'sc') {
+  return `CASE
+    WHEN COALESCE(${alias}.submitted_at, ${alias}.completed_at) >= DATE '${CHALLENGE_PROMO_START_DATE}'
+      AND COALESCE(${alias}.submitted_at, ${alias}.completed_at) < DATE '${CHALLENGE_PROMO_END_DATE}' + INTERVAL '1 day'
+    THEN ${CHALLENGE_PROMO_POINT_VALUE}
+    ELSE ${CHALLENGE_POINT_VALUE}
+  END`;
+}
 
 function homeworkDurationMinutesSql(sessionAlias = 's') {
   return `COALESCE((
@@ -19820,11 +19832,11 @@ async function calculateStudentScores(startDate, endDate) {
       GROUP BY student_id
     ),
     challenge_pts AS (
-      SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts
-      FROM student_challenges
-      WHERE status = 'Completed'
-        AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
-      GROUP BY student_id
+      SELECT sc.student_id, SUM(${challengePointValueSql('sc')}) as pts
+      FROM student_challenges sc
+      WHERE sc.status = 'Completed'
+        AND sc.completed_at >= $1::date AND sc.completed_at < ($2::date + INTERVAL '1 day')
+      GROUP BY sc.student_id
     ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
@@ -20111,11 +20123,11 @@ app.get('/api/leaderboard', async (req, res) => {
         GROUP BY student_id
       ),
       challenge_pts AS (
-        SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts
-        FROM student_challenges
-        WHERE status = 'Completed'
+        SELECT sc.student_id, SUM(${challengePointValueSql('sc')}) as pts
+        FROM student_challenges sc
+        WHERE sc.status = 'Completed'
           ${chFilter}
-        GROUP BY student_id
+        GROUP BY sc.student_id
       ),
       badge_pts AS (
         SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts
@@ -20183,7 +20195,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           WHERE student_id = $1
         ),
         challenge_scores AS (
-          SELECT COUNT(*) * ${CHALLENGE_POINT_VALUE} AS points
+          SELECT COALESCE(SUM(${challengePointValueSql('sc')}), 0) AS points
           FROM student_challenges sc
           WHERE sc.student_id = $1
             AND sc.status = 'Completed'
@@ -20252,7 +20264,7 @@ app.get('/api/students/:id/score-history', async (req, res) => {
           SELECT
             'leaderboard'::text AS score_group,
             'challenge'::text AS score_type,
-            ${CHALLENGE_POINT_VALUE}::int AS points,
+            (${challengePointValueSql('sc')})::int AS points,
             sc.completed_at AS occurred_at,
             'Challenge completed'::text AS title,
             COALESCE(wc.title, 'Weekly challenge') AS detail,
@@ -20391,10 +20403,10 @@ app.get('/api/awards/current', async (req, res) => {
       WHERE week_start >= $1::date AND week_start <= $2::date GROUP BY student_id
     ),
     challenge_pts AS (
-      SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts FROM student_challenges
-      WHERE status = 'Completed'
-        AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
-      GROUP BY student_id
+      SELECT sc.student_id, SUM(${challengePointValueSql('sc')}) as pts FROM student_challenges sc
+      WHERE sc.status = 'Completed'
+        AND sc.completed_at >= $1::date AND sc.completed_at < ($2::date + INTERVAL '1 day')
+      GROUP BY sc.student_id
     ),
     badge_pts AS (
       SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
@@ -20499,10 +20511,10 @@ app.get('/api/awards/by-period', async (req, res) => {
         WHERE week_start >= $1::date AND week_start <= $2::date GROUP BY student_id
       ),
       challenge_pts AS (
-        SELECT student_id, COUNT(*) * ${CHALLENGE_POINT_VALUE} as pts FROM student_challenges
-        WHERE status = 'Completed'
-          AND completed_at >= $1::date AND completed_at < ($2::date + INTERVAL '1 day')
-        GROUP BY student_id
+        SELECT sc.student_id, SUM(${challengePointValueSql('sc')}) as pts FROM student_challenges sc
+        WHERE sc.status = 'Completed'
+          AND sc.completed_at >= $1::date AND sc.completed_at < ($2::date + INTERVAL '1 day')
+        GROUP BY sc.student_id
       ),
       badge_pts AS (
         SELECT student_id, COUNT(*) * ${BADGE_POINT_VALUE} as pts FROM student_badges
