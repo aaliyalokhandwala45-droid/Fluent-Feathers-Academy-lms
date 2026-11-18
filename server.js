@@ -5335,6 +5335,8 @@ async function getStudentPackageSnapshot(studentId, db = pool) {
 async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
   if (!parentEmail) return [];
 
+  await expireUnusedPaidSessions({ throwOnError: true });
+
   const result = await db.query(`
     SELECT s.*,
       pc.timezone as credential_timezone,
@@ -5480,6 +5482,8 @@ async function getParentPortalStudentsByEmail(parentEmail, db = pool) {
 }
 
 async function getParentPortalStudentById(studentId, db = pool) {
+  await expireUnusedPaidSessions({ throwOnError: true });
+
   const result = await db.query(`
     SELECT s.*,
       COALESCE((
@@ -8650,7 +8654,7 @@ cron.schedule('5 0 * * *', async () => {
 });
 
 // Expire unused paid sessions when no class was attended during the three months after the latest payment.
-async function expireUnusedPaidSessions() {
+async function expireUnusedPaidSessions({ throwOnError = false } = {}) {
   try {
     const result = await pool.query(`
       WITH latest_payment AS (
@@ -8751,6 +8755,7 @@ async function expireUnusedPaidSessions() {
     }
   } catch (err) {
     console.error('Unused session expiry job failed:', err.message);
+    if (throwOnError) throw err;
   }
 }
 cron.schedule('10 0 * * *', expireUnusedPaidSessions);
