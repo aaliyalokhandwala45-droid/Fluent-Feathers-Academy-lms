@@ -395,6 +395,7 @@ async function initializeDatabaseConnection() {
 
         // Initialize schema only once per process (avoids heavy repeat work on reconnect)
         await ensureDatabaseSchemaInitialized();
+        await expireUnusedPaidSessions();
 
         // One-time retroactive badge award for existing students
         try {
@@ -8649,7 +8650,7 @@ cron.schedule('5 0 * * *', async () => {
 });
 
 // Expire unused paid sessions when no class was attended during the three months after the latest payment.
-cron.schedule('10 0 * * *', async () => {
+async function expireUnusedPaidSessions() {
   try {
     const result = await pool.query(`
       WITH latest_payment AS (
@@ -8751,7 +8752,8 @@ cron.schedule('10 0 * * *', async () => {
   } catch (err) {
     console.error('Unused session expiry job failed:', err.message);
   }
-});
+}
+cron.schedule('10 0 * * *', expireUnusedPaidSessions);
 console.log('✅ Class & event reminder system initialized - checking every 15 minutes');
 
 // ==================== BIRTHDAY REMINDER CRON JOB ====================
@@ -17344,12 +17346,18 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
       pool.query(`SELECT * FROM student_activity_logs WHERE student_id = $1 ORDER BY created_at DESC, id DESC LIMIT 200`, [id]),
       pool.query(`
         SELECT s.id, s.session_type, s.session_date, s.session_time, s.status, s.created_at,
+               s.session_date + COALESCE(s.session_time, TIME '00:00:00') AS class_at,
                COALESCE(sa.attendance, s.attendance) AS attendance,
                s.cancelled_by, s.teacher_notes
         FROM sessions s
         LEFT JOIN session_attendance sa ON sa.session_id = s.id AND sa.student_id = $1
         WHERE s.student_id = $1 OR sa.student_id = $1
-        ORDER BY s.created_at DESC, s.id DESC
+        ORDER BY CASE
+          WHEN LOWER(COALESCE(sa.attendance, s.attendance, '')) IN ('present', 'completed')
+            OR (LOWER(COALESCE(s.session_type, '')) <> 'group' AND LOWER(COALESCE(s.status, '')) = 'completed')
+          THEN s.session_date + COALESCE(s.session_time, TIME '00:00:00')
+          ELSE s.created_at
+        END DESC, s.id DESC
         LIMIT 300
       `, [id]),
       pool.query(`
@@ -17418,14 +17426,19 @@ app.get('/api/students/:studentId/activity-logs', async (req, res) => {
         Number(row.metadata?.session_id) === Number(s.id)
       );
       if (isCancelled && hasCancellationLog) continue;
-      const isCompleted = ['completed', 'present'].includes(String(s.attendance || s.status || '').toLowerCase());
+      const attendance = String(s.attendance || '').toLowerCase();
+      const status = String(s.status || '').toLowerCase();
+      const isCompleted = ['completed', 'present'].includes(attendance) ||
+        (!attendance || attendance === 'pending') &&
+        String(s.session_type || '').toLowerCase() !== 'group' &&
+        status === 'completed';
       logs.push({
         id: `session-${s.id}`,
         action_type: isCancelled ? 'cancel' : isCompleted ? 'class' : 'schedule',
         title: isCancelled ? 'Class cancelled' : isCompleted ? 'Class attended' : 'Class scheduled',
         details: `${s.session_type || 'Class'} class on ${localClassTime.date}${s.session_time ? ` at ${localClassTime.time}` : ''}${s.cancelled_by ? `; cancelled by ${s.cancelled_by}` : ''}${s.teacher_notes ? `; ${s.teacher_notes}` : ''}`,
         metadata: { session_id: s.id, class_date: localClassTime.date, class_time: s.session_time ? localClassTime.time : null, status: s.status },
-        created_at: s.created_at || s.session_date
+        created_at: isCompleted ? s.class_at || s.session_date : s.created_at || s.class_at || s.session_date
       });
     }
     for (const p of payments.rows) {
