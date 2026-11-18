@@ -8653,52 +8653,70 @@ cron.schedule('5 0 * * *', async () => {
   }
 });
 
-// Expire unused paid sessions when no class was attended during the three months after the latest payment.
+// Expire any paid-session balance that remains three months after the latest payment.
 async function expireUnusedPaidSessions({ throwOnError = false } = {}) {
   try {
-    const result = await pool.query(`
+    const candidates = await pool.query(`
       WITH latest_payment AS (
         SELECT student_id, MAX(payment_date) AS payment_date
         FROM (
           SELECT student_id, payment_date::date AS payment_date
           FROM payment_history
-          WHERE amount > 0 AND COALESCE(payment_status, 'Paid') <> 'Refunded'
+          WHERE amount > 0 AND LOWER(COALESCE(payment_status, 'Paid')) <> 'refunded'
           UNION ALL
           SELECT student_id, renewal_date::date AS payment_date
           FROM payment_renewals
           WHERE LOWER(COALESCE(status, 'Paid')) = 'paid'
         ) payments
         GROUP BY student_id
-      ), expired AS (
-        SELECT s.id
-        FROM students s
-        JOIN latest_payment p ON p.student_id = s.id
-        WHERE p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
-          AND COALESCE(s.remaining_sessions, 0) > 0
-        FOR UPDATE OF s SKIP LOCKED
       )
-      UPDATE students s
-      SET completed_sessions = GREATEST(COALESCE(s.completed_sessions, 0), COALESCE(s.total_sessions, 0)),
-          remaining_sessions = 0,
-          session_balance_override = true,
-          renewal_reminder_sent = false,
-          last_reminder_remaining = NULL
-      FROM expired e
-      WHERE s.id = e.id
-      RETURNING s.id, s.name
+      SELECT s.id, s.remaining_sessions
+      FROM students s
+      JOIN latest_payment p ON p.student_id = s.id
+      WHERE p.payment_date <= CURRENT_DATE - INTERVAL '3 months'
+        AND (
+          COALESCE(s.remaining_sessions, 0) > 0
+          OR s.session_balance_override IS DISTINCT FROM TRUE
+        )
     `);
-    if (result.rowCount > 0) {
-      console.log(`Expired unused three-month balances for ${result.rowCount} student(s)`);
-      for (const student of result.rows) {
-        clearStudentSessionsCache(student.id);
-        await logStudentActivity(
-          student.id,
-          'session_expired',
-          'Unused paid sessions expired',
-          'Unused paid sessions expired after three months without attendance from the payment date and were marked as used.',
-          { expiry_rule: '3_months_without_attendance' }
-        );
-      }
+    let expiredCount = 0;
+    for (const candidate of candidates.rows) {
+      const balance = await getStudentSessionBalance(candidate.id);
+      const paidRemaining = Math.max(
+        parseInt(balance?.paid_remaining_sessions ?? candidate.remaining_sessions, 10) || 0,
+        0
+      );
+      if (paidRemaining === 0) continue;
+
+      const expired = await pool.query(`
+        UPDATE students
+        SET completed_sessions = GREATEST(COALESCE(completed_sessions, 0), COALESCE(total_sessions, 0)),
+            remaining_sessions = 0,
+            session_balance_override = true,
+            renewal_reminder_sent = false,
+            last_reminder_remaining = NULL
+        WHERE id = $1
+          AND (
+            COALESCE(remaining_sessions, 0) > 0
+            OR session_balance_override IS DISTINCT FROM TRUE
+          )
+        RETURNING id, name
+      `, [candidate.id]);
+      if (expired.rowCount === 0) continue;
+
+      expiredCount++;
+      const student = expired.rows[0];
+      clearStudentSessionsCache(student.id);
+      await logStudentActivity(
+        student.id,
+        'session_expired',
+        'Unused paid sessions expired',
+        'Unused paid sessions expired three months after the latest payment date and were marked as used.',
+        { expiry_rule: '3_months_from_latest_payment' }
+      );
+    }
+    if (expiredCount > 0) {
+      console.log(`Expired unused three-month balances for ${expiredCount} student(s)`);
     }
 
     const expiredMakeups = await pool.query(`
