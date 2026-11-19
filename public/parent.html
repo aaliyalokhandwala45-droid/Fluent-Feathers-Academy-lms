@@ -4182,7 +4182,13 @@ setTimeout(() => {
         console.error(`Parent portal scroll target "${scrollTargetId}" was not found.`);
       }
       const scrollTarget = requestedScrollTarget || tabContent;
-      requestAnimationFrame(() => scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      requestAnimationFrame(() => {
+        if (name === 'upcoming') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
       // Highlight the correct tab button
       const tabBtn = document.querySelector(`.tab-btn[onclick*="'${name}'"]`);
       if(tabBtn) tabBtn.classList.add('active');
