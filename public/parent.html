@@ -4162,7 +4162,7 @@ setTimeout(() => {
       }
     }
 
-    function showTab(name, e) {
+    function showTab(name, e, scrollTargetId) {
       if(e) e.stopPropagation();
       toggleParentSidebar(false);
       document.querySelectorAll('.tab-content').forEach(el => {
@@ -4177,6 +4177,12 @@ setTimeout(() => {
       }
       tabContent.classList.add('active');
       tabContent.style.display = 'block';
+      const requestedScrollTarget = scrollTargetId ? document.getElementById(scrollTargetId) : null;
+      if (scrollTargetId && !requestedScrollTarget) {
+        console.error(`Parent portal scroll target "${scrollTargetId}" was not found.`);
+      }
+      const scrollTarget = requestedScrollTarget || tabContent;
+      requestAnimationFrame(() => scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       // Highlight the correct tab button
       const tabBtn = document.querySelector(`.tab-btn[onclick*="'${name}'"]`);
       if(tabBtn) tabBtn.classList.add('active');
@@ -4201,15 +4207,7 @@ setTimeout(() => {
     }
 
     function openParentPortalShortcut(tabName, targetId, e) {
-      showTab(tabName, e);
-      requestAnimationFrame(() => {
-        const target = document.getElementById(targetId);
-        if (!target) {
-          console.error(`Parent portal shortcut target "${targetId}" was not found.`);
-          return;
-        }
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+      showTab(tabName, e, targetId);
     }
 
     function updateStudentYearCountdown() {
@@ -8677,8 +8675,8 @@ setTimeout(() => {
 
     // Add quiz tab initialization to tab switching
     const originalShowTab = window.showTab;
-    window.showTab = function(name, e) {
-      originalShowTab(name, e);
+    window.showTab = function(name, e, scrollTargetId) {
+      originalShowTab(name, e, scrollTargetId);
       if (name === 'quiz') {
         setTimeout(initializeQuizTab, 100);
       }
