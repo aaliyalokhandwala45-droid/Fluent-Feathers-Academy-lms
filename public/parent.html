@@ -75,6 +75,12 @@
     .student-year-round { background:rgba(255,255,255,.62); border:1px solid rgba(161,112,0,.24); border-radius:10px; padding:11px 13px; }
     .student-year-round strong { display:block; color:#704d00; margin-bottom:3px; }
     .student-year-award { background:rgba(255,255,255,.62); border-left:4px solid #c18b00; border-radius:8px; padding:12px 14px; margin-top:12px; line-height:1.55; }
+    .student-year-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:16px; }
+    .student-year-shortcuts { display:flex; flex-wrap:wrap; gap:10px; }
+    .student-year-shortcut { border:0; border-radius:9px; padding:10px 15px; color:#fff; background:#8a6200; font:inherit; font-weight:700; cursor:pointer; }
+    .student-year-shortcut:hover { background:#704d00; }
+    .student-year-countdown { background:rgba(255,255,255,.72); border:1px solid rgba(161,112,0,.28); border-radius:10px; padding:10px 14px; font-weight:700; color:#704d00; }
+    .student-year-countdown-label { display:block; font-size:.75rem; font-weight:600; color:#806522; margin-bottom:3px; }
     header { background: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
     #dashboardSection > header { flex-wrap:wrap; gap:16px; }
     #dashboardSection > header .dashboard-brand { flex:1 1 350px; min-width:240px; display:flex; align-items:center; gap:15px; }
@@ -442,6 +448,10 @@
       /* Login section */
       .login-section { padding: 25px 15px; margin: 20px 10px; }
       .student-year-championship { padding:18px 16px; }
+      .student-year-actions { align-items:stretch; }
+      .student-year-shortcuts { width:100%; }
+      .student-year-shortcut { flex:1 1 180px; }
+      .student-year-countdown { width:100%; text-align:center; }
 
       /* Badge summary strip responsive */
       .badge-summary-inner { flex-direction: column; text-align: center; gap: 10px; }
@@ -794,6 +804,16 @@
           <div class="student-year-round"><strong>Round 1 · The Fluent Reader</strong>16–30 November 2026</div>
           <div class="student-year-round"><strong>Round 2 · The Fluent Writer</strong>1–15 December 2026</div>
           <div class="student-year-round"><strong>Round 3 · The Fluent Communicator</strong>16–30 December 2026</div>
+        </div>
+        <div class="student-year-actions">
+          <div class="student-year-shortcuts">
+            <button type="button" class="student-year-shortcut" onclick="showTab('challenges', event)">Go to Challenges</button>
+            <button type="button" class="student-year-shortcut" onclick="showTab('pointsTracker', event)">View Scores &amp; Leaderboard</button>
+          </div>
+          <div class="student-year-countdown" role="timer" aria-live="polite">
+            <span class="student-year-countdown-label" id="studentYearCountdownLabel">Challenge countdown</span>
+            <span id="studentYearCountdown">Loading countdown…</span>
+          </div>
         </div>
         <div class="student-year-award">
           On <strong>31 December</strong>, a jury will choose one outstanding student across all three rounds. The winner receives <strong>500 additional bonus portal points</strong>, a special trophy, a certificate and the title <strong>Fluent Feathers Student of the Year 2026</strong>. The winner will be announced on <strong>1 January 2027</strong>.
@@ -4179,6 +4199,44 @@ setTimeout(() => {
       if (e && ['hallOfFame', 'achievements', 'pointsTracker'].includes(name)) launchPortalConfetti();
       if (name === 'policies') loadParentPolicies();
     }
+
+    function updateStudentYearCountdown() {
+      const label = document.getElementById('studentYearCountdownLabel');
+      const countdown = document.getElementById('studentYearCountdown');
+      if (!label || !countdown) return;
+
+      const rounds = [
+        { name: 'Round 1 · The Fluent Reader', start: new Date(2026, 10, 16), end: new Date(2026, 11, 1) },
+        { name: 'Round 2 · The Fluent Writer', start: new Date(2026, 11, 1), end: new Date(2026, 11, 16) },
+        { name: 'Round 3 · The Fluent Communicator', start: new Date(2026, 11, 16), end: new Date(2026, 11, 31) }
+      ];
+      const now = new Date();
+      const currentRound = rounds.find(round => now >= round.start && now < round.end);
+      if (currentRound) {
+        const remainingMs = currentRound.end.getTime() - now.getTime();
+        const totalHours = Math.floor(remainingMs / 3600000);
+        const minutes = Math.floor((remainingMs % 3600000) / 60000);
+        label.textContent = `${currentRound.name} ends in`;
+        countdown.textContent = `${totalHours} hours ${minutes} minutes`;
+        return;
+      }
+
+      const nextRound = rounds.find(round => now < round.start);
+      if (nextRound) {
+        const remainingMs = nextRound.start.getTime() - now.getTime();
+        const totalHours = Math.floor(remainingMs / 3600000);
+        const minutes = Math.floor((remainingMs % 3600000) / 60000);
+        label.textContent = `${nextRound.name} starts in`;
+        countdown.textContent = `${totalHours} hours ${minutes} minutes`;
+        return;
+      }
+
+      label.textContent = 'Championship countdown';
+      countdown.textContent = 'All challenges have ended';
+    }
+
+    updateStudentYearCountdown();
+    setInterval(updateStudentYearCountdown, 60000);
 
     function launchPortalConfetti() {
       if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
