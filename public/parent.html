@@ -807,8 +807,8 @@
         </div>
         <div class="student-year-actions">
           <div class="student-year-shortcuts">
-            <button type="button" class="student-year-shortcut" onclick="showTab('challenges', event)">Go to Challenges</button>
-            <button type="button" class="student-year-shortcut" onclick="showTab('pointsTracker', event)">View Scores &amp; Leaderboard</button>
+            <button type="button" class="student-year-shortcut" onclick="openParentPortalShortcut('challenges', 'challengesSection', event)">Go to Challenges</button>
+            <button type="button" class="student-year-shortcut" onclick="openParentPortalShortcut('hallOfFame', 'hallLeaderboardSection', event)">View Leaderboard</button>
           </div>
           <div class="student-year-countdown" role="timer" aria-live="polite">
             <span class="student-year-countdown-label" id="studentYearCountdownLabel">Challenge countdown</span>
@@ -1168,7 +1168,7 @@
           </div>
           <div id="hallOfFameCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;"></div>
         </div>
-        <div class="section" style="margin-top:16px;">
+        <div class="section" id="hallLeaderboardSection" style="margin-top:16px;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div>
               <h2 style="color:#B05D9E;margin:0 0 4px;">Leaderboard</h2>
@@ -4198,6 +4198,18 @@ setTimeout(() => {
       if (name === 'hallOfFame') loadHallOfFame();
       if (e && ['hallOfFame', 'achievements', 'pointsTracker'].includes(name)) launchPortalConfetti();
       if (name === 'policies') loadParentPolicies();
+    }
+
+    function openParentPortalShortcut(tabName, targetId, e) {
+      showTab(tabName, e);
+      requestAnimationFrame(() => {
+        const target = document.getElementById(targetId);
+        if (!target) {
+          console.error(`Parent portal shortcut target "${targetId}" was not found.`);
+          return;
+        }
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
 
     function updateStudentYearCountdown() {
