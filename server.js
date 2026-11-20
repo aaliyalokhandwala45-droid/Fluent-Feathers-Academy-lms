@@ -24473,9 +24473,12 @@ app.get('/api/assessments/monthly-dashboard', async (req, res) => {
   }
 });
 
-// Defer a student's assessment to next month
-app.post('/api/assessments/defer-student', async (req, res) => {
+// Skip a student's assessment for a specific month
+app.post('/api/assessments/skip-student', async (req, res) => {
   const { student_id, month, year } = req.body;
+  if (!student_id || !month || !year) {
+    return res.status(400).json({ error: 'student_id, month, and year are required' });
+  }
   try {
     const existing = await pool.query(
       'SELECT id FROM monthly_assessments WHERE student_id = $1 AND month = $2 AND year = $3 AND assessment_type = $4',
@@ -24495,9 +24498,55 @@ app.post('/api/assessments/defer-student', async (req, res) => {
   }
 });
 
-// Un-defer a student's assessment
+// Backwards-compatible defer endpoint
+app.post('/api/assessments/defer-student', async (req, res) => {
+  req.url = '/api/assessments/skip-student';
+  const { student_id, month, year } = req.body;
+  if (!student_id || !month || !year) {
+    return res.status(400).json({ error: 'student_id, month, and year are required' });
+  }
+  try {
+    const existing = await pool.query(
+      'SELECT id FROM monthly_assessments WHERE student_id = $1 AND month = $2 AND year = $3 AND assessment_type = $4',
+      [student_id, month, year, 'monthly']
+    );
+    if (existing.rows.length > 0) {
+      await pool.query('UPDATE monthly_assessments SET deferred = TRUE WHERE id = $1', [existing.rows[0].id]);
+    } else {
+      await pool.query(
+        'INSERT INTO monthly_assessments (student_id, month, year, assessment_type, deferred) VALUES ($1, $2, $3, $4, TRUE)',
+        [student_id, month, year, 'monthly']
+      );
+    }
+    res.json({ success: true, skipped: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Restore a student's assessment
+app.post('/api/assessments/undefer-student', async (req, res) => {
+  const { student_id, month, year } = req.body;
+  if (!student_id || !month || !year) {
+    return res.status(400).json({ error: 'student_id, month, and year are required' });
+  }
+  try {
+    await pool.query(
+      'UPDATE monthly_assessments SET deferred = FALSE WHERE student_id = $1 AND month = $2 AND year = $3 AND assessment_type = $4',
+      [student_id, month, year, 'monthly']
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Backwards-compatible misspelled undefer endpoint
 app.post('/api/assessments/undefe-student', async (req, res) => {
   const { student_id, month, year } = req.body;
+  if (!student_id || !month || !year) {
+    return res.status(400).json({ error: 'student_id, month, and year are required' });
+  }
   try {
     await pool.query(
       'UPDATE monthly_assessments SET deferred = FALSE WHERE student_id = $1 AND month = $2 AND year = $3 AND assessment_type = $4',

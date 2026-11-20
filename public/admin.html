@@ -14086,7 +14086,7 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
         const statusInfo = {
           completed: { label:'✅ Done', color:'#38a169' },
           due:       { label:'🎯 Due', color:'#d97706' },
-          deferred:  { label:'⏭️ Deferred', color:'#718096' },
+          deferred:  { label:'⏭️ Skipped', color:'#718096' },
           pending:   { label:'⏳ Not enough sessions', color:'#a0aec0' }
         };
         grid.innerHTML = data.students.map(s => {
@@ -14103,8 +14103,8 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
             ${s.certificate_title ? `<div style="font-size:11px;color:#B05D9E;font-weight:600;">🏆 ${s.certificate_title}</div>` : ''}
             <div style="display:flex;gap:7px;margin-top:4px;flex-wrap:wrap;">
               ${isDue ? `<button onclick="prefillAssessmentForm(${s.id},'${s.name.replace(/'/g,"\\'")}',${_dashMonth},${_dashYear})" style="background:#B05D9E;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;">📝 Fill Now</button>` : ''}
-              ${!isDeferred && s.status !== 'completed' ? `<button onclick="deferStudent(${s.id},'${s.name.replace(/'/g,"\\'")}',${_dashMonth},${_dashYear})" style="background:#718096;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;">⏭️ Defer</button>` : ''}
-              ${isDeferred ? `<span style="font-size:11px;color:#718096;">Deferred to next month</span>` : ''}
+              ${!isDeferred ? `<button onclick="skipStudentAssessment(${s.id},'${s.name.replace(/'/g,"\\'")}',${_dashMonth},${_dashYear})" style="background:#718096;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;">⏭️ Skip</button>` : ''}
+              ${isDeferred ? `<button onclick="restoreStudentAssessment(${s.id},'${s.name.replace(/'/g,"\\'")}',${_dashMonth},${_dashYear})" style="background:#38a169;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;">↩️ Restore</button>` : ''}
               ${s.assessment_id && !isDeferred ? `<button onclick="viewAssessment(${s.assessment_id})" style="background:#e2e8f0;color:#4a5568;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;">👁 View</button>` : ''}
               ${s.assessment_id && !isDeferred ? `<button onclick="editAssessment(${s.assessment_id})" style="background:#f59e0b;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;">✏️ Edit</button>` : ''}
             </div>
@@ -14243,9 +14243,25 @@ async function resendStudentRefundEmail(button, studentId, studentName) {
     }
 
     async function deferStudent(studentId, studentName, month, year) {
-      if (!confirm(`Defer ${studentName}'s assessment to next month?`)) return;
+      return skipStudentAssessment(studentId, studentName, month, year);
+    }
+
+    async function skipStudentAssessment(studentId, studentName, month, year) {
+      if (!confirm(`Skip ${studentName}'s assessment for ${_monthNames[month-1]} ${year}?`)) return;
       try {
-        const r = await fetch('/api/assessments/defer-student', {
+        const r = await fetch('/api/assessments/skip-student', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ student_id: studentId, month, year })
+        });
+        if (r.ok) { loadAssessmentDashboard(); }
+        else { const d = await r.json(); alert('Error: ' + (d.error || 'Unknown')); }
+      } catch(err) { alert('Error: ' + err.message); }
+    }
+
+    async function restoreStudentAssessment(studentId, studentName, month, year) {
+      if (!confirm(`Restore ${studentName}'s assessment requirement for ${_monthNames[month-1]} ${year}?`)) return;
+      try {
+        const r = await fetch('/api/assessments/undefer-student', {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify({ student_id: studentId, month, year })
         });
